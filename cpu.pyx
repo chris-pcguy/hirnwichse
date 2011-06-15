@@ -33,15 +33,14 @@ CPU_REGISTER_CR0 = 40
 CPU_REGISTER_CR2 = 44
 CPU_REGISTER_CR3 = 48
 CPU_REGISTER_CR4 = 52
-CPU_REGISTER_LENGTH = 56
 
-
-CPU_SEGMENT_CS = 100
-CPU_SEGMENT_DS = 101
-CPU_SEGMENT_ES = 102
-CPU_SEGMENT_FS = 103
-CPU_SEGMENT_GS = 104
-CPU_SEGMENT_SS = 105
+CPU_SEGMENT_CS = 56
+CPU_SEGMENT_DS = 58
+CPU_SEGMENT_ES = 60
+CPU_SEGMENT_FS = 62
+CPU_SEGMENT_GS = 64
+CPU_SEGMENT_SS = 66
+CPU_REGISTER_LENGTH = 68
 
 
 CPU_REGISTER_DWORD=(CPU_REGISTER_EAX,CPU_REGISTER_ECX,CPU_REGISTER_EDX,CPU_REGISTER_EBX,CPU_REGISTER_ESP,
@@ -55,8 +54,14 @@ CPU_REGISTER_HBYTE=(CPU_REGISTER_AH,CPU_REGISTER_CH,CPU_REGISTER_DH,CPU_REGISTER
 CPU_REGISTER_LBYTE=(CPU_REGISTER_AL,CPU_REGISTER_CL,CPU_REGISTER_DL,CPU_REGISTER_BL)
 
 
+class Gdt:
+    def __init__(self):
+        pass
+    def loadGdt(self, gdtBaseAddr):
+        
 
-class Register:
+
+class Registers:
     def __init__(self):
         self.regs = bytearray(CPU_REGISTER_LENGTH)
     def readReg(self, regId, signedValue=False):
@@ -73,18 +78,30 @@ class Register:
     def writeReg(self, regId, value):
         aregId = regId//4
         if (regId in CPU_REGISTER_DWORD):
-            self.regs[aregId:aregId+4] = struct.pack(">I", value)
+            self.regs[aregId:aregId+4] = struct.pack(">I", value&0xffffffff)
         elif (regId in CPU_REGISTER_LWORD):
-            self.regs[aregId+2:aregId+4] = struct.pack(">H", value)
+            self.regs[aregId+2:aregId+4] = struct.pack(">H", value&0xffff)
         elif (regId in CPU_REGISTER_HBYTE):
-            self.regs[aregId+2] = value
+            self.regs[aregId+2] = value&0xff
         elif (regId in CPU_REGISTER_LBYTE):
-            self.regs[aregId+3] = value
+            self.regs[aregId+3] = value&0xff
         else:
             raise NameError("regId is unknown! ({0})".format(regId))
+    def regAdd(self, regId, value, signedValue=False):
+        self.writeReg(regId, self.readReg(regId, signedValue)+value)
+    def regSub(self, regId, value, signedValue=False):
+        self.writeReg(regId, self.readReg(regId, signedValue)-value)
+    def regInc(self, regId, signedValue=False):
+        self.regAdd(regId, 1, signedValue)
+    def regDec(self, regId, signedValue=False):
+        self.regSub(regId, 1, signedValue)
 
 
-
+def Cpu:
+    def __init__(self):
+        self.registers = Registers()
+    def 
+        
 
 
 
