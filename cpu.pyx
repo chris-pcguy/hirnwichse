@@ -89,6 +89,8 @@ FLAG_OF = 0x800
 FLAG_IOPL = 0x3000
 
 
+CR0_FLAG_PE = 0x1
+
 
 CPU_REGISTER_DWORD=(CPU_REGISTER_EAX,CPU_REGISTER_ECX,CPU_REGISTER_EDX,CPU_REGISTER_EBX,CPU_REGISTER_ESP,
                     CPU_REGISTER_EBP,CPU_REGISTER_ESI,CPU_REGISTER_EDI,CPU_REGISTER_EIP,CPU_REGISTER_EFLAGS,
@@ -101,6 +103,28 @@ CPU_REGISTER_LWORD=(CPU_REGISTER_AX,CPU_REGISTER_CX,CPU_REGISTER_DX,CPU_REGISTER
 CPU_REGISTER_HBYTE=(CPU_REGISTER_AH,CPU_REGISTER_CH,CPU_REGISTER_DH,CPU_REGISTER_BH)
 CPU_REGISTER_LBYTE=(CPU_REGISTER_AL,CPU_REGISTER_CL,CPU_REGISTER_DL,CPU_REGISTER_BL)
 
+CPU_SEGMENTS=(CPU_SEGMENT_CS,CPU_SEGMENT_DS,CPU_SEGMENT_ES,CPU_SEGMENT_FS,CPU_SEGMENT_GS,CPU_SEGMENT_SS)
+
+
+OPCODE_PREFIX_CS=0x2e
+OPCODE_PREFIX_SS=0x36
+OPCODE_PREFIX_DS=0x3e
+OPCODE_PREFIX_ES=0x26
+OPCODE_PREFIX_FS=0x64
+OPCODE_PREFIX_GS=0x65
+OPCODE_PREFIX_OP=0x66
+OPCODE_PREFIX_ADDR=0x67
+OPCODE_PREFIX_BRANCH_NOT_TAKEN=0x2e
+OPCODE_PREFIX_BRANCH_TAKEN=0x3e
+OPCODE_PREFIX_LOCK=0xf0
+OPCODE_PREFIX_REPNE=0xf2
+OPCODE_PREFIX_REPE=0xf3
+
+
+OPCODE_PREFIXES=(OPCODE_PREFIX_LOCK, OPCODE_PREFIX_OP, OPCODE_PREFIX_ADDR, OPCODE_PREFIX_CS,
+                 OPCODE_PREFIX_SS, OPCODE_PREFIX_DS, OPCODE_PREFIX_ES, OPCODE_PREFIX_FS,
+                 OPCODE_PREFIX_GS, OPCODE_PREFIX_BRANCH_NOT_TAKEN, OPCODE_PREFIX_BRANCH_TAKEN,
+                 OPCODE_PREFIX_REPNE, OPCODE_PREFIX_REPE)
 
 class Gdt:
     def __init__(self):
@@ -108,10 +132,44 @@ class Gdt:
     def loadGdt(self, gdtBaseAddr):
         pass
 
+class Segments:
+    def __init__(self, main, cpu, registers):
+        self.main, self.cpu, self.registers = main, cpu, registers
+        self.gdt = Gdt()
+    def getBase(self, segId): # segId == segments regId
+        if (self.registers.getFlags(CPU_REGISTER_CR0, CR0_FLAG_PE)): # protected mode enabled
+            self.main.exitError("GDT: protected mode not supported.")
+            return
+        #else: # real mode
+        return self.registers.regRead(segId)<<4
+    def getSegSize(self, segId): # segId == segments regId
+        if (self.registers.getFlags(CPU_REGISTER_CR0, CR0_FLAG_PE)): # protected mode enabled
+            self.main.exitError("GDT: protected mode not supported.")
+            return
+        #else: # real mode
+        return 16
+    def getOpSegSize(self, segId): # segId == segments regId
+        segSize = self.getSegSize(segId)
+        if (segSize == 16):
+            return ((self.registers.operandSizePrefix and 32) or 16)
+        elif (segSize == 32):
+            return ((self.registers.operandSizePrefix and 16) or 32)
+        else:
+            self.main.exitError("getOpSegSize: segSize is not valid. ({0:d})", segSize)
+    def getAddrSegSize(self, segId): # segId == segments regId
+        segSize = self.getSegSize(segId)
+        if (segSize == 16):
+            return ((self.registers.addressSizePrefix and 32) or 16)
+        elif (segSize == 32):
+            return ((self.registers.addressSizePrefix and 16) or 32)
+        else:
+            self.main.exitError("getAddrSegSize: segSize is not valid. ({0:d})", segSize)
 
 class Registers:
-    def __init__(self):
+    def __init__(self, main, cpu):
+        self.main, self.cpu = main, cpu
         self.regs = bytearray(CPU_REGISTER_LENGTH)
+        self.segments = Segments(self.main, self.cpu, self)
         self.reset()
     def reset(self):
         self.regWrite(CPU_SEGMENT_CS, 0xffff)
@@ -214,14 +272,45 @@ class Registers:
 class Cpu:
     def __init__(self, main):
         self.main = main
-        self.registers = Registers()
+        self.registers = Registers(main, self)
+        cdef int self.savedCs  = 0
+        cdef int self.savedEip = 0
+        self.reset()
+    def reset(self):
+        self.savedCs  = 0
+        self.savedEip = 0
+    def getCurrentOpcodeAddr(self):
+        cdef int opcodeAddr = self.registers.segments.getBase(CPU_SEGMENT_CS)
+        cdef int eipSize = self.registers.segments.getOpSegSize(CPU_SEGMENT_CS)
+        cdef int eipSizeId = CPU_REGISTER_IP
+        if (eipSize not in (16, 32)):
+            self.main.exitError("eipSize is INVALID. ({0:d})", eipSize)
+        elif (eipSize == 32):
+            eipSizeId = CPU_REGISTER_EIP
+        
+        opcodeAddr += self.registers.regRead(eipSizeId)
+    def getCurrentOpcode(self, int numBytes=1):
+        cdef int eip = self.getCurrentOpcodeAddr()
+        return self.main.mm.memRead(eip, numBytes)
     def doInfiniteCycles(self):
         while True:
             self.doCycle()
     def doCycle(self):
-        pass
+        self.savedCs  = self.registers.regRead(CPU_SEGMENT_CS)
+        self.savedEip = self.registers.regRead(CPU_REGISTER_EIP)
+        
+        cdef int opcode = self.getCurrentOpcode()
+        
+        if ()
     def run(self):
         pass
+
+
+class Opcodes:
+    def __init__(self, main):
+        self.main = main
+        self.cpu = self.main.cpu
+        self.opcodeList = {}
     
 
 

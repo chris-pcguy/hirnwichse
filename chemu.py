@@ -1,8 +1,8 @@
 #!/usr/bin/env python3.2
 
-import sys, argparse
+import sys, argparse, threading
 
-import platform, mm, cpu
+import platform, mm, cpu, time
 
 
 class ChEmu:
@@ -11,13 +11,17 @@ class ChEmu:
         self.romPath = './bios'
         self.memSize = 33554432 # 32MB
         #self.memSize = 67108864 # 64MB
-
+    def exitError(self, errorStr, errorStrFormat="", errorExitCode=1):
+        print(errorStr.format(errorStrFormat))
+        sys.exit(errorExitCode)
     def run(self):
         self.platform = platform.Platform(self)
         self.mm = mm.Mm(self)
         self.cpu = cpu.Cpu(self)
         self.platform.run(self.memSize)
-        self.cpu.run()
+        threading.Thread(target=self.cpu.run, name='cpu-0').start()
+        while (threading.active_count() > 1):
+            time.sleep(1)
 
 
 

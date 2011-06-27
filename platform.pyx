@@ -13,6 +13,22 @@ ROM_SIZES = (SIZE_64KB, SIZE_128KB, SIZE_256KB, SIZE_512KB, SIZE_1024KB, SIZE_20
 class Platform:
     def __init__(self, main):
         self.main = main
+        self.readHandlers = {}
+        self.writeHandlers = {}
+    def addHandler(self, int portNum, portHandler):
+        self.addReadHandler(portNum, portHandler)
+        self.addWriteHandler(portNum, portHandler)
+    def addReadHandler(self, int portNum, portHandler):
+        self.readHandlers[portNum] = portHandler
+    def addWriteHandler(self, int portNum, portHandler):
+        self.writeHandlers[portNum] = portHandler
+    def delHandler(self, int portNum):
+        self.delReadHandler(portNum)
+        self.delWriteHandler(portNum)
+    def delReadHandler(self, int portNum):
+        del self.readHandlers[portNum]
+    def delWriteHandler(self, int portNum):
+        del self.writeHandlers[portNum]
     def loadRomToMem(self, romFileName, int mmAddr, int romSize):
         try:    
             if (romSize not in ROM_SIZES):
