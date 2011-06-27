@@ -14,15 +14,16 @@ class MmArea:
     
 
 
-class Memory:
-    def __init__(self):
+class Mm:
+    def __init__(self, main):
+        self.main = main
         self.mmAreas = []
     def mmAddArea(self, mmBaseAddr, mmAreaSize):
         self.mmAreas.append(MmArea(mmBaseAddr, mmAreaSize))
     def mmDelArea(self, mmBaseAddr):
         for i in range(len(self.mmAreas)):
             if (mmBaseAddr == self.mmAreas[i].mmBaseAddr):
-                del i
+                del self.mmAreas[i]
                 return True
         return False
     def mmGetArea(self, mmAddr, dataSize):

@@ -1,5 +1,34 @@
 import struct
 
+# Parity Table: DO NOT EDIT!!
+PARITY_TABLE = [True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, False, True, True, False,
+                True, False, False, True, True, False, False, True, False, True,
+                True, False, False, True, True, False, True, False, False, True,
+                True, False, False, True, False, True, True, False, True, False,
+                False, True, False, True, True, False, False, True, True, False,
+                True, False, False, True, False, True, True, False, True, False,
+                False, True, True, False, False, True, False, True, True, False,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, True, False, False, True,
+                False, True, True, False, False, True, True, False, True, False,
+                False, True, False, True, True, False, True, False, False, True,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, True, False, False, True,
+                False, True, True, False, True, False, False, True, False, True,
+                True, False, False, True, True, False, True, False, False, True,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, False, True, True, False,
+                True, False, False, True, True, False, False, True, False, True,
+                True, False, True, False, False, True, False, True, True, False,
+                False, True, True, False, True, False, False, True, False, True,
+                True, False, True, False, False, True, True, False, False, True,
+                False, True, True, False, False, True, True, False, True, False,
+                False, True, True, False, False, True, False, True, True, False,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True]
+
+
 
 CPU_REGISTER_EAX = 0
 CPU_REGISTER_AX = 1
@@ -42,6 +71,12 @@ CPU_SEGMENT_GS = 64
 CPU_SEGMENT_SS = 66
 CPU_REGISTER_LENGTH = 68
 
+CPU_PREFIX_BRANCH_TAKEN = 100
+CPU_PREFIX_BRANCH_NOT_TAKEN = 101
+CPU_PREFIX_LOCK = 102
+CPU_PREFIX_REPE = 103
+CPU_PREFIX_REPNE = 104
+
 FLAG_CF = 0x1
 FLAG_PF = 0x4
 FLAG_AF = 0x10
@@ -51,7 +86,7 @@ FLAG_TF = 0x100
 FLAG_IF = 0x200
 FLAG_DF = 0x400
 FLAG_OF = 0x800
-FLAG_IOPL = 
+FLAG_IOPL = 0x3000
 
 
 
@@ -60,7 +95,8 @@ CPU_REGISTER_DWORD=(CPU_REGISTER_EAX,CPU_REGISTER_ECX,CPU_REGISTER_EDX,CPU_REGIS
                     CPU_REGISTER_CR0,CPU_REGISTER_CR2,CPU_REGISTER_CR3,CPU_REGISTER_CR4)
 
 CPU_REGISTER_LWORD=(CPU_REGISTER_AX,CPU_REGISTER_CX,CPU_REGISTER_DX,CPU_REGISTER_BX,CPU_REGISTER_SP,
-                    CPU_REGISTER_BP,CPU_REGISTER_SI,CPU_REGISTER_DI,CPU_REGISTER_IP,CPU_REGISTER_FLAGS)
+                    CPU_REGISTER_BP,CPU_REGISTER_SI,CPU_REGISTER_DI,CPU_REGISTER_IP,CPU_REGISTER_FLAGS,
+                    CPU_SEGMENT_CS,CPU_SEGMENT_DS,CPU_SEGMENT_ES,CPU_SEGMENT_FS,CPU_SEGMENT_GS,CPU_SEGMENT_SS)
 
 CPU_REGISTER_HBYTE=(CPU_REGISTER_AH,CPU_REGISTER_CH,CPU_REGISTER_DH,CPU_REGISTER_BH)
 CPU_REGISTER_LBYTE=(CPU_REGISTER_AL,CPU_REGISTER_CL,CPU_REGISTER_DL,CPU_REGISTER_BL)
@@ -76,6 +112,16 @@ class Gdt:
 class Registers:
     def __init__(self):
         self.regs = bytearray(CPU_REGISTER_LENGTH)
+        self.reset()
+    def reset(self):
+        self.regWrite(CPU_SEGMENT_CS, 0xffff)
+        self.regWrite(CPU_REGISTER_IP, 0x0)
+        
+        self.lockPrefix = False
+        self.repPrefix = False
+        self.segmentOverridePrefix = False
+        self.operandSizePrefix = False
+        self.addressSizePrefix = False
     def regRead(self, int regId, signedValue=False):
         cdef int aregId = regId//4
         if (regId in CPU_REGISTER_DWORD):
@@ -113,11 +159,11 @@ class Registers:
         self.regWrite(regId, -self.regRead(regId, signedValue))
     def regNot(self, regId, signedValue=False):
         self.regWrite(regId, ~self.regRead(regId, signedValue))
-    def regDeleteBitsByValue(regId, value, signedValue=False):
+    def regDeleteBitsByValue(self, regId, value, signedValue=False):
         self.regWrite(regId, self.regRead(regId, signedValue)&(~value))
-    def regDeleteBit(regId, bit, signedValue=False):
+    def regDeleteBit(self, regId, bit, signedValue=False):
         self.regWrite(regId, self.regRead(regId, signedValue)&(~(1<<bit)))
-    def regSetBit(regId, bit, signedValue=False):
+    def regSetBit(self, regId, bit, signedValue=False):
         self.regWrite(regId, self.regRead(regId, signedValue)|(1<<bit))
     def regInc(self, regId, signedValue=False):
         self.regAdd(regId, 1, signedValue)
@@ -166,8 +212,16 @@ class Registers:
 
 
 class Cpu:
-    def __init__(self):
+    def __init__(self, main):
+        self.main = main
         self.registers = Registers()
+    def doInfiniteCycles(self):
+        while True:
+            self.doCycle()
+    def doCycle(self):
+        pass
+    def run(self):
+        pass
     
 
 

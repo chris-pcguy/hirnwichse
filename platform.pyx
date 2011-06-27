@@ -11,8 +11,8 @@ SIZE_4096KB = 4194304
 ROM_SIZES = (SIZE_64KB, SIZE_128KB, SIZE_256KB, SIZE_512KB, SIZE_1024KB, SIZE_2048KB, SIZE_4096KB)
 
 class Platform:
-    def __init__(self):
-        pass
+    def __init__(self, main):
+        self.main = main
     def loadRomToMem(self, romFileName, int mmAddr, int romSize):
         try:    
             if (romSize not in ROM_SIZES):
@@ -48,6 +48,11 @@ class Platform:
                 return False
         
         return self.loadRomToMem(romFileName, mmAddr, romMemSize)
+    def run(self, memSize):
+        self.main.mm.mmAddArea(0, memSize)
+        self.loadRom(os.path.join(self.main.romPath, "bios.bin"), 0xf0000, isRomOptional=False)
+        self.loadRom(os.path.join(self.main.romPath, "vgabios.bin"), 0xc0000, isRomOptional=True)
+        
 
 
 
