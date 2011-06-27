@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.1
+#!/usr/bin/env python3.2
 
 from distutils.core import setup
 from distutils.extension import Extension

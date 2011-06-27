@@ -1,13 +1,12 @@
-#!/usr/bin/env python3.1
+#!/usr/bin/env python3.2
 
-from optparse import OptionParser
+import sys, argparse
 
 
 class ChEmu:
     def __init__(self):
-        self.usage = 'usage: %prog'
-        self.parser = OptionParser(self.usage)
-        
+        self.parser = argparse.ArgumentParser(description='ChEmu: a x86 emulator in python.')
+        self.biosPath = './bios'
     def run(self):
         pass
 

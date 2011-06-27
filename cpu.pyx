@@ -42,6 +42,18 @@ CPU_SEGMENT_GS = 64
 CPU_SEGMENT_SS = 66
 CPU_REGISTER_LENGTH = 68
 
+FLAG_CF = 0x1
+FLAG_PF = 0x4
+FLAG_AF = 0x10
+FLAG_ZF = 0x40
+FLAG_SF = 0x80
+FLAG_TF = 0x100
+FLAG_IF = 0x200
+FLAG_DF = 0x400
+FLAG_OF = 0x800
+FLAG_IOPL = 
+
+
 
 CPU_REGISTER_DWORD=(CPU_REGISTER_EAX,CPU_REGISTER_ECX,CPU_REGISTER_EDX,CPU_REGISTER_EBX,CPU_REGISTER_ESP,
                     CPU_REGISTER_EBP,CPU_REGISTER_ESI,CPU_REGISTER_EDI,CPU_REGISTER_EIP,CPU_REGISTER_EFLAGS,
@@ -58,14 +70,14 @@ class Gdt:
     def __init__(self):
         pass
     def loadGdt(self, gdtBaseAddr):
-        
+        pass
 
 
 class Registers:
     def __init__(self):
         self.regs = bytearray(CPU_REGISTER_LENGTH)
-    def readReg(self, regId, signedValue=False):
-        aregId = regId//4
+    def regRead(self, int regId, signedValue=False):
+        cdef int aregId = regId//4
         if (regId in CPU_REGISTER_DWORD):
             return struct.unpack(((signedValue and ">i") or ">I"), self.regs[aregId:aregId+4])[0]
         elif (regId in CPU_REGISTER_LWORD):
@@ -75,8 +87,8 @@ class Registers:
         elif (regId in CPU_REGISTER_LBYTE):
             return struct.unpack(((signedValue and ">b") or ">B"), self.regs[aregId+3])[0]
         raise NameError("regId is unknown! ({0})".format(regId))
-    def writeReg(self, regId, value):
-        aregId = regId//4
+    def regWrite(self, int regId, value):
+        cdef int aregId = regId//4
         if (regId in CPU_REGISTER_DWORD):
             self.regs[aregId:aregId+4] = struct.pack(">I", value&0xffffffff)
         elif (regId in CPU_REGISTER_LWORD):
@@ -88,20 +100,75 @@ class Registers:
         else:
             raise NameError("regId is unknown! ({0})".format(regId))
     def regAdd(self, regId, value, signedValue=False):
-        self.writeReg(regId, self.readReg(regId, signedValue)+value)
+        self.regWrite(regId, self.regRead(regId, signedValue)+value)
     def regSub(self, regId, value, signedValue=False):
-        self.writeReg(regId, self.readReg(regId, signedValue)-value)
+        self.regWrite(regId, self.regRead(regId, signedValue)-value)
+    def regXor(self, regId, value, signedValue=False):
+        self.regWrite(regId, self.regRead(regId, signedValue)^value)
+    def regAnd(self, regId, value, signedValue=False):
+        self.regWrite(regId, self.regRead(regId, signedValue)&value)
+    def regOr (self, regId, value, signedValue=False):
+        self.regWrite(regId, self.regRead(regId, signedValue)|value)
+    def regNeg(self, regId, signedValue=False):
+        self.regWrite(regId, -self.regRead(regId, signedValue))
+    def regNot(self, regId, signedValue=False):
+        self.regWrite(regId, ~self.regRead(regId, signedValue))
+    def regDeleteBitsByValue(regId, value, signedValue=False):
+        self.regWrite(regId, self.regRead(regId, signedValue)&(~value))
+    def regDeleteBit(regId, bit, signedValue=False):
+        self.regWrite(regId, self.regRead(regId, signedValue)&(~(1<<bit)))
+    def regSetBit(regId, bit, signedValue=False):
+        self.regWrite(regId, self.regRead(regId, signedValue)|(1<<bit))
     def regInc(self, regId, signedValue=False):
         self.regAdd(regId, 1, signedValue)
     def regDec(self, regId, signedValue=False):
         self.regSub(regId, 1, signedValue)
+    def getFlags(self, regId, flags):
+        return self.regRead(regId)&flags
+    def clearFlags(self, flags):
+        if (flags & FLAG_CF):
+            self.regDeleteBitsByValue(CPU_REGISTER_EFLAGS, FLAG_CF)
+        if (flags & FLAG_PF):
+            self.regDeleteBitsByValue(CPU_REGISTER_EFLAGS, FLAG_PF)
+        if (flags & FLAG_AF):
+            self.regDeleteBitsByValue(CPU_REGISTER_EFLAGS, FLAG_AF)
+        if (flags & FLAG_ZF):
+            self.regDeleteBitsByValue(CPU_REGISTER_EFLAGS, FLAG_ZF)
+        if (flags & FLAG_SF):
+            self.regDeleteBitsByValue(CPU_REGISTER_EFLAGS, FLAG_SF)
+        if (flags & FLAG_TF):
+            self.regDeleteBitsByValue(CPU_REGISTER_EFLAGS, FLAG_TF)
+        if (flags & FLAG_IF):
+            self.regDeleteBitsByValue(CPU_REGISTER_EFLAGS, FLAG_IF)
+        if (flags & FLAG_DF):
+            self.regDeleteBitsByValue(CPU_REGISTER_EFLAGS, FLAG_DF)
+        if (flags & FLAG_OF):
+            self.regDeleteBitsByValue(CPU_REGISTER_EFLAGS, FLAG_OF)
+    def setFlags(self, flags):
+        if (flags & FLAG_CF):
+            self.regOr(CPU_REGISTER_EFLAGS, FLAG_CF)
+        if (flags & FLAG_PF):
+            self.regOr(CPU_REGISTER_EFLAGS, FLAG_PF)
+        if (flags & FLAG_AF):
+            self.regOr(CPU_REGISTER_EFLAGS, FLAG_AF)
+        if (flags & FLAG_ZF):
+            self.regOr(CPU_REGISTER_EFLAGS, FLAG_ZF)
+        if (flags & FLAG_SF):
+            self.regOr(CPU_REGISTER_EFLAGS, FLAG_SF)
+        if (flags & FLAG_TF):
+            self.regOr(CPU_REGISTER_EFLAGS, FLAG_TF)
+        if (flags & FLAG_IF):
+            self.regOr(CPU_REGISTER_EFLAGS, FLAG_IF)
+        if (flags & FLAG_DF):
+            self.regOr(CPU_REGISTER_EFLAGS, FLAG_DF)
+        if (flags & FLAG_OF):
+            self.regOr(CPU_REGISTER_EFLAGS, FLAG_OF)
 
 
-def Cpu:
+class Cpu:
     def __init__(self):
         self.registers = Registers()
-    def 
-        
+    
 
 
 
