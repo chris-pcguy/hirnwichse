@@ -2,19 +2,26 @@
 
 import sys, argparse, threading
 
-import platform, mm, cpu, time
+import platform, mm, cpu, time, misc
 
 
 class ChEmu:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description='ChEmu: a x86 emulator in python.')
+        self.debugEnabled = True
         self.romPath = './bios'
         self.memSize = 33554432 # 32MB
         #self.memSize = 67108864 # 64MB
-    def exitError(self, errorStr, errorStrFormat="", errorExitCode=1):
-        print(errorStr.format(errorStrFormat))
+    def exitError(self, errorStr, *errorStrArguments, errorExitCode=1):
+        self.printMsg(errorStr, *errorStrArguments)
         sys.exit(errorExitCode)
+    def debug(self, debugStr, *debugStrArguments):
+        if (self.debugEnabled):
+            self.printMsg(debugStr, *debugStrArguments)
+    def printMsg(self, msgStr, *msgStrArguments):
+        print(msgStr.format(*msgStrArguments))
     def run(self):
+        self.misc = misc.Misc(self)
         self.platform = platform.Platform(self)
         self.mm = mm.Mm(self)
         self.cpu = cpu.Cpu(self)
