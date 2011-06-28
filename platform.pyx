@@ -29,6 +29,16 @@ class Platform:
         del self.readHandlers[portNum]
     def delWriteHandler(self, int portNum):
         del self.writeHandlers[portNum]
+    def inPort(self, int portNum, int dataSize):
+        if (not portNum in self.readHandlers):
+            self.main.printMsg("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", portNum, dataSize)
+            return 0
+        return self.readHandlers[portNum](portNum, dataSize)
+    def outPort(self, int portNum, long data, int dataSize):
+        if (not portNum in self.writeHandlers):
+            self.main.printMsg("outPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", portNum, dataSize)
+            return
+        return self.writeHandlers[portNum](portNum, data, dataSize)
     def loadRomToMem(self, romFileName, long mmAddr, int romSize):
         try:
             #if (romSize not in ROM_SIZES):
@@ -36,7 +46,7 @@ class Platform:
             #    return False
             romFp = open(romFileName, "rb")
             romData = romFp.read(romSize)
-            self.main.mm.mmWrite(mmAddr, romSize, romData)
+            self.main.mm.mmWrite(mmAddr, romData, romSize)
         finally:
             if (romFp):
                 romFp.close()
@@ -65,7 +75,7 @@ class Platform:
                 return False
         
         return self.loadRomToMem(romFileName, mmAddr, romSize)
-    def run(self, memSize):
+    def run(self, int memSize):
         self.main.mm.mmAddArea(0, memSize)
         self.loadRom(os.path.join(self.main.romPath, "bios.bin"), 0xf0000, isRomOptional=False)
         self.loadRom(os.path.join(self.main.romPath, "vgabios.bin"), 0xc0000, isRomOptional=True)
