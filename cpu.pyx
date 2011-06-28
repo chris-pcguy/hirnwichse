@@ -177,6 +177,8 @@ class Segments:
             return
         #else: # real mode
         return self.registers.regRead(segId)<<4
+    def getRealAddr(self, int segId, long offsetAddr):
+        return (self.getBase(segId)+offsetAddr)
     def getSegSize(self, int segId): # segId == segments regId
         if (self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PE)): # protected mode enabled
             self.main.exitError("GDT: protected mode not supported.")
@@ -344,7 +346,7 @@ class Registers:
         mod, rmValue, regValue = rmOperands
         self.regWrite(regValue, value)
     def modRMOperands(self, int regSize, int modRMflags=0): # imm == unsigned ; disp == signed
-        modRMByte = self.cpu.getCurrentOpcodeAdd()
+        cdef int modRMByte = self.cpu.getCurrentOpcodeAdd()
         cdef int rm  = modRMByte&0x7
         cdef int reg = (modRMByte>>3)&0x7
         cdef int mod = (modRMByte>>6)&0x3
@@ -377,8 +379,7 @@ class Registers:
                         self.main.exitError("debug register NOT IMPLEMENTED yet!")
                     else:
                         regValue = CPU_REGISTER_WORD[reg]
-            if (mod == 0):
-                if (rm == 6):
+                if (mod == 0 and rm == 6):
                     rmValue += self.cpu.getCurrentOpcodeAdd(numBytes=2, signedValue=True)
             elif (mod in (1, 2)):
                 if (rm == 6):
@@ -438,19 +439,18 @@ class Cpu:
         self.savedCs  = 0
         self.savedEip = 0
     def getCurrentOpcodeAddr(self):
-        cdef long opcodeAddr = self.registers.segments.getBase(CPU_SEGMENT_CS)
         cdef int eipSize = self.registers.segments.getOpSegSize(CPU_SEGMENT_CS)
-        cdef int eipSizeId = CPU_REGISTER_IP
+        cdef int eipSizeRegId = CPU_REGISTER_IP
         if (eipSize not in (16, 32)):
             self.main.exitError("eipSize is INVALID. ({0:d})", eipSize)
         elif (eipSize == 32):
-            eipSizeId = CPU_REGISTER_EIP
-        
-        opcodeAddr += self.registers.regRead(eipSizeId)
+            eipSizeRegId = CPU_REGISTER_EIP
+        cdef long opcodeAddr = self.registers.segments.getRealAddr(CPU_SEGMENT_CS, self.registers.regRead(eipSizeRegId))
+        ##opcodeAddr += self.registers.regRead(eipSizeId)
         return opcodeAddr
     def getCurrentOpcode(self, int numBytes=1, int signedValue=False):
         cdef long eip = self.getCurrentOpcodeAddr()
-        return self.main.misc.binToNum(self.main.mm.mmRead(eip, numBytes), numBytes, signedValue)
+        return self.main.misc.binToNum(self.main.mm.mmRead(eip, numBytes, segId=0), numBytes, signedValue)
     def getCurrentOpcodeAdd(self, int numBytes=1, int signedValue=False):
         opcodeData = self.getCurrentOpcode(numBytes, signedValue)
         cdef int regSizeId = CPU_REGISTER_IP
@@ -491,18 +491,18 @@ class Cpu:
         while True:
             self.doCycle()
     def doCycle(self):
+        self.registers.resetPrefixes()
         self.savedCs  = self.registers.regRead(CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(CPU_REGISTER_EIP)
-        self.registers.resetPrefixes()
         self.opcode = self.getCurrentOpcodeAdd()
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
-        self.main.debug("Current Opcode: {0:#02x}", self.opcode)
+        self.main.debug("Current Opcode: {0:#04x}; It's Eip: {1:#07x}", self.opcode, self.savedEip)
         
         if (self.opcode in self.opcodes.opcodeList):
             self.opcodes.opcodeList[self.opcode]()
         else:
-            self.main.debug("Opcode not found. (opcode: {0:#02x})", self.opcode)
+            self.main.debug("Opcode not found. (opcode: {0:#04x}; eip: {1:#07x})", self.opcode, self.savedEip)
             self.exception(CPU_EXCEPTION_UD)
     def run(self):
         self.doInfiniteCycles()
@@ -527,8 +527,8 @@ class Opcodes:
                            0xb6: self.movImm8ToR8, 0xb7: self.movImm8ToR8, 0xb8: self.movImm16_32ToR16_32,
                            0xb9: self.movImm16_32ToR16_32, 0xba: self.movImm16_32ToR16_32, 0xbb: self.movImm16_32ToR16_32,
                            0xbc: self.movImm16_32ToR16_32, 0xbd: self.movImm16_32ToR16_32, 0xbe: self.movImm16_32ToR16_32,
-                           0xbf: self.movImm16_32ToR16_32, 0xe3: self.jcxzShort, 0xe4: self.inAlImm8, 0xe5: self.inAxEaxImm8, 0xe6: self.outImm8Al, 0xe7: self.outImm8AxEax, 0xe8: self.jumpShortRelativeByte, 0xe9: self.jumpShortRelativeWordDWord,
-                           0xea: self.jumpFarAbsolutePtr, 0xeb: self.jumpShort, 0xec: self.inAlDx, 0xed: self.inAxEaxDx, 0xee: self.outDxAl, 0xef: self.outDxAxEax}
+                           0xbf: self.movImm16_32ToR16_32, 0xe3: self.jcxzShort, 0xe4: self.inAlImm8, 0xe5: self.inAxEaxImm8, 0xe6: self.outImm8Al, 0xe7: self.outImm8AxEax, 0xe8: self.callNearRel16_32, 0xe9: self.jumpShortRelativeWordDWord,
+                           0xea: self.jumpFarAbsolutePtr, 0xeb: self.jumpShortRelativeByte, 0xec: self.inAlDx, 0xed: self.inAxEaxDx, 0xee: self.outDxAl, 0xef: self.outDxAxEax}
     def jumpFarAbsolutePtr(self):
         if (self.registers.lockPrefix): self.cpu.exception(CPU_EXCEPTION_UD); return
         cdef long eip = self.cpu.getCurrentOpcodeAddEip()
@@ -685,5 +685,31 @@ class Opcodes:
             tempEIP &= 0xffff
         if (c):
             self.registers.regWrite(CPU_REGISTER_EIP, tempEIP)
-    
+    def callNearRel16_32(self):
+        if (self.registers.lockPrefix): self.cpu.exception(CPU_EXCEPTION_UD); return
+        cdef int segOperSize = self.registers.segments.getOpSegSize(CPU_SEGMENT_CS)
+        cdef int eipRegName = CPU_REGISTER_IP
+        cdef int opSizeInBytes = segOperSize//8
+        if (segOperSize == 32):
+            eipRegName = CPU_REGISTER_EIP
+        cdef long tempEIP = self.registers.regRead(CPU_REGISTER_EIP) + \
+                            self.cpu.getCurrentOpcodeAdd(numBytes=(opSizeInBytes), signedValue=True)
+        if (segOperSize == 16):
+            tempEIP &= 0xffff
+        self.stackPush(eipRegName, segOperSize)
+        self.registers.regWrite(CPU_REGISTER_EIP, tempEIP)
+    def stackPush(self, regName, regSize):
+        cdef int segOperSize   = self.registers.segments.getOpSegSize(CPU_SEGMENT_CS)
+        cdef int stackAddrSize = self.registers.segments.getAddrSegSize(CPU_SEGMENT_SS)
+        cdef int stackRegName = CPU_REGISTER_SP
+        cdef int opSizeInBytes = segOperSize//8
+        if (stackAddrSize == 16):
+            stackRegName = CPU_REGISTER_SP
+        elif (stackAddrSize == 32):
+            stackRegName = CPU_REGISTER_ESP
+        else:
+            self.main.exitError(self, "stackAddrSize not in (16, 32). (stackAddrSize: {0:d})", stackAddrSize)
+        self.registers.regSub(stackRegName, opSizeInBytes)
+        
+        
 

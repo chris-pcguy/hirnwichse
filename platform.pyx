@@ -1,6 +1,8 @@
 
 import os
 
+import cmos, isadma
+
 SIZE_64KB = 65536
 SIZE_128KB = 131072
 SIZE_256KB = 262144
@@ -13,22 +15,29 @@ ROM_SIZES = (SIZE_64KB, SIZE_128KB, SIZE_256KB, SIZE_512KB, SIZE_1024KB, SIZE_20
 class Platform:
     def __init__(self, main):
         self.main = main
-        self.readHandlers = {}
+        self.readHandlers  = {}
         self.writeHandlers = {}
-    def addHandler(self, int portNum, portHandler):
-        self.addReadHandler(portNum, portHandler)
-        self.addWriteHandler(portNum, portHandler)
-    def addReadHandler(self, int portNum, portHandler):
-        self.readHandlers[portNum] = portHandler
-    def addWriteHandler(self, int portNum, portHandler):
-        self.writeHandlers[portNum] = portHandler
-    def delHandler(self, int portNum):
-        self.delReadHandler(portNum)
-        self.delWriteHandler(portNum)
-    def delReadHandler(self, int portNum):
-        del self.readHandlers[portNum]
-    def delWriteHandler(self, int portNum):
-        del self.writeHandlers[portNum]
+        self.cmos = cmos.Cmos(self.main)
+        self.isadma  = isadma.ISADma(self.main)
+        
+    def addHandlers(self, tuple portNums, portHandler):
+        self.addReadHandlers (portNums, portHandler)
+        self.addWriteHandlers(portNums, portHandler)
+    def addReadHandlers(self, tuple portNums, portHandler):
+        for portNum in portNums:
+            self.readHandlers[portNum] = portHandler
+    def addWriteHandlers(self, tuple portNums, portHandler):
+        for portNum in portNums:
+            self.writeHandlers[portNum] = portHandler
+    def delHandlers(self, tuple portNums):
+        self.delReadHandlers (portNums)
+        self.delWriteHandlers(portNums)
+    def delReadHandlers(self, tuple portNums):
+        for portNum in portNums:
+            del self.readHandlers[portNum]
+    def delWriteHandlers(self, tuple portNums):
+        for portNum in portNums:
+            del self.writeHandlers[portNum]
     def inPort(self, int portNum, int dataSize):
         if (not portNum in self.readHandlers):
             self.main.printMsg("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", portNum, dataSize)
@@ -46,7 +55,7 @@ class Platform:
             #    return False
             romFp = open(romFileName, "rb")
             romData = romFp.read(romSize)
-            self.main.mm.mmWrite(mmAddr, romData, romSize)
+            self.main.mm.mmPhyWrite(mmAddr, romData, romSize)
         finally:
             if (romFp):
                 romFp.close()
@@ -79,6 +88,10 @@ class Platform:
         self.main.mm.mmAddArea(0, memSize)
         self.loadRom(os.path.join(self.main.romPath, "bios.bin"), 0xf0000, isRomOptional=False)
         self.loadRom(os.path.join(self.main.romPath, "vgabios.bin"), 0xc0000, isRomOptional=True)
+        self.runDevices()
+    def runDevices(self):
+        self.cmos.run()
+        self.isadma.run()
         
 
 

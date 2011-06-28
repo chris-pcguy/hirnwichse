@@ -1,3 +1,4 @@
+import cpu
 
 class MmArea:
     def __init__(self, long mmBaseAddr, long mmAreaSize):
@@ -31,16 +32,28 @@ class Mm:
             if (mmAddr >= mmArea.mmBaseAddr and mmAddr+dataSize <= mmArea.mmBaseAddr+mmArea.mmAreaSize):
                 return mmArea
         return None
-    def mmRead(self, long mmAddr, long dataSize):
+    def mmPhyRead(self, long mmAddr, long dataSize):
         mmArea = self.mmGetArea(mmAddr, dataSize)
         if (not mmArea):
             self.main.exitError("mmRead: mmArea not found! (mmAddr: {0:08x}, dataSize: {1:d})", mmAddr, dataSize)
         return mmArea.mmAreaRead(mmAddr, dataSize)
-    def mmWrite(self, long mmAddr, data, long dataSize):
+    def mmRead(self, long mmAddr, long dataSize, int segId=cpu.CPU_SEGMENT_DS):
+        if (segId and hasattr(self.main, 'cpu')):
+            if (segId == cpu.CPU_SEGMENT_DS and self.main.cpu.registers.segmentOverridePrefix):
+                segId = self.main.cpu.registers.segmentOverridePrefix
+            mmAddr = self.main.cpu.registers.segments.getRealAddr(segId, mmAddr)
+        return self.mmPhyRead(mmAddr, dataSize)
+    def mmPhyWrite(self, long mmAddr, data, long dataSize):
         mmArea = self.mmGetArea(mmAddr, dataSize)
         if (not mmArea):
             self.main.exitError("mmWrite: mmArea not found! (mmAddr: {0:08x}, dataSize: {1:d})", mmAddr, dataSize)
         return mmArea.mmAreaWrite(mmAddr, data, dataSize)
+    def mmWrite(self, long mmAddr, data, long dataSize, int segId=cpu.CPU_SEGMENT_DS):
+        if (segId and hasattr(self.main, 'cpu')):
+            if (segId == cpu.CPU_SEGMENT_DS and self.main.cpu.registers.segmentOverridePrefix):
+                segId = self.main.cpu.registers.segmentOverridePrefix
+            mmAddr = self.main.cpu.registers.segments.getRealAddr(segId, mmAddr)
+        return self.mmPhyWrite(mmAddr, data, dataSize)
     
 
 

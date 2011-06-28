@@ -1,5 +1,5 @@
 
-class Vga:
+class Floppy:
     def __init__(self, main):
         self.main = main
     def inPort(self, long ioPortAddr, int dataSize):
