@@ -13,7 +13,7 @@ class ChEmu:
         self.memSize = 33554432 # 32MB
         #self.memSize = 67108864 # 64MB
     def exitError(self, errorStr, *errorStrArguments, errorExitCode=1):
-        self.printMsg(errorStr, *errorStrArguments)
+        self.printMsg("ERROR: {0:s}".format(errorStr), *errorStrArguments)
         sys.exit(errorExitCode)
     def debug(self, debugStr, *debugStrArguments):
         if (self.debugEnabled):
@@ -25,6 +25,7 @@ class ChEmu:
         self.platform = platform.Platform(self)
         self.mm = mm.Mm(self)
         self.cpu = cpu.Cpu(self)
+        
         self.platform.run(self.memSize)
         threading.Thread(target=self.cpu.run, name='cpu-0').start()
         while (threading.active_count() > 1):

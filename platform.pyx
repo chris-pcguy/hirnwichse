@@ -76,12 +76,16 @@ class Platform:
             elif (romSize <= SIZE_512KB):
                 romMemSize = SIZE_512KB
                 mmAddr = 0x80000
-            elif (romSize <= SIZE_1024KB):
-                romMemSize = SIZE_1024KB
-                mmAddr = 0x00000
             else:
-                self.main.exitError("romMemSize {0:d} is NOT SUPPORTED!".format(romMemSize))
-                return False
+                if (romSize <= SIZE_1024KB):
+                    romMemSize = SIZE_1024KB
+                elif (romSize <= SIZE_2048KB):
+                    romMemSize = SIZE_2048KB
+                elif (romSize <= SIZE_4096KB):
+                    romMemSize = SIZE_4096KB
+                mmAddr = 0x00000
+                #self.main.exitError("romMemSize {0:d} is NOT SUPPORTED!".format(romMemSize))
+                #return False
         
         return self.loadRomToMem(romFileName, mmAddr, romSize)
     def run(self, int memSize):

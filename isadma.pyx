@@ -7,55 +7,90 @@ class Channel:
         self.controller = controller
         self.dma = self.controller.dma
         self.main = self.dma.main
-
+        self.channelMasked = False
+        self.startAddress = 0
+        self.transferBytes = 0 # count of bytes to transfer - 1
 class Controller:
     def __init__(self, dma):
         self.dma = dma
         self.main = self.dma.main
-        self.channel[4] = (Channel(self), Channel(self), Channel(self), Channel(self))
+        self.channel = (Channel(self), Channel(self), Channel(self), Channel(self))
         self.reset()
     def reset(self):
         self.flipFlop = False
+    def maskChannel(self, channelNum, maskIt):
+        self.channel[channelNum].channelMasked = maskIt
+    def setAddrByte(self, channelNum, data):
+        if (self.flipFlop):
+            self.startAddress = ((data&0xff)<<8)|(self.startAddress&0xff)
+        else:
+            self.startAddress = (self.startAddress&0xff00)|(data&0xff)
+    def setCountByte(self, channelNum, data):
+        if (self.flipFlop):
+            self.transferBytes = ((data&0xff)<<8)|(self.transferBytes&0xff)
+        else:
+            self.transferBytes = (self.transferBytes&0xff00)|(data&0xff)
+    
 
 class ISADma:
     def __init__(self, main):
         self.main = main
-        self.ioMasterControllerPorts = (0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,
-                                      0x0d,0x0f,0x81,0x82,0x83,0x87)
-        self.ioSlaveControllerPorts = (0x89,0x8a,0x8b,0x8f,0xc0,0xc1,0xc2,0xc3,0xc4,0xc5,0xc6,0xc7,
+        self.ioMasterControllerPorts = (0x89,0x8a,0x8b,0x8f,0xc0,0xc1,0xc2,0xc3,0xc4,0xc5,0xc6,0xc7,
                                       0xd0,0xd2,0xd4,0xd6,0xd8,0xda,0xde)
-        self.controller[2] = (Controller(self), Controller(self))
+        self.ioSlaveControllerPorts = (0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,
+                                      0x0d,0x0f,0x81,0x82,0x83,0x87)
+        self.controller = (Controller(self), Controller(self))
     def inPortMaster(self, long ioPortAddr, int dataSize):
         if (dataSize == 8):
-            pass
+            self.main.printMsg("inPortMaster: dataSize 8: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         elif (dataSize == 16):
-            pass
+            self.main.printMsg("inPortMaster: dataSize 16: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    def outPortMaster(self, long ioPortAddr, data, int dataSize):
+    def outPortMaster(self, long ioPortAddr, long data, int dataSize):
         if (dataSize == 8):
             if (ioPortAddr == 0x0c):
                 self.controller[0].flipFlop = False
+            elif (ioPortAddr == 0x0a):
+                self.controller[0].maskChannel(data&3, data&4)
+            elif (ioPortAddr in (0x00, 0x02, 0x04, 0x06)):
+                channelNum = (ioPortAddr&7)//2
+                self.controller[0].setAddrByte(channelNum, data&0xff)
+            elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07)):
+                channelNum = (ioPortAddr&7)//2
+                self.controller[0].setCountByte(channelNum, data&0xff)
+            else:
+                self.main.printMsg("outPortMaster: dataSize 8: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         elif (dataSize == 16):
-            pass
+            self.main.printMsg("outPortMaster: dataSize 16: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
     def inPortSlave(self, long ioPortAddr, int dataSize):
         if (dataSize == 8):
-            pass
+            self.main.printMsg("inPortSlave: dataSize 8: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         elif (dataSize == 16):
-            pass
+            self.main.printMsg("inPortSlave: dataSize 16: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    def outPortSlave(self, long ioPortAddr, data, int dataSize):
+    def outPortSlave(self, long ioPortAddr, long data, int dataSize):
         if (dataSize == 8):
             if (ioPortAddr == 0xd8):
                 self.controller[1].flipFlop = False
+            elif (ioPortAddr == 0xd4):
+                self.controller[1].maskChannel(4+(data&3), data&4)
+            elif (ioPortAddr in (0xc0, 0xc2, 0xc4, 0xc6)):
+                channelNum = (ioPortAddr&7)//2
+                self.controller[1].setAddrByte(4+channelNum, data&0xff)
+            elif (ioPortAddr in (0xc1, 0xc3, 0xc5, 0xc7)):
+                channelNum = (ioPortAddr&7)//2
+                self.controller[1].setCountByte(4+channelNum, data&0xff)
+            else:
+                self.main.printMsg("outPortSlave: dataSize 8: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         elif (dataSize == 16):
-            pass
+            self.main.printMsg("outPortSlave: dataSize 16: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
