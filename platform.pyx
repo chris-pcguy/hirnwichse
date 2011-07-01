@@ -90,8 +90,8 @@ class Platform:
         return self.loadRomToMem(romFileName, mmAddr, romSize)
     def run(self, int memSize):
         self.main.mm.mmAddArea(0, memSize)
-        self.loadRom(os.path.join(self.main.romPath, "bios.bin"), 0xf0000, isRomOptional=False)
-        self.loadRom(os.path.join(self.main.romPath, "vgabios.bin"), 0xc0000, isRomOptional=True)
+        self.loadRom(os.path.join(self.main.romPath, self.main.biosName), 0xf0000, isRomOptional=False)
+        self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosName), 0xc0000, isRomOptional=True)
         self.runDevices()
     def runDevices(self):
         self.cmos.run()

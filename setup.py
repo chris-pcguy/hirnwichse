@@ -6,7 +6,8 @@ from Cython.Distutils import build_ext
 
 ext_modules = [Extension("isadma", ["isadma.pyx"]), Extension("cmos", ["cmos.pyx"]), Extension("mm", ["mm.pyx"]),
                Extension("floppy", ["floppy.pyx"]), Extension("misc", ["misc.pyx"]), Extension("cpu", ["cpu.pyx"]),
-               Extension("platform", ["platform.pyx"]), Extension("pic", ["pic.pyx"]), Extension("vga", ["vga.pyx"])]
+               Extension("registers", ["registers.pyx"]), Extension("platform", ["platform.pyx"]), Extension("opcodes", ["opcodes.pyx"]),
+               Extension("pic", ["pic.pyx"]), Extension("vga", ["vga.pyx"])]
 
 setup(
   name = 'chemu',

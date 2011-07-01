@@ -1,4 +1,4 @@
-import cpu, misc
+import registers, misc
 
 class MmArea:
     def __init__(self, mm, long mmBaseAddr, long mmAreaSize):
@@ -10,16 +10,11 @@ class MmArea:
     def mmAreaRead(self, long mmPhyAddr, long dataSize):
         cdef long mmAreaAddr = mmPhyAddr-self.mmBaseAddr
         return self.mmAreaData[mmAreaAddr:mmAreaAddr+dataSize]
-    def mmAreaWrite(self, long mmPhyAddr, data, long dataSize): # dataSize in bytes
+    def mmAreaWrite(self, long mmPhyAddr, data, long dataSize, int signedValue=False): # dataSize in bytes; use 'signedValue' only if writing 'int'
         cdef long mmAreaAddr = mmPhyAddr-self.mmBaseAddr
         cdef long realDataSize = 0
         if (isinstance(data, int)):
-            if (dataSize in cpu.STRUCT_DATA_SIZES_BYTES):
-                data = self.main.misc.numToBin(data, dataSize)
-            if (data == None or isinstance(data, int)):
-                data = self.main.misc.numToBinNoStruct(data, dataSize, misc.DATA_ORDER_LITTLE_ENDIAN)
-            if (data == None):
-                self.main.exitError("mmAreaWrite: can't convert intNum to BinStr.")
+            data = data.to_bytes(length=dataSize, byteorder=misc.BYTE_ORDER_LITTLE_ENDIAN, signed=signedValue)
         realDataSize = len(data)
         if (realDataSize != dataSize):
             self.main.exitError("tried write to {0:#x} with invalid dataSize. (realDataSize: {1:d}, wrongDataSize: {2:d})", mmPhyAddr, realDataSize, dataSize)
@@ -59,7 +54,7 @@ class Mm:
         if (not mmArea):
             self.main.exitError("mmPhyRead: mmArea not found! (mmAddr: {0:08x}, dataSize: {1:d})", mmAddr, dataSize)
         return mmArea.mmAreaRead(mmAddr, dataSize)
-    def mmRead(self, long mmAddr, long dataSize, int segId=cpu.CPU_SEGMENT_DS): # dataSize in bytes
+    def mmRead(self, long mmAddr, long dataSize, int segId=registers.CPU_SEGMENT_DS): # dataSize in bytes
         mmAddr = self.mmGetRealAddr(mmAddr, segId)
         return self.mmPhyRead(mmAddr, dataSize)
     def mmPhyWrite(self, long mmAddr, data, long dataSize): # dataSize in bytes
@@ -67,7 +62,7 @@ class Mm:
         if (not mmArea):
             self.main.exitError("mmPhyWrite: mmArea not found! (mmAddr: {0:08x}, dataSize: {1:d})", mmAddr, dataSize)
         return mmArea.mmAreaWrite(mmAddr, data, dataSize)
-    def mmWrite(self, long mmAddr, data, long dataSize, int segId=cpu.CPU_SEGMENT_DS): # dataSize in bytes
+    def mmWrite(self, long mmAddr, data, long dataSize, int segId=registers.CPU_SEGMENT_DS): # dataSize in bytes
         mmAddr = self.mmGetRealAddr(mmAddr, segId)
         return self.mmPhyWrite(mmAddr, data, dataSize)
     

@@ -1,3 +1,4 @@
+import misc
 
 CONTROLLER_MASTER = 0
 CONTROLLER_SLAVE  = 1
@@ -41,15 +42,15 @@ class ISADma:
                                       0x0d,0x0f,0x81,0x82,0x83,0x87)
         self.controller = (Controller(self), Controller(self))
     def inPortMaster(self, long ioPortAddr, int dataSize):
-        if (dataSize == 8):
-            self.main.printMsg("inPortMaster: dataSize 8: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
-        elif (dataSize == 16):
-            self.main.printMsg("inPortMaster: dataSize 16: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+        if (dataSize == misc.OP_SIZE_8BIT):
+            self.main.printMsg("ISADMA: inPortMaster: dataSize misc.OP_SIZE_8BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+        elif (dataSize == misc.OP_SIZE_16BIT):
+            self.main.printMsg("ISADMA: inPortMaster: dataSize misc.OP_SIZE_16BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         else:
-            self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("ISADMA: inPortMaster: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPortMaster(self, long ioPortAddr, long data, int dataSize):
-        if (dataSize == 8):
+        if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0x0c):
                 self.controller[0].flipFlop = False
             elif (ioPortAddr == 0x0a):
@@ -61,22 +62,22 @@ class ISADma:
                 channelNum = (ioPortAddr&7)//2
                 self.controller[0].setCountByte(channelNum, data&0xff)
             else:
-                self.main.printMsg("outPortMaster: dataSize 8: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
-        elif (dataSize == 16):
-            self.main.printMsg("outPortMaster: dataSize 16: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+                self.main.printMsg("ISADMA: outPortMaster: dataSize misc.OP_SIZE_8BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
+        elif (dataSize == misc.OP_SIZE_16BIT):
+            self.main.printMsg("ISADMA: outPortMaster: dataSize misc.OP_SIZE_16BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#06x})", ioPortAddr, data)
         else:
-            self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("ISADMA: outPortMaster: dataSize {0:d} not supported. (ioPortAddr: {1:#06x}, data: {2:#04x})", dataSize, ioPortAddr, data)
         return
     def inPortSlave(self, long ioPortAddr, int dataSize):
-        if (dataSize == 8):
-            self.main.printMsg("inPortSlave: dataSize 8: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
-        elif (dataSize == 16):
-            self.main.printMsg("inPortSlave: dataSize 16: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+        if (dataSize == misc.OP_SIZE_8BIT):
+            self.main.printMsg("ISADMA: inPortSlave: dataSize misc.OP_SIZE_8BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+        elif (dataSize == misc.OP_SIZE_16BIT):
+            self.main.printMsg("ISADMA: inPortSlave: dataSize misc.OP_SIZE_16BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         else:
-            self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("ISADMA: inPortSlave: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPortSlave(self, long ioPortAddr, long data, int dataSize):
-        if (dataSize == 8):
+        if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0xd8):
                 self.controller[1].flipFlop = False
             elif (ioPortAddr == 0xd4):
@@ -88,11 +89,11 @@ class ISADma:
                 channelNum = (ioPortAddr&7)//2
                 self.controller[1].setCountByte(4+channelNum, data&0xff)
             else:
-                self.main.printMsg("outPortSlave: dataSize 8: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
-        elif (dataSize == 16):
-            self.main.printMsg("outPortSlave: dataSize 16: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+                self.main.printMsg("ISADMA: outPortSlave: dataSize misc.OP_SIZE_8BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
+        elif (dataSize == misc.OP_SIZE_16BIT):
+            self.main.printMsg("ISADMA: outPortSlave: dataSize misc.OP_SIZE_16BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#06x})", ioPortAddr, data)
         else:
-            self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("ISADMA: outPortSlave: dataSize {0:d} not supported. (ioPortAddr: {1:#06x}, data: {2:#06x})", dataSize, ioPortAddr, data)
         return
     def run(self):
         self.main.platform.addReadHandlers(self.ioMasterControllerPorts, self.inPortMaster)
