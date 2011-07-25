@@ -1,11 +1,15 @@
 import misc
 
-class Cmos:
-    def __init__(self, main):
+##cimport numpy
+##import numpy
+
+cdef class Cmos:
+    def __init__(self, object main):
         self.main = main
         self.cmosData = bytearray(256)
+        ##self.cmosData = numpy.zeros(256, dtype=numpy.bytes_, order='C')
         self.cmosIndex = 0
-    def inPort(self, long ioPortAddr, int dataSize):
+    cpdef long inPort(self, long ioPortAddr, int dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0x70):
                 return self.cmosIndex
@@ -14,7 +18,7 @@ class Cmos:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    def outPort(self, long ioPortAddr, data, int dataSize):
+    cpdef outPort(self, long ioPortAddr, data, int dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0x70):
                 self.cmosIndex = data
@@ -23,7 +27,7 @@ class Cmos:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
-    def run(self):
+    cpdef run(self):
         self.main.platform.addReadHandlers((0x70, 0x71), self.inPort)
         self.main.platform.addWriteHandlers((0x70, 0x71), self.outPort)
 

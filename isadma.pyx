@@ -3,45 +3,47 @@ import misc
 CONTROLLER_MASTER = 0
 CONTROLLER_SLAVE  = 1
 
-class Channel:
-    def __init__(self, controller):
+cdef class Channel:
+    def __init__(self, object controller):
         self.controller = controller
-        self.dma = self.controller.dma
-        self.main = self.dma.main
+        self.isadma = self.controller.isadma
+        self.main = self.isadma.main
         self.channelMasked = False
         self.startAddress = 0
         self.transferBytes = 0 # count of bytes to transfer - 1
-class Controller:
-    def __init__(self, dma):
-        self.dma = dma
-        self.main = self.dma.main
+
+cdef class Controller:
+    def __init__(self, object isadma):
+        self.isadma = isadma
+        ##print(dir(self), dir(self.isadma))
+        self.main = self.isadma.main
         self.channel = (Channel(self), Channel(self), Channel(self), Channel(self))
         self.reset()
-    def reset(self):
+    cpdef reset(self):
         self.flipFlop = False
-    def maskChannel(self, channelNum, maskIt):
+    cpdef maskChannel(self, int channelNum, int maskIt):
         self.channel[channelNum].channelMasked = maskIt
-    def setAddrByte(self, channelNum, data):
+    cpdef setAddrByte(self, int channelNum, long data):
         if (self.flipFlop):
             self.startAddress = ((data&0xff)<<8)|(self.startAddress&0xff)
         else:
             self.startAddress = (self.startAddress&0xff00)|(data&0xff)
-    def setCountByte(self, channelNum, data):
+    cpdef setCountByte(self, int channelNum, long data):
         if (self.flipFlop):
             self.transferBytes = ((data&0xff)<<8)|(self.transferBytes&0xff)
         else:
             self.transferBytes = (self.transferBytes&0xff00)|(data&0xff)
-    
 
-class ISADma:
-    def __init__(self, main):
+
+cdef class ISADma:
+    def __init__(self, object main):
         self.main = main
         self.ioMasterControllerPorts = (0x89,0x8a,0x8b,0x8f,0xc0,0xc1,0xc2,0xc3,0xc4,0xc5,0xc6,0xc7,
                                       0xd0,0xd2,0xd4,0xd6,0xd8,0xda,0xde)
         self.ioSlaveControllerPorts = (0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,
                                       0x0d,0x0f,0x81,0x82,0x83,0x87)
         self.controller = (Controller(self), Controller(self))
-    def inPortMaster(self, long ioPortAddr, int dataSize):
+    cpdef inPortMaster(self, long ioPortAddr, int dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
             self.main.printMsg("ISADMA: inPortMaster: dataSize misc.OP_SIZE_8BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         elif (dataSize == misc.OP_SIZE_16BIT):
@@ -49,7 +51,7 @@ class ISADma:
         else:
             self.main.exitError("ISADMA: inPortMaster: dataSize {0:d} not supported.", dataSize)
         return 0
-    def outPortMaster(self, long ioPortAddr, long data, int dataSize):
+    cpdef outPortMaster(self, long ioPortAddr, long data, int dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0x0c):
                 self.controller[0].flipFlop = False
@@ -68,7 +70,7 @@ class ISADma:
         else:
             self.main.exitError("ISADMA: outPortMaster: dataSize {0:d} not supported. (ioPortAddr: {1:#06x}, data: {2:#04x})", dataSize, ioPortAddr, data)
         return
-    def inPortSlave(self, long ioPortAddr, int dataSize):
+    cpdef inPortSlave(self, long ioPortAddr, int dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
             self.main.printMsg("ISADMA: inPortSlave: dataSize misc.OP_SIZE_8BIT: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         elif (dataSize == misc.OP_SIZE_16BIT):
@@ -76,7 +78,7 @@ class ISADma:
         else:
             self.main.exitError("ISADMA: inPortSlave: dataSize {0:d} not supported.", dataSize)
         return 0
-    def outPortSlave(self, long ioPortAddr, long data, int dataSize):
+    cpdef outPortSlave(self, long ioPortAddr, long data, int dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0xd8):
                 self.controller[1].flipFlop = False
@@ -95,7 +97,7 @@ class ISADma:
         else:
             self.main.exitError("ISADMA: outPortSlave: dataSize {0:d} not supported. (ioPortAddr: {1:#06x}, data: {2:#06x})", dataSize, ioPortAddr, data)
         return
-    def run(self):
+    cpdef run(self):
         self.main.platform.addReadHandlers(self.ioMasterControllerPorts, self.inPortMaster)
         self.main.platform.addReadHandlers(self.ioSlaveControllerPorts,  self.inPortSlave)
         self.main.platform.addWriteHandlers(self.ioMasterControllerPorts, self.outPortMaster)

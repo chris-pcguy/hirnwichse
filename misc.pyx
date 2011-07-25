@@ -64,10 +64,11 @@ BYTE_ORDER_LITTLE_ENDIAN = 'little'
 BYTE_ORDER_BIG_ENDIAN = 'big'
 
 
-class Misc:
+cdef class Misc:
+    #cdef object main
     def __init__(self, main):
         self.main = main
-    def getBitMask(self, bits, half=False, minus=1):
+    cpdef long getBitMask(self, int bits, int half=False, int minus=1):
         if (bits == OP_SIZE_8BIT):
             if (half):
                 return ((1<<8)//2)-minus
