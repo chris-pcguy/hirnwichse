@@ -223,6 +223,16 @@ class Registers:
         elif (regId in CPU_REGISTER_BYTE):
             return misc.OP_SIZE_8BIT
         raise NameError("regId is unknown! ({0})".format(regId))
+    def unsignedToSigned(self, uint, intSize): # 0xff == -1; 0xfe == -2 ...; 0x02==0x02, 0x50==0x50...
+        if (intSize not in (misc.OP_SIZE_8BIT, misc.OP_SIZE_16BIT, misc.OP_SIZE_32BIT, misc.OP_SIZE_64BIT)):
+            raise NameError("intSize is invalid! ({0})".format(intSize))
+        bitMask = self.main.misc.getBitMask(intSize)
+        halfBitMask = self.main.misc.getBitMask(intSize, half=True, minus=0)
+        minusInt = self.main.misc.getBitMask(intSize, minus=0)
+        if (uint&halfBitMask):
+            return (uint&bitMask)-minusInt
+        else:
+            return uint&bitMask
     def regRead(self, regId, signed=False, regIdIsVal=False): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         regValue = 0
         ##if (isinstance(regId, RegImm)):
@@ -370,11 +380,14 @@ class Registers:
             self.setEFLAG(FLAG_OF, True)
         if (flags & FLAG_AC):
             self.setEFLAG(FLAG_AC, True)
-    def setSZP_C0_O0(self, value, regSize):
-        self.clearFlags(FLAG_CF | FLAG_OF)
+    def setSZP_O0(self, value, regSize):
+        self.clearFlags(FLAG_OF)
         self.setEFLAG(FLAG_SF, (value&self.main.misc.getBitMask(regSize, half=True, minus=0))!=0)
         self.setEFLAG(FLAG_ZF, value==0)
         self.setEFLAG(FLAG_PF, PARITY_TABLE[value&0xff])
+    def setSZP_C0_O0(self, value, regSize):
+        self.clearFlags(FLAG_CF)
+        self.setSZP_O0(value, regSize)
     def setSZP_C0_O0_SubAF(self, value, regSize):
         self.setSZP_C0_O0(value, regSize)
         self.setEFLAG(FLAG_AF, 0)
@@ -396,12 +409,13 @@ class Registers:
         if (mod in (0, 1, 2)):
             returnInt = self.main.mm.mmReadValue(rmValueFull, regSize, segId=rmValue[1], signed=signed, allowOverride=allowOverride)
         else:
-            returnInt = rmValueFull
-        returnInt &= self.main.misc.getBitMask(regSize)
+            returnInt = self.regRead(rmValue[0][0], signed=signed)
+        #returnInt &= self.main.misc.getBitMask(regSize)
         return returnInt
-    def modRM_RLoad(self, rmOperands, regSize): # imm == unsigned ; disp == signed
+    def modRM_RLoad(self, rmOperands, regSize, signed=False): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
-        returnInt = self.regRead(regValue)&self.main.misc.getBitMask(regSize)
+        returnInt  = self.regRead(regValue, signed=signed)
+        #returnInt &= self.main.misc.getBitMask(regSize)
         return returnInt
     def modR_RMSave(self, rmOperands, regSize, value): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
@@ -490,7 +504,7 @@ class Registers:
         else:
             self.main.exitError("modRMLoad: AddrSegSize(CS) not in (misc.OP_SIZE_16BIT, misc.OP_SIZE_32BIT)")
         return (mod, ((rmValue0, rmValue1, rmValue2), rmValueSegId), regValue)
-    def setFullFlags(self, reg0, reg1, regSize, method, immOp=False): # regSize in bits
+    def setFullFlags(self, reg0, reg1, regSize, method, signed=False): # regSize in bits
         regSum = 0
         regSumMasked = 0
         unsignedOverflow = False
@@ -498,33 +512,25 @@ class Registers:
         isResZero = False
         afFlag = False
         bitMask = self.main.misc.getBitMask(regSize)
-        #bitMaskForAF = self.main.misc.getBitMask(regSize, half=False, minus=0x10)
-        halfBitMask = self.main.misc.getBitMask(regSize, half=True, minus=0)
+        doubleBitMask = self.main.misc.getBitMask(regSize*2)
+        bitMaskHalf = self.main.misc.getBitMask(regSize, half=True, minus=0)
+        doubleBitMaskHalf = self.main.misc.getBitMask(regSize*2, half=True, minus=0)
         
         if (method == misc.SET_FLAGS_ADD):
             regSum = reg0+reg1
             regSumMasked = regSum&bitMask
             isResZero = regSumMasked==0
-            ###unsignedOverflow = (regSum < 0 or reg0 < 0 or reg1 < 0) or (reg0&bitMask <= bitMask and reg1&bitMask <= bitMask and regSum > bitMask)
             unsignedOverflow = (regSum > bitMask)
-            signedOverflow = (not (reg0>bitMask or regSumMasked==0)) and (( (reg0&bitMask < halfBitMask) and (regSumMasked >= halfBitMask) ) or ( (reg0&bitMask >= halfBitMask) and (regSumMasked < halfBitMask) ))
             self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&0xff])
             self.setEFLAG(FLAG_ZF, isResZero)
             if ( (((reg0&0xf)+(reg1&0xf))>regSum&0xf or reg0>bitMask or reg1>bitMask)):# or regSum>bitMask) ):
                 afFlag = True
             self.setEFLAG(FLAG_AF, afFlag)
             self.setEFLAG(FLAG_CF, unsignedOverflow)
-            #if (immOp):
-            ##unsignedOverflow = ((reg0>halfBitMask or reg1>halfBitMask) and regSumMasked<=halfBitMask)
-            ###signedOverflow = ((reg0&bitMask)&halfBitMask and (reg0&bitMask)&halfBitMask and (not (reg0&bitMask)&halfBitMask))
-            signedOverflow = ( (((not (reg0&bitMask)&halfBitMask) and (not (reg1&bitMask)&halfBitMask)) and (regSumMasked&halfBitMask)) or \
-                               ((((reg0&bitMask)&halfBitMask) and ((reg1&bitMask)&halfBitMask)) and not (regSumMasked&halfBitMask)) )
+            signedOverflow = ( (((not (reg0&bitMask)&bitMaskHalf) and (not (reg1&bitMask)&bitMaskHalf)) and (regSumMasked&bitMaskHalf)) or \
+                               ((((reg0&bitMask)&bitMaskHalf) and ((reg1&bitMask)&bitMaskHalf)) and not (regSumMasked&bitMaskHalf)) )
             self.setEFLAG(FLAG_OF, ((not isResZero) and signedOverflow))
-            #else:
-            #    unsignedOverflow = (regSum>bitMask)
-            #    self.setEFLAG(FLAG_OF, ((not isResZero) and unsignedOverflow))
-            #self.setEFLAG(FLAG_SF, (regSum&self.main.misc.getBitMask(regSize, half=True, minus=0))!=0)
-            self.setEFLAG(FLAG_SF, (regSum&halfBitMask)!=0)
+            self.setEFLAG(FLAG_SF, (regSum&bitMaskHalf)!=0)
         elif (method == misc.SET_FLAGS_SUB):
             regSum = reg0-reg1
             regSumMasked = regSum&bitMask
@@ -534,30 +540,33 @@ class Registers:
             if ( (((reg0&0xf)-(reg1&0xf)) < regSum&0xf)):# or regSum<0)):# or regSum>bitMask) ):
                 afFlag = True
             self.setEFLAG(FLAG_AF, afFlag)
-            ##self.setEFLAG(FLAG_CF, (((reg0&bitMask>halfBitMask or reg1&bitMask>halfBitMask) and regSumMasked <= halfBitMask)) )
             self.setEFLAG(FLAG_CF, ( regSum<0 ) )
-            #if (signedAsUnsigned):
-            #    #unsignedOverflow = ((reg0>halfBitMask or reg1>halfBitMask) and regSumMasked<=halfBitMask)
-            #    unsignedOverflow = (regSum<0)
-            #    self.setEFLAG(FLAG_OF, (not isResZero and unsignedOverflow))
-            #else:
-            #    ###signedOverflow = (not (reg0>bitMask or regSumMasked==0)) and (( (reg0&bitMask <= halfBitMask) and (regSumMasked > halfBitMask) ) or ( (reg0&bitMask > halfBitMask) and (regSumMasked <= halfBitMask) ))
-            #    ##signedOverflow = ((reg0>halfBitMask or reg1>halfBitMask) and regSumMasked<=halfBitMask)
-            #    #signedOverflow = (regSum<0)
-            #    signedOverflow = ((reg0>halfBitMask or reg1>halfBitMask) and regSumMasked<=halfBitMask)
-            #    self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
-            
-            ###signedOverflow = ((reg0>halfBitMask or reg1>halfBitMask) and regSumMasked<=halfBitMask) or ((reg0<=halfBitMask or reg1<=halfBitMask) and regSumMasked>halfBitMask) # or (regSum < 0)
-            signedOverflow = ( ((((reg0&bitMask)&halfBitMask) and (not (reg1&bitMask)&halfBitMask)) and not (regSumMasked&halfBitMask)) or \
-                               ((not ((reg0&bitMask)&halfBitMask) and ((reg1&bitMask)&halfBitMask)) and (regSumMasked&halfBitMask)) )
+            signedOverflow = ( ((((reg0&bitMask)&bitMaskHalf) and (not (reg1&bitMask)&bitMaskHalf)) and not (regSumMasked&bitMaskHalf)) or \
+                               ((not ((reg0&bitMask)&bitMaskHalf) and ((reg1&bitMask)&bitMaskHalf)) and (regSumMasked&bitMaskHalf)) )
             self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
             
             
-            ##self.setEFLAG(FLAG_SF, (regSum&self.main.misc.getBitMask(regSize, half=True, minus=0))!=0)
-            self.setEFLAG(FLAG_SF, (regSum&halfBitMask)!=0)
+            self.setEFLAG(FLAG_SF, (regSum&bitMaskHalf)!=0)
             pass
         elif (method == misc.SET_FLAGS_MUL):
-            pass
+            regSum = reg0*reg1
+            reg0u = (reg0 < 0 and -reg0) or reg0
+            reg1u = (reg1 < 0 and -reg1) or reg1
+            regSumu = reg0u*reg1u
+            regSumMasked = regSum&doubleBitMask
+            regSumuMasked = regSumu&doubleBitMask
+            isResZero = regSumMasked==0
+            regSumCheckOne = regSum
+            if ((signed and ((regSize != misc.OP_SIZE_8BIT and regSumu <= bitMask) or (regSize == misc.OP_SIZE_8BIT and regSumu <= 0x7f))) or \
+                   (not signed and ((regSumu <= bitMask)))):
+                self.setEFLAG(FLAG_CF, False)
+                self.setEFLAG(FLAG_OF, False)
+            else:
+                self.setEFLAG(FLAG_CF, True)
+                self.setEFLAG(FLAG_OF, True)
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&0xff])
+            self.setEFLAG(FLAG_ZF, isResZero)
+            self.setEFLAG(FLAG_SF, (regSum&bitMaskHalf)!=0)
         elif (method == misc.SET_FLAGS_DIV):
             pass
         else:

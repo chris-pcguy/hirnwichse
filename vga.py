@@ -12,14 +12,21 @@ class Vga:
     def outPort(self, ioPortAddr, data, dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0x400): # Bochs' Panic Port
-                print('Panic port: byte=={0:#04x}'.format(data))
+                #print('Panic port: byte=={0:#04x}'.format(data))
+                sys.stdout.write(chr(data))
+                sys.stdout.flush()
             elif (ioPortAddr == 0x401): # Bochs' Panic Port2
-                print('Panic port2: byte=={0:#04x}'.format(data))
+                #print('Panic port2: byte=={0:#04x}'.format(data))
+                sys.stdout.write(chr(data))
+                sys.stdout.flush()
             elif (ioPortAddr == 0x402): # Bochs' Info Port
-                print('Info port: byte=={0:#04x}'.format(data))
+                #print('Info port: byte=={0:#04x}'.format(data))
+                sys.stdout.write(chr(data))
+                sys.stdout.flush()
             elif (ioPortAddr == 0x403): # Bochs' Debug Port
-                print('Debug port: byte=={0:#04x}'.format(data))
-            
+                #print('Debug port: byte=={0:#04x}'.format(data))
+                sys.stdout.write(chr(data))
+                sys.stdout.flush()
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return

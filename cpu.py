@@ -1,4 +1,4 @@
-import struct, time
+import struct, time, sys
 
 import chemu
 import registers, opcodes, misc
@@ -116,6 +116,7 @@ class Cpu:
         else:
             self.main.printMsg("Opcode not found. (opcode: {0:#04x}; addr: {1:#07x})", self.opcode, self.savedAddr)
             self.exception(misc.CPU_EXCEPTION_UD)
+            sys.exit(1) # TODO!!!
     def run(self):
         self.doInfiniteCycles()
 
