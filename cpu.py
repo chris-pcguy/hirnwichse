@@ -109,8 +109,6 @@ class Cpu:
         if (self.opcode in misc.OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         
-        ###print(hex(self.registers.regRead(registers.CPU_REGISTER_ESP)))
-        
         if (self.opcode in self.opcodes.opcodeList):
             self.opcodes.opcodeList[self.opcode]()
         else:

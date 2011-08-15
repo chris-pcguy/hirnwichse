@@ -104,6 +104,7 @@ class Opcodes:
                            0xa8: self.testAL_IMM8, 0xa9: self.testAX_EAX_IMM16_32,
                            0xaa: self.stosb, 0xab: self.stos_wd,
                            0xac: self.lodsb, 0xad: self.lods_wd,
+                           0xae: self.scasb, 0xaf: self.scas_wd,
                            0xb0: self.movImm8ToR8, 0xb1: self.movImm8ToR8, 0xb2: self.movImm8ToR8,
                            0xb3: self.movImm8ToR8, 0xb4: self.movImm8ToR8, 0xb5: self.movImm8ToR8,
                            0xb6: self.movImm8ToR8, 0xb7: self.movImm8ToR8, 0xb8: self.movImm16_32ToR16_32,
@@ -664,14 +665,17 @@ class Opcodes:
             dataReg  = registers.CPU_REGISTER_EDI
             countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
-            countVal = registers.regRead(countReg)
+            countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
         op1 = self.registers.regRead(dataReg)
-        memData = data.to_bytes(length=operSize, byteorder=misc.BYTE_ORDER_BIG_ENDIAN, signed=False)*countVal
+        memData = data.to_bytes(length=operSize, byteorder=misc.BYTE_ORDER_LITTLE_ENDIAN, signed=False)*countVal
         self.main.mm.mmWrite(op1, memData, countVal, registers.CPU_SEGMENT_ES)
         if (not self.registers.getFlag(registers.CPU_REGISTER_FLAGS, registers.FLAG_DF)):
             self.registers.regAdd(dataReg, countVal)
         else:
             self.registers.regSub(dataReg, countVal)
+        self.registers.regWrite( countReg, 0 )
     def stos_wd(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
@@ -686,14 +690,17 @@ class Opcodes:
             countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
         dataLength = operSize*countVal
         op1 = self.registers.regRead(dataReg)
-        memData = data.to_bytes(length=operSize, byteorder=misc.BYTE_ORDER_BIG_ENDIAN, signed=False)*countVal
+        memData = data.to_bytes(length=operSize, byteorder=misc.BYTE_ORDER_LITTLE_ENDIAN, signed=False)*countVal
         self.main.mm.mmWrite(op1, memData, dataLength, registers.CPU_SEGMENT_ES)
         if (not self.registers.getFlag(registers.CPU_REGISTER_FLAGS, registers.FLAG_DF)):
-            self.registers.regAdd(dataReg, countVal)
+            self.registers.regAdd(dataReg, dataLength)
         else:
-            self.registers.regSub(dataReg, countVal)
+            self.registers.regSub(dataReg, dataLength)
+        self.registers.regWrite( countReg, 0 )
     
     
     def movsb(self):
@@ -709,6 +716,8 @@ class Opcodes:
             countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg)
         ediVal = self.registers.regRead(ediReg)
@@ -720,6 +729,7 @@ class Opcodes:
         else:
             self.registers.regSub(esiReg, dataLength)
             self.registers.regSub(ediReg, dataLength)
+        self.registers.regWrite( countReg, 0 )
     def movs_wd(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
@@ -733,6 +743,8 @@ class Opcodes:
             countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg)
         ediVal = self.registers.regRead(ediReg)
@@ -744,7 +756,7 @@ class Opcodes:
         else:
             self.registers.regSub(esiReg, dataLength)
             self.registers.regSub(ediReg, dataLength)
-    
+        self.registers.regWrite( countReg, 0 )
     
     
     
@@ -763,6 +775,8 @@ class Opcodes:
             countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg)
         data = self.main.mm.mmReadValue(esiVal+dataLength-1, misc.OP_SIZE_8BIT, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
@@ -771,25 +785,31 @@ class Opcodes:
             self.registers.regAdd(esiReg, dataLength)
         else:
             self.registers.regSub(esiReg, dataLength)
+        self.registers.regWrite( countReg, 0 )
     def lods_wd(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
+        eaxReg  = registers.CPU_REGISTER_AX
         esiReg  = registers.CPU_REGISTER_SI
         countReg = registers.CPU_REGISTER_CX
         countVal = 1
         if (addrSize == misc.OP_SIZE_32BIT):
+            eaxReg  = registers.CPU_REGISTER_EAX
             esiReg  = registers.CPU_REGISTER_ESI
             countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg)
-        data = self.main.mm.mmReadValue(esiVal+dataLength-1, misc.OP_SIZE_8BIT, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
-        self.registers.regWrite(registers.CPU_REGISTER_AL, data)
+        data = self.main.mm.mmReadValue(esiVal+dataLength-operSize, operSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
+        self.registers.regWrite(eaxReg, data)
         if (not self.registers.getFlag(registers.CPU_REGISTER_FLAGS, registers.FLAG_DF)):
             self.registers.regAdd(esiReg, dataLength)
         else:
             self.registers.regSub(esiReg, dataLength)
+        self.registers.regWrite( countReg, 0 )
     
     
     
@@ -814,10 +834,9 @@ class Opcodes:
             countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
         while (countVal > 0):
-            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
-                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
-                break
             esiVal = self.registers.regRead(esiReg)
             ediVal = self.registers.regRead(ediReg)
             src1 = self.main.mm.mmReadValue(esiVal, operSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
@@ -831,6 +850,10 @@ class Opcodes:
                 self.registers.regSub(esiReg, operSize)
                 self.registers.regSub(ediReg, operSize)
             countVal -= 1
+            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
+                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
+                break
+        self.registers.regWrite( countReg, countVal )
     def cmps_wd(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
@@ -844,14 +867,13 @@ class Opcodes:
             countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
         while (countVal > 0):
-            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
-                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
-                break
             esiVal = self.registers.regRead(esiReg)
             ediVal = self.registers.regRead(ediReg)
-            src1 = self.main.mm.mmReadValue(ediVal, operSize, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
-            src2 = self.main.mm.mmReadValue(esiVal, operSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
+            src1 = self.main.mm.mmReadValue(esiVal, operSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
+            src2 = self.main.mm.mmReadValue(ediVal, operSize, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
             #temp = src1-src2
             self.registers.setFullFlags(src1, src2, operSize, misc.SET_FLAGS_SUB)
             if (not self.registers.getFlag(registers.CPU_REGISTER_FLAGS, registers.FLAG_DF)):
@@ -861,6 +883,87 @@ class Opcodes:
                 self.registers.regSub(esiReg, operSize)
                 self.registers.regSub(ediReg, operSize)
             countVal -= 1
+            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
+                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
+                break
+        self.registers.regWrite( countReg, countVal )
+    
+    
+    
+    
+    def scasb(self):
+        operSize = misc.OP_SIZE_8BIT
+        addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
+        alReg  = registers.CPU_REGISTER_AL
+        ediReg  = registers.CPU_REGISTER_DI
+        countReg = registers.CPU_REGISTER_CX
+        countVal = 1
+        if (addrSize == misc.OP_SIZE_32BIT):
+            ediReg = registers.CPU_REGISTER_EDI
+            countReg = registers.CPU_REGISTER_ECX
+        if (self.registers.repPrefix):
+            countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
+        while (countVal > 0):
+            ediVal = self.registers.regRead(ediReg)
+            src1 = self.registers.regRead(alReg)
+            src2 = self.main.mm.mmReadValue(ediVal, operSize, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
+            #temp = src1-src2
+            self.registers.setFullFlags(src1, src2, operSize, misc.SET_FLAGS_SUB)
+            if (not self.registers.getFlag(registers.CPU_REGISTER_FLAGS, registers.FLAG_DF)):
+                self.registers.regAdd(ediReg, operSize)
+            else:
+                self.registers.regSub(ediReg, operSize)
+            countVal -= 1
+            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
+                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
+                break
+        self.registers.regWrite( countReg, countVal )
+    def scas_wd(self):
+        operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
+        addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
+        eaxReg  = registers.CPU_REGISTER_AX
+        ediReg  = registers.CPU_REGISTER_DI
+        countReg = registers.CPU_REGISTER_CX
+        countVal = 1
+        if (addrSize == misc.OP_SIZE_32BIT):
+            eaxReg = registers.CPU_REGISTER_EAX
+            ediReg = registers.CPU_REGISTER_EDI
+            countReg = registers.CPU_REGISTER_ECX
+        if (self.registers.repPrefix):
+            countVal = self.registers.regRead(countReg)
+        if (countVal == 0):
+            return
+        
+        while (countVal > 0):
+            ediVal = self.registers.regRead(ediReg)
+            src1 = self.registers.regRead(eaxReg)
+            src2 = self.main.mm.mmReadValue(ediVal, operSize, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
+            #temp = src1-src2
+            self.registers.setFullFlags(src1, src2, operSize, misc.SET_FLAGS_SUB)
+            if (not self.registers.getFlag(registers.CPU_REGISTER_FLAGS, registers.FLAG_DF)):
+                self.registers.regAdd(ediReg, operSize)
+            else:
+                self.registers.regSub(ediReg, operSize)
+            countVal -= 1
+            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
+                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
+                break
+        self.registers.regWrite( countReg, countVal )
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     def inAlImm8(self):
         self.registers.regWrite(registers.CPU_REGISTER_AL, self.main.platform.inPort(self.cpu.getCurrentOpcodeAdd(), misc.OP_SIZE_8BIT))
     def inAxEaxImm8(self):
