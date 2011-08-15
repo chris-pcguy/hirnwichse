@@ -213,6 +213,7 @@ class Registers:
         self.segmentOverridePrefix = 0
         self.operandSizePrefix = False
         self.addressSizePrefix = False
+        self.cpl, self.iopl = 0, 0
     def regGetSize(self, regId): # return size in bits
         if (regId in CPU_REGISTER_QWORD):
             return misc.OP_SIZE_64BIT
@@ -242,6 +243,10 @@ class Registers:
             return regId
         if (regId < 20):
             raise NameError("regId is reserved! ({0})".format(regId))
+        
+        ##if (regId in CPU_REGISTER_CREG):
+        ##    raise NameError("protected mode not supported yet! ({0})".format(regId))
+        
         aregId = (regId-(regId%5))*8
         if (regId in CPU_REGISTER_QWORD):
             regValue = int.from_bytes(bytes=self.regs[aregId:aregId+8], byteorder=misc.BYTE_ORDER_BIG_ENDIAN, signed=signed)
@@ -260,6 +265,11 @@ class Registers:
         ##if (isinstance(regId, RegImm)):
         ##    regId.setValue(value)
         ##    return
+        
+        if (regId in CPU_REGISTER_CREG):
+            raise NameError("protected mode not supported yet! ({0})".format(regId))
+        
+        
         aregId = (regId-(regId%5))*8
         if (regId in CPU_REGISTER_QWORD):
             value &= 0xffffffffffffffff
@@ -297,38 +307,38 @@ class Registers:
         regSizeId = CPU_REGISTER_IP
         if (self.registers.segments.getOpSegSize(CPU_SEGMENT_CS) == misc.OP_SIZE_32BIT):
             regSizeId = CPU_REGISTER_EIP
-        self.registers.regRead(regSizeId, signed)
+        self.registers.regRead(regSizeId, signed=signed)
     def regWriteEip(self, value):
         regSizeId = CPU_REGISTER_IP
         if (self.registers.segments.getOpSegSize(CPU_SEGMENT_CS) == misc.OP_SIZE_32BIT):
             regSizeId = CPU_REGISTER_EIP
         self.registers.regWrite(regSizeId, value)
     def regAdd(self, regId, value, signed=False):
-        self.regWrite(regId, self.regRead(regId, signed)+value, signed)
+        self.regWrite(regId, self.regRead(regId, signed=signed)+value, signed=signed)
     def regSub(self, regId, value, signed=False):
-        self.regWrite(regId, self.regRead(regId, signed)-value, signed)
+        self.regWrite(regId, self.regRead(regId, signed=signed)-value, signed=signed)
     def regXor(self, regId, value, signed=False):
-        self.regWrite(regId, self.regRead(regId, signed)^value, signed)
+        self.regWrite(regId, self.regRead(regId, signed=signed)^value, signed=signed)
     def regAnd(self, regId, value, signed=False):
-        self.regWrite(regId, self.regRead(regId, signed)&value, signed)
+        self.regWrite(regId, self.regRead(regId, signed=signed)&value, signed=signed)
     def regOr (self, regId, value, signed=False):
-        self.regWrite(regId, self.regRead(regId, signed)|value, signed)
+        self.regWrite(regId, self.regRead(regId, signed=signed)|value, signed=signed)
     def regSetFlag(self, regId, value, signed=False):
-        self.regOr(regId, value, signed)
+        self.regOr(regId, value, signed=signed)
     def regNeg(self, regId, signed=False):
-        self.regWrite(regId, -self.regRead(regId, signed), signed)
+        self.regWrite(regId, -self.regRead(regId, signed=signed), signed=signed)
     def regNot(self, regId, signed=False):
-        self.regWrite(regId, ~self.regRead(regId, signed), signed)
+        self.regWrite(regId, ~self.regRead(regId, signed=signed), signed=signed)
     def regDelFlag(self, regId, value, signed=False): # by val, not bit
-        self.regWrite(regId, self.regRead(regId, signed)&(~value), signed)
-    def regDeleteBit(self, regId, bit, signed=False):
-        self.regWrite(regId, self.regRead(regId, signed)&(~(1<<bit)), signed)
-    def regSetBit(self, regId, bit, signed=False):
-        self.regWrite(regId, self.regRead(regId, signed)|(1<<bit), signed)
+        self.regWrite(regId, self.regRead(regId, signed=signed)&(~value), signed=signed)
+    def regDeleteBit(self, regId, bit):
+        self.regWrite(regId, self.regRead(regId)&(~(1<<bit)))
+    def regSetBit(self, regId, bit):
+        self.regWrite(regId, self.regRead(regId)|(1<<bit))
     def regInc(self, regId, signed=False):
-        self.regAdd(regId, 1, signed)
+        self.regAdd(regId, 1, signed=signed)
     def regDec(self, regId, signed=False):
-        self.regSub(regId, 1, signed)
+        self.regSub(regId, 1, signed=signed)
     def setEFLAG(self, flags, flagState):
         if (flagState):
             self.regSetFlag(CPU_REGISTER_EFLAGS, flags)
@@ -380,15 +390,20 @@ class Registers:
             self.setEFLAG(FLAG_OF, True)
         if (flags & FLAG_AC):
             self.setEFLAG(FLAG_AC, True)
-    def setSZP_O0(self, value, regSize):
-        self.clearFlags(FLAG_OF)
+    def setSZP(self, value, regSize):
         self.setEFLAG(FLAG_SF, (value&self.main.misc.getBitMask(regSize, half=True, minus=0))!=0)
         self.setEFLAG(FLAG_ZF, value==0)
         self.setEFLAG(FLAG_PF, PARITY_TABLE[value&0xff])
+    def setSZP_O0(self, value, regSize):
+        self.clearFlags(FLAG_OF)
+        self.setSZP(value, regSize)
     def setSZP_C0_O0(self, value, regSize):
         self.clearFlags(FLAG_CF)
         self.setSZP_O0(value, regSize)
     def setSZP_C0_O0_SubAF(self, value, regSize):
+        self.setSZP_C0_O0(value, regSize)
+        self.setEFLAG(FLAG_AF, 0)
+    def setSZP_C0_O0_AndAF(self, value, regSize):
         self.setSZP_C0_O0(value, regSize)
         self.setEFLAG(FLAG_AF, 0)
     def getDefaultSegment(self, segId=0):
@@ -397,15 +412,17 @@ class Registers:
             if (self.main.cpu.registers.segmentOverridePrefix):
                 segId = self.main.cpu.registers.segmentOverridePrefix
         return segId
-    def getRMValueFull(self, rmValue):
+    def getRMValueFull(self, rmValue, rmSize):
+        rmMask = self.main.misc.getBitMask(rmSize)
         rmValueFull =  self.regRead(rmValue[0])
         rmValueFull += self.regRead(rmValue[1])
         rmValueFull += rmValue[2]
+        rmValueFull &= rmMask
         return rmValueFull
     def modR_RMLoad(self, rmOperands, regSize, signed=False, allowOverride=True): # imm == unsigned ; disp == signed; regSize in bits
         mod, rmValue, regValue = rmOperands
         returnInt = 0
-        rmValueFull = self.getRMValueFull(rmValue[0])
+        rmValueFull = self.getRMValueFull(rmValue[0], regSize)
         if (mod in (0, 1, 2)):
             returnInt = self.main.mm.mmReadValue(rmValueFull, regSize, segId=rmValue[1], signed=signed, allowOverride=allowOverride)
         else:
@@ -424,7 +441,7 @@ class Registers:
     def modRM_RSave(self, rmOperands, regSize, value, signed=False, allowOverride=True): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
         value &= self.main.misc.getBitMask(regSize)
-        rmValueFull = self.getRMValueFull(rmValue[0])
+        rmValueFull = self.getRMValueFull(rmValue[0], regSize)
         if (mod in (0, 1, 2)):
             self.main.mm.mmWriteValue(rmValueFull, value, regSize, segId=rmValue[1], signed=signed, allowOverride=allowOverride)
         else:
@@ -537,7 +554,7 @@ class Registers:
             isResZero = regSumMasked==0
             self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&0xff])
             self.setEFLAG(FLAG_ZF, isResZero)
-            if ( (((reg0&0xf)-(reg1&0xf)) < regSum&0xf)):# or regSum<0)):# or regSum>bitMask) ):
+            if ( (((reg0&0xf)-(reg1&0xf)) < regSum&0xf) and reg1!=0):# or regSum<0)):# or regSum>bitMask) ):
                 afFlag = True
             self.setEFLAG(FLAG_AF, afFlag)
             self.setEFLAG(FLAG_CF, ( regSum<0 ) )
