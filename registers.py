@@ -421,8 +421,9 @@ class Registers:
         return rmValueFull
     def modR_RMLoad(self, rmOperands, regSize, signed=False, allowOverride=True): # imm == unsigned ; disp == signed; regSize in bits
         mod, rmValue, regValue = rmOperands
+        addrSize = self.segments.getAddrSegSize(CPU_SEGMENT_CS)
         returnInt = 0
-        rmValueFull = self.getRMValueFull(rmValue[0], regSize)
+        rmValueFull = self.getRMValueFull(rmValue[0], addrSize)
         if (mod in (0, 1, 2)):
             returnInt = self.main.mm.mmReadValue(rmValueFull, regSize, segId=rmValue[1], signed=signed, allowOverride=allowOverride)
         else:
@@ -440,8 +441,9 @@ class Registers:
         self.regWrite(regValue, value)
     def modRM_RSave(self, rmOperands, regSize, value, signed=False, allowOverride=True): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
+        addrSize = self.segments.getAddrSegSize(CPU_SEGMENT_CS)
         value &= self.main.misc.getBitMask(regSize)
-        rmValueFull = self.getRMValueFull(rmValue[0], regSize)
+        rmValueFull = self.getRMValueFull(rmValue[0], addrSize)
         if (mod in (0, 1, 2)):
             self.main.mm.mmWriteValue(rmValueFull, value, regSize, segId=rmValue[1], signed=signed, allowOverride=allowOverride)
         else:
