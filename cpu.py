@@ -19,8 +19,10 @@ class Cpu:
         self.savedCs  = 0
         self.savedEip = 0
         self.cpuHalted = False
+        self.cycles = 0
+        self.registers.reset()
     def getCurrentOpcodeAddr(self):
-        eipSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
+        eipSize = self.registers.segments.getSegSize(registers.CPU_SEGMENT_CS)
         eipSizeRegId = registers.CPU_REGISTER_IP
         opcodeAddr = 0
         if (eipSize not in (misc.OP_SIZE_16BIT, misc.OP_SIZE_32BIT)):
@@ -51,14 +53,21 @@ class Cpu:
         opcodeData = self.getCurrentOpcode(regSize, signed)
         self.registers.regAdd(regSizeId, regSize)
         return opcodeData
-    def exception(self, exceptionId):
+    def exception(self, exceptionId, errorCode=None):
         ####self.main.exitError("CPU Exception catched. (exceptionId: {0:d})", exceptionId)
-        self.registers.regWrite(registers.CPU_SEGMENT_CS, self.savedCs)
-        self.registers.regWrite(registers.CPU_REGISTER_EIP, self.savedEip)
+        if (exceptionId in misc.CPU_EXCEPTIONS_FAULT_GROUP):
+            self.registers.regWrite(registers.CPU_SEGMENT_CS, self.savedCs)
+            self.registers.regWrite(registers.CPU_REGISTER_EIP, self.savedEip)
+        if (exceptionId in misc.CPU_EXCEPTIONS_WITH_ERRORCODE):
+            if (errorCode==None):
+                self.main.exitError("CPU exception: errorCode should be set, is None.")
+                return
+            self.opcodes.interrupt(exceptionId, errorCode=errorCode)
+            return
         self.opcodes.interrupt(exceptionId)
-        ##self.opcodes.stackPushValue(0, misc.OP_SIZE_16BIT)
-        ##self.opcodes.stackPushValue(self.savedCs, misc.OP_SIZE_16BIT)
-        ##self.opcodes.stackPushValue(self.savedEip, misc.OP_SIZE_16BIT)
+    def isInProtectedMode(self):
+        return self.registers.getFlag(registers.CPU_REGISTER_CR0, registers.CR0_FLAG_PE) and \
+            self.registers.segments.gdt.flushed
     def parsePrefixes(self, opcode):
         while (opcode in misc.OPCODE_PREFIXES):
             if (opcode == misc.OPCODE_PREFIX_LOCK):
@@ -92,23 +101,24 @@ class Cpu:
         
         return opcode
     def doInfiniteCycles(self):
-        while True:
+        while (not self.main.quitEmu):
             if (self.cpuHalted and not self.main.exitIfCpuHalted):
                 time.sleep(0.5)
             elif (self.cpuHalted and self.main.exitIfCpuHalted):
                 break
             self.doCycle()
     def doCycle(self):
-        if (self.cpuHalted): return None
+        if (self.cpuHalted): return
+        self.cycles += 1
         self.registers.resetPrefixes()
         self.savedCs  = self.registers.regRead(registers.CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(registers.CPU_REGISTER_EIP)
         self.savedAddr = self.getCurrentOpcodeAddr()
         self.opcode = self.getCurrentOpcodeAdd()
-        self.main.debug("Current Opcode: {0:#04x}; It's Addr: {1:#010x}", self.opcode, self.savedAddr)
         if (self.opcode in misc.OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         
+        self.main.debug("Current Opcode: {0:#04x}; It's Addr: {1:#010x}", self.opcode, self.savedAddr)
         if (self.opcode in self.opcodes.opcodeList):
             self.opcodes.opcodeList[self.opcode]()
         else:

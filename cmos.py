@@ -13,6 +13,8 @@ CMOS_EXT_MEMORY_L      = 0x17
 CMOS_EXT_MEMORY_H      = 0x18
 CMOS_EXT_MEMORY_L2     = 0x30
 CMOS_EXT_MEMORY_H2     = 0x31
+CMOS_EXT_MEMORY2_L     = 0x34
+CMOS_EXT_MEMORY2_H     = 0x35
 CMOS_CHECKSUM_H        = 0x2e
 CMOS_CHECKSUM_L        = 0x2f
 
@@ -31,11 +33,16 @@ class Cmos:
         self.cmosData[CMOS_EQUIPMENT_BYTE]    = 0x29
         self.cmosData[CMOS_BASE_MEMORY_L]     = 0x80
         self.cmosData[CMOS_BASE_MEMORY_H]     = 0x02
-        self.cmosData[CMOS_EXT_MEMORY_L]      = 0x00
-        self.cmosData[CMOS_EXT_MEMORY_H]      = 0x3c
+        extMemSizeInK = (self.main.memSize//1024)-640
+        if (extMemSizeInK > 16384): # 16M
+            extMemSizeInK = 16384   # 16M
+        self.cmosData[CMOS_EXT_MEMORY_L]      = extMemSizeInK&0xff
+        self.cmosData[CMOS_EXT_MEMORY_H]      = (extMemSizeInK>>8)&0xff
         self.cmosData[CMOS_EXT_MEMORY_L2]     = self.cmosData[CMOS_EXT_MEMORY_L]
         self.cmosData[CMOS_EXT_MEMORY_H2]     = self.cmosData[CMOS_EXT_MEMORY_H]
-        
+        extMemSizeIn64K = extMemSizeInK//64
+        self.cmosData[CMOS_EXT_MEMORY2_L]      = extMemSizeIn64K&0xff
+        self.cmosData[CMOS_EXT_MEMORY2_H]      = (extMemSizeIn64K>>8)&0xff
     def makeCheckSum(self):
         checkSum = 0
         for i in range(0x10, 0x2e): # 0x10..0x2d
@@ -56,7 +63,7 @@ class Cmos:
     def outPort(self, ioPortAddr, data, dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0x70):
-                self.cmosIndex = data
+                self.cmosIndex = data&(~0x80)
             elif (ioPortAddr == 0x71):
                 self.cmosData[self.cmosIndex] = data
                 if (self.cmosIndex == CMOS_EXT_MEMORY_L):

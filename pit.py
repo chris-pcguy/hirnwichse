@@ -1,4 +1,7 @@
-import misc
+import misc, time
+
+COUNT_TIME=0.01
+
 
 class PitChannel:
     def __init__(self, main, pit):
@@ -11,6 +14,17 @@ class PitChannel:
         self.counterWriteMode = 0 # 1 == LSB ; 2 == MSB ; 3 == LSB;MSB
         self.counterValue = 0
         self.counterFlipFlop = False
+    def runTimer(self):
+        self.ps2 = self.main.platform.ps2
+        if (self.counterMode == 0): # mode 0
+            if (self.ps2.ppcbT2Gate):
+                self.ps2.ppcbT2Out = False
+            time.sleep(self.counterValue*COUNT_TIME)
+            self.counterValue = 0
+            if (self.ps2.ppcbT2Gate):
+                self.ps2.ppcbT2Out = True
+        else:
+            self.main.exitError("runTimer: counterMode {0:d} not supported yet.".format(self.counterMode))
 
 class Pit:
     def __init__(self, main):
@@ -59,7 +73,8 @@ class Pit:
                     else:
                         self.channels[channel].counterValue = ((data&0xff)<<8)|(self.channels[channel].counterValue&0xff)
                     self.channels[channel].counterFlipFlop = not self.channels[channel].counterFlipFlop
-                
+                if (not self.channels[channel].counterFlipFlop):
+                    self.channels[channel].runTimer()
             elif (ioPortAddr == 0x43):
                 bcd = data&1
                 modeNumber = (data>>1)&7

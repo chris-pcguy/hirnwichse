@@ -1,7 +1,7 @@
 
 import os
 
-import cmos, isadma, pic, pit, ps2, vga, floppy
+import cmos, isadma, pic, pit, ps2, vga, floppy, serial, parallel
 
 SIZE_64KB = 65536
 SIZE_128KB = 131072
@@ -17,13 +17,15 @@ class Platform:
         self.main = main
         self.readHandlers  = {}
         self.writeHandlers = {}
-        self.cmos    = cmos.Cmos(self.main)
-        self.isadma  = isadma.ISADma(self.main)
-        self.pic     = pic.Pic(self.main)
-        self.pit     = pit.Pit(self.main)
-        self.ps2     = ps2.PS2(self.main)
-        self.vga     = vga.Vga(self.main)
-        self.floppy  = floppy.Floppy(self.main)
+        self.cmos     = cmos.Cmos(self.main)
+        self.isadma   = isadma.ISADma(self.main)
+        self.pic      = pic.Pic(self.main)
+        self.pit      = pit.Pit(self.main)
+        self.ps2      = ps2.PS2(self.main)
+        self.vga      = vga.Vga(self.main)
+        self.floppy   = floppy.Floppy(self.main)
+        self.serial   = serial.Serial(self.main)
+        self.parallel = parallel.Parallel(self.main)
         
     def addHandlers(self, portNums, portHandler):
         self.addReadHandlers (portNums, portHandler)
@@ -45,13 +47,15 @@ class Platform:
             del self.writeHandlers[portNum]
     def inPort(self, portNum, dataSize):
         if (not portNum in self.readHandlers):
-            self.main.printMsg("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", portNum, dataSize)
+            self.main.debug("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", portNum, dataSize)
             return 0
+        self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", portNum, dataSize)
         return self.readHandlers[portNum](portNum, dataSize)
     def outPort(self, portNum, data, dataSize):
         if (not portNum in self.writeHandlers):
-            self.main.printMsg("outPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", portNum, dataSize)
+            self.main.debug("outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", portNum, data, dataSize)
             return
+        self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", portNum, data, dataSize)
         self.writeHandlers[portNum](portNum, data, dataSize)
     def loadRomToMem(self, romFileName, mmAddr, romSize):
         try:
@@ -106,6 +110,8 @@ class Platform:
         self.vga.run()
         self.floppy.run()
         self.ps2.run()
+        self.serial.run()
+        self.parallel.run()
         
 
 
