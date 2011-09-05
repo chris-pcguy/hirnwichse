@@ -1,12 +1,13 @@
 import misc, time
 
-COUNT_TIME=0.01
+CALCWITHTHIS = 3000 / 3579545 # so, reload_value * CALCWITHTHIS
 
 
 class PitChannel:
-    def __init__(self, main, pit):
+    def __init__(self, main, pit, channelId):
         self.main = main
         self.pit = pit
+        self.channelId = channelId
         self.reset()
     def reset(self):
         self.counterFormat = 0 # 0 == binary; 1 == BCD
@@ -16,21 +17,39 @@ class PitChannel:
         self.counterFlipFlop = False
     def runTimer(self):
         self.ps2 = self.main.platform.ps2
+        if (self.counterValue == 0):
+            self.counterValue = 65536 # 0x10000
         if (self.counterMode == 0): # mode 0
             if (self.ps2.ppcbT2Gate):
                 self.ps2.ppcbT2Out = False
-            time.sleep(self.counterValue*COUNT_TIME)
+            ####time.sleep(self.counterValue*CALCWITHTHIS)
+            time.sleep(1/(1193182/self.counterValue))
             self.counterValue = 0
             if (self.ps2.ppcbT2Gate):
                 self.ps2.ppcbT2Out = True
+            if (self.channelId == 0): # on mode0, just raise IRQ on channel0.
+                self.main.platform.pic.raiseIrq(0)
+            else:
+                self.main.printMsg("runTimer: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
+        elif (self.counterMode == 2): # mode 2
+            if (self.ps2.ppcbT2Gate):
+                self.ps2.ppcbT2Out = False
+            ####time.sleep(self.counterValue*CALCWITHTHIS)
+            time.sleep(1/(1193182/self.counterValue))
+            if (self.ps2.ppcbT2Gate):
+                self.ps2.ppcbT2Out = True
+            if (self.channelId == 0): # on mode2, just raise IRQ on channel0?
+                self.main.platform.pic.raiseIrq(0)
+            else:
+                self.main.printMsg("runTimer: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
         else:
             self.main.exitError("runTimer: counterMode {0:d} not supported yet.".format(self.counterMode))
 
 class Pit:
     def __init__(self, main):
         self.main = main
-        self.channels = (PitChannel(self.main, self), PitChannel(self.main, self),\
-                         PitChannel(self.main, self)) # channel 0-2
+        self.channels = (PitChannel(self.main, self, 0), PitChannel(self.main, self, 1),\
+                         PitChannel(self.main, self, 2)) # channel 0-2
         self.reset()
     def reset(self):
         self.channel = 0

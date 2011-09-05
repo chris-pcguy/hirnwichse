@@ -20,7 +20,12 @@ class Cpu:
         self.savedEip = 0
         self.cpuHalted = False
         self.cycles = 0
+        self.A20Active = False
         self.registers.reset()
+    def getA20State(self):
+        return self.A20Active
+    def setA20State(self, state):
+        self.A20Active = state
     def getCurrentOpcodeAddr(self):
         eipSize = self.registers.segments.getSegSize(registers.CPU_SEGMENT_CS)
         eipSizeRegId = registers.CPU_REGISTER_IP
@@ -101,12 +106,17 @@ class Cpu:
         
         return opcode
     def doInfiniteCycles(self):
-        while (not self.main.quitEmu):
-            if (self.cpuHalted and not self.main.exitIfCpuHalted):
-                time.sleep(0.5)
-            elif (self.cpuHalted and self.main.exitIfCpuHalted):
-                break
-            self.doCycle()
+        try:
+            while (not self.main.quitEmu):
+                if (self.cpuHalted and not self.main.exitIfCpuHalted):
+                    time.sleep(0.5)
+                elif (self.cpuHalted and self.main.exitIfCpuHalted):
+                    break
+                self.doCycle()
+        except KeyboardInterrupt:
+            sys.exit(1)
+        finally:
+            sys.exit(0)
     def doCycle(self):
         if (self.cpuHalted): return
         self.cycles += 1

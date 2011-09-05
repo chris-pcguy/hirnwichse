@@ -35,9 +35,13 @@ class ChEmu:
         #self.memSize = 67108864 # 64MB
         self.quitEmu = False
         if (self.testModeEnabled):
+            atexit.register(self.quitFuncForTest)
+        else:
             atexit.register(self.quitFunc)
     def quitFunc(self):
         self.quitEmu = True
+    def quitFuncForTest(self):
+        self.quitFunc()
         self.saveMemToFile(addr=0, size=1024, prefix=self.testModePrefix, suffix=self.testModeSuffix) # Addr: 0; Size: 1KB; 1.(first) KB.
     def exitError(self, errorStr, *errorStrArguments, errorExitCode=1):
         self.printMsg("ERROR: {0:s}".format(errorStr), *errorStrArguments)
@@ -69,9 +73,14 @@ class ChEmu:
         
         
         self.platform.run(self.memSize)
-        threading.Thread(target=self.cpu.run, name='cpu-0').start()
-        while (threading.active_count() > 1):
-            time.sleep(1)
+        try:
+            threading.Thread(target=self.cpu.run, name='cpu-0').start()
+            while (threading.active_count() > 1 and not self.quitEmu):
+                time.sleep(1)
+        except KeyboardInterrupt:
+            sys.exit(1)
+        finally:
+            sys.exit(0)
 
 
 

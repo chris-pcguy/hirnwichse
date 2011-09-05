@@ -222,7 +222,13 @@ class Segments:
         #else: # real mode
         return self.registers.regRead(segId)<<4
     def getRealAddr(self, segId, offsetAddr):
-        return (self.getBaseAddr(segId)+offsetAddr)
+        addr = (self.getBaseAddr(segId)+offsetAddr)
+        if (not self.cpu.isInProtectedMode):
+            if (self.cpu.getA20State()): # A20 Active? if True == on, else off
+                addr &= 0xffffff
+            else:
+                addr &= 0xfffff
+        return addr
     def getSegSize(self, segId): # segId == segments regId
         if (self.cpu.isInProtectedMode()): # protected mode enabled
             #self.main.exitError("GDT: protected mode not supported.")
@@ -390,10 +396,22 @@ class Registers:
         self.regWrite(regId, ~self.regRead(regId, signed=signed), signed=signed)
     def regDelFlag(self, regId, value, signed=False): # by val, not bit
         self.regWrite(regId, self.regRead(regId, signed=signed)&(~value), signed=signed)
-    def regDeleteBit(self, regId, bit):
-        self.regWrite(regId, self.regRead(regId)&(~(1<<bit)))
-    def regSetBit(self, regId, bit):
-        self.regWrite(regId, self.regRead(regId)|(1<<bit))
+    def regSetBit(self, regId, bit, state):
+        if (state):
+            self.regWrite(regId, self.regRead(regId)|(1<<bit))
+        else:
+            self.regWrite(regId, self.regRead(regId)&(~(1<<bit)))
+    def regGetBit(self, regId, bit): # return True if bit is set, otherwise False
+        bitMask = (1<<bit)
+        return (self.regRead(regId)&bitMask)!=0
+    def valSetBit(self, value, bit, state):
+        if (state):
+            return ( value | (1<<bit) )
+        else:
+            return ( value & (~(1<<bit)) )
+    def valGetBit(self, value, bit): # return True if bit is set, otherwise False
+        bitMask = (1<<bit)
+        return (value&bitMask)!=0
     def regInc(self, regId, signed=False):
         self.regAdd(regId, 1, signed=signed)
     def regDec(self, regId, signed=False):
@@ -478,7 +496,7 @@ class Registers:
         rmValueFull += rmValue[2]
         rmValueFull &= rmMask
         return rmValueFull
-    def modR_RMLoad(self, rmOperands, regSize, signed=False, allowOverride=True): # imm == unsigned ; disp == signed; regSize in bits
+    def modRMLoad(self, rmOperands, regSize, signed=False, allowOverride=True): # imm == unsigned ; disp == signed; regSize in bits
         mod, rmValue, regValue = rmOperands
         addrSize = self.segments.getAddrSegSize(CPU_SEGMENT_CS)
         returnInt = 0
@@ -489,16 +507,16 @@ class Registers:
             returnInt = self.regRead(rmValue[0][0], signed=signed)
         #returnInt &= self.main.misc.getBitMask(regSize)
         return returnInt
-    def modRM_RLoad(self, rmOperands, regSize, signed=False): # imm == unsigned ; disp == signed
+    def modRLoad(self, rmOperands, regSize, signed=False): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
         returnInt  = self.regRead(regValue, signed=signed)
         #returnInt &= self.main.misc.getBitMask(regSize)
         return returnInt
-    def modR_RMSave(self, rmOperands, regSize, value): # imm == unsigned ; disp == signed
+    def modRSave(self, rmOperands, regSize, value): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
         value &= self.main.misc.getBitMask(regSize)
         self.regWrite(regValue, value)
-    def modRM_RSave(self, rmOperands, regSize, value, signed=False, allowOverride=True): # imm == unsigned ; disp == signed
+    def modRMSave(self, rmOperands, regSize, value, signed=False, allowOverride=True): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
         addrSize = self.segments.getAddrSegSize(CPU_SEGMENT_CS)
         value &= self.main.misc.getBitMask(regSize)
