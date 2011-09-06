@@ -74,29 +74,29 @@ class Misc:
     #cdef object main
     def __init__(self, main):
         self.main = main
-    def getBitMask(self, bits, half=False, minus=1):
-        if (bits == OP_SIZE_8BIT):
+    def getBitMask(self, size, half=False, minus=1):
+        if (size == OP_SIZE_8BIT):
             if (half):
                 return ((1<<8)//2)-minus
             else:
                 return (1<<8)-minus
-        elif (bits == OP_SIZE_16BIT):
+        elif (size == OP_SIZE_16BIT):
             if (half):
                 return ((1<<16)//2)-minus
             else:
                 return (1<<16)-minus
-        elif (bits == OP_SIZE_32BIT):
+        elif (size == OP_SIZE_32BIT):
             if (half):
                 return ((1<<32)//2)-minus
             else:
                 return (1<<32)-minus
-        elif (bits == OP_SIZE_64BIT):
+        elif (size == OP_SIZE_64BIT):
             if (half):
                 return ((1<<64)//2)-minus
             else:
                 return (1<<64)-minus
         else:
-            self.main.exitError("Misc::getBitMask: bits not in (OP_SIZE_8BIT, OP_SIZE_16BIT, OP_SIZE_32BIT, OP_SIZE_64BIT)")
+            self.main.exitError("Misc::getBitMask: size not in (OP_SIZE_8BIT, OP_SIZE_16BIT, OP_SIZE_32BIT, OP_SIZE_64BIT)")
 
 
 

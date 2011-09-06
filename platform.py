@@ -51,7 +51,9 @@ class Platform:
             self.main.printMsg("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", portNum, dataSize)
             return 0
         self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", portNum, dataSize)
-        return self.readHandlers[portNum](portNum, dataSize)
+        retVal = self.readHandlers[portNum](portNum, dataSize)
+        self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", portNum, retVal, dataSize)
+        return retVal
     def outPort(self, portNum, data, dataSize):
         if (not portNum in self.writeHandlers):
             self.main.printMsg("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", portNum, data, dataSize)

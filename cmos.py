@@ -1,4 +1,4 @@
-import misc
+import misc, mm
 
 
 CMOS_STATUS_REGISTER_A = 0xa
@@ -22,39 +22,38 @@ CMOS_CHECKSUM_L        = 0x2f
 class Cmos:
     def __init__(self, main):
         self.main = main
-        self.cmosData = bytearray(256)
-        ##self.cmosData = numpy.zeros(256, dtype=numpy.bytes_, order='C')
+        self.configSpace = mm.ConfigSpace(128, self.main)
         self.cmosIndex = 0
         self.port80h_data = 0
 
-        self.cmosData[CMOS_STATUS_REGISTER_B] = 0x06
-        self.cmosData[CMOS_STATUS_REGISTER_D] = 0x80
-        self.cmosData[CMOS_FLOPPY_DRIVE_TYPE] = 0x40
-        self.cmosData[CMOS_EQUIPMENT_BYTE]    = 0x29
-        self.cmosData[CMOS_BASE_MEMORY_L]     = 0x80
-        self.cmosData[CMOS_BASE_MEMORY_H]     = 0x02
+        self.configSpace.csWriteValue(CMOS_STATUS_REGISTER_B, 0x06, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_STATUS_REGISTER_D, 0x80, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_FLOPPY_DRIVE_TYPE, 0x40, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_EQUIPMENT_BYTE, 0x29, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_BASE_MEMORY_L, 0x80, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_BASE_MEMORY_H, 0x02, misc.OP_SIZE_8BIT)
         extMemSizeInK = (self.main.memSize//1024)-640
         if (extMemSizeInK > 16384): # 16M
             extMemSizeInK = 16384   # 16M
-        self.cmosData[CMOS_EXT_MEMORY_L]      = extMemSizeInK&0xff
-        self.cmosData[CMOS_EXT_MEMORY_H]      = (extMemSizeInK>>8)&0xff
-        self.cmosData[CMOS_EXT_MEMORY_L2]     = self.cmosData[CMOS_EXT_MEMORY_L]
-        self.cmosData[CMOS_EXT_MEMORY_H2]     = self.cmosData[CMOS_EXT_MEMORY_H]
+        self.configSpace.csWriteValue(CMOS_EXT_MEMORY_L, extMemSizeInK&0xff, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_EXT_MEMORY_H, (extMemSizeInK>>8)&0xff, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_EXT_MEMORY_L2, self.configSpace.csReadValue(CMOS_EXT_MEMORY_L, misc.OP_SIZE_8BIT), misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_EXT_MEMORY_H2, self.configSpace.csReadValue(CMOS_EXT_MEMORY_H, misc.OP_SIZE_8BIT), misc.OP_SIZE_8BIT)
         extMemSizeIn64K = extMemSizeInK//64
-        self.cmosData[CMOS_EXT_MEMORY2_L]      = extMemSizeIn64K&0xff
-        self.cmosData[CMOS_EXT_MEMORY2_H]      = (extMemSizeIn64K>>8)&0xff
+        self.configSpace.csWriteValue(CMOS_EXT_MEMORY2_L, extMemSizeIn64K&0xff, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_EXT_MEMORY2_H, (extMemSizeIn64K>>8)&0xff, misc.OP_SIZE_8BIT)
     def makeCheckSum(self):
         checkSum = 0
         for i in range(0x10, 0x2e): # 0x10..0x2d
-            checkSum += self.cmosData[i]
-        self.cmosData[CMOS_CHECKSUM_L] = checkSum&0xff
-        self.cmosData[CMOS_CHECKSUM_H] = (checkSum>>8)&0xff
+            checkSum += self.configSpace.csReadValue(i, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_CHECKSUM_L, checkSum&0xff, misc.OP_SIZE_8BIT)
+        self.configSpace.csWriteValue(CMOS_CHECKSUM_H, (checkSum>>8)&0xff, misc.OP_SIZE_8BIT)
     def inPort(self, ioPortAddr, dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0x70):
                 return self.cmosIndex
             elif (ioPortAddr == 0x71):
-                return self.cmosData[self.cmosIndex]
+                return self.configSpace.csReadValue(self.cmosIndex, misc.OP_SIZE_8BIT)
             elif (ioPortAddr == 0x80):
                 return self.port80h_data
         else:
@@ -65,15 +64,15 @@ class Cmos:
             if (ioPortAddr == 0x70):
                 self.cmosIndex = data&(~0x80)
             elif (ioPortAddr == 0x71):
-                self.cmosData[self.cmosIndex] = data
+                self.configSpace.csWriteValue(self.cmosIndex, data, misc.OP_SIZE_8BIT)
                 if (self.cmosIndex == CMOS_EXT_MEMORY_L):
-                    self.cmosData[CMOS_EXT_MEMORY_L2] = data
+                    self.configSpace.csWriteValue(CMOS_EXT_MEMORY_L2, data, misc.OP_SIZE_8BIT)
                 elif (self.cmosIndex == CMOS_EXT_MEMORY_H):
-                    self.cmosData[CMOS_EXT_MEMORY_H2] = data
+                    self.configSpace.csWriteValue(CMOS_EXT_MEMORY_H2, data, misc.OP_SIZE_8BIT)
                 elif (self.cmosIndex == CMOS_EXT_MEMORY_L2):
-                    self.cmosData[CMOS_EXT_MEMORY_L] = data
+                    self.configSpace.csWriteValue(CMOS_EXT_MEMORY_L, data, misc.OP_SIZE_8BIT)
                 elif (self.cmosIndex == CMOS_EXT_MEMORY_H2):
-                    self.cmosData[CMOS_EXT_MEMORY_H] = data
+                    self.configSpace.csWriteValue(CMOS_EXT_MEMORY_H, data, misc.OP_SIZE_8BIT)
                 self.makeCheckSum()
             elif (ioPortAddr == 0x80):
                 self.port80h_data = data

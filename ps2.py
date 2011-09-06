@@ -18,6 +18,7 @@ class PS2:
         self.ppcbSpkr = False
         self.ppcbT2Out = False
         self.needWriteBytes = 0 # need to write $N bytes to 0x60
+        self.commandByte = 0
         self.lastCtrlCmdByte = 0
     def appendToOut(self, data):
         if (isinstance(data, int)):
@@ -56,14 +57,14 @@ class PS2:
         if (dataSize == misc.OP_SIZE_8BIT):
             if (ioPortAddr == 0x60):
                 if (self.needWriteBytes == 0):
-                    if (data == 0xfe):
-                        self.main.cpu.reset()
-                    elif (data == 0xee):
+                    if (data == 0xee):
                         self.appendToOut(0xee)
                     elif (data == 0xf4):
                         self.appendToOut(0xfa)
                     elif (data == 0xf5):
                         self.appendToOut(0xfa)
+                    elif (data == 0xfe):
+                        self.main.cpu.reset()
                     elif (data == 0xff):
                         self.appendToOut(b'\xfa\xaa')
                     else:
@@ -71,11 +72,18 @@ class PS2:
                 else:
                     if (self.lastCtrlCmdByte == 0xd1):
                         self.main.cpu.setA20State( (data & PS2_A20) != 0 )
+                    elif (self.lastCtrlCmdByte == 0x60):
+                        self.commandByte = data
+                    else:
+                        self.main.printMsg("outPort: data {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastCtrlCmdByte=={3:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastCtrlCmdByte)
                     self.needWriteBytes -= 1
+                    
             elif (ioPortAddr == 0x64):
                 self.lastCtrlCmdByte = data
-                if (data == 0x60): # write keyboard mode
-                    pass
+                if (data == 0x20): # read keyboard mode
+                    self.appendToOut(self.commandByte)
+                elif (data == 0x60): # write keyboard mode
+                    self.needWriteBytes = 1
                 elif (data == 0xa8): # activate mouse
                     pass
                 elif (data == 0xae): # activate keyboard

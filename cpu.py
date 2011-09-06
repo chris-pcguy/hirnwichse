@@ -129,8 +129,9 @@ class Cpu:
             self.opcode = self.parsePrefixes(self.opcode)
         
         self.main.debug("Current Opcode: {0:#04x}; It's Addr: {1:#010x}", self.opcode, self.savedAddr)
-        if (self.opcode in self.opcodes.opcodeList):
-            self.opcodes.opcodeList[self.opcode]()
+        opcodeHandle = self.opcodes.opcodeList.get(self.opcode)
+        if (opcodeHandle):
+            opcodeHandle()
         else:
             self.main.printMsg("Opcode not found. (opcode: {0:#04x}; addr: {1:#07x})", self.opcode, self.savedAddr)
             self.exception(misc.CPU_EXCEPTION_UD)

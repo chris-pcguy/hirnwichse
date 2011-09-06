@@ -695,6 +695,41 @@ class Registers:
         rmOperands = self.modRMOperands(regSize, modRMflags=modRMflags)
         self.regWrite( CPU_REGISTER_EIP, oldEip )
         return rmOperands
+    def getCond(self, index):
+        if (index == 0x0): # O
+            return (self.getEFLAG( FLAG_OF ))
+        elif (index == 0x1): # NO
+            return (not self.getEFLAG( FLAG_OF ))
+        elif (index == 0x2): # C
+            return (self.getEFLAG( FLAG_CF ))
+        elif (index == 0x3): # NC
+            return (not self.getEFLAG( FLAG_CF ))
+        elif (index == 0x4): # E
+            return (self.getEFLAG( FLAG_ZF ))
+        elif (index == 0x5): # NE
+            return (not self.getEFLAG( FLAG_ZF ))
+        elif (index == 0x6): # NA
+            return ((self.getEFLAG( FLAG_CF )) or (self.getEFLAG( FLAG_ZF )))
+        elif (index == 0x7): # A
+            return ((not self.getEFLAG( FLAG_CF )) and (not self.getEFLAG( FLAG_ZF )))
+        elif (index == 0x8): # S
+            return (self.getEFLAG( FLAG_SF ))
+        elif (index == 0x9): # NS
+            return (not self.getEFLAG( FLAG_SF ))
+        elif (index == 0xa): # P
+            return (self.getEFLAG( FLAG_PF ))
+        elif (index == 0xb): # NP
+            return (not self.getEFLAG( FLAG_PF ))
+        elif (index == 0xc): # L
+            return ((self.getEFLAG( FLAG_SF )) != (self.getEFLAG( FLAG_OF )))
+        elif (index == 0xd): # GE
+            return ((self.getEFLAG( FLAG_SF )) == (self.getEFLAG( FLAG_OF )))
+        elif (index == 0xe): # LE
+            return ((self.getEFLAG( FLAG_ZF )) or ((self.getEFLAG( FLAG_SF )) != (self.getEFLAG( FLAG_OF ))) )
+        elif (index == 0xf): # G
+            return ((not self.getEFLAG( FLAG_ZF )) and ((self.getEFLAG( FLAG_SF )) == (self.getEFLAG( FLAG_OF ))) )
+        else:
+            self.main.exitError("getCond: index {0:#x} invalid.", index)
     def setFullFlags(self, reg0, reg1, regSize, method, signed=False): # regSize in bits
         regSum = 0
         regSumMasked = 0

@@ -91,4 +91,36 @@ class Mm:
         return self.mmWriteValue(mmAddr, self.mmReadValue(mmAddr, dataSize, segId, signed)-data, dataSize, segId)
 
 
+class ConfigSpace:
+    def __init__(self, csSize, main):
+        self.csSize = csSize
+        self.main   = main
+        self.csData = bytearray(self.csSize)
+    def csRead(self, offset, size):
+        return self.csData[offset:offset+size]
+    def csWrite(self, offset, data, size): # dataSize in bytes; use 'signed' only if writing 'int'
+        realSize = len(data)
+        if (realSize != size):
+            self.main.exitError("tried write to {0:#x} with invalid size. (realSize: {1:d}, wrongSize: {2:d})", offset, realSize, size)
+            return 0
+        self.csData[offset:offset+size] = data
+        return size
+    def csReadValue(self, offset, size, signed=False): # dataSize in bytes
+        data = self.csRead(offset, size)
+        retData = int.from_bytes(data, byteorder=misc.BYTE_ORDER_LITTLE_ENDIAN, signed=signed)
+        return retData
+    def csWriteValue(self, offset, data, size): # dataSize in bytes
+        bytesData = data.to_bytes(length=size, byteorder=misc.BYTE_ORDER_LITTLE_ENDIAN)
+        return self.csWrite(offset, bytesData, size)
+    def csAddValue(self, offset, data, size): # dataSize in bytes, data==int
+        return self.csWriteValue(offset, self.csReadValue(offset, size, signed)+data, size)
+    def csSubValue(self, offset, data, size): # dataSize in bytes, data==int
+        return self.csWriteValue(offset, self.csReadValue(offset, size, signed)-data, size)
+
+
+
+
+
+
+
 
