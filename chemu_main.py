@@ -76,7 +76,7 @@ class ChEmu:
         try:
             threading.Thread(target=self.cpu.run, name='cpu-0').start()
             while (threading.active_count() > 1 and not self.quitEmu):
-                time.sleep(1)
+                time.sleep(10)
         except KeyboardInterrupt:
             sys.exit(1)
         finally:

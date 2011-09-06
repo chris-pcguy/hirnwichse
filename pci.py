@@ -14,9 +14,9 @@ PCI_PRIMARY_BUS = 0x18
 PCI_SECONDARY_BUS = 0x19
 PCI_SUBORDINATE_BUS = 0x1a
 
-
-PCI_CLASS_BRIDGE_PCI = 0x0604
-PCI_VENDOR_ID_INTEL  = 0x8086
+PCI_CLASS_BRIDGE_HOST = 0x0600
+PCI_CLASS_BRIDGE_PCI  = 0x0604
+PCI_VENDOR_ID_INTEL   = 0x8086
 PCI_DEVICE_ID_INTEL_430FX = 0x122d
 
 PCI_HEADER_TYPE_BRIDGE = 1
@@ -52,7 +52,7 @@ class PciBridge(PciDevice):
     def __init__(self, bus, pci, main):
         PciDevice.__init__(self, bus, pci, main)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_430FX)
-        self.setClassDevice(PCI_CLASS_BRIDGE_PCI)
+        self.setClassDevice(PCI_CLASS_BRIDGE_HOST)
         self.setData(0, PCI_PRIMARY_BUS, 0, misc.OP_SIZE_8BIT)
         self.setData(0, PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, misc.OP_SIZE_8BIT)
     
@@ -61,7 +61,7 @@ class PciBus:
     def __init__(self, pci, main):
         self.pci = pci
         self.main = main
-        self.deviceList = {0x00: PciBridge(self, self.pci, self.main), 0x01: PciBridge(self, self.pci, self.main)}
+        self.deviceList = {0x00: PciBridge(self, self.pci, self.main)}
     def getDeviceByIndex(self, index):
         deviceHandle = self.deviceList.get(index)
         return deviceHandle

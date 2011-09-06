@@ -1,8 +1,5 @@
 import misc
 
-#import numpy
-#cimport numpy
-
 # Parity Flag Table: DO NOT EDIT!!
 PARITY_TABLE = [True, False, False, True, False, True, True, False, False, True,
                 True, False, True, False, False, True, False, True, True, False,
@@ -31,6 +28,8 @@ PARITY_TABLE = [True, False, False, True, False, True, True, False, False, True,
                 True, False, False, True, False, True, True, False, False, True,
                 True, False, True, False, False, True]
 
+CPU_MIN_REGISTER = 20
+CPU_REGISTER_NONE = 0
 CPU_REGISTER_RAX = 20
 CPU_REGISTER_EAX = 21
 CPU_REGISTER_AX  = 22
@@ -137,30 +136,6 @@ GDT_FLAG_AVAILABLE = 0x1
 
 
 
-class RegImm:
-    def __init__(self, main, value, regSize):
-        self.main = main
-        self.setValue(value, regSize)
-    def getValue(self, regSize, signed=False):
-        if (regSize == 0 and signed):
-            self.main.exitError("RegImm: getValue: regSize == 0 and signed == True;; not supported yet.")
-            return
-        elif (regSize == 0):
-            return self.value
-        bitMask = self.main.misc.getBitMask(regSize)
-        halfBitMask = self.main.misc.getBitMask(regSize, half=True, minus=0)
-        self.value &= bitMask
-        if (signed and self.value&halfBitMask):
-            return self.value-(bitMask+1)
-        return self.value
-    def setValue(self, value, regSize):
-        bitMask = self.main.misc.getBitMask(regSize)
-        self.value = value&bitMask
-        self.regSize = regSize
-    
-
-
-
 
 
 class Gdt:
@@ -216,8 +191,6 @@ class Segments:
         if (segId != 0 and segId not in CPU_SEGMENTS):
             self.main.exitError("getBaseAddr: segId not in CPU_SEGMENTS")
         if (self.cpu.isInProtectedMode()): # protected mode enabled
-            #self.main.exitError("GDT: protected mode not supported.")
-            #return
             return self.gdt.getEntry(self.registers.regRead(segId))[0]
         #else: # real mode
         return self.registers.regRead(segId)<<4
@@ -231,8 +204,6 @@ class Segments:
         return addr
     def getSegSize(self, segId): # segId == segments regId
         if (self.cpu.isInProtectedMode()): # protected mode enabled
-            #self.main.exitError("GDT: protected mode not supported.")
-            #return
             return self.gdt.getSegSize(self.registers.regRead(segId))
         #else: # real mode
         return misc.OP_SIZE_16BIT
@@ -254,21 +225,10 @@ class Segments:
             self.main.exitError("getAddrSegSize: segSize is not valid. ({0:d})", segSize)
 
 class Registers:
-    #cdef object main
-    #cdef object cpu
-    #cdef object segments
-    #cdef object main, cpu, segments
-    ##cdef numpy.ndarray[numpy.uint8_t, ndim=1, mode="c"] regs
-    #cdef numpy.ndarray regs
-    #cpdef lockPrefix, branchPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, addressSizePrefix
-    #pdef bytearray regs
     def __init__(self, main, cpu):
         self.main, self.cpu = main, cpu
         self.regs = bytearray(CPU_REGISTER_LENGTH)
-        ##self.regs = numpy.zeros(CPU_REGISTER_LENGTH, dtype=numpy.bytes_, order='C')
-        ##self.regs = numpy.zeros()##(numpy.uint8_t, ndim=1, mode="c")
         self.segments = Segments(self.main, self.cpu, self)
-        ###self.regSetFlag = self.regOr
         self.reset()
     def reset(self):
         self.regs = bytearray(CPU_REGISTER_LENGTH)
@@ -304,12 +264,10 @@ class Registers:
             return (uint&bitMask)-minusInt
         else:
             return uint&bitMask
-    def regRead(self, regId, signed=False, regIdIsVal=False): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
-        if (isinstance(regId, RegImm)):
-            return regId.getValue(0, signed=signed)
-        if (regIdIsVal or regId == 0):
-            return regId
-        if (regId < 20):
+    def regRead(self, regId, signed=False): #, regIdIsVal=False): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
+        if (regId == CPU_REGISTER_NONE):
+            return 0
+        if (regId < CPU_MIN_REGISTER):
             raise NameError("regId is reserved! ({0})".format(regId))
         
         regValue = 0
@@ -328,44 +286,25 @@ class Registers:
             raise NameError("regId is unknown! ({0})".format(regId))
         return regValue
     def regWrite(self, regId, value, signed=False): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
-        if (isinstance(regId, RegImm)):
-            return regId.setValue(value, 0)
-        
-        #if (regId in CPU_REGISTER_CREG):
-        #    raise NameError("protected mode not supported yet! ({0})".format(regId))
-        
+        if (regId < CPU_MIN_REGISTER):
+            raise NameError("regId is reserved! ({0})".format(regId))
         
         aregId = (regId-(regId%5))*8
         if (regId in CPU_REGISTER_QWORD):
             value &= 0xffffffffffffffff
             self.regs[aregId:aregId+8] = value.to_bytes(length=8, byteorder=misc.BYTE_ORDER_BIG_ENDIAN, signed=signed)
-            ##if (signed and value & 0x8000000000000000):
-            ##    value -= 0x10000000000000000
-            ##self.regs[aregId:aregId+8] = value
         elif (regId in CPU_REGISTER_DWORD):
             value &= 0xffffffff
             self.regs[aregId+4:aregId+8] = value.to_bytes(length=4, byteorder=misc.BYTE_ORDER_BIG_ENDIAN, signed=signed)
-            ##if (signed and value & 0x80000000):
-            ##    value -= 0x100000000
-            ##self.regs[aregId+4:aregId+8] = value
         elif (regId in CPU_REGISTER_WORD):
             value &= 0xffff
             self.regs[aregId+6:aregId+8] = value.to_bytes(length=2, byteorder=misc.BYTE_ORDER_BIG_ENDIAN, signed=signed)
-            ##if (signed and value & 0x8000):
-            ##    value -= 0x10000
-            ##self.regs[aregId+6:aregId+8] = value
         elif (regId in CPU_REGISTER_HBYTE):
             value &= 0xff
             self.regs[aregId+6] = ord(value.to_bytes(length=1, byteorder=misc.BYTE_ORDER_BIG_ENDIAN, signed=signed))
-            ##if (signed and value & 0x80):
-            ##    value -= 0x100
-            ##self.regs[aregId+6] = value
         elif (regId in CPU_REGISTER_LBYTE):
             value &= 0xff
             self.regs[aregId+7] = ord(value.to_bytes(length=1, byteorder=misc.BYTE_ORDER_BIG_ENDIAN, signed=signed))
-            ##if (signed and value & 0x80):
-            ##    value -= 0x100
-            ##self.regs[aregId+7] = value
         else:
             raise NameError("regId is unknown! ({0})".format(regId))
     def regReadEip(self, signed=False):
@@ -505,12 +444,10 @@ class Registers:
             returnInt = self.main.mm.mmReadValue(rmValueFull, regSize, segId=rmValue[1], signed=signed, allowOverride=allowOverride)
         else:
             returnInt = self.regRead(rmValue[0][0], signed=signed)
-        #returnInt &= self.main.misc.getBitMask(regSize)
         return returnInt
     def modRLoad(self, rmOperands, regSize, signed=False): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
         returnInt  = self.regRead(regValue, signed=signed)
-        #returnInt &= self.main.misc.getBitMask(regSize)
         return returnInt
     def modRSave(self, rmOperands, regSize, value): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
@@ -547,46 +484,42 @@ class Registers:
         return regValue
     def sibOperands(self, mod):
         sibByte = self.cpu.getCurrentOpcodeAdd()
-        ss    = (sibByte>>6)&3
-        base  = (sibByte)&7
-        index = (sibByte>>3)&7
+        bitMask = 0xffffffff
+        base    = (sibByte)&7
+        index   = (sibByte>>3)&7
+        ss      = (sibByte>>6)&3
+        rmBase  = CPU_REGISTER_NONE
+        rmIndex = 0
         rmValueSegId = CPU_SEGMENT_DS
         
-        
-        
-        
         if (index == 0):
-            rmValue1 = CPU_REGISTER_EAX
+            indexReg = CPU_REGISTER_EAX
         elif (index == 1):
-            rmValue1 = CPU_REGISTER_ECX
+            indexReg = CPU_REGISTER_ECX
         elif (index == 2):
-            rmValue1 = CPU_REGISTER_EDX
+            indexReg = CPU_REGISTER_EDX
         elif (index == 3):
-            rmValue1 = CPU_REGISTER_EBX
+            indexReg = CPU_REGISTER_EBX
         elif (index == 4):
-            #self.main.exitError("sibOperands: rm == 4, not implemented.")
-            rmValue1 = RegImm(self.main, 0, regSize=misc.OP_SIZE_32BIT)
+            indexReg = CPU_REGISTER_NONE
         elif (index == 5):
-            rmValue1 = CPU_REGISTER_EBP
+            indexReg = CPU_REGISTER_EBP
         elif (index == 6):
-            rmValue1 = CPU_REGISTER_ESI
+            indexReg = CPU_REGISTER_ESI
         elif (index == 7):
-            rmValue1 = CPU_REGISTER_EDI
+            indexReg = CPU_REGISTER_EDI
         
-        rmValue1 = RegImm( self.main, (self.regRead( rmValue1 ) * (1 << ss)), regSize=misc.OP_SIZE_32BIT )
+        rmIndex = (self.regRead( indexReg ) * (1 << ss))&bitMask
         
         if (mod == 0 and base == 5):
-            rmValue0 = RegImm( self.main, self.cpu.getCurrentOpcodeAdd(misc.OP_SIZE_32BIT), regSize=misc.OP_SIZE_32BIT )
-        #elif (mod != 0 and base == 5):
-        #    self.main.exitError("sibOperands: mod != 0  and base == 5, not implemented.")
+            rmIndex += self.cpu.getCurrentOpcodeAdd(misc.OP_SIZE_32BIT, signed=False)
         else:
-            rmValue0 = self.getRegValueWithFlags(0, base, misc.OP_SIZE_32BIT)
-        if (rmValue0 in (CPU_REGISTER_ESP, CPU_REGISTER_EBP)):
+            rmBase = self.getRegValueWithFlags(0, base, misc.OP_SIZE_32BIT)
+        if (rmBase in (CPU_REGISTER_ESP, CPU_REGISTER_EBP)):
             rmValueSegId = CPU_SEGMENT_SS
         
         
-        # rmValue0 == base; rmValue1 == index
-        return rmValue0, rmValueSegId, rmValue1
+        return rmBase, rmValueSegId, rmIndex
     def modRMOperands(self, regSize, modRMflags=0): # imm == unsigned ; disp == signed ; regSize in bits
         modRMByte = self.cpu.getCurrentOpcodeAdd()
         rm  = modRMByte&0x7
@@ -611,34 +544,26 @@ class Registers:
                     rmValue1 = CPU_REGISTER_SI
                 elif (rm in (1, 3)):
                     rmValue1 = CPU_REGISTER_DI
-                ###if (regSize == misc.OP_SIZE_8BIT):
-                ###    regValue = CPU_REGISTER_BYTE[reg]
-                ###else:
-                ###    regValue = self.getRegValueWithFlags(modRMflags, reg)
                 regValue  = self.getRegValueWithFlags(modRMflags, reg, regSize) # source
                 if (mod == 0 and rm == 6):
-                    rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=2, signed=False)
+                    rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=misc.OP_SIZE_16BIT, signed=False)
                 elif (mod == 2):
-                    rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=2, signed=True)
+                    rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=misc.OP_SIZE_16BIT, signed=True)
                 elif (mod == 1):
-                    rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=1, signed=True)
+                    rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=misc.OP_SIZE_8BIT, signed=True)
             elif (mod == 3): # reg: source ; rm: dest
                 regValue  = self.getRegValueWithFlags(modRMflags, reg, regSize) # source
                 if (regSize == misc.OP_SIZE_8BIT):
-                    ###regValue  = CPU_REGISTER_BYTE[reg] # source
                     rmValue0  = CPU_REGISTER_BYTE[rm] # dest
                 elif (regSize == misc.OP_SIZE_16BIT):
-                    ###regValue  = self.getRegValueWithFlags(modRMflags, reg) # source
                     rmValue0  = CPU_REGISTER_WORD[rm] # dest
                 elif (regSize == misc.OP_SIZE_32BIT):
-                    ###regValue  = self.getRegValueWithFlags(modRMflags, reg) # source
                     rmValue0  = CPU_REGISTER_DWORD[rm] # dest
                 else:
                     self.main.exitError("modRMOperands: mod==3; regSize {0:d} not in (misc.OP_SIZE_8BIT, misc.OP_SIZE_16BIT, misc.OP_SIZE_32BIT)", regSize)
             else:
                 self.main.exitError("modRMOperands: mod not in (0,1,2)")
         elif (self.segments.getAddrSegSize(CPU_SEGMENT_CS) == misc.OP_SIZE_32BIT):
-            #self.main.exitError("modRMOperands: 32bits NOT SUPPORTED YET.")
             if (mod in (0, 1, 2)): # rm: source ; reg: dest
                 if (rm == 0):
                     rmValue0 = CPU_REGISTER_EAX
@@ -648,40 +573,34 @@ class Registers:
                     rmValue0 = CPU_REGISTER_EDX
                 elif (rm == 3):
                     rmValue0 = CPU_REGISTER_EBX
-                elif (mod == 0 and rm == 5):
-                    rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=4, signed=False)
-                elif (mod != 0 and rm == 5):
-                    rmValue0 = CPU_REGISTER_EBP
-                    rmValueSegId = CPU_SEGMENT_SS
                 elif (rm == 4): # SIB
-                    rmValue0, rmValueSegId, rmValue1 = self.sibOperands(mod)
+                    rmValue0, rmValueSegId, rmValue2 = self.sibOperands(mod)
+                elif (rm == 5):
+                    if (mod == 0):
+                        rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=misc.OP_SIZE_32BIT, signed=False)
+                    else:
+                        rmValue0 = CPU_REGISTER_EBP
+                        rmValueSegId = CPU_SEGMENT_SS
                 elif (rm == 6):
                     rmValue0 = CPU_REGISTER_ESI
                 elif (rm == 7):
                     rmValue0 = CPU_REGISTER_EDI
                 if (mod == 1):
-                    rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=1, signed=True)
+                    rmValue2 += self.cpu.getCurrentOpcodeAdd(numBytes=misc.OP_SIZE_8BIT, signed=True)
                 elif (mod == 2):
-                    rmValue2 = self.cpu.getCurrentOpcodeAdd(numBytes=4, signed=True)
+                    rmValue2 += self.cpu.getCurrentOpcodeAdd(numBytes=misc.OP_SIZE_32BIT, signed=True)
                 
                 
                 
-                ###if (regSize == misc.OP_SIZE_8BIT):
-                ###    regValue = CPU_REGISTER_BYTE[reg]
-                ###else:
-                ###    regValue = self.getRegValueWithFlags(modRMflags, reg)
                 regValue  = self.getRegValueWithFlags(modRMflags, reg, regSize) # source
                 
             elif (mod == 3): # reg: source ; rm: dest
                 regValue  = self.getRegValueWithFlags(modRMflags, reg, regSize) # source
                 if (regSize == misc.OP_SIZE_8BIT):
-                    ###regValue  = CPU_REGISTER_BYTE[reg] # source
                     rmValue0  = CPU_REGISTER_BYTE[rm] # dest
                 elif (regSize == misc.OP_SIZE_16BIT):
-                    ###regValue  = self.getRegValueWithFlags(modRMflags, reg) # source
                     rmValue0  = CPU_REGISTER_WORD[rm] # dest
                 elif (regSize == misc.OP_SIZE_32BIT):
-                    ###regValue  = self.getRegValueWithFlags(modRMflags, reg) # source
                     rmValue0  = CPU_REGISTER_DWORD[rm] # dest
                 else:
                     self.main.exitError("modRMOperands: mod==3; regSize {0:d} not in (misc.OP_SIZE_8BIT, misc.OP_SIZE_16BIT, misc.OP_SIZE_32BIT)", regSize)

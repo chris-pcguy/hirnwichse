@@ -16,13 +16,12 @@ class MmArea:
         return self.mmAreaData[mmAreaAddr:mmAreaAddr+dataSize]
     def mmAreaWrite(self, mmPhyAddr, data, dataSize, signed=False): # dataSize in bytes; use 'signed' only if writing 'int'
         mmAreaAddr = mmPhyAddr-self.mmBaseAddr
-        realDataSize = 0
         ###if (isinstance(data, int)):
         ###    data = data.to_bytes(length=dataSize, byteorder=misc.BYTE_ORDER_LITTLE_ENDIAN, signed=signed)
-        realDataSize = len(data)
-        if (realDataSize != dataSize):
-            self.main.exitError("tried write to {0:#x} with invalid dataSize. (realDataSize: {1:d}, wrongDataSize: {2:d})", mmPhyAddr, realDataSize, dataSize)
-            return 0
+        #realDataSize = len(data)
+        #if (realDataSize != dataSize):
+        #    self.main.exitError("tried write to {0:#x} with invalid dataSize. (realDataSize: {1:d}, wrongDataSize: {2:d})", mmPhyAddr, realDataSize, dataSize)
+        #    return 0
         self.mmAreaData[mmAreaAddr:mmAreaAddr+dataSize] = data
         return dataSize
 
@@ -99,10 +98,10 @@ class ConfigSpace:
     def csRead(self, offset, size):
         return self.csData[offset:offset+size]
     def csWrite(self, offset, data, size): # dataSize in bytes; use 'signed' only if writing 'int'
-        realSize = len(data)
-        if (realSize != size):
-            self.main.exitError("tried write to {0:#x} with invalid size. (realSize: {1:d}, wrongSize: {2:d})", offset, realSize, size)
-            return 0
+        #realSize = len(data)
+        #if (realSize != size):
+        #    self.main.exitError("tried write to {0:#x} with invalid size. (realSize: {1:d}, wrongSize: {2:d})", offset, realSize, size)
+        #    return 0
         self.csData[offset:offset+size] = data
         return size
     def csReadValue(self, offset, size, signed=False): # dataSize in bytes
