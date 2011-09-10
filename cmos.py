@@ -56,6 +56,8 @@ class Cmos:
                 return self.configSpace.csReadValue(self.cmosIndex, misc.OP_SIZE_8BIT)
             elif (ioPortAddr == 0x80):
                 return self.port80h_data
+            elif (ioPortAddr == 0x510): # qemu cfg read handler
+                return 0
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
@@ -77,11 +79,14 @@ class Cmos:
             elif (ioPortAddr == 0x80):
                 self.port80h_data = data
         else:
-            self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
+            if (ioPortAddr == 0x510): # qemu cfg write handler
+                pass
+            else:
+                self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
     def run(self):
-        self.main.platform.addReadHandlers((0x70, 0x71, 0x80), self.inPort)
-        self.main.platform.addWriteHandlers((0x70, 0x71, 0x80), self.outPort)
+        self.main.platform.addReadHandlers((0x70, 0x71, 0x80,0x511), self.inPort)
+        self.main.platform.addWriteHandlers((0x70, 0x71, 0x80,0x510), self.outPort)
 
 
 

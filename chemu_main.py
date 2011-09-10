@@ -1,5 +1,5 @@
 
-import sys, argparse, threading, time, atexit
+import sys, argparse, threading, time, atexit, _thread
 
 import platform, mm, cpu, misc
 
@@ -34,6 +34,7 @@ class ChEmu:
         #self.memSize = 33554432 # 32MB
         #self.memSize = 67108864 # 64MB
         self.quitEmu = False
+        self.exitCode = 0
         if (self.testModeEnabled):
             atexit.register(self.quitFuncForTest)
         else:
@@ -43,9 +44,12 @@ class ChEmu:
     def quitFuncForTest(self):
         self.quitFunc()
         self.saveMemToFile(addr=0, size=1024, prefix=self.testModePrefix, suffix=self.testModeSuffix) # Addr: 0; Size: 1KB; 1.(first) KB.
-    def exitError(self, errorStr, *errorStrArguments, errorExitCode=1):
+    def exitError(self, errorStr, *errorStrArguments, errorExitCode=1, exitNow=False):
+        self.exitCode = errorExitCode
+        self.quitFunc()
         self.printMsg("ERROR: {0:s}".format(errorStr), *errorStrArguments)
-        sys.exit(errorExitCode)
+        if (exitNow):
+            sys.exit(errorExitCode)
     def debug(self, debugStr, *debugStrArguments):
         if (self.debugEnabled):
             self.printMsg(debugStr, *debugStrArguments)
@@ -66,21 +70,18 @@ class ChEmu:
         self.mm = mm.Mm(self)
         self.cpu = cpu.Cpu(self)
         
-        ##self.misc = misc.Misc(self)
-        ##self.mm = mm.Mm(self)
-        ##self.platform = platform.Platform(self)
-        ##self.cpu = cpu.Cpu(self)
-        
-        
-        self.platform.run(self.memSize)
         try:
-            threading.Thread(target=self.cpu.run, name='cpu-0').start()
+            self.platform.run(self.memSize)
+            self.cpu.run()
+            #threading.Thread(target=self.cpu.run, name='cpu-0').start()
             while (threading.active_count() > 1 and not self.quitEmu):
-                time.sleep(10)
-        except KeyboardInterrupt:
-            sys.exit(1)
+                if (self.quitEmu):
+                    break
+                time.sleep(2)
+        except (SystemExit, KeyboardInterrupt):
+            sys.exit(self.exitCode)
         finally:
-            sys.exit(0)
+            sys.exit(self.exitCode)
 
 
 

@@ -1,7 +1,7 @@
 
 import os
 
-import cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel
+import cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel, gdbstub
 
 SIZE_64KB = 65536
 SIZE_128KB = 131072
@@ -27,7 +27,7 @@ class Platform:
         self.floppy   = floppy.Floppy(self.main)
         self.serial   = serial.Serial(self.main)
         self.parallel = parallel.Parallel(self.main)
-        
+        self.gdbstub  = gdbstub.GDBStub(self.main)
     def addHandlers(self, portNums, portHandler):
         self.addReadHandlers (portNums, portHandler)
         self.addWriteHandlers(portNums, portHandler)
@@ -62,9 +62,6 @@ class Platform:
         self.writeHandlers[portNum](portNum, data, dataSize)
     def loadRomToMem(self, romFileName, mmAddr, romSize):
         try:
-            #if (romSize not in ROM_SIZES):
-            #    self.main.exitError("romSize {0:d} is NOT OK.".format(romSize))
-            #    return False
             romFp = open(romFileName, "rb")
             romData = romFp.read(romSize)
             self.main.mm.mmPhyWrite(mmAddr, romData, romSize)
@@ -96,8 +93,6 @@ class Platform:
                 elif (romSize <= SIZE_4096KB):
                     romMemSize = SIZE_4096KB
                 mmAddr = 0x00000
-                #self.main.exitError("romMemSize {0:d} is NOT SUPPORTED!".format(romMemSize))
-                #return False
         
         self.loadRomToMem(romFileName, mmAddr, romSize)
     def run(self, memSize):
@@ -116,6 +111,7 @@ class Platform:
         self.floppy.run()
         self.serial.run()
         self.parallel.run()
+        self.gdbstub.run()
         
 
 

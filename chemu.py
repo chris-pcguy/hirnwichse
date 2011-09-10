@@ -10,7 +10,7 @@ def mainfunc():
 
 if (__name__=='__main__'):
     mainfunc()
-    #profile.run('mainfunc()', 'chemuprof')
+    #cProfile.run('mainfunc()', 'chemuprof')
 
 
 

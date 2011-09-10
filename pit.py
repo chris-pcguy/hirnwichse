@@ -44,6 +44,7 @@ class PitChannel:
                 self.main.printMsg("runTimer: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
         else:
             self.main.exitError("runTimer: counterMode {0:d} not supported yet.".format(self.counterMode))
+            return
 
 class Pit:
     def __init__(self, main):
@@ -101,12 +102,15 @@ class Pit:
                 self.channel = (data>>6)&3
                 if (bcd): # BCD
                     self.main.exitError("outPort: BCD not supported yet.")
+                    return
                 if (counterWriteMode == 0):
                     self.main.exitError("outPort: latch-count not supported.")
+                    return
                 if (modeNumber in (6,7)):
                     modeNumber -= 4
                 if (self.channel == 3):
                     self.main.exitError("outPort: read-back not supported.")
+                    return
                 self.channels[self.channel].counterFormat = bcd
                 self.channels[self.channel].counterMode = modeNumber
                 self.channels[self.channel].counterWriteMode = counterWriteMode

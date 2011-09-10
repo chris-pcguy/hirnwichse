@@ -102,6 +102,7 @@ class Pic:
                 channel = 1
             else: # wrong ioPortAddr
                 self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
+                return 0
             oldStep = self.channels[channel].getStep()
             
             if (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
@@ -122,6 +123,7 @@ class Pic:
                 channel = 1
             else: # wrong ioPortAddr
                 self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
+                return
             oldStep = self.channels[channel].getStep()
             
             if (ioPortAddr in (PIC_PIC1_COMMAND, PIC_PIC2_COMMAND)):

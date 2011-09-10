@@ -1,4 +1,4 @@
-import misc, sys, threading, time, mm #, cursesUI
+import misc, sys, threading, time, mm, _thread #, cursesUI
 
 TEXTMODE_ADDR = 0xb8000
 
@@ -43,12 +43,18 @@ class CRT(VGA_REGISTER_RAW):
     def __init__(self, vga, main):
         VGA_REGISTER_RAW.__init__(self, VGA_CRT_DATA_LENGTH, vga, main)
 
-class DAC(VGA_REGISTER_RAW):
+class DAC(VGA_REGISTER_RAW): # PEL
     def __init__(self, vga, main):
         VGA_REGISTER_RAW.__init__(self, VGA_DAC_DATA_LENGTH, vga, main)
+        self.mask = 0xff
     def setData(self, data, dataSize):
         VGA_REGISTER_RAW.setData(self, data, dataSize)
         self.indexAdd(1)
+    def getMask(self):
+        return self.mask
+    def setMask(self, value):
+        self.mask = value
+
 
 class GDC(VGA_REGISTER_RAW):
     def __init__(self, vga, main):
@@ -92,9 +98,11 @@ class Vga:
         #self.cursesUI = cursesUI.cursesUI(self.main)
     def inPort(self, ioPortAddr, dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
-            if (ioPortAddr == 0x3c8):
+            if (ioPortAddr == 0x3c6):
+                return self.dac.getMask()
+            elif (ioPortAddr == 0x3c8):
                 return self.dac.getIndex()
-            elif (ioPortAddr == 0x3c2):
+            elif (ioPortAddr == 0x3cc):
                 return self.extreg.getMiscOutReg()
             elif (ioPortAddr == 0x3c1):
                 return self.attrctrlreg.getData(dataSize)
@@ -103,7 +111,10 @@ class Vga:
             else:
                 self.main.printMsg("inPort: port {0:#04x} not supported. (dataSize byte)", ioPortAddr)
         else:
-            self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+            if (ioPortAddr == 0x3cc):
+                return self.extreg.getMiscOutReg()
+            else:
+                self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return 0
     def outPort(self, ioPortAddr, data, dataSize):
         if (dataSize == misc.OP_SIZE_8BIT):
@@ -131,6 +142,8 @@ class Vga:
                 self.seq.setIndex(data)
             elif (ioPortAddr == 0x3c5):
                 self.seq.setData(data, dataSize)
+            elif (ioPortAddr == 0x3c6):
+                self.dac.setMask(data)
             elif (ioPortAddr == 0x3c8):
                 self.dac.setIndex(data)
             elif (ioPortAddr == 0x3c9):
@@ -146,7 +159,11 @@ class Vga:
             else:
                 self.main.printMsg("outPort: port {0:#04x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
         elif (dataSize == misc.OP_SIZE_16BIT):
-            if (ioPortAddr == 0x3d4):
+            if (ioPortAddr == 0x3c4):
+                self.seq.setIndex(data)
+            elif (ioPortAddr == 0x3ce):
+                self.gdc.setIndex(data)
+            elif (ioPortAddr == 0x3d4):
                 self.crt.setIndex(data)
             elif (ioPortAddr == 0x3d5):
                 self.crt.setData(data, dataSize)
@@ -165,13 +182,13 @@ class Vga:
                         charData = vidData[offset:offset+2]
                         #self.cursesUI.putChar(y, x, charData[0])
                 time.sleep(0.05)
-        except KeyboardInterrupt:
-            sys.exit(1)
+        except (SystemExit, KeyboardInterrupt):
+            _thread.exit()
         finally:
-            sys.exit(0)
+            _thread.exit()
     def run(self):
         #self.cursesUI.run()
-        self.main.platform.addReadHandlers((0x3c1,0x3c2,0x3c8,0x3da), self.inPort)
+        self.main.platform.addReadHandlers((0x3c1,0x3cc,0x3c8,0x3da), self.inPort)
         self.main.platform.addWriteHandlers((0x400, 0x401, 0x402, 0x403, 0x500, 0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, 0x3cf, 0x3d4, 0x3d5), self.outPort)
         #threading.Thread(target=self.startThread, name='vga-0').start()
 
