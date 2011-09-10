@@ -115,11 +115,10 @@ class Cpu:
         #finally:
         #    sys.exit(0)
     def doCycle(self):
+        if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
+            return
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
-            self.debugHalt = False
-        elif (self.cpuHalted or self.main.quitEmu or self.debugHalt):
-            return
         self.cycles += 1
         self.registers.resetPrefixes()
         self.savedCs  = self.registers.segRead(registers.CPU_SEGMENT_CS)

@@ -46,9 +46,11 @@ class Mm:
             segId = self.main.cpu.registers.segmentOverridePrefix
         mmAddr = self.main.cpu.registers.segments.getRealAddr(segId, mmAddr)
         return mmAddr
-    def mmPhyRead(self, mmAddr, dataSize): # dataSize in bytes
+    def mmPhyRead(self, mmAddr, dataSize, ignoreFail=False): # dataSize in bytes
         mmArea = self.mmGetArea(mmAddr, dataSize)
         if (not mmArea):
+            if (ignoreFail):
+                return b'\x00'*dataSize
             self.main.exitError("mmPhyRead: mmArea not found! (mmAddr: {0:#10x}, dataSize: {1:d})", mmAddr, dataSize)
             return
         return mmArea.mmAreaRead(mmAddr, dataSize)

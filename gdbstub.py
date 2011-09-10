@@ -90,11 +90,23 @@ class GDBStubHandler:
         for c in data:
             returnValue += self.byteToHex(c)
         return returnValue
+    def hexToByte(self, data): # data is bytes, output==bytes
+        returnValue = bytes( [(int(data, 16)&0xff)] )
+        return returnValue
+    def hexToBytes(self, data): # data is bytes, output==bytes
+        returnValue = b''
+        i = 0
+        dataLen = len(data)
+        while (i < dataLen):
+            returnValue += self.hexToByte(data[i:i+2])
+            i += 2
+        return returnValue
     def sendInit(self, gdbType):
         self.putPacketString('T{0:02x}thread:{1:02x};'.format(gdbType, self.connId))
-    def unhandledCmd(self):
-        self.main.printMsg('handleCommand: unhandled cmd: {0:s}', repr(data))
-        self.putPacket()
+    def unhandledCmd(self, data, noMsg=False):
+        if (not noMsg):
+            self.main.printMsg('handleCommand: unhandled cmd: {0:s}', repr(data))
+        self.putPacket(b'')
     def handleCommand(self, data):
         if (data.startswith((b'q',b'Q'))):
             if (data.startswith(b'qSupported')):
@@ -105,7 +117,7 @@ class GDBStubHandler:
             elif (data == b'qC'):
                 self.putPacket(b'QC1')
             else:
-                self.unhandledCmd()
+                self.unhandledCmd(data)
         elif (data.startswith(b'H')):
             cpuType = data[1]
             threadNum = int(data[2:], 16)
@@ -137,11 +149,26 @@ class GDBStubHandler:
             if (len(hexToSend) != SEND_REGHEX_SIZE):
                 self.main.printMsg('handleCommand: len(hexToSend) != SEND_REGHEX_SIZE')
             self.putPacket(hexToSend)
+        elif (data.startswith(b'G')):
+            minRegNum = 0
+            maxRegNum = GDB_NUM_REGISTERS
+            currRegNum = minRegNum
+            data = data[1:]
+            while (currRegNum < maxRegNum):
+                dataOffset = currRegNum*8
+                if (currRegNum*5 >= registers.CPU_MAX_REGISTER_WO_CR):
+                    break
+                regOffset = ((registers.CPU_MIN_REGISTER//5)+currRegNum)*8
+                newReg = self.hexToBytes(data[dataOffset:dataOffset+8])
+                self.main.cpu.registers.regs[regOffset:regOffset+4]   = b'\x00'*4
+                self.main.cpu.registers.regs[regOffset+4:regOffset+8] = newReg[::-1]
+                currRegNum += 1
+            self.putPacket(b'OK')
         elif (data.startswith(b'm')):
             memTuple = data[1:].split(b',')
             memAddr = int(memTuple[0], 16)
             memLength = int(memTuple[1], 16)
-            memData = self.main.mm.mmPhyRead(memAddr, memLength)
+            memData = self.main.mm.mmPhyRead(memAddr, memLength, ignoreFail=True)
             self.putPacket(self.bytesToHex(memData))
         elif (data.startswith(b'v')):
             if (data.startswith(b'vCont')):
@@ -167,7 +194,7 @@ class GDBStubHandler:
                             self.main.printMsg('handleCommand: v: action isn\'t long enough for threadnum')
                     action = action.lower()
                     if (not res or (res == ord(b'c') and action == ord(b's'))):
-                        res = action
+                        res = action[0]
                         res_signal = signal
                         res_thread = thread
                 if (res):
@@ -176,10 +203,18 @@ class GDBStubHandler:
                     singleStepOn = res==ord(b's')
                     self.main.cpu.debugSingleStep = singleStepOn
                     self.main.cpu.debugHalt = singleStepOn
+                    if (singleStepOn):
+                        self.sendInit(GDB_SIGNAL_TRAP)
+                    #else:
+                    #    self.sendInit(GDB_SIGNAL_INT)
             else:
-                self.unhandledCmd()
+                self.unhandledCmd(data)
+        elif (data.startswith(b'p')): # TODO
+            self.unhandledCmd(data, noMsg=True)
+        elif (data.startswith(b'P')): # TODO
+            self.unhandledCmd(data, noMsg=True)
         else:
-            self.unhandledCmd()
+            self.unhandledCmd(data)
     def handleReadData(self, data):
         if (data.startswith(b'-')):
             pass # got NACK
