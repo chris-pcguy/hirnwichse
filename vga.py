@@ -1,4 +1,4 @@
-import misc, sys, threading, time, mm, _thread #, cursesUI
+import misc, sys, threading, time, mm, _thread, pygameUI #, cursesUI
 
 TEXTMODE_ADDR = 0xb8000
 
@@ -96,8 +96,9 @@ class Vga:
         self.extreg = ExtReg(self, self.main)
         self.attrctrlreg = AttrCtrlReg(self, self.main)
         #self.cursesUI = cursesUI.cursesUI(self.main)
+        self.pygameUI = pygameUI.pygameUI(self, self.main)
     def inPort(self, ioPortAddr, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x3c6):
                 return self.dac.getMask()
             elif (ioPortAddr == 0x3c8):
@@ -117,21 +118,17 @@ class Vga:
                 self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return 0
     def outPort(self, ioPortAddr, data, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x400): # Bochs' Panic Port
-                #print('Panic port: byte=={0:#04x}'.format(data))
                 sys.stdout.write(chr(data))
                 sys.stdout.flush()
             elif (ioPortAddr == 0x401): # Bochs' Panic Port2
-                #print('Panic port2: byte=={0:#04x}'.format(data))
                 sys.stdout.write(chr(data))
                 sys.stdout.flush()
             elif (ioPortAddr in (0x402,0x500)): # Bochs' Info Port
-                #print('Info port: byte=={0:#04x}'.format(data))
                 sys.stdout.write(chr(data))
                 sys.stdout.flush()
             elif (ioPortAddr == 0x403): # Bochs' Debug Port
-                #print('Debug port: byte=={0:#04x}'.format(data))
                 sys.stdout.write(chr(data))
                 sys.stdout.flush()
             elif (ioPortAddr == 0x3c0):
@@ -158,7 +155,7 @@ class Vga:
                 self.crt.setData(data, dataSize)
             else:
                 self.main.printMsg("outPort: port {0:#04x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
-        elif (dataSize == misc.OP_SIZE_16BIT):
+        elif (dataSize == misc.OP_SIZE_WORD):
             if (ioPortAddr == 0x3c4):
                 self.seq.setIndex(data)
             elif (ioPortAddr == 0x3ce):
@@ -177,19 +174,32 @@ class Vga:
             while (not self.main.quitEmu):
                 vidData = self.main.mm.mmPhyRead(TEXTMODE_ADDR, 4000) # 4000==80*25*2
                 for y in range(25):
+                    rectList = []
                     for x in range(80):
                         offset = (y*80)+x
                         charData = vidData[offset:offset+2]
-                        #self.cursesUI.putChar(y, x, charData[0])
+                        newRect = self.pygameUI.putChar(x, y, chr(charData[1]), charData[0])
+                        rectList.append(newRect)
+                    if (len(rectList) > 0):
+                        self.pygameUI.updateScreen(rectList)
                 time.sleep(0.05)
-        except (SystemExit, KeyboardInterrupt):
+        #except (SystemExit, KeyboardInterrupt):
+        #    _thread.exit()
+        except:
+            print(sys.exc_info())
             _thread.exit()
         finally:
             _thread.exit()
     def run(self):
-        #self.cursesUI.run()
-        self.main.platform.addReadHandlers((0x3c1,0x3cc,0x3c8,0x3da), self.inPort)
-        self.main.platform.addWriteHandlers((0x400, 0x401, 0x402, 0x403, 0x500, 0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, 0x3cf, 0x3d4, 0x3d5), self.outPort)
-        #threading.Thread(target=self.startThread, name='vga-0').start()
+        try:
+            self.pygameUI.run()
+            threading.Thread(target=self.pygameUI.handleThread, name='pygameUI-0').start()
+            threading.Thread(target=self.startThread, name='vga-0').start()
+            self.main.platform.addReadHandlers((0x3c1,0x3cc,0x3c8,0x3da), self.inPort)
+            self.main.platform.addWriteHandlers((0x400, 0x401, 0x402, 0x403, 0x500, 0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, 0x3cf, 0x3d4, 0x3d5), self.outPort)
+        except:
+            print(sys.exc_info())
+            _thread.exit()
+    
 
 

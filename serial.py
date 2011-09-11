@@ -8,13 +8,13 @@ class Serial:
                       0x3e8, 0x3e9, 0x3ea, 0x3eb, 0x3ec, 0x3ed, 0x3ee, 0x3ef, \
                       0x2e8, 0x2e9, 0x2ea, 0x2eb, 0x2ec, 0x2ed, 0x2ee, 0x2ef)
     def inPort(self, ioPortAddr, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             pass
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPort(self, ioPortAddr, data, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             pass
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)

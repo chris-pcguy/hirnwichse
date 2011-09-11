@@ -31,7 +31,7 @@ class PS2:
             return
         self.inBuffer += bytearray(list(data))
     def inPort(self, ioPortAddr, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x64):
                 #return 0x14                    #### 4==1<<2
                 return (self.lastUsedPort << 3) | \
@@ -54,7 +54,7 @@ class PS2:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPort(self, ioPortAddr, data, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x60):
                 if (self.needWriteBytes == 0):
                     if (data == 0xee):

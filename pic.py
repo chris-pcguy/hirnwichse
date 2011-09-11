@@ -95,7 +95,7 @@ class Pic:
             return self.channels[1].raiseIrq(irq-8)
         return self.channels[0].raiseIrq(irq)
     def inPort(self, ioPortAddr, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):
                 channel = 0
             elif (ioPortAddr in PIC_PIC2_PORTS):
@@ -116,7 +116,7 @@ class Pic:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPort(self, ioPortAddr, data, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):
                 channel = 0
             elif (ioPortAddr in PIC_PIC2_PORTS):

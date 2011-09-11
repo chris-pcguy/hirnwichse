@@ -56,7 +56,7 @@ class Pit:
         self.channel = 0
     def inPort(self, ioPortAddr, dataSize):
         retVal = 0
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channel = ioPortAddr&3
                 if (self.channels[channel].counterWriteMode == 1): # LSB
@@ -80,7 +80,7 @@ class Pit:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPort(self, ioPortAddr, data, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channel = ioPortAddr&3
                 if (self.channels[channel].counterWriteMode == 1): # LSB

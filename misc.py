@@ -3,10 +3,10 @@
 #BYTE_ORDER_LITTLE_ENDIAN = 10
 #DATA_ORDER_BIG_ENDIAN = 11
 
-OP_SIZE_8BIT  = 1
-OP_SIZE_16BIT = 2
-OP_SIZE_32BIT = 4
-OP_SIZE_64BIT = 8
+OP_SIZE_BYTE  = 1
+OP_SIZE_WORD = 2
+OP_SIZE_DWORD = 4
+OP_SIZE_QWORD = 8
 
 
 SET_FLAGS_ADD = 50
@@ -75,28 +75,28 @@ class Misc:
     def __init__(self, main):
         self.main = main
     def getBitMask(self, size, half=False, minus=1):
-        if (size == OP_SIZE_8BIT):
+        if (size == OP_SIZE_BYTE):
             if (half):
                 return ((1<<8)//2)-minus
             else:
                 return (1<<8)-minus
-        elif (size == OP_SIZE_16BIT):
+        elif (size == OP_SIZE_WORD):
             if (half):
                 return ((1<<16)//2)-minus
             else:
                 return (1<<16)-minus
-        elif (size == OP_SIZE_32BIT):
+        elif (size == OP_SIZE_DWORD):
             if (half):
                 return ((1<<32)//2)-minus
             else:
                 return (1<<32)-minus
-        elif (size == OP_SIZE_64BIT):
+        elif (size == OP_SIZE_QWORD):
             if (half):
                 return ((1<<64)//2)-minus
             else:
                 return (1<<64)-minus
         else:
-            self.main.exitError("Misc::getBitMask: size not in (OP_SIZE_8BIT, OP_SIZE_16BIT, OP_SIZE_32BIT, OP_SIZE_64BIT)")
+            self.main.exitError("Misc::getBitMask: size not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)")
 
 
 

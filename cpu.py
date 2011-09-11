@@ -33,10 +33,10 @@ class Cpu:
         eipSize = self.registers.segments.getSegSize(registers.CPU_SEGMENT_CS)
         eipSizeRegId = registers.CPU_REGISTER_IP
         opcodeAddr = 0
-        if (eipSize not in (misc.OP_SIZE_16BIT, misc.OP_SIZE_32BIT)):
+        if (eipSize not in (misc.OP_SIZE_WORD, misc.OP_SIZE_DWORD)):
             self.main.exitError("eipSize is INVALID. ({0:d})", eipSize)
             return
-        elif (eipSize == misc.OP_SIZE_32BIT):
+        elif (eipSize == misc.OP_SIZE_DWORD):
             eipSizeRegId = registers.CPU_REGISTER_EIP
         opcodeAddr = self.registers.segments.getRealAddr(registers.CPU_SEGMENT_CS, self.registers.regRead(eipSizeRegId))
         ##opcodeAddr += self.registers.regRead(eipSizeId)
@@ -50,7 +50,7 @@ class Cpu:
     def getCurrentOpcodeAdd(self, numBytes=1, signed=False, getOpcodeAddr=False): # numBytes in bytes
         opcodeData = self.getCurrentOpcode(numBytes, signed=signed, getOpcodeAddr=getOpcodeAddr)
         regSizeId = registers.CPU_REGISTER_IP
-        if (self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS) == misc.OP_SIZE_32BIT):
+        if (self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS) == misc.OP_SIZE_DWORD):
             regSizeId = registers.CPU_REGISTER_EIP
         self.registers.regAdd(regSizeId, numBytes)
         return opcodeData

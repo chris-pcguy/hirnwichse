@@ -4,7 +4,7 @@ class Floppy:
     def __init__(self, main):
         self.main = main
     def inPort(self, ioPortAddr, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x3f6):
                 self.main.printMsg("inPort: reserved read from port {0:#06x}. (dataSize byte)", ioPortAddr)
             else:
@@ -13,7 +13,7 @@ class Floppy:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPort(self, ioPortAddr, data, dataSize):
-        if (dataSize == misc.OP_SIZE_8BIT):
+        if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x3f6):
                 self.main.printMsg("outPort: reserved write to port {0:#06x}. (dataSize byte, data {1:#04x})", ioPortAddr, data)
             else:
