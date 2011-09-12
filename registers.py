@@ -355,21 +355,19 @@ class Registers:
         else:
             self.main.exitError("regWrite: regId is unknown! ({0:d})", regId)
         return value # return value is unsigned!!
-    def regReadEip(self, signed=False):
-        regSizeId = CPU_REGISTER_IP
-        if (self.registers.segments.getOpSegSize(CPU_SEGMENT_CS) == misc.OP_SIZE_DWORD):
-            regSizeId = CPU_REGISTER_EIP
-        self.registers.regRead(regSizeId, signed=signed)
-    def regWriteEip(self, value):
-        regSizeId = CPU_REGISTER_IP
-        if (self.registers.segments.getOpSegSize(CPU_SEGMENT_CS) == misc.OP_SIZE_DWORD):
-            regSizeId = CPU_REGISTER_EIP
-        self.registers.regWrite(regSizeId, value)
     def regAdd(self, regId, value):
         newVal = self.regRead(regId)+value
         return self.regWrite(regId, newVal)
+    def regAdc(self, regId, value):
+        withCarry = self.getEFLAG( FLAG_CF )
+        newVal = self.regRead(regId)+value+withCarry
+        return self.regWrite(regId, newVal)
     def regSub(self, regId, value):
         newVal = self.regRead(regId)-value
+        return self.regWrite(regId, newVal)
+    def regSbb(self, regId, value):
+        withCarry = self.getEFLAG( FLAG_CF )
+        newVal = self.regRead(regId)-value-withCarry
         return self.regWrite(regId, newVal)
     def regXor(self, regId, value):
         newVal = self.regRead(regId)^value
@@ -386,6 +384,25 @@ class Registers:
     def regNot(self, regId):
         newVal = ~self.regRead(regId)
         return self.regWrite(regId, newVal)
+    def regWriteWithOp(self, regId, value, valueOp):
+        if (valueOp not in misc.VALUEOPS):
+            self.main.exitError("valueOp {0:d} not in misc.VALUEOPS", valueOp)
+        if (valueOp == misc.VALUEOP_SAVE):
+            return self.regWrite(regId, value)
+        elif (valueOp == misc.VALUEOP_ADD):
+            return self.regAdd(regId, value)
+        elif (valueOp == misc.VALUEOP_ADC):
+            return self.regAdc(regId, value)
+        elif (valueOp == misc.VALUEOP_SUB):
+            return self.regSub(regId, value)
+        elif (valueOp == misc.VALUEOP_SBB):
+            return self.regSbb(regId, value)
+        elif (valueOp == misc.VALUEOP_AND):
+            return self.regAnd(regId, value)
+        elif (valueOp == misc.VALUEOP_OR):
+            return self.regOr(regId, value)
+        elif (valueOp == misc.VALUEOP_XOR):
+            return self.regXor(regId, value)
     def regDelFlag(self, regId, value): # by val, not bit
         newVal = self.regRead(regId)&(~value)
         return self.regWrite(regId, newVal)
@@ -400,17 +417,14 @@ class Registers:
         bitMask = (1<<bit)
         return (self.regRead(regId)&bitMask)!=0
     def valSetBit(self, value, bit, state):
+        bitMask = (1<<bit)
         if (state):
-            return ( value | (1<<bit) )
+            return ( value | bitMask )
         else:
-            return ( value & (~(1<<bit)) )
+            return ( value & (~bitMask) )
     def valGetBit(self, value, bit): # return True if bit is set, otherwise False
         bitMask = (1<<bit)
         return (value&bitMask)!=0
-    def regInc(self, regId):
-        return self.regAdd(regId, 1)
-    def regDec(self, regId):
-        return self.regSub(regId, 1)
     def setEFLAG(self, flags, flagState):
         if (flagState):
             return self.regOr(CPU_REGISTER_EFLAGS, flags)
@@ -420,47 +434,9 @@ class Registers:
     def getFlag(self, regId, flags):
         return (self.regRead(regId)&flags)!=0
     def clearThisEFLAGS(self, flags):
-        if (flags & FLAG_CF):
-            self.setEFLAG(FLAG_CF, False)
-        if (flags & FLAG_PF):
-            self.setEFLAG(FLAG_PF, False)
-        if (flags & FLAG_AF):
-            self.setEFLAG(FLAG_AF, False)
-        if (flags & FLAG_ZF):
-            self.setEFLAG(FLAG_ZF, False)
-        if (flags & FLAG_SF):
-            self.setEFLAG(FLAG_SF, False)
-        if (flags & FLAG_TF):
-            self.setEFLAG(FLAG_TF, False)
-        if (flags & FLAG_IF):
-            self.setEFLAG(FLAG_IF, False)
-        if (flags & FLAG_DF):
-            self.setEFLAG(FLAG_DF, False)
-        if (flags & FLAG_OF):
-            self.setEFLAG(FLAG_OF, False)
-        if (flags & FLAG_AC):
-            self.setEFLAG(FLAG_AC, False)
+        self.regAnd( CPU_REGISTER_EFLAGS, ~flags )
     def setThisEFLAGS(self, flags):
-        if (flags & FLAG_CF):
-            self.setEFLAG(FLAG_CF, True)
-        if (flags & FLAG_PF):
-            self.setEFLAG(FLAG_PF, True)
-        if (flags & FLAG_AF):
-            self.setEFLAG(FLAG_AF, True)
-        if (flags & FLAG_ZF):
-            self.setEFLAG(FLAG_ZF, True)
-        if (flags & FLAG_SF):
-            self.setEFLAG(FLAG_SF, True)
-        if (flags & FLAG_TF):
-            self.setEFLAG(FLAG_TF, True)
-        if (flags & FLAG_IF):
-            self.setEFLAG(FLAG_IF, True)
-        if (flags & FLAG_DF):
-            self.setEFLAG(FLAG_DF, True)
-        if (flags & FLAG_OF):
-            self.setEFLAG(FLAG_OF, True)
-        if (flags & FLAG_AC):
-            self.setEFLAG(FLAG_AC, True)
+        self.regOr( CPU_REGISTER_EFLAGS, flags )
     def getWordAsDword(self, regWord, wantRegSize):
         if (regWord not in CPU_REGISTER_WORD and regWord not in CPU_REGISTER_DWORD):
             self.main.exitError("regWord {0:d} not in CPU_REGISTERS_(D)WORD", regWord)
@@ -518,19 +494,19 @@ class Registers:
         mod, rmValue, regValue = rmOperands
         returnInt  = self.regRead(regValue, signed=signed)
         return returnInt
-    def modRSave(self, rmOperands, regSize, value): # imm == unsigned ; disp == signed
+    def modRSave(self, rmOperands, regSize, value, valueOp=misc.VALUEOP_SAVE): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
         value &= self.main.misc.getBitMask(regSize)
-        self.regWrite(regValue, value)
-    def modRMSave(self, rmOperands, regSize, value, allowOverride=True): # imm == unsigned ; disp == signed
+        return self.regWriteWithOp(regValue, value, valueOp)
+    def modRMSave(self, rmOperands, regSize, value, allowOverride=True, valueOp=misc.VALUEOP_SAVE): # imm == unsigned ; disp == signed
         mod, rmValue, regValue = rmOperands
         addrSize = self.segments.getAddrSegSize(CPU_SEGMENT_CS)
         value &= self.main.misc.getBitMask(regSize)
         rmValueFull = self.getRMValueFull(rmValue[0], addrSize)
         if (mod in (0, 1, 2)):
-            self.main.mm.mmWriteValue(rmValueFull, value, regSize, segId=rmValue[1], allowOverride=allowOverride)
+            return self.main.mm.mmWriteValueWithOp(rmValueFull, value, regSize, segId=rmValue[1], allowOverride=allowOverride, valueOp=valueOp)
         else:
-            self.regWrite(rmValue[0][0], value)
+            return self.regWriteWithOp(rmValue[0][0], value, valueOp)
     def getRegValueWithFlags(self, modRMflags, reg, operSize):
         ###operSize = self.segments.getOpSegSize(CPU_SEGMENT_CS)
         regValue = -1
@@ -737,15 +713,18 @@ class Registers:
             regSum = reg0+reg1
             regSumMasked = regSum&bitMask
             isResZero = regSumMasked==0
-            unsignedOverflow = (regSum > bitMask)
+            #unsignedOverflow = (regSum > bitMask)
+            unsignedOverflow = (regSumMasked < reg0 or regSumMasked < reg1)
             self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&0xff])
             self.setEFLAG(FLAG_ZF, isResZero)
             if ( (((reg0&0xf)+(reg1&0xf))>regSum&0xf or reg0>bitMask or reg1>bitMask)):# or regSum>bitMask) ):
                 afFlag = True
             self.setEFLAG(FLAG_AF, afFlag)
             self.setEFLAG(FLAG_CF, unsignedOverflow)
-            signedOverflow = ( (((not (reg0&bitMask)&bitMaskHalf) and (not (reg1&bitMask)&bitMaskHalf)) and (regSumMasked&bitMaskHalf)) or \
-                               ((((reg0&bitMask)&bitMaskHalf) and ((reg1&bitMask)&bitMaskHalf)) and not (regSumMasked&bitMaskHalf)) )
+            #signedOverflow = ( (((not (reg0&bitMask)&bitMaskHalf) and (not (reg1&bitMask)&bitMaskHalf)) and (regSumMasked&bitMaskHalf)) or \
+            #                   ((((reg0&bitMask)&bitMaskHalf) and ((reg1&bitMask)&bitMaskHalf)) and not (regSumMasked&bitMaskHalf)) )
+            signedOverflow = ( (((not reg0&bitMaskHalf) and (not reg1&bitMaskHalf)) and (regSumMasked&bitMaskHalf)) or \
+                               (((reg0&bitMaskHalf) and (reg1&bitMaskHalf)) and not (regSumMasked&bitMaskHalf)) )
             self.setEFLAG(FLAG_OF, ((not isResZero) and signedOverflow))
             self.setEFLAG(FLAG_SF, (regSum&bitMaskHalf)!=0)
         elif (method == misc.SET_FLAGS_SUB):

@@ -181,15 +181,11 @@ class Opcodes:
             self.main.exitError("loopFunc: loopType not in OPCODE_LOOPTYPES")
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        countReg = registers.CPU_REGISTER_CX
-        eipReg   = registers.CPU_REGISTER_IP
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
+        eipReg   = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, operSize)
         cond = False
         oldZF = self.registers.getEFLAG(registers.FLAG_ZF)
         rel8 = self.cpu.getCurrentOpcodeAdd(1, signed=True)
-        if (operSize == misc.OP_SIZE_DWORD):
-            eipReg = registers.CPU_REGISTER_EIP
-        if (addrSize == misc.OP_SIZE_DWORD):
-            countReg = registers.CPU_REGISTER_ECX
         count = self.registers.regSub(countReg, 1)
         if (loopType == OPCODE_LOOPE and oldZF):
             cond = True
@@ -225,17 +221,13 @@ class Opcodes:
         if (self.registers.lockPrefix): self.cpu.exception(misc.CPU_EXCEPTION_UD); return
         reg0 = self.registers.regRead(registers.CPU_REGISTER_AL)
         imm8 = self.cpu.getCurrentOpcodeAdd()
-        #cdef long cmpSum = reg0-imm8
         self.registers.setFullFlags(reg0, imm8, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
     def cmpAxEaxImm16_32(self):
         if (self.registers.lockPrefix): self.cpu.exception(misc.CPU_EXCEPTION_UD); return
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        axReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            axReg = registers.CPU_REGISTER_EAX
-        reg0 = self.registers.regRead(axReg)
+        eaxReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
+        reg0 = self.registers.regRead(eaxReg)
         imm16_32 = self.cpu.getCurrentOpcodeAdd(operSize)
-        #cdef long cmpSum = reg0-imm16_32
         self.registers.setFullFlags(reg0, imm16_32, operSize, misc.SET_FLAGS_SUB)
     def movImm8ToR8(self):
         if (self.registers.lockPrefix): self.cpu.exception(misc.CPU_EXCEPTION_UD); return
@@ -282,10 +274,8 @@ class Opcodes:
     def testAX_EAX_IMM16_32(self):
         if (self.registers.lockPrefix): self.cpu.exception(misc.CPU_EXCEPTION_UD); return
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        axReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            axReg = registers.CPU_REGISTER_EAX
-        op1 = self.registers.regRead(axReg)
+        eaxReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
+        op1 = self.registers.regRead(eaxReg)
         op2 = self.cpu.getCurrentOpcodeAdd(operSize)
         self.registers.setSZP_C0_O0(op1&op2, operSize)
     def movR8_RM8(self):
@@ -315,9 +305,7 @@ class Opcodes:
     def movAX_EAX_MOFFS16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        regName = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            regName = registers.CPU_REGISTER_EAX
+        regName = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         mmAddr = self.cpu.getCurrentOpcodeAdd(addrSize)
         self.registers.regWrite(regName, self.main.mm.mmReadValue(mmAddr, operSize))
     
@@ -330,143 +318,141 @@ class Opcodes:
     def movMOFFS16_32_AX_EAX(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        regName = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            regName = registers.CPU_REGISTER_EAX
+        regName = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         mmAddr = self.cpu.getCurrentOpcodeAdd(addrSize)
         self.main.mm.mmWriteValue(mmAddr, self.registers.regRead(regName), operSize)
     def addRM8_R8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         op1 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
-        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op1+op2)
+        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_ADD)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_ADD)
     def addRM16_32_R16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
         op1 = self.registers.modRMLoad(rmOperands, operSize)
         op2 = self.registers.modRLoad(rmOperands, operSize)
-        self.registers.modRMSave(rmOperands, operSize, op1+op2)
+        self.registers.modRMSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_ADD)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_ADD)
     def addR8_RM8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
-        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op1+op2)
+        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_ADD)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_ADD)
     def addR16_32_RM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
         op1 = self.registers.modRLoad(rmOperands, operSize)
         op2 = self.registers.modRMLoad(rmOperands, operSize)
-        self.registers.modRSave(rmOperands, operSize, op1+op2)
+        self.registers.modRSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_ADD)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_ADD)
     def addAL_IMM8(self):
         op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
         op2 = self.cpu.getCurrentOpcodeAdd() # IMM8
-        self.registers.regWrite(registers.CPU_REGISTER_AL, op1+op2)
+        self.registers.regAdd(registers.CPU_REGISTER_AL, op2)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_ADD)
     def addAX_EAX_IMM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         op1 = self.registers.regRead(dataReg)
         op2 = self.cpu.getCurrentOpcodeAdd(operSize) # IMM16_32
-        self.registers.regWrite(dataReg, op1+op2)
+        self.registers.regAdd(dataReg, op2)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_ADD)
     def adcRM8_R8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         op1 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
-        op1 += self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op1+op2)
+        withCarry = self.registers.getEFLAG(registers.FLAG_CF)
+        op1 += withCarry
+        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_ADC)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_ADD)
     def adcRM16_32_R16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
         op1 = self.registers.modRMLoad(rmOperands, operSize)
         op2 = self.registers.modRLoad(rmOperands, operSize)
-        op1 += self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.modRMSave(rmOperands, operSize, op1+op2)
+        withCarry = self.registers.getEFLAG(registers.FLAG_CF)
+        op1 += withCarry
+        self.registers.modRMSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_ADC)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_ADD)
     def adcR8_RM8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
-        op1 += self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op1+op2)
+        withCarry = self.registers.getEFLAG(registers.FLAG_CF)
+        op1 += withCarry
+        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_ADC)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_ADD)
     def adcR16_32_RM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
         op1 = self.registers.modRLoad(rmOperands, operSize)
         op2 = self.registers.modRMLoad(rmOperands, operSize)
-        op1 += self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.modRSave(rmOperands, operSize, op1+op2)
+        withCarry = self.registers.getEFLAG(registers.FLAG_CF)
+        op1 += withCarry
+        self.registers.modRSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_ADC)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_ADD)
     def adcAL_IMM8(self):
         op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
         op2 = self.cpu.getCurrentOpcodeAdd() # IMM8
-        op1 += self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.regWrite(registers.CPU_REGISTER_AL, op1+op2)
+        withCarry = self.registers.getEFLAG(registers.FLAG_CF)
+        op1 += withCarry
+        self.registers.regAdc(registers.CPU_REGISTER_AL, op2)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_ADD)
     def adcAX_EAX_IMM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         op1 = self.registers.regRead(dataReg)
         op2 = self.cpu.getCurrentOpcodeAdd(operSize) # IMM16_32
-        op1 += self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.regWrite(dataReg, op1+op2)
+        withCarry = self.registers.getEFLAG(registers.FLAG_CF)
+        op1 += withCarry
+        self.registers.regAdc(dataReg, op2)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_ADD)
     def subRM8_R8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         op1 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
-        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op1-op2)
+        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_SUB)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
     def subRM16_32_R16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
         op1 = self.registers.modRMLoad(rmOperands, operSize)
         op2 = self.registers.modRLoad(rmOperands, operSize)
-        self.registers.modRMSave(rmOperands, operSize, op1-op2)
+        self.registers.modRMSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_SUB)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_SUB)
     def subR8_RM8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
-        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op1-op2)
+        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_SUB)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
     def subR16_32_RM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
         op1 = self.registers.modRLoad(rmOperands, operSize)
         op2 = self.registers.modRMLoad(rmOperands, operSize)
-        self.registers.modRSave(rmOperands, operSize, op1-op2)
+        self.registers.modRSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_SUB)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_SUB)
     def subAL_IMM8(self):
         op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
         op2 = self.cpu.getCurrentOpcodeAdd() # IMM8
-        self.registers.regWrite(registers.CPU_REGISTER_AL, op1-op2)
+        self.registers.regSub(registers.CPU_REGISTER_AL, op2)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
     def subAX_EAX_IMM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         op1 = self.registers.regRead(dataReg)
         op2 = self.cpu.getCurrentOpcodeAdd(operSize) # IMM16_32
-        self.registers.regWrite(dataReg, op1-op2)
+        self.registers.regSub(dataReg, op2)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_SUB)
     def sbbRM8_R8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         op1 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
         op1 -= self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op1-op2)
+        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_SBB)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
     def sbbRM16_32_R16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
@@ -474,14 +460,14 @@ class Opcodes:
         op1 = self.registers.modRMLoad(rmOperands, operSize)
         op2 = self.registers.modRLoad(rmOperands, operSize)
         op1 -= self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.modRMSave(rmOperands, operSize, op1-op2)
+        self.registers.modRMSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_SBB)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_SUB)
     def sbbR8_RM8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
         op1 -= self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op1-op2)
+        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_SBB)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
     def sbbR16_32_RM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
@@ -489,167 +475,161 @@ class Opcodes:
         op1 = self.registers.modRLoad(rmOperands, operSize)
         op2 = self.registers.modRMLoad(rmOperands, operSize)
         op1 -= self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.modRSave(rmOperands, operSize, op1-op2)
+        self.registers.modRSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_SBB)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_SUB)
     def sbbAL_IMM8(self):
         op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
         op2 = self.cpu.getCurrentOpcodeAdd() # IMM8
-        op1 -= self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.regWrite(registers.CPU_REGISTER_AL, op1-op2)
+        withCarry = self.registers.getEFLAG(registers.FLAG_CF)
+        op1 -= withCarry
+        self.registers.regSbb(registers.CPU_REGISTER_AL, op2)
         self.registers.setFullFlags(op1, op2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
     def sbbAX_EAX_IMM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         op1 = self.registers.regRead(dataReg)
         op2 = self.cpu.getCurrentOpcodeAdd(operSize) # IMM16_32
-        op1 -= self.registers.getEFLAG(registers.FLAG_CF)
-        self.registers.regWrite(dataReg, op1-op2)
+        withCarry = self.registers.getEFLAG(registers.FLAG_CF)
+        op1 -= withCarry
+        self.registers.regSbb(dataReg, op2)
         self.registers.setFullFlags(op1, op2, operSize, misc.SET_FLAGS_SUB)
     def andRM8_R8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         op1 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
         data = op1&op2
-        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, data)
+        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_AND)
         self.registers.setSZP_C0_O0(data, misc.OP_SIZE_BYTE)
     def andRM16_32_R16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
-        op1 = self.registers.modRMLoad(rmOperands, operSize)
+        #op1 = self.registers.modRMLoad(rmOperands, operSize)
         op2 = self.registers.modRLoad(rmOperands, operSize)
-        data = op1&op2
-        self.registers.modRMSave(rmOperands, operSize, data)
+        #data = op1&op2
+        data = self.registers.modRMSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_AND)
         self.registers.setSZP_C0_O0(data, operSize)
     def andR8_RM8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
-        op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
+        #op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
-        data = op1&op2
-        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, data)
+        #data = op1&op2
+        data = self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_AND)
         self.registers.setSZP_C0_O0(data, misc.OP_SIZE_BYTE)
     def andR16_32_RM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
-        op1 = self.registers.modRLoad(rmOperands, operSize)
+        #op1 = self.registers.modRLoad(rmOperands, operSize)
         op2 = self.registers.modRMLoad(rmOperands, operSize)
-        data = op1&op2
-        self.registers.modRSave(rmOperands, operSize, data)
+        #data = op1&op2
+        data = self.registers.modRSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_AND)
         self.registers.setSZP_C0_O0(data, operSize)
     def andAL_IMM8(self):
-        op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
+        #op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
         op2 = self.cpu.getCurrentOpcodeAdd() # IMM8
-        data = op1&op2
-        self.registers.regWrite(registers.CPU_REGISTER_AL, data)
+        #data = op1&op2
+        data = self.registers.regAnd(registers.CPU_REGISTER_AL, op2)
         self.registers.setSZP_C0_O0(data, misc.OP_SIZE_BYTE)
     def andAX_EAX_IMM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
-        op1 = self.registers.regRead(dataReg)
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
+        #op1 = self.registers.regRead(dataReg)
         op2 = self.cpu.getCurrentOpcodeAdd(operSize) # IMM16_32
-        data = op1&op2
-        self.registers.regWrite(dataReg, data)
+        #data = op1&op2
+        data = self.registers.regAnd(dataReg, op2)
         self.registers.setSZP_C0_O0(data, operSize)
     
     
     
     def orRM8_R8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
-        op1 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
+        #op1 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
-        data = op1|op2
-        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, data)
+        #data = op1|op2
+        data = self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_OR)
         self.registers.setSZP_C0_O0(data, misc.OP_SIZE_BYTE)
     def orRM16_32_R16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
-        op1 = self.registers.modRMLoad(rmOperands, operSize)
+        #op1 = self.registers.modRMLoad(rmOperands, operSize)
         op2 = self.registers.modRLoad(rmOperands, operSize)
-        data = op1|op2
-        self.registers.modRMSave(rmOperands, operSize, data)
+        #data = op1|op2
+        data = self.registers.modRMSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_OR)
         self.registers.setSZP_C0_O0(data, operSize)
     def orR8_RM8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
-        op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
+        #op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
-        data = op1|op2
-        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, data)
+        #data = op1|op2
+        data = self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_OR)
         self.registers.setSZP_C0_O0(data, misc.OP_SIZE_BYTE)
     def orR16_32_RM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
-        op1 = self.registers.modRLoad(rmOperands, operSize)
+        #op1 = self.registers.modRLoad(rmOperands, operSize)
         op2 = self.registers.modRMLoad(rmOperands, operSize)
-        data = op1|op2
-        self.registers.modRSave(rmOperands, operSize, data)
+        #data = op1|op2
+        data = self.registers.modRSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_OR)
         self.registers.setSZP_C0_O0(data, operSize)
     def orAL_IMM8(self):
-        op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
+        #op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
         op2 = self.cpu.getCurrentOpcodeAdd() # IMM8
-        data = op1|op2
-        self.registers.regWrite(registers.CPU_REGISTER_AL, data)
+        #data = op1|op2
+        data = self.registers.regOr(registers.CPU_REGISTER_AL, op2)
         self.registers.setSZP_C0_O0(data, misc.OP_SIZE_BYTE)
     def orAX_EAX_IMM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
-        op1 = self.registers.regRead(dataReg)
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
+        #op1 = self.registers.regRead(dataReg)
         op2 = self.cpu.getCurrentOpcodeAdd(operSize) # IMM16_32
-        data = op1|op2
-        self.registers.regWrite(dataReg, data)
+        #data = op1|op2
+        data = self.registers.regOr(dataReg, op2)
         self.registers.setSZP_C0_O0(data, operSize)
     
     
     
     def xorRM8_R8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
-        op1 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
+        #op1 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
-        data = op1^op2
-        self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, data)
+        #data = op1^op2
+        data = self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_XOR)
         self.registers.setSZP_C0_O0(data, misc.OP_SIZE_BYTE)
     def xorRM16_32_R16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
-        op1 = self.registers.modRMLoad(rmOperands, operSize)
+        #op1 = self.registers.modRMLoad(rmOperands, operSize)
         op2 = self.registers.modRLoad(rmOperands, operSize)
-        data = op1^op2
-        self.registers.modRMSave(rmOperands, operSize, data)
+        #data = op1^op2
+        data = self.registers.modRMSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_XOR)
         self.registers.setSZP_C0_O0(data, operSize)
     def xorR8_RM8(self):
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
-        op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
+        #op1 = self.registers.modRLoad(rmOperands, misc.OP_SIZE_BYTE)
         op2 = self.registers.modRMLoad(rmOperands, misc.OP_SIZE_BYTE)
-        data = op1^op2
-        self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, data)
+        #data = op1^op2
+        data = self.registers.modRSave(rmOperands, misc.OP_SIZE_BYTE, op2, valueOp=misc.VALUEOP_XOR)
         self.registers.setSZP_C0_O0(data, misc.OP_SIZE_BYTE)
     def xorR16_32_RM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         rmOperands = self.registers.modRMOperands(operSize)
-        op1 = self.registers.modRLoad(rmOperands, operSize)
+        #op1 = self.registers.modRLoad(rmOperands, operSize)
         op2 = self.registers.modRMLoad(rmOperands, operSize)
-        data = op1^op2
-        self.registers.modRSave(rmOperands, operSize, data)
+        #data = op1^op2
+        data = self.registers.modRSave(rmOperands, operSize, op2, valueOp=misc.VALUEOP_XOR)
         self.registers.setSZP_C0_O0(data, operSize)
     def xorAL_IMM8(self):
-        op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
+        #op1 = self.registers.regRead(registers.CPU_REGISTER_AL)
         op2 = self.cpu.getCurrentOpcodeAdd() # IMM8
-        data = op1^op2
-        self.registers.regWrite(registers.CPU_REGISTER_AL, data)
+        #data = op1^op2
+        data = self.registers.regXor(registers.CPU_REGISTER_AL, op2)
         self.registers.setSZP_C0_O0(data, misc.OP_SIZE_BYTE)
     def xorAX_EAX_IMM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
-        op1 = self.registers.regRead(dataReg)
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
+        #op1 = self.registers.regRead(dataReg)
         op2 = self.cpu.getCurrentOpcodeAdd(operSize) # IMM16_32
-        data = op1^op2
-        self.registers.regWrite(dataReg, data)
+        #data = op1^op2
+        data = self.registers.regXor(dataReg, op2)
         self.registers.setSZP_C0_O0(data, operSize)
     
     
@@ -660,22 +640,20 @@ class Opcodes:
     def stosb(self):
         operSize = misc.OP_SIZE_BYTE
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        dataReg  = registers.CPU_REGISTER_DI
+        dataReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_DI, addrSize)
         srcReg   = registers.CPU_REGISTER_AL
-        countReg = registers.CPU_REGISTER_CX
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
         data = self.registers.regRead(srcReg, signed=False)
-        if (addrSize == misc.OP_SIZE_DWORD):
-            dataReg  = registers.CPU_REGISTER_EDI
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         op1 = self.registers.regRead(dataReg)
         memData = data.to_bytes(length=operSize, byteorder=misc.BYTE_ORDER_LITTLE_ENDIAN, signed=False)*countVal
         self.main.mm.mmWrite(op1, memData, countVal, registers.CPU_SEGMENT_ES)
-        if (not self.registers.getEFLAG(registers.FLAG_DF)):
+        if (not df):
             self.registers.regAdd(dataReg, countVal)
         else:
             self.registers.regSub(dataReg, countVal)
@@ -683,24 +661,21 @@ class Opcodes:
     def stos_wd(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_DI
-        srcReg  = registers.CPU_REGISTER_AX
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_DI, addrSize)
+        srcReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, addrSize)
         data = self.registers.regRead(srcReg, signed=False)
-        countReg = registers.CPU_REGISTER_CX
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
-        if (addrSize == misc.OP_SIZE_DWORD):
-            dataReg  = registers.CPU_REGISTER_EDI
-            srcReg   = registers.CPU_REGISTER_EAX
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         dataLength = operSize*countVal
         op1 = self.registers.regRead(dataReg)
         memData = data.to_bytes(length=operSize, byteorder=misc.BYTE_ORDER_LITTLE_ENDIAN, signed=False)*countVal
         self.main.mm.mmWrite(op1, memData, dataLength, registers.CPU_SEGMENT_ES)
-        if (not self.registers.getEFLAG(registers.FLAG_DF)):
+        if (not df):
             self.registers.regAdd(dataReg, dataLength)
         else:
             self.registers.regSub(dataReg, dataLength)
@@ -710,24 +685,21 @@ class Opcodes:
     def movsb(self):
         operSize = misc.OP_SIZE_BYTE
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        esiReg  = registers.CPU_REGISTER_SI
-        ediReg  = registers.CPU_REGISTER_DI
-        countReg = registers.CPU_REGISTER_CX
+        esiReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_SI, addrSize)
+        ediReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_DI, addrSize)
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
-        if (addrSize == misc.OP_SIZE_DWORD):
-            esiReg  = registers.CPU_REGISTER_ESI
-            ediReg  = registers.CPU_REGISTER_EDI
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg)
         ediVal = self.registers.regRead(ediReg)
         data = self.main.mm.mmRead(esiVal, dataLength, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
         self.main.mm.mmWrite(ediVal, data, dataLength, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
-        if (not self.registers.getEFLAG(registers.FLAG_DF)):
+        if (not df):
             self.registers.regAdd(esiReg, dataLength)
             self.registers.regAdd(ediReg, dataLength)
         else:
@@ -737,24 +709,21 @@ class Opcodes:
     def movs_wd(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        esiReg  = registers.CPU_REGISTER_SI
-        ediReg  = registers.CPU_REGISTER_DI
-        countReg = registers.CPU_REGISTER_CX
+        esiReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_SI, addrSize)
+        ediReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_DI, addrSize)
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
-        if (addrSize == misc.OP_SIZE_DWORD):
-            esiReg  = registers.CPU_REGISTER_ESI
-            ediReg  = registers.CPU_REGISTER_EDI
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg)
         ediVal = self.registers.regRead(ediReg)
         data = self.main.mm.mmRead(esiVal, dataLength, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
         self.main.mm.mmWrite(ediVal, data, dataLength, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
-        if (not self.registers.getEFLAG(registers.FLAG_DF)):
+        if (not df):
             self.registers.regAdd(esiReg, dataLength)
             self.registers.regAdd(ediReg, dataLength)
         else:
@@ -771,21 +740,19 @@ class Opcodes:
     def lodsb(self):
         operSize = misc.OP_SIZE_BYTE
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        esiReg  = registers.CPU_REGISTER_SI
-        countReg = registers.CPU_REGISTER_CX
+        esiReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_SI, addrSize)
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
-        if (addrSize == misc.OP_SIZE_DWORD):
-            esiReg  = registers.CPU_REGISTER_ESI
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg)
         data = self.main.mm.mmReadValue(esiVal+dataLength-1, misc.OP_SIZE_BYTE, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
         self.registers.regWrite(registers.CPU_REGISTER_AL, data)
-        if (not self.registers.getEFLAG(registers.FLAG_DF)):
+        if (not df):
             self.registers.regAdd(esiReg, dataLength)
         else:
             self.registers.regSub(esiReg, dataLength)
@@ -793,23 +760,20 @@ class Opcodes:
     def lods_wd(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        eaxReg  = registers.CPU_REGISTER_AX
-        esiReg  = registers.CPU_REGISTER_SI
-        countReg = registers.CPU_REGISTER_CX
+        eaxReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, addrSize)
+        esiReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_SI, addrSize)
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
-        if (addrSize == misc.OP_SIZE_DWORD):
-            eaxReg  = registers.CPU_REGISTER_EAX
-            esiReg  = registers.CPU_REGISTER_ESI
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg)
         data = self.main.mm.mmReadValue(esiVal+dataLength-operSize, operSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True)
         self.registers.regWrite(eaxReg, data)
-        if (not self.registers.getEFLAG(registers.FLAG_DF)):
+        if (not df):
             self.registers.regAdd(esiReg, dataLength)
         else:
             self.registers.regSub(esiReg, dataLength)
@@ -828,18 +792,15 @@ class Opcodes:
     def cmpsb(self):
         operSize = misc.OP_SIZE_BYTE
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        esiReg  = registers.CPU_REGISTER_SI
-        ediReg  = registers.CPU_REGISTER_DI
-        countReg = registers.CPU_REGISTER_CX
+        esiReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_SI, addrSize)
+        ediReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_DI, addrSize)
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
-        if (addrSize == misc.OP_SIZE_DWORD):
-            esiReg = registers.CPU_REGISTER_ESI
-            ediReg = registers.CPU_REGISTER_EDI
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         while (countVal > 0):
             esiVal = self.registers.regRead(esiReg)
             ediVal = self.registers.regRead(ediReg)
@@ -847,32 +808,30 @@ class Opcodes:
             src2 = self.main.mm.mmReadValue(ediVal, operSize, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
             #temp = src1-src2
             self.registers.setFullFlags(src1, src2, operSize, misc.SET_FLAGS_SUB)
-            if (not self.registers.getEFLAG(registers.FLAG_DF)):
+            if (not df):
                 self.registers.regAdd(esiReg, operSize)
                 self.registers.regAdd(ediReg, operSize)
             else:
                 self.registers.regSub(esiReg, operSize)
                 self.registers.regSub(ediReg, operSize)
             countVal -= 1
-            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
-                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
+            zf = self.registers.getEFLAG(registers.FLAG_ZF)
+            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not zf) or \
+                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and zf)):
                 break
         self.registers.regWrite( countReg, countVal )
     def cmps_wd(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        esiReg  = registers.CPU_REGISTER_SI
-        ediReg  = registers.CPU_REGISTER_DI
-        countReg = registers.CPU_REGISTER_CX
+        esiReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_SI, addrSize)
+        ediReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_DI, addrSize)
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
-        if (addrSize == misc.OP_SIZE_DWORD):
-            esiReg = registers.CPU_REGISTER_ESI
-            ediReg = registers.CPU_REGISTER_EDI
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         while (countVal > 0):
             esiVal = self.registers.regRead(esiReg)
             ediVal = self.registers.regRead(ediReg)
@@ -880,15 +839,16 @@ class Opcodes:
             src2 = self.main.mm.mmReadValue(ediVal, operSize, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
             #temp = src1-src2
             self.registers.setFullFlags(src1, src2, operSize, misc.SET_FLAGS_SUB)
-            if (not self.registers.getEFLAG(registers.FLAG_DF)):
+            if (not df):
                 self.registers.regAdd(esiReg, operSize)
                 self.registers.regAdd(ediReg, operSize)
             else:
                 self.registers.regSub(esiReg, operSize)
                 self.registers.regSub(ediReg, operSize)
             countVal -= 1
-            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
-                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
+            zf = self.registers.getEFLAG(registers.FLAG_ZF)
+            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not zf) or \
+                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and zf)):
                 break
         self.registers.regWrite( countReg, countVal )
     
@@ -899,60 +859,56 @@ class Opcodes:
         operSize = misc.OP_SIZE_BYTE
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
         alReg  = registers.CPU_REGISTER_AL
-        ediReg  = registers.CPU_REGISTER_DI
-        countReg = registers.CPU_REGISTER_CX
+        ediReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_DI, addrSize)
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
-        if (addrSize == misc.OP_SIZE_DWORD):
-            ediReg = registers.CPU_REGISTER_EDI
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         while (countVal > 0):
             ediVal = self.registers.regRead(ediReg)
             src1 = self.registers.regRead(alReg)
             src2 = self.main.mm.mmReadValue(ediVal, operSize, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
             #temp = src1-src2
             self.registers.setFullFlags(src1, src2, operSize, misc.SET_FLAGS_SUB)
-            if (not self.registers.getEFLAG(registers.FLAG_DF)):
+            if (not df):
                 self.registers.regAdd(ediReg, operSize)
             else:
                 self.registers.regSub(ediReg, operSize)
             countVal -= 1
-            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
-                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
+            zf = self.registers.getEFLAG(registers.FLAG_ZF)
+            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not zf) or \
+                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and zf)):
                 break
         self.registers.regWrite( countReg, countVal )
     def scas_wd(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         addrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_CS)
-        eaxReg  = registers.CPU_REGISTER_AX
-        ediReg  = registers.CPU_REGISTER_DI
-        countReg = registers.CPU_REGISTER_CX
+        eaxReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, addrSize)
+        ediReg  = self.registers.getWordAsDword(registers.CPU_REGISTER_DI, addrSize)
+        countReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, addrSize)
         countVal = 1
-        if (addrSize == misc.OP_SIZE_DWORD):
-            eaxReg = registers.CPU_REGISTER_EAX
-            ediReg = registers.CPU_REGISTER_EDI
-            countReg = registers.CPU_REGISTER_ECX
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg)
-        if (countVal == 0):
-            return
-        
+            if (countVal == 0):
+                return
+        df = self.registers.getEFLAG(registers.FLAG_DF)
         while (countVal > 0):
             ediVal = self.registers.regRead(ediReg)
             src1 = self.registers.regRead(eaxReg)
             src2 = self.main.mm.mmReadValue(ediVal, operSize, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
             #temp = src1-src2
             self.registers.setFullFlags(src1, src2, operSize, misc.SET_FLAGS_SUB)
-            if (not self.registers.getEFLAG(registers.FLAG_DF)):
+            if (not df):
                 self.registers.regAdd(ediReg, operSize)
             else:
                 self.registers.regSub(ediReg, operSize)
             countVal -= 1
-            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not self.registers.getEFLAG(registers.FLAG_ZF)) or \
-                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and self.registers.getEFLAG(registers.FLAG_ZF))):
+            zf = self.registers.getEFLAG(registers.FLAG_ZF)
+            if ((self.registers.repPrefix == misc.OPCODE_PREFIX_REPE and not zf) or \
+                (self.registers.repPrefix == misc.OPCODE_PREFIX_REPNE and zf)):
                 break
         self.registers.regWrite( countReg, countVal )
     
@@ -972,38 +928,32 @@ class Opcodes:
         self.registers.regWrite(registers.CPU_REGISTER_AL, self.main.platform.inPort(self.cpu.getCurrentOpcodeAdd(), misc.OP_SIZE_BYTE))
     def inAxEaxImm8(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         self.registers.regWrite(dataReg, self.main.platform.inPort(self.cpu.getCurrentOpcodeAdd(), operSize))
     def inAlDx(self):
         self.registers.regWrite(registers.CPU_REGISTER_AL, self.main.platform.inPort(self.registers.regRead(registers.CPU_REGISTER_DX), misc.OP_SIZE_BYTE))
     def inAxEaxDx(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         self.registers.regWrite(dataReg, self.main.platform.inPort(self.registers.regRead(registers.CPU_REGISTER_DX), operSize))
     def outImm8Al(self):
         self.main.platform.outPort(self.cpu.getCurrentOpcodeAdd(), self.registers.regRead(registers.CPU_REGISTER_AL), misc.OP_SIZE_BYTE)
     def outImm8AxEax(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         self.main.platform.outPort(self.cpu.getCurrentOpcodeAdd(), self.registers.regRead(dataReg), operSize)
     def outDxAl(self):
         self.main.platform.outPort(self.registers.regRead(registers.CPU_REGISTER_DX), self.registers.regRead(registers.CPU_REGISTER_AL), misc.OP_SIZE_BYTE)
     def outDxAxEax(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        dataReg = registers.CPU_REGISTER_AX
-        if (operSize == misc.OP_SIZE_DWORD):
-            dataReg = registers.CPU_REGISTER_EAX
+        dataReg = self.registers.getWordAsDword(registers.CPU_REGISTER_AX, operSize)
         self.main.platform.outPort(self.registers.regRead(registers.CPU_REGISTER_DX), self.registers.regRead(dataReg), operSize)
     def jgShort(self, size=misc.OP_SIZE_BYTE): # byte8
         self.jumpShort(size, not self.registers.getEFLAG(registers.FLAG_ZF) and (self.registers.getEFLAG(registers.FLAG_SF)==self.registers.getEFLAG(registers.FLAG_OF)))
     def jgeShort(self, size=misc.OP_SIZE_BYTE): # byte8
-        self.jumpShort(size, self.registers.getEFLAG(registers.FLAG_SF)==self.registers.getEFLAG(registers.FLAG_OF))
+        flags = registers.FLAG_SF | registers.FLAG_OF
+        flagsVal = self.registers.getEFLAG(flags)
+        self.jumpShort(size, not flagsVal or flagsVal == flags)
     def jlShort(self, size=misc.OP_SIZE_BYTE): # byte8
         self.jumpShort(size, self.registers.getEFLAG(registers.FLAG_SF)!=self.registers.getEFLAG(registers.FLAG_OF))
     def jleShort(self, size=misc.OP_SIZE_BYTE): # byte8
@@ -1015,7 +965,8 @@ class Opcodes:
     def jaShort(self, size=misc.OP_SIZE_BYTE): # byte8
         self.jumpShort(size, not self.registers.getEFLAG(registers.FLAG_CF) and not self.registers.getEFLAG(registers.FLAG_ZF))
     def jbeShort(self, size=misc.OP_SIZE_BYTE): # byte8
-        self.jumpShort(size, self.registers.getEFLAG(registers.FLAG_CF) or self.registers.getEFLAG(registers.FLAG_ZF))
+        flags = registers.FLAG_CF | registers.FLAG_ZF
+        self.jumpShort(size, self.registers.getEFLAG(flags))
     def jncShort(self, size=misc.OP_SIZE_BYTE): # byte8
         self.jumpShort(size, not self.registers.getEFLAG(registers.FLAG_CF))
     def jcShort(self, size=misc.OP_SIZE_BYTE): # byte8
@@ -1034,9 +985,7 @@ class Opcodes:
         self.jumpShort(size, self.registers.getEFLAG(registers.FLAG_SF))
     def jcxzShort(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        cxReg = registers.CPU_REGISTER_CX
-        if (operSize == misc.OP_SIZE_DWORD):
-            cxReg = registers.CPU_REGISTER_ECX
+        cxReg = self.registers.getWordAsDword(registers.CPU_REGISTER_CX, operSize)
         self.jumpShort(misc.OP_SIZE_BYTE, self.registers.regRead(cxReg)==0)
     def jumpShort(self, offsetSize, c=True):
         if (self.registers.lockPrefix): self.cpu.exception(misc.CPU_EXCEPTION_UD); return
@@ -1050,9 +999,7 @@ class Opcodes:
     def callNearRel16_32(self):
         if (self.registers.lockPrefix): self.cpu.exception(misc.CPU_EXCEPTION_UD); return
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        eipRegName = registers.CPU_REGISTER_IP
-        if (operSize == misc.OP_SIZE_DWORD):
-            eipRegName = registers.CPU_REGISTER_EIP
+        eipRegName = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, operSize)
         tempEIP = self.cpu.getCurrentOpcodeAdd(numBytes=(operSize), signed=True) + \
                             self.registers.regRead(registers.CPU_REGISTER_EIP)
         if (operSize == misc.OP_SIZE_WORD):
@@ -1062,10 +1009,7 @@ class Opcodes:
     def callPtr16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         segId = registers.CPU_SEGMENT_CS
-        eipName = registers.CPU_REGISTER_IP
-        if (operSize == misc.OP_SIZE_DWORD):
-            eipName = registers.CPU_REGISTER_EIP
-        
+        eipName = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, operSize)
         eipAddr = self.cpu.getCurrentOpcodeAdd(operSize)
         segVal = self.cpu.getCurrentOpcodeAdd(misc.OP_SIZE_WORD)
         self.stackPushSegId(segId, operSize)
@@ -1145,9 +1089,7 @@ class Opcodes:
         return value
     def stackPopValue(self, operSize):
         stackAddrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_SS)
-        stackRegName = registers.CPU_REGISTER_SP
-        if (stackAddrSize == misc.OP_SIZE_DWORD):
-            stackRegName = registers.CPU_REGISTER_ESP
+        stackRegName = self.registers.getWordAsDword(registers.CPU_REGISTER_SP, stackAddrSize)
         stackAddr = self.registers.regRead(stackRegName)
         data = self.main.mm.mmReadValue(stackAddr, operSize, segId=registers.CPU_SEGMENT_SS, allowOverride=False)
         self.registers.regAdd(stackRegName, operSize)
@@ -1160,9 +1102,7 @@ class Opcodes:
         self.stackPushValue(value, operSize)
     def stackPushValue(self, value, operSize):
         stackAddrSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_SS)
-        stackRegName = registers.CPU_REGISTER_SP
-        if (stackAddrSize == misc.OP_SIZE_DWORD):
-            stackRegName = registers.CPU_REGISTER_ESP
+        stackRegName = self.registers.getWordAsDword(registers.CPU_REGISTER_SP, stackAddrSize)
         self.registers.regSub(stackRegName, operSize)
         stackAddr = self.registers.regRead(stackRegName)
         self.main.mm.mmWriteValue(stackAddr, value, operSize, segId=registers.CPU_SEGMENT_SS, allowOverride=False)
@@ -1170,7 +1110,7 @@ class Opcodes:
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         operMask = self.main.misc.getBitMask(operSize)
         value = self.cpu.getCurrentOpcodeAdd(misc.OP_SIZE_BYTE, signed=True)
-        value &= operMask
+        ##value &= operMask
         self.stackPushValue(value, operSize)
     def pushIMM16_32(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
@@ -1202,34 +1142,34 @@ class Opcodes:
         operRes = 0
         bitMask = self.main.misc.getBitMask(misc.OP_SIZE_BYTE)
         if (operOpcodeId == GROUP1_OP_ADD):
-            operRes = operOp1+operOp2
-            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operRes)
+            ##operRes = operOp1+operOp2
+            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operOp2, valueOp=misc.VALUEOP_ADD)
             self.registers.setFullFlags(operOp1, operOp2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_ADD)
         elif (operOpcodeId == GROUP1_OP_OR):
-            operRes = operOp1|operOp2
-            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operRes)
+            ##operRes = operOp1|operOp2
+            operRes = self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operOp2, valueOp=misc.VALUEOP_OR)
             self.registers.setSZP_C0_O0(operRes, misc.OP_SIZE_BYTE)
         elif (operOpcodeId == GROUP1_OP_ADC):
             operOp1 += self.registers.getEFLAG(registers.FLAG_CF)
-            operRes = (operOp1+operOp2)
-            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operRes)
+            ##operRes = (operOp1+operOp2)
+            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operOp2, valueOp=misc.VALUEOP_ADC)
             self.registers.setFullFlags(operOp1, operOp2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_ADD)
         elif (operOpcodeId == GROUP1_OP_SBB):
             operOp1 -= self.registers.getEFLAG(registers.FLAG_CF)
-            operRes = operOp1-operOp2
-            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operRes)
+            ##operRes = operOp1-operOp2
+            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operOp2, valueOp=misc.VALUEOP_SBB)
             self.registers.setFullFlags(operOp1, operOp2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
         elif (operOpcodeId == GROUP1_OP_AND):
-            operRes = operOp1&operOp2
-            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operRes)
+            ##operRes = operOp1&operOp2
+            operRes = self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operOp2, valueOp=misc.VALUEOP_AND)
             self.registers.setSZP_C0_O0(operRes, misc.OP_SIZE_BYTE)
         elif (operOpcodeId == GROUP1_OP_SUB):
-            operRes = operOp1-operOp2
-            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operRes)
+            ##operRes = operOp1-operOp2
+            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operOp2, valueOp=misc.VALUEOP_SUB)
             self.registers.setFullFlags(operOp1, operOp2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
         elif (operOpcodeId == GROUP1_OP_XOR):
-            operRes = operOp1^operOp2
-            self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operRes)
+            ##operRes = operOp1^operOp2
+            operRes = self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operOp2, valueOp=misc.VALUEOP_XOR)
             self.registers.setSZP_C0_O0(operRes, misc.OP_SIZE_BYTE)
         elif (operOpcodeId == GROUP1_OP_CMP):
             operRes = operOp1-operOp2
@@ -1244,36 +1184,36 @@ class Opcodes:
         operOp1 = self.registers.modRMLoad(rmOperands, operSize)
         operOp2 = self.cpu.getCurrentOpcodeAdd(operSize) # operImm16_32
         operRes = 0
-        bitMask = self.main.misc.getBitMask(operSize)
+        ##bitMask = self.main.misc.getBitMask(operSize)
         if (operOpcodeId == GROUP1_OP_ADD):
-            operRes = operOp1+operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1+operOp2
+            self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_ADD)
             self.registers.setFullFlags(operOp1, operOp2, operSize, misc.SET_FLAGS_ADD)
         elif (operOpcodeId == GROUP1_OP_OR):
-            operRes = operOp1|operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1|operOp2
+            operRes = self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_OR)
             self.registers.setSZP_C0_O0(operRes, operSize)
         elif (operOpcodeId == GROUP1_OP_ADC):
             operOp1 += self.registers.getEFLAG(registers.FLAG_CF)
-            operRes = (operOp1+operOp2)
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = (operOp1+operOp2)
+            self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_ADC)
             self.registers.setFullFlags(operOp1, operOp2, operSize, misc.SET_FLAGS_ADD)
         elif (operOpcodeId == GROUP1_OP_SBB):
             operOp1 -= self.registers.getEFLAG(registers.FLAG_CF)
-            operRes = operOp1-operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1-operOp2
+            self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_SBB)
             self.registers.setFullFlags(operOp1, operOp2, operSize, misc.SET_FLAGS_SUB)
         elif (operOpcodeId == GROUP1_OP_AND):
-            operRes = operOp1&operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1&operOp2
+            operRes = self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_AND)
             self.registers.setSZP_C0_O0(operRes, operSize)
         elif (operOpcodeId == GROUP1_OP_SUB):
-            operRes = operOp1-operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1-operOp2
+            self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_SUB)
             self.registers.setFullFlags(operOp1, operOp2, operSize, misc.SET_FLAGS_SUB)
         elif (operOpcodeId == GROUP1_OP_XOR):
-            operRes = operOp1^operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1^operOp2
+            operRes = self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_XOR)
             self.registers.setSZP_C0_O0(operRes, operSize)
         elif (operOpcodeId == GROUP1_OP_CMP):
             operRes = operOp1-operOp2
@@ -1288,38 +1228,38 @@ class Opcodes:
         operOp1 = self.registers.modRMLoad(rmOperands, operSize)
         operOp2 = self.cpu.getCurrentOpcodeAdd(signed=True) # operImm8
         operRes = 0
-        bitMask = self.main.misc.getBitMask(operSize)
-        operOp2 &= bitMask
+        ##bitMask = self.main.misc.getBitMask(operSize)
+        ##operOp2 &= bitMask
         if (operOpcodeId == GROUP1_OP_ADD):
-            operRes = operOp1+operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1+operOp2
+            self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_ADD)
             self.registers.setFullFlags(operOp1, operOp2, operSize, misc.SET_FLAGS_ADD)
         elif (operOpcodeId == GROUP1_OP_OR):
-            operRes = operOp1|operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1|operOp2
+            operRes = self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_OR)
             self.registers.setSZP_C0_O0(operRes, operSize)
         elif (operOpcodeId == GROUP1_OP_ADC):
             operOp1 += self.registers.getEFLAG(registers.FLAG_CF)
             #operOp1 &= bitMask
-            operRes = (operOp1+operOp2)&bitMask
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ###operRes = (operOp1+operOp2)&bitMask
+            operRes = self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_ADC)
             self.registers.setFullFlags(operOp1, operOp2, operSize, misc.SET_FLAGS_ADD)
         elif (operOpcodeId == GROUP1_OP_SBB):
             operOp1 -= self.registers.getEFLAG(registers.FLAG_CF)
-            operRes = operOp1-operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1-operOp2
+            self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_SBB)
             self.registers.setFullFlags(operOp1, operOp2, operSize, misc.SET_FLAGS_SUB)
         elif (operOpcodeId == GROUP1_OP_AND):
-            operRes = operOp1&operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1&operOp2
+            operRes = self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_AND)
             self.registers.setSZP_C0_O0(operRes, operSize)
         elif (operOpcodeId == GROUP1_OP_SUB):
-            operRes = operOp1-operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1-operOp2
+            self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_SUB)
             self.registers.setFullFlags(operOp1, operOp2, operSize, misc.SET_FLAGS_SUB)
         elif (operOpcodeId == GROUP1_OP_XOR):
-            operRes = operOp1^operOp2
-            self.registers.modRMSave(rmOperands, operSize, operRes)
+            ##operRes = operOp1^operOp2
+            operRes = self.registers.modRMSave(rmOperands, operSize, operOp2, valueOp=misc.VALUEOP_XOR)
             self.registers.setSZP_C0_O0(operRes, operSize)
         elif (operOpcodeId == GROUP1_OP_CMP):
             operRes = operOp1-operOp2
@@ -1330,7 +1270,6 @@ class Opcodes:
         operOpcode = self.cpu.getCurrentOpcode()
         operOpcodeId = (operOpcode>>3)&7
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
-        #cdef long operOp1 = self.registers.modRMLoad(rmOperands, 8)
         operOp2 = self.cpu.getCurrentOpcodeAdd() # operImm8
         operRes = 0
         if (operOpcodeId == 0): # GROUP3_OP_MOV
@@ -1342,7 +1281,6 @@ class Opcodes:
         operOpcode = self.cpu.getCurrentOpcode()
         operOpcodeId = (operOpcode>>3)&7
         rmOperands = self.registers.modRMOperands(operSize)
-        #cdef long operOp1 = self.registers.modRMLoad(rmOperands, operSize)
         operOp2 = self.cpu.getCurrentOpcodeAdd(operSize) # operImm16_32
         operRes = 0
         if (operOpcodeId == 0): # GROUP3_OP_MOV
@@ -1397,7 +1335,7 @@ class Opcodes:
         elif (operOpcode >= 0x80 and operOpcode <= 0x8f):
             self.jumpShort(operSize, self.registers.getCond( operOpcode&0xf ))
         elif (operOpcode >= 0x90 and operOpcode <= 0x9f): # SETcc
-            self.setCondFunc(self.registers.getCond( operOpcode&0xf ) )
+            self.setWithCondFunc(self.registers.getCond( operOpcode&0xf ) )
         elif (operOpcode == 0xa0):
             self.pushFS()
         elif (operOpcode == 0xa1):
@@ -1436,7 +1374,7 @@ class Opcodes:
                 return
             count %= 32
             if (count == 0):
-                pass
+                return
             else:
                 if (count > bitSize): # bad parameters
                     self.main.exitError("group0F: SHRD: count > bitSize (count == {0:d}, bitSize == {1:d}, operOpcode == {2:#04x}).".format(count, bitSize, operOpcode))
@@ -1452,7 +1390,6 @@ class Opcodes:
                     for i in range(bitSize-count, bitSize):
                         tmpBit = self.registers.valGetBit(src, i+count-bitSize)
                         dest = self.registers.valSetBit(dest, i, tmpBit)
-                    
                     
                     self.registers.modRMSave(rmOperands, operSize, dest)
                     if (count == 1):
@@ -1513,9 +1450,6 @@ class Opcodes:
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         operOpcode = self.cpu.getCurrentOpcode()
         operOpcodeId = (operOpcode>>3)&7
-        #cdef tuple rmOperands = self.registers.modRMOperands(operSize)
-        #cdef long operOp1 = self.registers.modRMLoad(rmOperands, operSize)
-        #cdef long operOp2 = self.cpu.getCurrentOpcodeAdd(operSize) # operImm16_32
         operRes = 0
         #if (operOpcodeId == 0):
         if (0):
@@ -1526,10 +1460,7 @@ class Opcodes:
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         operOpcode = self.cpu.getCurrentOpcode()
         operOpcodeId = (operOpcode>>3)&7
-        ##cpdef tuple rmOperands = self.registers.modRMOperands(operSize)
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
-        #cdef long operOp1 = self.registers.modRMLoad(rmOperands, operSize)
-        #cdef long operOp2 = self.cpu.getCurrentOpcodeAdd(operSize) # operImm16_32
         operRes = 0
         if (operOpcodeId == 0): # 0/INC
             self.incFuncRM(rmOperands, misc.OP_SIZE_BYTE)
@@ -1542,8 +1473,6 @@ class Opcodes:
         operOpcode = self.cpu.getCurrentOpcode()
         operOpcodeId = (operOpcode>>3)&7
         rmOperands = self.registers.modRMOperands(operSize)
-        ###cdef long operOp1 = self.registers.modRMLoad(rmOperands, operSize)
-        ###cdef long operOp2 = self.cpu.getCurrentOpcodeAdd(operSize) # operImm16_32
         operRes = 0
         if (operOpcodeId == 0): # 0/INC
             self.incFuncRM(rmOperands, operSize)
@@ -1590,7 +1519,9 @@ class Opcodes:
         bitMask = self.main.misc.getBitMask(regSize)
         op1 = self.registers.regRead(regId)
         op2 = 1
-        self.registers.regWrite(regId, (op1+op2)&bitMask)
+        #self.registers.regWrite(regId, (op1+op2)&bitMask)
+        #self.registers.regWrite(regId, op1+op2)
+        self.registers.regAdd(regId, op2)
         self.registers.setFullFlags(op1, op2, regSize, misc.SET_FLAGS_ADD)
         self.registers.setEFLAG(registers.FLAG_CF, origCF)
     def decFuncReg(self, regId):
@@ -1599,7 +1530,9 @@ class Opcodes:
         bitMask = self.main.misc.getBitMask(regSize)
         op1 = self.registers.regRead(regId)
         op2 = 1
-        self.registers.regWrite(regId, (op1-op2)&bitMask)
+        #self.registers.regWrite(regId, (op1-op2)&bitMask)
+        #self.registers.regWrite(regId, op1-op2)
+        self.registers.regSub(regId, op2)
         self.registers.setFullFlags(op1, op2, regSize, misc.SET_FLAGS_SUB)
         self.registers.setEFLAG(registers.FLAG_CF, origCF)
     def incFuncRM(self, rmOperands, rmSize): # rmSize in bits
@@ -1607,7 +1540,7 @@ class Opcodes:
         bitMask = self.main.misc.getBitMask(rmSize)
         op1 = self.registers.modRMLoad(rmOperands, rmSize)
         op2 = 1
-        self.registers.modRMSave(rmOperands, rmSize, (op1+op2)&bitMask)
+        self.registers.modRMSave(rmOperands, rmSize, op2, valueOp=misc.VALUEOP_ADD)
         self.registers.setFullFlags(op1, op2, rmSize, misc.SET_FLAGS_ADD)
         self.registers.setEFLAG(registers.FLAG_CF, origCF)
     def decFuncRM(self, rmOperands, rmSize): # rmSize in bits
@@ -1615,7 +1548,7 @@ class Opcodes:
         bitMask = self.main.misc.getBitMask(rmSize)
         op1 = self.registers.modRMLoad(rmOperands, rmSize)
         op2 = 1
-        self.registers.modRMSave(rmOperands, rmSize, (op1-op2)&bitMask)
+        self.registers.modRMSave(rmOperands, rmSize, op2, valueOp=misc.VALUEOP_SUB)
         self.registers.setFullFlags(op1, op2, rmSize, misc.SET_FLAGS_SUB)
         self.registers.setEFLAG(registers.FLAG_CF, origCF)
     def incAX(self):
@@ -1866,11 +1799,11 @@ class Opcodes:
             operRes = operOp2&imm8
             self.registers.setSZP_C0_O0(operRes, misc.OP_SIZE_BYTE)
         elif (operOpcodeId == GROUP2_OP_NOT):
-            operRes = (~operOp2)&bitMask
+            operRes = (~operOp2) ##&bitMask
             self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operRes)
             self.registers.setEFLAG(registers.FLAG_ZF, operRes==0)
         elif (operOpcodeId == GROUP2_OP_NEG):
-            operRes = (-operOp2)&bitMask
+            operRes = (-operOp2) ##&bitMask
             self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, operRes)
             #self.registers.setSZP_C0_O0_SubAF(operRes, misc.OP_SIZE_BYTE)
             self.registers.setFullFlags(0, operOp2, misc.OP_SIZE_BYTE, misc.SET_FLAGS_SUB)
@@ -1935,11 +1868,11 @@ class Opcodes:
             operRes = operOp2&imm16_32
             self.registers.setSZP_C0_O0(operRes, operSize)
         elif (operOpcodeId == GROUP2_OP_NOT):
-            operRes = (~operOp2)&bitMask
+            operRes = (~operOp2) ##&bitMask
             self.registers.modRMSave(rmOperands, operSize, operRes)
             self.registers.setEFLAG(registers.FLAG_ZF, operRes==0)
         elif (operOpcodeId == GROUP2_OP_NEG):
-            operRes = (-operOp2)&bitMask
+            operRes = (-operOp2) ##&bitMask
             self.registers.modRMSave(rmOperands, operSize, operRes)
             #self.registers.setSZP_C0_O0_SubAF(operRes, operSize)
             self.registers.setFullFlags(0, operOp2, operSize, misc.SET_FLAGS_SUB)
@@ -2005,10 +1938,12 @@ class Opcodes:
         self.stackPushRegId(registers.CPU_REGISTER_IP, operSize)
         if (errorCode != None):
             self.stackPushValue(errorCode, operSize)
-        if (operSize == misc.OP_SIZE_WORD):
-            entrySegment, entryEip = self.registers.segments.idt.getEntryRealMode(intNum)
-        elif (operSize == misc.OP_SIZE_DWORD):
+        ##if (operSize == misc.OP_SIZE_DWORD):
+        if (self.cpu.isInProtectedMode()):
             entrySegment, entryEip = self.registers.segments.idt.getEntry(intNum)
+        ##elif (operSize == misc.OP_SIZE_WORD):
+        else:
+            entrySegment, entryEip = self.registers.segments.idt.getEntryRealMode(intNum)
         self.registers.segWrite(registers.CPU_SEGMENT_CS, entrySegment)
         self.registers.regWrite(registers.CPU_REGISTER_EIP, entryEip)
     def into(self):
@@ -2148,7 +2083,7 @@ class Opcodes:
         else:
             newCF = ((dest<<(countWithMask-1))&halfOperMask)!=0
         dest <<= countWithMask
-        dest &= bitMask
+        ##dest &= bitMask
         self.registers.modRMSave(rmOperands, operSize, dest)
         if (countWithMask == 0):
             return
@@ -2173,7 +2108,7 @@ class Opcodes:
         else:
             newCF = ((dest>>(countWithMask-1))&1)
         dest >>= countWithMask
-        dest &= bitMask
+        ##dest &= bitMask
         self.registers.modRMSave(rmOperands, operSize, dest)
         if (countWithMask == 0):
             return
@@ -2197,14 +2132,14 @@ class Opcodes:
         else:
             newCF = ((dest>>(countWithMask-1))&1)
         dest >>= countWithMask
-        dest &= bitMask
+        ##dest &= bitMask
         self.registers.modRMSave(rmOperands, operSize, dest)
         if (countWithMask == 0):
             return
         #if (countWithMask == 1):
-        if (1):
-            newOF = ((tempDest)&halfOperMask)!=0
-            self.registers.setEFLAG( registers.FLAG_OF, newOF )
+        #if (1):
+        newOF = ((tempDest)&halfOperMask)!=0
+        self.registers.setEFLAG( registers.FLAG_OF, newOF )
         self.registers.setEFLAG( registers.FLAG_CF, newCF )
         self.registers.setSZP(dest, operSize)
         
@@ -2225,14 +2160,14 @@ class Opcodes:
             tempCF = (dest&halfOperMask)!=0
             dest = (dest<<1)|newCF
             newCF = tempCF
-        dest &= bitMask
+        ##dest &= bitMask
         self.registers.modRMSave(rmOperands, operSize, dest)
         if (tempCount == 0):
             return
         #if (count == 1):
-        if (1):
-            newOF = ( ((dest&halfOperMask)!=0)^newCF )
-            self.registers.setEFLAG( registers.FLAG_OF, newOF )
+        #if (1):
+        newOF = ( ((dest&halfOperMask)!=0)^newCF )
+        self.registers.setEFLAG( registers.FLAG_OF, newOF )
         #else:
         #    self.registers.setEFLAG( registers.FLAG_OF, False )
         self.registers.setEFLAG( registers.FLAG_CF, newCF )
@@ -2475,18 +2410,23 @@ class Opcodes:
             self.main.exitError("opcodeGroup4_RM16_32_1: invalid operOpcodeId. 0x{0:x}".format(operOpcodeId))
     def sahf(self):
         ahVal = self.registers.regRead( registers.CPU_REGISTER_AH )
-        self.registers.setEFLAG( registers.FLAG_CF, ahVal & registers.FLAG_CF )
-        self.registers.setEFLAG( registers.FLAG_PF, ahVal & registers.FLAG_PF )
-        self.registers.setEFLAG( registers.FLAG_AF, ahVal & registers.FLAG_AF )
-        self.registers.setEFLAG( registers.FLAG_ZF, ahVal & registers.FLAG_ZF )
-        self.registers.setEFLAG( registers.FLAG_SF, ahVal & registers.FLAG_SF )
+        self.registers.clearThisEFLAGS( registers.FLAG_CF | registers.FLAG_PF | \
+            registers.FLAG_AF | registers.FLAG_ZF | registers.FLAG_SF )
+        orThis = 0x2
+        orThis |= ahVal & registers.FLAG_CF
+        orThis |= ahVal & registers.FLAG_PF
+        orThis |= ahVal & registers.FLAG_AF
+        orThis |= ahVal & registers.FLAG_ZF
+        orThis |= ahVal & registers.FLAG_SF
+        self.registers.regOr( registers.CPU_REGISTER_FLAGS, orThis )
     def lahf(self):
         newAH = 0x2
-        newAH |= self.registers.getEFLAG( registers.FLAG_CF ) and registers.FLAG_CF
-        newAH |= self.registers.getEFLAG( registers.FLAG_PF ) and registers.FLAG_PF
-        newAH |= self.registers.getEFLAG( registers.FLAG_AF ) and registers.FLAG_AF
-        newAH |= self.registers.getEFLAG( registers.FLAG_ZF ) and registers.FLAG_ZF
-        newAH |= self.registers.getEFLAG( registers.FLAG_SF ) and registers.FLAG_SF
+        flags = self.registers.regRead( registers.CPU_REGISTER_FLAGS )
+        newAH |= flags & registers.FLAG_CF
+        newAH |= flags & registers.FLAG_PF
+        newAH |= flags & registers.FLAG_AF
+        newAH |= flags & registers.FLAG_ZF
+        newAH |= flags & registers.FLAG_SF
         self.registers.regWrite( registers.CPU_REGISTER_AH, newAH )
     
     
@@ -2558,21 +2498,15 @@ class Opcodes:
     def leave(self):
         operSize = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
         stackSize = self.registers.segments.getAddrSegSize(registers.CPU_SEGMENT_SS)
-        spName = registers.CPU_REGISTER_SP
-        bpName = registers.CPU_REGISTER_BP
-        espName = registers.CPU_REGISTER_ESP
-        ebpName = registers.CPU_REGISTER_EBP
-        if (stackSize == misc.OP_SIZE_DWORD):
-            self.registers.regWrite(espName, self.registers.regRead(ebpName) )
-        elif (stackSize == misc.OP_SIZE_WORD):
-            self.registers.regWrite(spName, self.registers.regRead(bpName) )
-        if (operSize == misc.OP_SIZE_DWORD):
-            self.stackPopRegId( ebpName, operSize )
-        elif (operSize == misc.OP_SIZE_WORD):
-            self.stackPopRegId( bpName, operSize )
+        ##espNameOper = self.registers.getWordAsDword(registers.CPU_REGISTER_SP, operSize)
+        ebpNameOper = self.registers.getWordAsDword(registers.CPU_REGISTER_BP, operSize)
+        espNameStack = self.registers.getWordAsDword(registers.CPU_REGISTER_SP, stackSize)
+        ebpNameStack = self.registers.getWordAsDword(registers.CPU_REGISTER_BP, stackSize)
+        self.registers.regWrite(espNameStack, self.registers.regRead(ebpNameStack) )
+        self.stackPopRegId( ebpNameOper, operSize )
     def cmovFunc(self, c): # R16, R/M 16; R32, R/M 32
         self.movR16_32_RM16_32(c)
-    def setCondFunc(self, cond): # if cond==True set 1, else 0
+    def setWithCondFunc(self, cond): # if cond==True set 1, else 0
         rmOperands = self.registers.modRMOperands(misc.OP_SIZE_BYTE)
         self.registers.modRMSave(rmOperands, misc.OP_SIZE_BYTE, cond!=0)
     

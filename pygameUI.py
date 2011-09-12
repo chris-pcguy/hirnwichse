@@ -8,12 +8,25 @@ class pygameUI:
         self.size = self.width, self.height = 640, 400
         self.fontSize = self.fontWidth, self.fontHeight = self.width//80, self.height//25
     def quitFunc(self):
-        self.main.quitFunc()
-        pygame.font.quit()
-        pygame.display.quit()
-        _thread.exit()
+        try:
+            self.main.quitFunc()
+            pygame.font.quit()
+            pygame.display.quit()
+        except pygame.error:
+            print(sys.exc_info())
+        except:
+            print(sys.exc_info())
+        ###_thread.exit()
     def getCharRect(self, x, y):
-        return pygame.Rect((self.fontWidth*x, self.fontHeight*y), self.fontSize)
+        try:
+            return pygame.Rect((self.fontWidth*x, self.fontHeight*y), self.fontSize)
+        except pygame.error:
+            print(sys.exc_info())
+            return
+        except:
+            print(sys.exc_info())
+            return
+        return
     def getColor(self, color):
         if (color == 0x0): # black
             return (0, 0, 0)
@@ -50,21 +63,45 @@ class pygameUI:
         else:
             self.main.exitError('pygameUI: invalid color used. (color: {0:d})', color)
     def putChar(self, x, y, char, colors): # returns rect
-        newRect = self.getCharRect(x, y)
-        fgColor, bgColor = colors&0xf, (colors&0xf0)>>4
-        fgColor, bgColor = self.getColor(fgColor), self.getColor(bgColor)
-        if (not char.isprintable()):
-            char = ' '
-        newChar = self.font.render(char, True, fgColor, bgColor)
-        self.screen.blit(newChar, newRect)
-        return newRect
+        try:
+            newRect = self.getCharRect(x, y)
+            fgColor, bgColor = colors&0xf, (colors&0xf0)>>4
+            fgColor, bgColor = self.getColor(fgColor), self.getColor(bgColor)
+            if (not char.isprintable()):
+                char = ' '
+            newChar = self.font.render(char, False, fgColor, bgColor)
+            self.screen.blit(newChar, newRect)
+            return newRect
+        except pygame.error:
+            print(sys.exc_info())
+            _thread.exit()
+            return
+        except:
+            print(sys.exc_info())
+            _thread.exit()
+            return
+        return
     def handleEvent(self, event):
-        if (event.type == pygame.QUIT):
-            self.main.quitFunc()
+        try:
+            if (event.type == pygame.QUIT):
+                self.main.quitFunc()
+        except pygame.error:
+            print(sys.exc_info())
+            _thread.exit()
+        except:
+            print(sys.exc_info())
+            _thread.exit()
     def updateScreen(self, rectList=None):
-        if (self.display and self.screen):
-            self.display.blit(self.screen, (0, 0))
-        pygame.display.update(rectList)
+        try:
+            if (self.display and self.screen and not self.main.quitEmu):
+                self.display.blit(self.screen, (0, 0))
+            pygame.display.update(rectList)
+        except pygame.error:
+            print(sys.exc_info())
+            _thread.exit()
+        except:
+            print(sys.exc_info())
+            _thread.exit()
     def handleThread(self):
         try:
             while (not self.main.quitEmu):
@@ -72,6 +109,9 @@ class pygameUI:
                 event = pygame.event.wait()
                 self.handleEvent(event)
             self.quitFunc()
+        except pygame.error:
+            print(sys.exc_info())
+            _thread.exit()
         except:
             print(sys.exc_info())
             _thread.exit()
@@ -83,7 +123,11 @@ class pygameUI:
             self.screen = pygame.Surface(self.size)
             self.font = pygame.font.SysFont( 'VeraMono',  self.fontHeight)
             atexit.register(self.quitFunc)
+        except pygame.error:
+            print(sys.exc_info())
+            _thread.exit()
         except:
             print(sys.exc_info())
             _thread.exit()
+
 

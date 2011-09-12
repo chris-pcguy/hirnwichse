@@ -176,9 +176,9 @@ class Vga:
                 for y in range(25):
                     rectList = []
                     for x in range(80):
-                        offset = (y*80)+x
+                        offset = ((y*80)+x)*2
                         charData = vidData[offset:offset+2]
-                        newRect = self.pygameUI.putChar(x, y, chr(charData[1]), charData[0])
+                        newRect = self.pygameUI.putChar(x, y, chr(charData[0]), charData[1])
                         rectList.append(newRect)
                     if (len(rectList) > 0):
                         self.pygameUI.updateScreen(rectList)

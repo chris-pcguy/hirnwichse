@@ -1,4 +1,4 @@
-import struct, time, sys
+import struct, time, sys, threading, _thread
 
 import chemu
 import registers, opcodes, misc
@@ -131,7 +131,11 @@ class Cpu:
         self.main.debug("Current Opcode: {0:#04x}; It's Addr: {1:#010x}, CS: {2:#06x}", self.opcode, self.savedAddr, self.savedCs)
         opcodeHandle = self.opcodes.opcodeList.get(self.opcode)
         if (opcodeHandle):
-            opcodeHandle()
+            try:
+                opcodeHandle()
+            except:
+                print(sys.exc_info())
+                _thread.exit()
         else:
             self.main.printMsg("Opcode not found. (opcode: {0:#04x}; addr: {1:#10x})", self.opcode, self.savedAddr)
             self.exception(misc.CPU_EXCEPTION_UD)

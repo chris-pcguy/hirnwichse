@@ -35,11 +35,12 @@ class ChEmu:
         #self.memSize = 67108864 # 64MB
         self.quitEmu = False
         self.exitCode = 0
-        if (self.testModeEnabled):
-            atexit.register(self.quitFuncForTest)
-        else:
-            atexit.register(self.quitFunc)
+        atexit.register(self.quitFunc)
     def quitFunc(self):
+        if (self.testModeEnabled):
+            return self.quitFuncForTest()
+        return self.quitFuncNotForTest()
+    def quitFuncNotForTest(self):
         self.quitEmu = True
     def quitFuncForTest(self):
         self.quitFunc()
@@ -56,14 +57,18 @@ class ChEmu:
     def printMsg(self, msgStr, *msgStrArguments):
         print(msgStr.format(*msgStrArguments))
     def saveMemToFile(self, addr, size, prefix="", suffix=""):
-        if (hasattr(self, 'mm')):
-            if (prefix):
-                prefix = "{prefix:s}.".format(prefix=prefix)
-            if (suffix):
-                suffix = ".{suffix:s}".format(suffix=suffix)
-            filefp=open("{prefix:s}memdump{suffix:s}".format(prefix=prefix, suffix=suffix), "wb")
-            filefp.write(self.mm.mmPhyRead(addr, size))
-            filefp.close()
+        try:
+            if (hasattr(self, 'mm')):
+                if (prefix):
+                    prefix = "{prefix:s}.".format(prefix=prefix)
+                if (suffix):
+                    suffix = ".{suffix:s}".format(suffix=suffix)
+                filefp=open("{prefix:s}memdump{suffix:s}".format(prefix=prefix, suffix=suffix), "wb")
+                filefp.write(self.mm.mmPhyRead(addr, size))
+                filefp.close()
+        except:
+            print(sys.exc_info())
+            _thread.exit()
     def run(self):
         self.misc = misc.Misc(self)
         self.platform = platform.Platform(self)
