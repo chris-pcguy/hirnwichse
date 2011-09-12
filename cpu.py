@@ -31,27 +31,31 @@ class Cpu:
         self.A20Active = state
     def getCurrentOpcodeAddr(self):
         eipSize = self.registers.segments.getSegSize(registers.CPU_SEGMENT_CS)
-        eipSizeRegId = registers.CPU_REGISTER_IP
+        eipSizeRegId = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, eipSize)
         opcodeAddr = 0
-        if (eipSize not in (misc.OP_SIZE_WORD, misc.OP_SIZE_DWORD)):
-            self.main.exitError("eipSize is INVALID. ({0:d})", eipSize)
-            return
-        elif (eipSize == misc.OP_SIZE_DWORD):
-            eipSizeRegId = registers.CPU_REGISTER_EIP
         opcodeAddr = self.registers.segments.getRealAddr(registers.CPU_SEGMENT_CS, self.registers.regRead(eipSizeRegId))
-        ##opcodeAddr += self.registers.regRead(eipSizeId)
         return opcodeAddr
-    def getCurrentOpcode(self, numBytes=1, signed=False, getOpcodeAddr=False):
+    def getCurrentOpcode(self, numBytes=1, signed=False): # numBytes in bytes
         opcodeAddr = self.getCurrentOpcodeAddr()
-        currentOpcode = 0
-        if (getOpcodeAddr):
-            return self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed=signed), opcodeAddr
-        return self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed=signed)
-    def getCurrentOpcodeAdd(self, numBytes=1, signed=False, getOpcodeAddr=False): # numBytes in bytes
-        opcodeData = self.getCurrentOpcode(numBytes, signed=signed, getOpcodeAddr=getOpcodeAddr)
-        regSizeId = registers.CPU_REGISTER_IP
-        if (self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS) == misc.OP_SIZE_DWORD):
-            regSizeId = registers.CPU_REGISTER_EIP
+        currentOpcode = self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed=signed)
+        return currentOpcode
+    def getCurrentOpcodeAdd(self, numBytes=1, signed=False): # numBytes in bytes
+        currentOpcode = self.getCurrentOpcode(numBytes, signed=signed)
+        operSize   = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
+        regSizeId  = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, operSize)
+        self.registers.regAdd(regSizeId, numBytes)
+        return currentOpcode
+    def getCurrentOpcodeWithAddr(self, getAddr, numBytes=1, signed=False): # numBytes in bytes
+        opcodeAddr = self.getCurrentOpcodeAddr()
+        currentOpcode = self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed=signed)
+        if (getAddr == misc.GETADDR_OPCODE):
+            return currentOpcode, opcodeAddr
+        elif (getAddr == misc.GETADDR_NEXT_OPCODE):
+            return currentOpcode, opcodeAddr+numBytes
+    def getCurrentOpcodeAddWithAddr(self, getAddr, numBytes=1, signed=False): # numBytes in bytes
+        opcodeData = self.getCurrentOpcodeWithAddr(getAddr, numBytes, signed=signed)
+        operSize   = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
+        regSizeId  = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, operSize)
         self.registers.regAdd(regSizeId, numBytes)
         return opcodeData
     def exception(self, exceptionId, errorCode=None):
@@ -124,7 +128,7 @@ class Cpu:
         self.savedCs  = self.registers.segRead(registers.CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(registers.CPU_REGISTER_EIP)
         ###self.savedAddr = self.getCurrentOpcodeAddr()
-        self.opcode, self.savedAddr = self.getCurrentOpcodeAdd(getOpcodeAddr=True)
+        self.opcode, self.savedAddr = self.getCurrentOpcodeAddWithAddr(misc.GETADDR_OPCODE)
         if (self.opcode in misc.OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         

@@ -154,6 +154,7 @@ class GDBStubHandler:
             maxRegNum = GDB_NUM_REGISTERS
             currRegNum = minRegNum
             data = data[1:]
+            oldRip = self.main.cpu.registers.regRead( registers.CPU_REGISTER_RIP )
             while (currRegNum < maxRegNum):
                 dataOffset = currRegNum*8
                 if (currRegNum*5 >= registers.CPU_MAX_REGISTER_WO_CR):
@@ -164,6 +165,10 @@ class GDBStubHandler:
                 self.main.cpu.registers.regs[regOffset+4:regOffset+8] = newReg[::-1]
                 currRegNum += 1
             self.putPacket(b'OK')
+            newRip = self.main.cpu.registers.regRead( registers.CPU_REGISTER_RIP )
+            if (oldRip != newRip):
+                self.main.printMsg('handleCommand: (r/e)ip got set, continue execution. (delete hlt flag)')
+                self.main.cpu.cpuHalted = False
         elif (data.startswith(b'm')):
             memTuple = data[1:].split(b',')
             memAddr = int(memTuple[0], 16)

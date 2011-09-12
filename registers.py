@@ -146,6 +146,7 @@ CPU_REGISTER_SREG=(CPU_SEGMENT_ES,CPU_SEGMENT_CS,CPU_SEGMENT_SS,CPU_SEGMENT_DS,C
 CPU_REGISTER_CREG=(CPU_REGISTER_CR0, None, CPU_REGISTER_CR2, CPU_REGISTER_CR3, CPU_REGISTER_CR4, None, None, None)
 CPU_REGISTER_DREG=()
 
+CPU_REGISTER_INST_POINTER=(CPU_REGISTER_RIP, CPU_REGISTER_EIP, CPU_REGISTER_IP)
 
 CPU_SEGMENTS=(CPU_SEGMENT_ES,CPU_SEGMENT_CS,CPU_SEGMENT_SS,CPU_SEGMENT_DS,CPU_SEGMENT_FS,CPU_SEGMENT_GS,None,None)
 
@@ -215,15 +216,15 @@ class Segments:
             self.main.exitError("getBaseAddr: segId not in CPU_SEGMENTS")
             return
         segValue = self.registers.segRead(segId)
-        #if (self.cpu.isInProtectedMode()): # protected mode enabled
-        if (self.gdt.gdtLoaded): # and not self.gdt.needFlush):
+        if (self.cpu.isInProtectedMode()): # protected mode enabled
+        #if (self.gdt.gdtLoaded): # and not self.gdt.needFlush):
             return self.gdt.getEntry(segValue)[0]
         #else: # real mode
         return segValue<<4
     def getRealAddr(self, segId, offsetAddr):
         addr = (self.getBaseAddr(segId)+offsetAddr)
-        #if (not self.cpu.isInProtectedMode()):
-        if (not self.gdt.gdtLoaded):
+        if (not self.cpu.isInProtectedMode()):
+        #if (not self.gdt.gdtLoaded):
             if (self.cpu.getA20State()): # A20 Active? if True == on, else off
                 addr &= 0x1fffff
             else:
@@ -251,6 +252,18 @@ class Segments:
             return ((self.registers.addressSizePrefix and misc.OP_SIZE_WORD) or misc.OP_SIZE_DWORD)
         else:
             self.main.exitError("getAddrSegSize: segSize is not valid. ({0:d})", segSize)
+    def getOpAddrSegSize(self, segId): # segId == segments regId
+        segSize = self.getSegSize(segId)
+        if (segSize == misc.OP_SIZE_WORD):
+            addrSize = ((self.registers.addressSizePrefix and misc.OP_SIZE_DWORD) or misc.OP_SIZE_WORD)
+            opSize   = ((self.registers.operandSizePrefix and misc.OP_SIZE_DWORD) or misc.OP_SIZE_WORD)
+        elif (segSize == misc.OP_SIZE_DWORD):
+            addrSize = ((self.registers.addressSizePrefix and misc.OP_SIZE_WORD) or misc.OP_SIZE_DWORD)
+            opSize   = ((self.registers.operandSizePrefix and misc.OP_SIZE_WORD) or misc.OP_SIZE_DWORD)
+        else:
+            self.main.exitError("getOpAddrSegSize: segSize is not valid. ({0:d})", segSize)
+        return opSize, addrSize
+    
 
 class Registers:
     def __init__(self, main, cpu):
@@ -717,7 +730,11 @@ class Registers:
             unsignedOverflow = (regSumMasked < reg0 or regSumMasked < reg1)
             self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&0xff])
             self.setEFLAG(FLAG_ZF, isResZero)
-            if ( (((reg0&0xf)+(reg1&0xf))>regSum&0xf or reg0>bitMask or reg1>bitMask)):# or regSum>bitMask) ):
+            reg0Nibble = reg0&0xf
+            reg1Nibble = reg1&0xf
+            regSumNibble = regSum&0xf
+            if ( (((reg0Nibble)+(reg1Nibble))>regSumNibble) or reg0>bitMask or reg1>bitMask):# or regSum>bitMask) ):
+            #if ( (((reg0Nibble)+(reg1Nibble))>regSumNibble) or unsignedOverflow):# or regSum>bitMask) ):
                 afFlag = True
             self.setEFLAG(FLAG_AF, afFlag)
             self.setEFLAG(FLAG_CF, unsignedOverflow)

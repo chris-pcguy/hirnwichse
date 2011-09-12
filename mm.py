@@ -102,28 +102,35 @@ class Mm:
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)
         return self.mmPhyWriteValue(mmAddr, data, dataSize)
     def mmAddValue(self, mmAddr, data, dataSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True): # dataSize in bytes, data==int
+        bitMask = self.main.misc.getBitMask(dataSize)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)+data, dataSize)
+        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)+(data&bitMask), dataSize)
     def mmAdcValue(self, mmAddr, data, dataSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True): # dataSize in bytes, data==int
+        bitMask = self.main.misc.getBitMask(dataSize)
         withCarry = self.main.cpu.registers.getEFLAG( registers.FLAG_CF )
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)+data+withCarry, dataSize)
+        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)+((data+withCarry)&bitMask), dataSize)
     def mmSubValue(self, mmAddr, data, dataSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True): # dataSize in bytes, data==int
+        bitMask = self.main.misc.getBitMask(dataSize)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)-data, dataSize)
+        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)-(data&bitMask), dataSize)
     def mmSbbValue(self, mmAddr, data, dataSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True): # dataSize in bytes, data==int
+        bitMask = self.main.misc.getBitMask(dataSize)
         withCarry = self.main.cpu.registers.getEFLAG( registers.FLAG_CF )
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)-data-withCarry, dataSize)
+        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)-((data-withCarry)&bitMask), dataSize)
     def mmAndValue(self, mmAddr, data, dataSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True): # dataSize in bytes, data==int
+        bitMask = self.main.misc.getBitMask(dataSize)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)&data, dataSize)
+        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)&(data&bitMask), dataSize)
     def mmOrValue(self, mmAddr, data, dataSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True): # dataSize in bytes, data==int
+        bitMask = self.main.misc.getBitMask(dataSize)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)|data, dataSize)
+        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)|(data&bitMask), dataSize)
     def mmXorValue(self, mmAddr, data, dataSize, segId=registers.CPU_SEGMENT_DS, allowOverride=True): # dataSize in bytes, data==int
+        bitMask = self.main.misc.getBitMask(dataSize)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)^data, dataSize)
+        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize)^(data&bitMask), dataSize)
     
 
 
