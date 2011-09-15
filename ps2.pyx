@@ -8,8 +8,11 @@ PPCB_T2OUT = 0x20
 PS2_A20 = 2
 
 
-class PS2:
-    def __init__(self, main):
+cdef class PS2:
+    cdef object main, outBuffer, inBuffer
+    cdef public unsigned char ppcbT2Gate, ppcbT2Out
+    cdef unsigned char lastUsedPort, ppcbSpkr, needWriteBytes, commandByte, lastCtrlCmdByte
+    def __init__(self, object main):
         self.main = main
         self.outBuffer = bytearray() # KBC -> CPU
         self.inBuffer  = bytearray() # CPU -> KBC
@@ -20,17 +23,11 @@ class PS2:
         self.needWriteBytes = 0 # need to write $N bytes to 0x60
         self.commandByte = 0
         self.lastCtrlCmdByte = 0
-    def appendToOut(self, data):
-        if (isinstance(data, int)):
-            self.outBuffer += bytearray([data])
-            return
-        self.outBuffer += bytearray(list(data))
-    def appendToIn(self, data):
-        if (isinstance(data, int)):
-            self.inBuffer += bytearray([data])
-            return
-        self.inBuffer += bytearray(list(data))
-    def inPort(self, ioPortAddr, dataSize):
+    def appendToOutBytes(self, object data):
+        self.outBuffer += data
+    def appendToInBytes(self, object data):
+        self.inBuffer += data
+    def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x64):
                 #return 0x14                    #### 4==1<<2
@@ -53,20 +50,20 @@ class PS2:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    def outPort(self, ioPortAddr, data, dataSize):
+    def outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x60):
                 if (self.needWriteBytes == 0):
                     if (data == 0xee):
-                        self.appendToOut(0xee)
+                        self.appendToOutBytes(bytearray(b'\xee'))
                     elif (data == 0xf4):
-                        self.appendToOut(0xfa)
+                        self.appendToOutBytes(bytearray(b'\xfa'))
                     elif (data == 0xf5):
-                        self.appendToOut(0xfa)
+                        self.appendToOutBytes(bytearray(b'\xfa'))
                     elif (data == 0xfe):
                         self.main.cpu.reset()
                     elif (data == 0xff):
-                        self.appendToOut(b'\xfa\xaa')
+                        self.appendToOutBytes(bytearray(b'\xfa\xaa'))
                     else:
                         self.main.printMsg("outPort: data {0:#04x} is not supported. (port {1:#04x})", data, ioPortAddr)
                 else:
@@ -81,7 +78,7 @@ class PS2:
             elif (ioPortAddr == 0x64):
                 self.lastCtrlCmdByte = data
                 if (data == 0x20): # read keyboard mode
-                    self.appendToOut(self.commandByte)
+                    self.appendToOutBytes(bytes([self.commandByte]))
                 elif (data == 0x60): # write keyboard mode
                     self.needWriteBytes = 1
                 elif (data == 0xa8): # activate mouse
@@ -89,12 +86,12 @@ class PS2:
                 elif (data == 0xae): # activate keyboard
                     pass
                 elif (data == 0xaa):
-                    self.appendToOut(0x55)
+                    self.appendToOutBytes(b'\x55')
                 elif (data == 0xab):
-                    self.appendToOut(0x00)
+                    self.appendToOutBytes(b'\x00')
                 elif (data == 0xd0):
                     outputByte = (self.main.cpu.getA20State() << 1)
-                    self.appendToOut(outputByte)
+                    self.appendToOutBytes(bytes([outputByte]))
                 elif (data == 0xd1):
                     self.needWriteBytes = 1
                 else:

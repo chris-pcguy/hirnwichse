@@ -1,4 +1,4 @@
-import misc, sys, threading, time, mm, _thread, pygameUI #, cursesUI
+import misc, sys, threading, time, mm, _thread, pygameUI
 
 TEXTMODE_ADDR = 0xb8000
 
@@ -16,8 +16,10 @@ VGA_ATTRCTRLREG_DATA_LENGTH = 256
 
 
 
-class VGA_REGISTER_RAW:
-    def __init__(self, csDataSize, vga, main):
+cdef class VGA_REGISTER_RAW:
+    cdef object main, vga, csData
+    cdef unsigned short csDataSize, index
+    def __init__(self, unsigned short csDataSize, object vga, object main):
         self.csDataSize = csDataSize
         self.vga  = vga
         self.main = main
@@ -27,57 +29,60 @@ class VGA_REGISTER_RAW:
         self.index = 0
     def getIndex(self):
         return self.index
-    def setIndex(self, index):
+    def setIndex(self, unsigned short index):
         self.index = index
-    def indexAdd(self, n):
+    def indexAdd(self, unsigned short n):
         self.index += n
-    def indexSub(self, n):
+    def indexSub(self, unsigned short n):
         self.index -= n
-    def getData(self, dataSize):
+    def getData(self, unsigned char dataSize):
         return self.csData.csReadValue(self.index, dataSize)
-    def setData(self, data, dataSize):
+    def setData(self, unsigned long long data, unsigned char dataSize):
         self.csData.csWriteValue(self.index, data, dataSize)
     
 
-class CRT(VGA_REGISTER_RAW):
-    def __init__(self, vga, main):
+cdef class CRT(VGA_REGISTER_RAW):
+    def __init__(self, object vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_CRT_DATA_LENGTH, vga, main)
 
-class DAC(VGA_REGISTER_RAW): # PEL
-    def __init__(self, vga, main):
+cdef class DAC(VGA_REGISTER_RAW): # PEL
+    cdef unsigned char mask
+    def __init__(self, object vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_DAC_DATA_LENGTH, vga, main)
         self.mask = 0xff
-    def setData(self, data, dataSize):
+    def setData(self, int data, unsigned char dataSize):
         VGA_REGISTER_RAW.setData(self, data, dataSize)
         self.indexAdd(1)
     def getMask(self):
         return self.mask
-    def setMask(self, value):
+    def setMask(self, int value):
         self.mask = value
 
 
-class GDC(VGA_REGISTER_RAW):
-    def __init__(self, vga, main):
+cdef class GDC(VGA_REGISTER_RAW):
+    def __init__(self, object vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_GDC_DATA_LENGTH, vga, main)
 
-class Sequencer(VGA_REGISTER_RAW):
-    def __init__(self, vga, main):
+cdef class Sequencer(VGA_REGISTER_RAW):
+    def __init__(self, object vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_SEQ_DATA_LENGTH, vga, main)
 
-class ExtReg(VGA_REGISTER_RAW):
-    def __init__(self, vga, main):
+cdef class ExtReg(VGA_REGISTER_RAW):
+    cdef unsigned char miscOutReg
+    def __init__(self, object vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_EXTREG_DATA_LENGTH, vga, main)
         self.miscOutReg = 0
     def getMiscOutReg(self):
         return self.miscOutReg
-    def setMiscOutReg(self, value):
+    def setMiscOutReg(self, int value):
         self.miscOutReg = value
 
-class AttrCtrlReg(VGA_REGISTER_RAW):
-    def __init__(self, vga, main):
+cdef class AttrCtrlReg(VGA_REGISTER_RAW):
+    cdef unsigned char flipFlop
+    def __init__(self, object vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_ATTRCTRLREG_DATA_LENGTH, vga, main)
         self.flipFlop = False
-    def setIndexData(self, data, dataSize):
+    def setIndexData(self, unsigned long long data, unsigned char dataSize):
         if (not self.flipFlop):
             self.setIndex(data)
         else:
@@ -86,8 +91,9 @@ class AttrCtrlReg(VGA_REGISTER_RAW):
     
 
 
-class Vga:
-    def __init__(self, main):
+cdef class Vga:
+    cdef object main, seq, crt, gdc, dac, extreg, attrctrlreg, pygameUI
+    def __init__(self, object main):
         self.main = main
         self.seq = Sequencer(self, self.main)
         self.crt = CRT(self, self.main)
@@ -95,9 +101,8 @@ class Vga:
         self.dac = DAC(self, self.main)
         self.extreg = ExtReg(self, self.main)
         self.attrctrlreg = AttrCtrlReg(self, self.main)
-        #self.cursesUI = cursesUI.cursesUI(self.main)
         self.pygameUI = pygameUI.pygameUI(self, self.main)
-    def inPort(self, ioPortAddr, dataSize):
+    def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x3c6):
                 return self.dac.getMask()
@@ -117,7 +122,7 @@ class Vga:
             else:
                 self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return 0
-    def outPort(self, ioPortAddr, data, dataSize):
+    def outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x400): # Bochs' Panic Port
                 sys.stdout.write(chr(data))
@@ -170,8 +175,14 @@ class Vga:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return
     def startThread(self):
+        cdef object vidData
+        cdef list rectList
+        cdef object newRect
         try:
             while (not self.main.quitEmu):
+                if (self.main.cpu.cpuHalted):
+                    time.sleep(2)
+                    continue
                 vidData = self.main.mm.mmPhyRead(TEXTMODE_ADDR, 4000) # 4000==80*25*2
                 for y in range(25):
                     rectList = []
@@ -182,7 +193,8 @@ class Vga:
                         rectList.append(newRect)
                     if (len(rectList) > 0):
                         self.pygameUI.updateScreen(rectList)
-                time.sleep(0.05)
+                #time.sleep(0.05)
+                time.sleep(0.50)
         #except (SystemExit, KeyboardInterrupt):
         #    _thread.exit()
         except:
@@ -192,7 +204,6 @@ class Vga:
             _thread.exit()
     def run(self):
         try:
-            self.pygameUI.run()
             threading.Thread(target=self.pygameUI.handleThread, name='pygameUI-0').start()
             threading.Thread(target=self.startThread, name='vga-0').start()
             self.main.platform.addReadHandlers((0x3c1,0x3cc,0x3c8,0x3da), self.inPort)

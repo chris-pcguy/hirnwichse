@@ -3,8 +3,12 @@ import misc, time
 CALCWITHTHIS = 3000 / 3579545 # so, reload_value * CALCWITHTHIS
 
 
-class PitChannel:
-    def __init__(self, main, pit, channelId):
+cdef class PitChannel:
+    cdef object main, pit, ps2
+    cdef unsigned char channelId
+    cdef public unsigned char counterFormat, counterMode, counterWriteMode, counterFlipFlop
+    cdef public unsigned long counterValue
+    def __init__(self, object main, object pit, unsigned char channelId):
         self.main = main
         self.pit = pit
         self.channelId = channelId
@@ -46,15 +50,18 @@ class PitChannel:
             self.main.exitError("runTimer: counterMode {0:d} not supported yet.".format(self.counterMode))
             return
 
-class Pit:
-    def __init__(self, main):
+cdef class Pit:
+    cdef object main
+    cdef tuple channels
+    cdef unsigned char channel
+    def __init__(self, object main):
         self.main = main
         self.channels = (PitChannel(self.main, self, 0), PitChannel(self.main, self, 1),\
                          PitChannel(self.main, self, 2)) # channel 0-2
         self.reset()
     def reset(self):
         self.channel = 0
-    def inPort(self, ioPortAddr, dataSize):
+    def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         retVal = 0
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
@@ -79,7 +86,7 @@ class Pit:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    def outPort(self, ioPortAddr, data, dataSize):
+    def outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channel = ioPortAddr&3

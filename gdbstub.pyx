@@ -34,23 +34,28 @@ GDB_NUM_REGISTERS = 77
 SEND_REGHEX_SIZE = 616
 
 
-class GDBStubHandler:
-    def __init__(self, main, gdbStub):
+cdef class GDBStubHandler:
+    cdef public object main, gdbStub, connHandler
+    cdef bytes lastReadData, lastWrittenData, cmdStr
+    cdef unsigned char cmdStrChecksum, cmdStrChecksumProof, wasAcked
+    cdef unsigned long cmdStrChecksumIndex
+    cdef public unsigned short connId
+    def __init__(self, object main, object gdbStub):
         self.connHandler = None
         self.main = main
         self.gdbStub = gdbStub
-        self.lastReadData = ''
-        self.lastWrittenData = ''
-        self.cmdStr = ''
+        self.lastReadData = b''
+        self.lastWrittenData = b''
+        self.cmdStr = b''
         self.cmdStrChecksum = 0
         self.cmdStrChecksumProof = 0
         self.connId = 0
         self.wasAcked = False
-    def sendPacketType(self, packetType):
+    def sendPacketType(self, str packetType):
         self.connHandler.request.send(packetType.encode())
-    def putPacketString(self, data):
+    def putPacketString(self, str data):
         return self.putPacket(data.encode())
-    def putPacket(self, data):
+    def putPacket(self, bytes data):
         if (self.connHandler):
             if (hasattr(self.connHandler, 'request') and self.connHandler.request):
                 dataChecksum = self.byteToHex(self.calcChecksumFromData(data))
@@ -70,44 +75,45 @@ class GDBStubHandler:
             if (hasattr(self.connHandler, 'request') and self.connHandler.request):
                 self.lastReadData = self.connHandler.request.recv(MAX_PACKET_SIZE)
                 if (not self.main.cpu.debugHalt):
-                    self.gdbStub.gdbHandler.sendInit(GDB_SIGNAL_INT)
+                    self.sendInit(GDB_SIGNAL_INT)
                     self.main.cpu.debugHalt = True
                 self.handleReadData(self.lastReadData)
             else:
                 self.main.printMsg('GDBStubHandler: handleRead: connHandler.request is NULL.')
         else:
             self.main.printMsg('GDBStubHandler: handleRead: connHandler is NULL.')
-    def calcChecksumFromData(self, data): # data is bytes
-        checksum = 0
+    def calcChecksumFromData(self, bytes data): # data is bytes
+        cdef unsigned short checksum = 0
         for c in data:
             checksum += c
-        return checksum&0xff
-    def byteToHex(self, data): # data is bytes, output==bytes
-        returnValue = '{0:02x}'.format(data&0xff)
+            checksum &= 0xff
+        return checksum
+    def byteToHex(self, unsigned char data): # data is bytes, output==bytes
+        returnValue = '{0:02x}'.format(data)
         return returnValue.encode()
-    def bytesToHex(self, data): # data is bytes, output==bytes
+    def bytesToHex(self, bytes data): # data is bytes, output==bytes
         returnValue = b''
         for c in data:
             returnValue += self.byteToHex(c)
         return returnValue
-    def hexToByte(self, data): # data is bytes, output==bytes
+    def hexToByte(self, bytes data): # data is bytes, output==bytes
         returnValue = bytes( [(int(data, 16)&0xff)] )
         return returnValue
-    def hexToBytes(self, data): # data is bytes, output==bytes
-        returnValue = b''
-        i = 0
-        dataLen = len(data)
+    def hexToBytes(self, bytes data): # data is bytes, output==bytes
+        cdef bytes returnValue = b''
+        cdef unsigned short i = 0
+        cdef unsigned short dataLen = len(data)
         while (i < dataLen):
             returnValue += self.hexToByte(data[i:i+2])
             i += 2
         return returnValue
-    def sendInit(self, gdbType):
+    def sendInit(self, unsigned short gdbType):
         self.putPacketString('T{0:02x}thread:{1:02x};'.format(gdbType, self.connId))
-    def unhandledCmd(self, data, noMsg=False):
+    def unhandledCmd(self, bytes data, int noMsg=False):
         if (not noMsg):
             self.main.printMsg('handleCommand: unhandled cmd: {0:s}', repr(data))
         self.putPacket(b'')
-    def handleCommand(self, data):
+    def handleCommand(self, bytes data):
         if (data.startswith((b'q',b'Q'))):
             if (data.startswith(b'qSupported')):
                 #self.putPacketString('PacketSize={0:x};qXfer:features:read+'.format(MAX_PACKET_SIZE))
@@ -144,7 +150,7 @@ class GDBStubHandler:
             currReg = self.main.cpu.registers.regs
             while (currRegNum < maxRegNum):
                 regOffset = ((registers.CPU_MIN_REGISTER//5)+currRegNum)*8
-                hexToSend += self.bytesToHex(currReg[regOffset+4:regOffset+8][::-1])
+                hexToSend += self.bytesToHex(bytes(currReg[regOffset+4:regOffset+8][::-1]))
                 currRegNum += 1
             if (len(hexToSend) != SEND_REGHEX_SIZE):
                 self.main.printMsg('handleCommand: len(hexToSend) != SEND_REGHEX_SIZE')
@@ -220,7 +226,7 @@ class GDBStubHandler:
             self.unhandledCmd(data, noMsg=True)
         else:
             self.unhandledCmd(data)
-    def handleReadData(self, data):
+    def handleReadData(self, bytes data):
         if (data.startswith(b'-')):
             pass # got NACK
             #print('NACK!!')
@@ -251,7 +257,7 @@ class GDBStubHandler:
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
-
+    #cdef public object gdbHandler
     def handle(self):
         self.gdbHandler = self.server.gdbHandler
         self.gdbHandler.connHandler = self
@@ -275,8 +281,10 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 
 
-class GDBStub:
-    def __init__(self, main):
+cdef class GDBStub:
+    cdef public object main, server, gdbHandler, serverThread
+    cdef public unsigned short gdbStubConnId
+    def __init__(self, object main):
         self.main = main
         self.gdbStubConnId = 1
         self.server = ThreadedTCPServer((GDBSTUB_HOST, GDBSTUB_PORT), ThreadedTCPRequestHandler, bind_and_activate=False)

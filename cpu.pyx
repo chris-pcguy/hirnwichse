@@ -1,16 +1,17 @@
 import struct, time, sys, threading, _thread
 
-import chemu
+###import chemu
 import registers, opcodes, misc
 
 
 
-class Cpu:
-    #cdef object main
-    #cdef object registers
-    #cdef object opcodes
-    #cdef object main, registers, opcodes
-    def __init__(self, main):
+cdef class Cpu:
+    cdef public object main, registers, opcodes
+    cdef public unsigned long long opcode, cycles
+    cdef public unsigned char cpuHalted, debugHalt, debugSingleStep, A20Active, protectedModeOn
+    cdef unsigned short savedCs
+    cdef unsigned long savedEip, savedAddr
+    def __init__(self, object main):
         self.main = main
         self.registers = registers.Registers(self.main, self)
         self.opcodes = opcodes.Opcodes(self.main, self)
@@ -27,51 +28,53 @@ class Cpu:
         self.registers.reset()
     def getA20State(self):
         return self.A20Active
-    def setA20State(self, state):
+    def setA20State(self, int state):
         self.A20Active = state
     def getCurrentOpcodeAddr(self):
+        cdef unsigned char eipSize
+        cdef unsigned short eipSizeRegId
+        cdef unsigned long opcodeAddr
         eipSize = self.registers.segments.getSegSize(registers.CPU_SEGMENT_CS)
         eipSizeRegId = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, eipSize)
-        opcodeAddr = 0
         opcodeAddr = self.registers.segments.getRealAddr(registers.CPU_SEGMENT_CS, self.registers.regRead(eipSizeRegId))
         return opcodeAddr
-    def getCurrentOpcode(self, numBytes=1, signed=False): # numBytes in bytes
-        opcodeAddr = self.getCurrentOpcodeAddr()
-        currentOpcode = self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed=signed)
+    def getCurrentOpcode(self, unsigned char numBytes=1, unsigned char signed=False): # numBytes in bytes
+        cdef unsigned long opcodeAddr = self.getCurrentOpcodeAddr()
+        cdef long long currentOpcode = self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed=signed)
         return currentOpcode
-    def getCurrentOpcodeAdd(self, numBytes=1, signed=False): # numBytes in bytes
-        currentOpcode = self.getCurrentOpcode(numBytes, signed=signed)
-        operSize   = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        regSizeId  = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, operSize)
+    def getCurrentOpcodeAdd(self, unsigned char numBytes=1, unsigned char signed=False): # numBytes in bytes
+        cdef long long currentOpcode = self.getCurrentOpcode(numBytes, signed=signed)
+        cdef unsigned char operSize   = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
+        cdef unsigned short regSizeId  = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, operSize)
         self.registers.regAdd(regSizeId, numBytes)
         return currentOpcode
-    def getCurrentOpcodeWithAddr(self, getAddr, numBytes=1, signed=False): # numBytes in bytes
-        opcodeAddr = self.getCurrentOpcodeAddr()
-        currentOpcode = self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed=signed)
+    def getCurrentOpcodeWithAddr(self, unsigned char getAddr, unsigned char numBytes=1, unsigned char signed=False): # numBytes in bytes
+        cdef unsigned long opcodeAddr = self.getCurrentOpcodeAddr()
+        cdef long long currentOpcode = self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed=signed)
         if (getAddr == misc.GETADDR_OPCODE):
             return currentOpcode, opcodeAddr
         elif (getAddr == misc.GETADDR_NEXT_OPCODE):
             return currentOpcode, opcodeAddr+numBytes
-    def getCurrentOpcodeAddWithAddr(self, getAddr, numBytes=1, signed=False): # numBytes in bytes
-        opcodeData = self.getCurrentOpcodeWithAddr(getAddr, numBytes, signed=signed)
-        operSize   = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
-        regSizeId  = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, operSize)
+    def getCurrentOpcodeAddWithAddr(self, unsigned char getAddr, unsigned char numBytes=1, unsigned char signed=False): # numBytes in bytes
+        cdef tuple opcodeData = self.getCurrentOpcodeWithAddr(getAddr, numBytes, signed=signed)
+        cdef unsigned char operSize   = self.registers.segments.getOpSegSize(registers.CPU_SEGMENT_CS)
+        cdef unsigned short regSizeId  = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, operSize)
         self.registers.regAdd(regSizeId, numBytes)
         return opcodeData
-    def exception(self, exceptionId, errorCode=None):
+    def exception(self, unsigned char exceptionId, long errorCode=-1):
         if (exceptionId in misc.CPU_EXCEPTIONS_FAULT_GROUP):
             self.registers.segWrite(registers.CPU_SEGMENT_CS, self.savedCs)
             self.registers.regWrite(registers.CPU_REGISTER_EIP, self.savedEip)
         if (exceptionId in misc.CPU_EXCEPTIONS_WITH_ERRORCODE):
-            if (errorCode==None):
-                self.main.exitError("CPU exception: errorCode should be set, is None.")
+            if (errorCode == -1):
+                self.main.exitError("CPU exception: errorCode should be set, is -1.")
                 return
             self.opcodes.interrupt(exceptionId, errorCode=errorCode)
             return
         self.opcodes.interrupt(exceptionId)
     def isInProtectedMode(self):
         return self.protectedModeOn
-    def parsePrefixes(self, opcode):
+    def parsePrefixes(self, unsigned char opcode):
         while (opcode in misc.OPCODE_PREFIXES):
             if (opcode == misc.OPCODE_PREFIX_LOCK):
                 self.registers.lockPrefix = True
@@ -111,7 +114,7 @@ class Cpu:
                 #break
                 return
             elif ((self.cpuHalted and not self.main.exitIfCpuHalted) or (self.debugHalt and not self.debugSingleStep)):
-                time.sleep(0.5)
+                time.sleep(1)
                 continue
             self.doCycle()
         #except KeyboardInterrupt:
@@ -131,15 +134,14 @@ class Cpu:
         self.opcode, self.savedAddr = self.getCurrentOpcodeAddWithAddr(misc.GETADDR_OPCODE)
         if (self.opcode in misc.OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
-        
         self.main.debug("Current Opcode: {0:#04x}; It's Addr: {1:#010x}, CS: {2:#06x}", self.opcode, self.savedAddr, self.savedCs)
-        opcodeHandle = self.opcodes.opcodeList.get(self.opcode)
+        cdef object opcodeHandle = self.opcodes.opcodeList.get(self.opcode)
         if (opcodeHandle):
-            try:
-                opcodeHandle()
-            except:
-                print(sys.exc_info())
-                _thread.exit()
+            #try:
+            opcodeHandle()
+            #except:
+            #    print(sys.exc_info())
+            #    _thread.exit()
         else:
             self.main.printMsg("Opcode not found. (opcode: {0:#04x}; addr: {1:#10x})", self.opcode, self.savedAddr)
             self.exception(misc.CPU_EXCEPTION_UD)

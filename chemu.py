@@ -1,5 +1,10 @@
 #!/usr/bin/env python3.2
 
+#cython: boundscheck=False
+
+import pyximport
+#pyximport.install(pyimport = True)
+pyximport.install()
 import chemu_main
 #import cProfile
 

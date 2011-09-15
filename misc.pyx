@@ -1,7 +1,3 @@
-#import struct
-
-#BYTE_ORDER_LITTLE_ENDIAN = 10
-#DATA_ORDER_BIG_ENDIAN = 11
 
 OP_SIZE_BYTE  = 1
 OP_SIZE_WORD = 2
@@ -9,10 +5,10 @@ OP_SIZE_DWORD = 4
 OP_SIZE_QWORD = 8
 
 
-SET_FLAGS_ADD = 50
-SET_FLAGS_SUB = 51
-SET_FLAGS_MUL = 52
-SET_FLAGS_DIV = 53
+SET_FLAGS_ADD = 1
+SET_FLAGS_SUB = 2
+SET_FLAGS_MUL = 3
+SET_FLAGS_DIV = 4
 
 
 CPU_EXCEPTION_DE = 0 # divide-by-zero error
@@ -84,33 +80,34 @@ GETADDR_OPCODE = 1
 GETADDR_NEXT_OPCODE = 2
 GETADDR_VALUES = (GETADDR_OPCODE, GETADDR_NEXT_OPCODE)
 
-class Misc:
-    #cdef object main
-    def __init__(self, main):
+cdef class Misc:
+    cdef object main
+    def __init__(self, object main):
         self.main = main
-    def getBitMask(self, size, half=False, minus=1):
+    def getBitMask(self, long size, int half=False, int minus=1):
+        cdef unsigned long long returnValue
         if (size == OP_SIZE_BYTE):
             if (half):
-                return ((1<<8)//2)-minus
+                returnValue = 0x80-minus
             else:
-                return (1<<8)-minus
+                returnValue = 0x100-minus
         elif (size == OP_SIZE_WORD):
             if (half):
-                return ((1<<16)//2)-minus
+                returnValue = 0x8000-minus
             else:
-                return (1<<16)-minus
+                returnValue = 0x10000-minus
         elif (size == OP_SIZE_DWORD):
             if (half):
-                return ((1<<32)//2)-minus
+                returnValue = 0x80000000-minus
             else:
-                return (1<<32)-minus
+                returnValue = 0x100000000-minus
         elif (size == OP_SIZE_QWORD):
             if (half):
-                return ((1<<64)//2)-minus
+                returnValue = 0x8000000000000000-minus
             else:
-                return (1<<64)-minus
+                returnValue = 0x10000000000000000-minus
         else:
             self.main.exitError("Misc::getBitMask: size not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)")
-
+        return returnValue
 
 

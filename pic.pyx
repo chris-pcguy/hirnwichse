@@ -30,8 +30,10 @@ PIC_FLAG_SHOULD_BE_SET_ON_PC = 0x1
 PIC_FLAG_AUTO_EOI = 0x2
 
 
-class PicChannel:
-    def __init__(self, pic, main, master):
+cdef class PicChannel:
+    cdef object main, pic
+    cdef unsigned char master, step, cmdByte, maskByte, irqBasePort, flags, mappedSlavesOnMasterMask, slaveOnThisMasterIrq
+    def __init__(self, object pic, object main, unsigned char master):
         self.pic    = pic
         self.main   = main
         self.master = master
@@ -46,37 +48,37 @@ class PicChannel:
             self.irqBasePort = 8
         self.mappedSlavesOnMasterMask = 0x4 # master
         self.slaveOnThisMasterIrq = 2 # slave
-    def raiseIrq(self, irq):
+    def raiseIrq(self, unsigned char irq):
         self.main.cpu.opcodes.interrupt(intNum=(self.irqBasePort+irq))
     def getStep(self):
         return self.step
-    def setStep(self, step):
+    def setStep(self, unsigned char step):
         self.step = step
     def getCmdByte(self):
         return self.cmdByte
-    def setCmdByte(self, cmdByte):
+    def setCmdByte(self, unsigned char cmdByte):
         self.cmdByte = cmdByte
     def getMaskByte(self):
         return self.maskByte
-    def setMaskByte(self, maskByte):
+    def setMaskByte(self, unsigned char maskByte):
         self.maskByte = maskByte
     def getIrqBasePort(self):
         return self.irqBasePort
-    def setIrqBasePort(self, irqBasePort):
+    def setIrqBasePort(self, unsigned char irqBasePort):
         self.irqBasePort = irqBasePort
         if (self.irqBasePort % 8):
             self.main.printMsg("Notice: setIrqBasePort: (self.irqBasePort {0:#04x} MODULO 8) != 0. (channel{1:d})", irqBasePort, self.master==False)
-    def setMasterSlaveMap(self, value):
+    def setMasterSlaveMap(self, unsigned char value):
         if (self.master):
             self.mappedSlavesOnMasterMask = value
         else:
             self.slaveOnThisMasterIrq = value
     def getFlags(self):
         return self.flags
-    def setFlags(self, flags):
+    def setFlags(self, unsigned char flags):
         self.flags = flags
         if (not (self.flags & PIC_FLAG_SHOULD_BE_SET_ON_PC)):
-            self.main.printMsg("Warning: setFlags: self.flags {0:#04x}, PIC_FLAG_SHOULD_BE_SET_ON_PC not set! (channel{1:d})", ioPortAddr, self.master==False)
+            self.main.printMsg("Warning: setFlags: self.flags {0:#04x}, PIC_FLAG_SHOULD_BE_SET_ON_PC not set! (channel{1:d})", flags, self.master==False)
     
     
     
@@ -84,17 +86,20 @@ class PicChannel:
 
 
 
-class Pic:
-    def __init__(self, main):
+cdef class Pic:
+    cdef object main
+    cdef tuple channels
+    def __init__(self, object main):
         self.main = main
         self.channels = (PicChannel(self, self.main, True), PicChannel(self, self.main, False))
-    def raiseIrq(self, irq):
+    def raiseIrq(self, unsigned char irq):
         if (not self.main.cpu.registers.getEFLAG(registers.FLAG_IF)):
             return
         if (irq >= 8):
             return self.channels[1].raiseIrq(irq-8)
         return self.channels[0].raiseIrq(irq)
-    def inPort(self, ioPortAddr, dataSize):
+    def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+        cdef unsigned char channel, oldStep
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):
                 channel = 0
@@ -107,7 +112,7 @@ class Pic:
             
             if (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
                 if (oldStep == PIC_DATA_STEP_ICW1): # not cmd to exec, so set mask
-                    self.channels[channel].getMaskByte()
+                    return self.channels[channel].getMaskByte()
                 else: # wrong step
                     self.main.exitError("inPort: oldStep {0:d} not supported (ioPortAddr == {1:#04x}, dataSize == byte).", oldStep, ioPortAddr)
             else:
@@ -115,7 +120,8 @@ class Pic:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    def outPort(self, ioPortAddr, data, dataSize):
+    def outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
+        cdef unsigned char channel, oldStep, cmdByte
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):
                 channel = 0

@@ -1,15 +1,23 @@
-import misc, pygame, threading, atexit, sys, _thread
+import misc, pygame, threading, atexit, sys, time, _thread
 
-class pygameUI:
-    def __init__(self, vga, main):
+cdef class pygameUI:
+    cdef object main, vga, display, screen, font
+    cdef tuple size, fontSize
+    cdef unsigned short width, height, fontWidth, fontHeight
+    def __init__(self, object vga, object main):
         self.vga  = vga
         self.main = main
         self.display, self.screen, self.font = None, None, None
         self.size = self.width, self.height = 640, 400
         self.fontSize = self.fontWidth, self.fontHeight = self.width//80, self.height//25
+        pygame.display.init()
+        pygame.font.init()
+        self.display = pygame.display.set_mode(self.size)
+        self.screen = pygame.Surface(self.size)
+        self.font = pygame.font.SysFont( 'VeraMono',  self.fontHeight)
+        atexit.register(self.quitFunc)
     def quitFunc(self):
         try:
-            self.main.quitFunc()
             pygame.font.quit()
             pygame.display.quit()
         except pygame.error:
@@ -17,7 +25,8 @@ class pygameUI:
         except:
             print(sys.exc_info())
         ###_thread.exit()
-    def getCharRect(self, x, y):
+        self.main.quitFunc()
+    def getCharRect(self, unsigned char x, unsigned char y):
         try:
             return pygame.Rect((self.fontWidth*x, self.fontHeight*y), self.fontSize)
         except pygame.error:
@@ -26,8 +35,7 @@ class pygameUI:
         except:
             print(sys.exc_info())
             return
-        return
-    def getColor(self, color):
+    def getColor(self, unsigned char color):
         if (color == 0x0): # black
             return (0, 0, 0)
         elif (color == 0x1): # blue
@@ -62,7 +70,7 @@ class pygameUI:
             return (0xff, 0xff, 0xff)
         else:
             self.main.exitError('pygameUI: invalid color used. (color: {0:d})', color)
-    def putChar(self, x, y, char, colors): # returns rect
+    def putChar(self, unsigned char x, unsigned char y, str char, unsigned char colors): # returns rect
         try:
             newRect = self.getCharRect(x, y)
             fgColor, bgColor = colors&0xf, (colors&0xf0)>>4
@@ -80,8 +88,7 @@ class pygameUI:
             print(sys.exc_info())
             _thread.exit()
             return
-        return
-    def handleEvent(self, event):
+    def handleEvent(self, object event):
         try:
             if (event.type == pygame.QUIT):
                 self.main.quitFunc()
@@ -91,7 +98,7 @@ class pygameUI:
         except:
             print(sys.exc_info())
             _thread.exit()
-    def updateScreen(self, rectList=None):
+    def updateScreen(self, object rectList=None):
         try:
             if (self.display and self.screen and not self.main.quitEmu):
                 self.display.blit(self.screen, (0, 0))
@@ -105,9 +112,11 @@ class pygameUI:
     def handleThread(self):
         try:
             while (not self.main.quitEmu):
-                #for event in pygame.event.get():
-                event = pygame.event.wait()
-                self.handleEvent(event)
+                #event = pygame.event.wait()
+                for event in pygame.event.get():
+                    self.handleEvent(event)
+                    #time.sleep(0.05)
+                    time.sleep(1)
             self.quitFunc()
         except pygame.error:
             print(sys.exc_info())
@@ -115,19 +124,6 @@ class pygameUI:
         except:
             print(sys.exc_info())
             _thread.exit()
-    def run(self):
-        try:
-            pygame.display.init()
-            pygame.font.init()
-            self.display = pygame.display.set_mode(self.size)
-            self.screen = pygame.Surface(self.size)
-            self.font = pygame.font.SysFont( 'VeraMono',  self.fontHeight)
-            atexit.register(self.quitFunc)
-        except pygame.error:
-            print(sys.exc_info())
-            _thread.exit()
-        except:
-            print(sys.exc_info())
-            _thread.exit()
+    
 
-
+    
