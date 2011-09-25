@@ -1870,7 +1870,7 @@ cdef class Opcodes:
                     temp = -temp
             else:    
                 temp, tempmod = divmod(sop1, sop2)
-            if ( ((temp >= bitMaskHalf) or (temp < -bitMaskHalf))):
+            if ( ((temp >= bitMaskHalf) or (temp < -(<long long>bitMaskHalf)))):
                 self.cpu.exception(misc.CPU_EXCEPTION_DE)
                 return
             self.registers.regWrite(registers.CPU_REGISTER_AL, temp&0xff)
@@ -1928,7 +1928,7 @@ cdef class Opcodes:
                 self.cpu.exception(misc.CPU_EXCEPTION_DE)
                 return
             temp, tempmod = divmod(sop1, sop2)
-            if ( ((temp >= bitMaskHalf) or (temp < -bitMaskHalf)) ):
+            if ( ((temp >= bitMaskHalf) or (temp < -(<long long>bitMaskHalf))) ):
                 self.cpu.exception(misc.CPU_EXCEPTION_DE)
                 return
             self.registers.regWrite(eaxReg, temp&bitMask)
