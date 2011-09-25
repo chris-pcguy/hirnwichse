@@ -9,8 +9,9 @@ cdef class Cpu:
     cdef public object main, registers, opcodes
     cdef public unsigned long long opcode, cycles
     cdef public unsigned char cpuHalted, debugHalt, debugSingleStep, A20Active, protectedModeOn
-    cdef unsigned short savedCs
-    cdef unsigned long savedEip, savedAddr
+    cdef unsigned char asyncEvent
+    cdef short intrNum
+    cdef unsigned long long savedCs, savedEip
     def __init__(self, object main):
         self.main = main
         self.registers = registers.Registers(self.main, self)
@@ -30,10 +31,13 @@ cdef class Cpu:
         return self.A20Active
     def setA20State(self, int state):
         self.A20Active = state
+    def setIntr(self, unsigned char intrNum):
+        self.intrNum = intrNum
+        self.asyncEvent = True
     def getCurrentOpcodeAddr(self):
         cdef unsigned char eipSize
         cdef unsigned short eipSizeRegId
-        cdef unsigned long opcodeAddr
+        cdef unsigned long long opcodeAddr
         eipSize = self.registers.segments.getSegSize(registers.CPU_SEGMENT_CS)
         eipSizeRegId = self.registers.getWordAsDword(registers.CPU_REGISTER_IP, eipSize)
         opcodeAddr = self.registers.segments.getRealAddr(registers.CPU_SEGMENT_CS, self.registers.regRead(eipSizeRegId))
@@ -122,6 +126,7 @@ cdef class Cpu:
         #finally:
         #    sys.exit(0)
     def doCycle(self):
+        cdef object opcodeHandle
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
             return
         if (self.debugHalt and self.debugSingleStep):
@@ -130,23 +135,29 @@ cdef class Cpu:
         self.registers.resetPrefixes()
         self.savedCs  = self.registers.segRead(registers.CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(registers.CPU_REGISTER_EIP)
-        ###self.savedAddr = self.getCurrentOpcodeAddr()
-        self.opcode, self.savedAddr = self.getCurrentOpcodeAddWithAddr(misc.GETADDR_OPCODE)
+        if (self.asyncEvent):
+            if (self.intrNum != -1 and self.registers.getEFLAG(registers.FLAG_IF) ):
+                self.main.platform.pic.handleIrq(self.intrNum)
+                self.intrNum = -1
+                self.asyncEvent = False
+                return
+        self.opcode = self.getCurrentOpcodeAdd(misc.OP_SIZE_BYTE)
         if (self.opcode in misc.OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
-        self.main.debug("Current Opcode: {0:#04x}; It's Addr: {1:#010x}, CS: {2:#06x}", self.opcode, self.savedAddr, self.savedCs)
-        cdef object opcodeHandle = self.opcodes.opcodeList.get(self.opcode)
+        self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
+        opcodeHandle = self.opcodes.opcodeList.get(self.opcode)
         if (opcodeHandle):
-            #try:
-            opcodeHandle()
-            #except:
-            #    print(sys.exc_info())
-            #    _thread.exit()
+            try:
+                opcodeHandle()
+            except:
+                print(sys.exc_info())
+                #_thread.exit()
+                self.main.exitError('doCycle: exception while in opcodeHandle, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
         else:
-            self.main.printMsg("Opcode not found. (opcode: {0:#04x}; addr: {1:#10x})", self.opcode, self.savedAddr)
+            self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
             self.exception(misc.CPU_EXCEPTION_UD)
             ##sys.exit(1) # TODO!!!
-            self.main.exitError('TODO: opcode not found, exit...', exitNow=True)
+            self.main.exitError('TODO: opcode not found, exiting...', exitNow=True)
     def run(self):
         self.doInfiniteCycles()
 

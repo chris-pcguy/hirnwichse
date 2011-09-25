@@ -1,23 +1,32 @@
 
 import os
 
-import cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel, gdbstub
+import cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel, gdbstub, pythonBios
 
 
-SIZE_64KB = 65536
-SIZE_128KB = 131072
-SIZE_256KB = 262144
-SIZE_512KB = 524288
-SIZE_1024KB = 1048576
-SIZE_2048KB = 2097152
-SIZE_4096KB = 4194304
-ROM_SIZES = (SIZE_64KB, SIZE_128KB, SIZE_256KB, SIZE_512KB, SIZE_1024KB, SIZE_2048KB, SIZE_4096KB)
+SIZE_64KB  = 0x10000
+SIZE_128KB = 0x20000
+SIZE_256KB = 0x40000
+SIZE_512KB = 0x80000
+SIZE_1MB   = 0x100000
+SIZE_2MB   = 0x200000
+SIZE_4MB   = 0x400000
+SIZE_8MB   = 0x800000
+SIZE_16MB  = 0x1000000
+SIZE_32MB  = 0x2000000
+SIZE_64MB  = 0x4000000
+SIZE_128MB = 0x8000000
+SIZE_256MB = 0x10000000
+ROM_SIZES = (SIZE_64KB, SIZE_128KB, SIZE_256KB, SIZE_512KB, SIZE_1MB, SIZE_2MB, SIZE_4MB,
+             SIZE_8MB, SIZE_16MB, SIZE_32MB, SIZE_64MB, SIZE_128MB, SIZE_256MB)
 
 cdef class Platform:
-    cdef public object main, cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel, gdbstub
+    cdef public object main, cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel, gdbstub, pythonBios
     cdef dict readHandlers, writeHandlers
+    cdef unsigned char copyRomToLowMem
     def __init__(self, object main):
         self.main = main
+        self.copyRomToLowMem = True
         self.readHandlers  = {}
         self.writeHandlers = {}
         self.cmos     = cmos.Cmos(self.main)
@@ -31,6 +40,7 @@ cdef class Platform:
         self.serial   = serial.Serial(self.main)
         self.parallel = parallel.Parallel(self.main)
         self.gdbstub  = gdbstub.GDBStub(self.main)
+        self.pythonBios = pythonBios.PythonBios(self.main)
     def addHandlers(self, tuple portNums, object portHandler):
         self.addReadHandlers (portNums, portHandler)
         self.addWriteHandlers(portNums, portHandler)
@@ -75,36 +85,28 @@ cdef class Platform:
             if (romFp):
                 romFp.close()
     def loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional):
-        romMemSize = SIZE_64KB
+        cdef unsigned long long romMemSize = SIZE_64KB
         cdef unsigned long long romSize = os.stat(romFileName).st_size
         
         if (not isRomOptional):
-            if (romSize <= SIZE_64KB):
-                romMemSize = SIZE_64KB
-                mmAddr = 0xf0000
-            elif (romSize <= SIZE_128KB):
-                romMemSize = SIZE_128KB
-                mmAddr = 0xe0000
-            elif (romSize <= SIZE_256KB):
-                romMemSize = SIZE_256KB
-                mmAddr = 0xc0000
-            elif (romSize <= SIZE_512KB):
-                romMemSize = SIZE_512KB
-                mmAddr = 0x80000
-            else:
-                if (romSize <= SIZE_1024KB):
-                    romMemSize = SIZE_1024KB
-                elif (romSize <= SIZE_2048KB):
-                    romMemSize = SIZE_2048KB
-                elif (romSize <= SIZE_4096KB):
-                    romMemSize = SIZE_4096KB
-                mmAddr = 0x00000
-        
+            for size in ROM_SIZES:
+                if (size > romSize):
+                    break
+                romMemSize = size
+                mmAddr = 0x100000000-romMemSize
+            self.main.mm.mmAddArea(mmAddr, romMemSize, mmReadOnly=False)
         self.loadRomToMem(romFileName, mmAddr, romSize)
+        if (not isRomOptional and self.copyRomToLowMem):
+            self.main.mm.mmGetSingleArea(mmAddr, 0).mmSetReadOnly(True)
+            if (romMemSize > SIZE_1MB):
+                self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
+                return
+            self.main.mm.mmPhyWrite(mmAddr&0xfffff, self.main.mm.mmPhyRead(mmAddr, romSize), romSize)
     def run(self, unsigned long long memSize):
         self.main.mm.mmAddArea(0, memSize)
-        self.loadRom(os.path.join(self.main.romPath, self.main.biosName), 0xf0000, False)
-        self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosName), 0xc0000, True)
+        self.loadRom(os.path.join(self.main.romPath, self.main.biosname), 0xffff0000, False)
+        if (self.main.vgaBiosname):
+            self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosname), 0xc0000, True)
         self.runDevices()
     def runDevices(self):
         self.cmos.run()
@@ -118,6 +120,7 @@ cdef class Platform:
         self.serial.run()
         self.parallel.run()
         self.gdbstub.run()
+        self.pythonBios.run()
         
 
 

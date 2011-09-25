@@ -62,7 +62,7 @@ cdef class Pit:
     def reset(self):
         self.channel = 0
     def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        retVal = 0
+        cdef unsigned char retVal = 0
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channel = ioPortAddr&3
@@ -76,7 +76,9 @@ cdef class Pit:
                     else:
                         retVal = (self.channels[channel].counterValue>>8)&0xff
                     self.channels[channel].counterFlipFlop = not self.channels[channel].counterFlipFlop
-                return retVal&0xff
+                else:
+                    self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", self.channels[channel].counterWriteMode)
+                return retVal
             elif (ioPortAddr == 0x43):
                 retVal  = self.channel<<6
                 retVal |= self.channels[self.channel].counterWriteMode<<4
@@ -98,7 +100,7 @@ cdef class Pit:
                     if (not self.channels[channel].counterFlipFlop):
                         self.channels[channel].counterValue = (self.channels[channel].counterValue&0xff00)|(data&0xff)
                     else:
-                        self.channels[channel].counterValue = ((data&0xff)<<8)|(self.channels[channel].counterValue&0xff)
+                        self.channels[channel].counterValue = (self.channels[channel].counterValue&0xff)|((data&0xff)<<8)
                     self.channels[channel].counterFlipFlop = not self.channels[channel].counterFlipFlop
                 if (not self.channels[channel].counterFlipFlop):
                     self.channels[channel].runTimer()

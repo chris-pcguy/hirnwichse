@@ -32,7 +32,7 @@ cdef class Cmos:
         self.configSpace.csWriteValue(CMOS_STATUS_REGISTER_B, 0x06, misc.OP_SIZE_BYTE)
         self.configSpace.csWriteValue(CMOS_STATUS_REGISTER_D, 0x80, misc.OP_SIZE_BYTE)
         self.configSpace.csWriteValue(CMOS_FLOPPY_DRIVE_TYPE, 0x40, misc.OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_EQUIPMENT_BYTE, 0x29, misc.OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(CMOS_EQUIPMENT_BYTE, 0x21, misc.OP_SIZE_BYTE)
         self.configSpace.csWriteValue(CMOS_BASE_MEMORY_L, 0x80, misc.OP_SIZE_BYTE)
         self.configSpace.csWriteValue(CMOS_BASE_MEMORY_H, 0x02, misc.OP_SIZE_BYTE)
         cdef unsigned long long extMemSizeInK = (self.main.memSize//1024)-640

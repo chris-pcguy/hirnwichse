@@ -92,6 +92,8 @@ cdef class pygameUI:
         try:
             if (event.type == pygame.QUIT):
                 self.main.quitFunc()
+            elif (event.type == pygame.VIDEOEXPOSE):
+                self.updateScreen()
         except pygame.error:
             print(sys.exc_info())
             _thread.exit()
@@ -112,11 +114,11 @@ cdef class pygameUI:
     def handleThread(self):
         try:
             while (not self.main.quitEmu):
-                #event = pygame.event.wait()
-                for event in pygame.event.get():
-                    self.handleEvent(event)
-                    #time.sleep(0.05)
-                    time.sleep(1)
+                event = pygame.event.wait()
+                #for event in pygame.event.get():
+                self.handleEvent(event)
+                #    #time.sleep(0.05)
+                #    time.sleep(1)
             self.quitFunc()
         except pygame.error:
             print(sys.exc_info())

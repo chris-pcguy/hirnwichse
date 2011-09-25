@@ -39,7 +39,7 @@ cdef class GDBStubHandler:
     cdef bytes lastReadData, lastWrittenData, cmdStr
     cdef unsigned char cmdStrChecksum, cmdStrChecksumProof, wasAcked
     cdef unsigned long cmdStrChecksumIndex
-    cdef public unsigned short connId
+    cdef public unsigned long connId
     def __init__(self, object main, object gdbStub):
         self.connHandler = None
         self.main = main
@@ -56,6 +56,7 @@ cdef class GDBStubHandler:
     def putPacketString(self, str data):
         return self.putPacket(data.encode())
     def putPacket(self, bytes data):
+        cdef bytes dataFull, dataChecksum
         if (self.connHandler):
             if (hasattr(self.connHandler, 'request') and self.connHandler.request):
                 dataChecksum = self.byteToHex(self.calcChecksumFromData(data))
@@ -83,26 +84,26 @@ cdef class GDBStubHandler:
         else:
             self.main.printMsg('GDBStubHandler: handleRead: connHandler is NULL.')
     def calcChecksumFromData(self, bytes data): # data is bytes
-        cdef unsigned short checksum = 0
+        cdef unsigned long checksum = 0
         for c in data:
             checksum += c
             checksum &= 0xff
         return checksum
     def byteToHex(self, unsigned char data): # data is bytes, output==bytes
-        returnValue = '{0:02x}'.format(data)
+        cdef str returnValue = '{0:02x}'.format(data)
         return returnValue.encode()
     def bytesToHex(self, bytes data): # data is bytes, output==bytes
-        returnValue = b''
+        cdef bytes returnValue = b''
         for c in data:
             returnValue += self.byteToHex(c)
         return returnValue
     def hexToByte(self, bytes data): # data is bytes, output==bytes
-        returnValue = bytes( [(int(data, 16)&0xff)] )
+        cdef bytes returnValue = bytes([int(data, 16)])
         return returnValue
     def hexToBytes(self, bytes data): # data is bytes, output==bytes
         cdef bytes returnValue = b''
-        cdef unsigned short i = 0
-        cdef unsigned short dataLen = len(data)
+        cdef unsigned long i = 0
+        cdef unsigned long dataLen = len(data)
         while (i < dataLen):
             returnValue += self.hexToByte(data[i:i+2])
             i += 2
@@ -167,7 +168,7 @@ cdef class GDBStubHandler:
                     break
                 regOffset = ((registers.CPU_MIN_REGISTER//5)+currRegNum)*8
                 newReg = self.hexToBytes(data[dataOffset:dataOffset+8])
-                self.main.cpu.registers.regs[regOffset:regOffset+4]   = b'\x00'*4
+                self.main.cpu.registers.regs[regOffset:regOffset+4]   = b'\x00\x00\x00\x00'
                 self.main.cpu.registers.regs[regOffset+4:regOffset+8] = newReg[::-1]
                 currRegNum += 1
             self.putPacket(b'OK')

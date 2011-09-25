@@ -15,6 +15,45 @@ VGA_EXTREG_DATA_LENGTH = 256
 VGA_ATTRCTRLREG_DATA_LENGTH = 256
 
 
+VGA_CURSOR_BASE_ADDR  = 0x450
+VGA_CURRENT_MODE_ADDR = 0x449
+
+
+cdef class VRamArea: ## copied from MmArea (mm.pyx)
+    cdef public object main, mm
+    cdef object mmAreaData
+    cdef unsigned char mmReadOnly
+    cdef public unsigned long long mmBaseAddr, mmAreaSize
+    def __init__(self, object mm, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
+        self.mm = mm
+        self.main = self.mm.main
+        self.mmBaseAddr = mmBaseAddr
+        self.mmAreaSize = mmAreaSize
+        self.mmReadOnly = mmReadOnly
+        self.mmAreaData = bytearray(self.mmAreaSize)
+    def mmSetReadOnly(self, unsigned char mmReadOnly):
+        self.mmReadOnly = mmReadOnly
+    def mmAreaRead(self, unsigned long long mmPhyAddr, unsigned long long dataSize):
+        cdef unsigned long long mmAreaAddr = mmPhyAddr-self.mmBaseAddr
+        return bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+dataSize])
+    def mmAreaWrite(self, unsigned long long mmPhyAddr, bytes data, unsigned long long dataSize): # dataSize(type int) in bytes
+        cdef unsigned long long mmAreaAddr = mmPhyAddr-self.mmBaseAddr
+        self.mmAreaData[mmAreaAddr:mmAreaAddr+dataSize] = data
+        self.handleVRamWrite(mmAreaAddr, dataSize)
+    def handleVRamWrite(self, unsigned long long mmAreaAddr, long long dataSize):
+        cdef list rectList = []
+        cdef unsigned short x, y
+        cdef bytes charstr
+        if (mmAreaAddr % 2): # odd
+            mmAreaAddr -= 1
+        while (dataSize > 0):
+            y, x = divmod(mmAreaAddr//2, 80)
+            charstr = bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+2])
+            rectList.append(self.main.platform.vga.ui.putChar(x, y, chr(charstr[0]), charstr[1]))
+            mmAreaAddr += 2
+            dataSize   -= 2
+        self.main.platform.vga.ui.updateScreen(rectList)
+
 
 cdef class VGA_REGISTER_RAW:
     cdef object main, vga, csData
@@ -92,7 +131,8 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 
 
 cdef class Vga:
-    cdef object main, seq, crt, gdc, dac, extreg, attrctrlreg, pygameUI
+    cdef object main, seq, crt, gdc, dac, extreg, attrctrlreg
+    cdef public object ui
     def __init__(self, object main):
         self.main = main
         self.seq = Sequencer(self, self.main)
@@ -101,10 +141,55 @@ cdef class Vga:
         self.dac = DAC(self, self.main)
         self.extreg = ExtReg(self, self.main)
         self.attrctrlreg = AttrCtrlReg(self, self.main)
-        self.pygameUI = pygameUI.pygameUI(self, self.main)
+        self.ui = None
+        if (not self.main.noUI):
+            self.ui = pygameUI.pygameUI(self, self.main)
+    def writeCharacterTeletype(self, unsigned char c, unsigned char attr, unsigned char page, unsigned char updateCursor=True):
+        cdef unsigned char x, y
+        cdef unsigned long address
+        x, y = self.getCursorPosition(page)
+        address = self.getAddrOfPos(page, x, y)
+        if (c == 0x7): # beep
+            pass
+        elif (c == 0x8): # BS == backspace
+            if (x > 0):
+                x -= 1
+        elif (c == 0x9): # TAB == horizontal tabulator
+            for i in range( 8-(x%8) ):
+                self.writeCharacter(address, 0x20, attr) # space
+        elif (c == 0xa): # LF == Newline/Linefeed
+            y += 1
+        elif (c == 0xd): # CR == carriage return
+            x = 0
+        else:
+            self.writeCharacter(address, c, attr)
+            x += 1
+        if (updateCursor):
+            self.setCursorPosition(page, x, y)
+    def writeCharacter(self, unsigned long address, unsigned char c, unsigned char attr):
+        cdef bytes charData
+        charData = bytes( [c, attr] )
+        self.main.mm.mmPhyWrite(address, charData, 2)
+    def getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
+        cdef unsigned long offset
+        offset = ((y*80)+x)*2
+        return TEXTMODE_ADDR+(page*0x1000)+offset
+    def getCursorPosition(self, unsigned char page):
+        cdef bytes cursorData
+        if (page > 7):
+            self.main.printMsg("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
+            return
+        cursorData = self.main.mm.mmPhyRead(VGA_CURSOR_BASE_ADDR+(page*2), 2)
+        return cursorData[0], cursorData[1] # x, y ## because of little endian
+    def setCursorPosition(self, unsigned char page, unsigned char x, unsigned char y):
+        cdef bytes cursorData
+        cursorData = bytes( [x, y] )
+        self.main.mm.mmPhyWrite(VGA_CURSOR_BASE_ADDR+(page*2), cursorData, 2)
     def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == misc.OP_SIZE_BYTE):
-            if (ioPortAddr == 0x3c6):
+            if (ioPortAddr == 0x3c5):
+                self.seq.getData(dataSize)
+            elif (ioPortAddr == 0x3c6):
                 return self.dac.getMask()
             elif (ioPortAddr == 0x3c8):
                 return self.dac.getIndex()
@@ -130,7 +215,7 @@ cdef class Vga:
             elif (ioPortAddr == 0x401): # Bochs' Panic Port2
                 sys.stdout.write(chr(data))
                 sys.stdout.flush()
-            elif (ioPortAddr in (0x402,0x500)): # Bochs' Info Port
+            elif (ioPortAddr in (0x402,0x500,0x504)): # Bochs' Info Port
                 sys.stdout.write(chr(data))
                 sys.stdout.flush()
             elif (ioPortAddr == 0x403): # Bochs' Debug Port
@@ -163,8 +248,12 @@ cdef class Vga:
         elif (dataSize == misc.OP_SIZE_WORD):
             if (ioPortAddr == 0x3c4):
                 self.seq.setIndex(data)
+            elif (ioPortAddr == 0x3c5):
+                self.seq.setData(data, dataSize)
             elif (ioPortAddr == 0x3ce):
                 self.gdc.setIndex(data)
+            elif (ioPortAddr == 0x3cf):
+                self.gdc.setData(data, dataSize)
             elif (ioPortAddr == 0x3d4):
                 self.crt.setIndex(data)
             elif (ioPortAddr == 0x3d5):
@@ -174,40 +263,16 @@ cdef class Vga:
         else:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return
-    def startThread(self):
-        cdef object vidData
-        cdef list rectList
-        cdef object newRect
-        try:
-            while (not self.main.quitEmu):
-                if (self.main.cpu.cpuHalted):
-                    time.sleep(2)
-                    continue
-                vidData = self.main.mm.mmPhyRead(TEXTMODE_ADDR, 4000) # 4000==80*25*2
-                for y in range(25):
-                    rectList = []
-                    for x in range(80):
-                        offset = ((y*80)+x)*2
-                        charData = vidData[offset:offset+2]
-                        newRect = self.pygameUI.putChar(x, y, chr(charData[0]), charData[1])
-                        rectList.append(newRect)
-                    if (len(rectList) > 0):
-                        self.pygameUI.updateScreen(rectList)
-                #time.sleep(0.05)
-                time.sleep(0.50)
-        #except (SystemExit, KeyboardInterrupt):
-        #    _thread.exit()
-        except:
-            print(sys.exc_info())
-            _thread.exit()
-        finally:
-            _thread.exit()
+    def VRamAddMemArea(self):
+        self.main.mm.mmAddArea(TEXTMODE_ADDR, 4000, mmAreaObject=VRamArea)
     def run(self):
         try:
-            threading.Thread(target=self.pygameUI.handleThread, name='pygameUI-0').start()
-            threading.Thread(target=self.startThread, name='vga-0').start()
-            self.main.platform.addReadHandlers((0x3c1,0x3cc,0x3c8,0x3da), self.inPort)
-            self.main.platform.addWriteHandlers((0x400, 0x401, 0x402, 0x403, 0x500, 0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, 0x3cf, 0x3d4, 0x3d5), self.outPort)
+            self.VRamAddMemArea()
+            if (self.ui):
+                threading.Thread(target=self.ui.handleThread, name='ui-0').start()
+            ###threading.Thread(target=self.startThread, name='vga-0').start()
+            self.main.platform.addReadHandlers((0x3c1,0x3c5,0x3cc,0x3c8,0x3da), self.inPort)
+            self.main.platform.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, 0x3cf, 0x3d4, 0x3d5, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self.outPort)
         except:
             print(sys.exc_info())
             _thread.exit()
