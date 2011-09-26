@@ -10,7 +10,7 @@ cdef class Cpu:
     cdef public unsigned long long opcode, cycles
     cdef public unsigned char cpuHalted, debugHalt, debugSingleStep, A20Active, protectedModeOn
     cdef unsigned char asyncEvent
-    cdef short intrNum
+    cdef short irqNum
     cdef unsigned long long savedCs, savedEip
     def __init__(self, object main):
         self.main = main
@@ -31,8 +31,8 @@ cdef class Cpu:
         return self.A20Active
     def setA20State(self, int state):
         self.A20Active = state
-    def setIntr(self, unsigned char intrNum):
-        self.intrNum = intrNum
+    def setIntr(self, short irqNum):
+        self.irqNum = irqNum
         self.asyncEvent = True
     def getCurrentOpcodeAddr(self):
         cdef unsigned char eipSize
@@ -76,6 +76,21 @@ cdef class Cpu:
             self.opcodes.interrupt(exceptionId, errorCode=errorCode)
             return
         self.opcodes.interrupt(exceptionId)
+    def handleException(self, object exception):
+        if (len(exception.args) not in (1, 2)):
+            self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', len(exception.args), exitNow=True)
+            return
+        errorCode = -1
+        if (len(exception.args) == 2):
+            if (not isinstance(exception.args[1], int)):
+                self.main.exitError('ERROR: errorCode not a int; type is {0:s}', type(exception.args[1]), exitNow=True)
+                return
+            errorCode = exception.args[1]
+        if (not isinstance(exception.args[0], int)):
+            self.main.exitError('ERROR: exceptionId not a int; type is {0:s}', type(exception.args[0]), exitNow=True)
+            return
+        exceptionId = exception.args[0]
+        self.exception(exceptionId, errorCode=errorCode)
     def isInProtectedMode(self):
         return self.protectedModeOn
     def parsePrefixes(self, unsigned char opcode):
@@ -136,9 +151,9 @@ cdef class Cpu:
         self.savedCs  = self.registers.segRead(registers.CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(registers.CPU_REGISTER_EIP)
         if (self.asyncEvent):
-            if (self.intrNum != -1 and self.registers.getEFLAG(registers.FLAG_IF) ):
-                self.main.platform.pic.handleIrq(self.intrNum)
-                self.intrNum = -1
+            if (self.irqNum != -1 and self.registers.getEFLAG(registers.FLAG_IF) ):
+                self.main.platform.pic.handleIrq(self.irqNum)
+                self.irqNum = -1
                 self.asyncEvent = False
                 return
         self.opcode = self.getCurrentOpcodeAdd(misc.OP_SIZE_BYTE)
@@ -146,18 +161,36 @@ cdef class Cpu:
             self.opcode = self.parsePrefixes(self.opcode)
         self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
         opcodeHandle = self.opcodes.opcodeList.get(self.opcode)
-        if (opcodeHandle):
-            try:
+        try:
+            if (self.registers.lockPrefix and self.opcode in misc.OPCODES_LOCK_PREFIX_INVALID):
+                raise misc.ChemuException(misc.CPU_EXCEPTION_UD)
+            elif (opcodeHandle):
                 opcodeHandle()
-            except:
-                print(sys.exc_info())
-                #_thread.exit()
-                self.main.exitError('doCycle: exception while in opcodeHandle, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
-        else:
-            self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
-            self.exception(misc.CPU_EXCEPTION_UD)
-            ##sys.exit(1) # TODO!!!
-            self.main.exitError('TODO: opcode not found, exiting...', exitNow=True)
+            else:
+                self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
+                raise misc.ChemuException(misc.CPU_EXCEPTION_UD)
+                ##self.exception(misc.CPU_EXCEPTION_UD)
+                ##sys.exit(1) # TODO!!!
+                ##self.main.exitError('TODO: opcode not found, exiting...', exitNow=True)
+        except misc.ChemuException as exception: # exception
+            try:
+                self.handleException(exception) # execute exception handler
+            except misc.ChemuException as exception: # DF double fault
+                try:
+                    self.exception(misc.CPU_EXCEPTION_DF) # exec DF double fault
+                except misc.ChemuException as exception:
+                    try:
+                        self.handleException(exception) # handle DF double fault
+                    except misc.ChemuException as exception: # DF double fault failed! triple fault... reset!
+                        if (self.main.exitOnTripleFault):
+                            self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.", exitNow=True)
+                        else:
+                            self.main.printMsg("CPU::doCycle: TRIPLE FAULT! reset.")
+                            self.cpu.reset()
+        except:
+            print(sys.exc_info())
+            #_thread.exit()
+            self.main.exitError('doCycle: exception while in opcodeHandle, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)    
     def run(self):
         self.doInfiniteCycles()
 

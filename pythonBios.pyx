@@ -49,9 +49,10 @@ cdef class PythonBios:
                 self.main.printMsg("PythonBios::interrupt: currMode {0:d} not supported yet.", currMode)
         elif (intNum == 0x13): # data storage; floppy
             ##self.main.printMsg("PythonBios::interrupt: intNum: {0:#04x}, ax: {1:#06x}", intNum, ax)
+            #return False
             if (ah == 0x2):
                 if (dl not in (0x0,0x1)):
-                    self.setError(0x80)
+                    self.setError(True, 0x8000)
                     return False
                 if ( ((cl >> 6)&3 != 0) and (dl in (0, 1)) ):
                     self.main.printMsg("PythonBios::interrupt: floppy was selected, but cl-bits #6 and/or #7 are set.")
@@ -62,18 +63,18 @@ cdef class PythonBios:
                 count = al
                 logicalSector = self.main.platform.floppy.ChsToSector(cylinder, head, sector)
                 if (logicalSector >= 2800 or count == 0):
-                    self.setError(0x10)
+                    self.setError(True, 0x100)
                     return False
                 data = self.main.platform.floppy.floppy[dl].readSectors(logicalSector, count)
                 self.main.mm.mmWrite(bx, data, count*512, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
-                self.setError(0)
+                self.setError(False, al)
                 self.main.platform.floppy.setMsr(0xc0)
                 self.main.platform.floppy.raiseFloppyIrq()
                 return True
         return False
-    def setError(self, unsigned char errorCode):
-        self.registers.setEFLAG( registers.FLAG_CF, errorCode!=0 )
-        self.registers.regWrite( registers.CPU_REGISTER_AH, errorCode )
+    def setError(self, unsigned char newCF, unsigned short ax):
+        self.registers.setEFLAG( registers.FLAG_CF, newCF )
+        self.registers.regWrite( registers.CPU_REGISTER_AX, ax )
     def run(self):
         self.cpu = self.main.cpu
         self.registers = self.cpu.registers

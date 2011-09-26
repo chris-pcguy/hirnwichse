@@ -21,6 +21,9 @@ cdef class MmArea:
         if (self.mmReadOnly):
             self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
             return
+        if (len(data) != dataSize):
+            self.main.exitError("MmArea::mmAreaWrite: len(data): {0:#04x} != dataSize: {1:#04x}", len(data), dataSize)
+            return
         cdef unsigned long long mmAreaAddr = mmPhyAddr-self.mmBaseAddr
         self.mmAreaData[mmAreaAddr:mmAreaAddr+dataSize] = data
         ###return data

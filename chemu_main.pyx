@@ -11,11 +11,12 @@ cdef class ChEmu:
     cdef public object misc, mm, platform, cpu
     cdef object parser, cmdArgs
     cdef unsigned char debugEnabled
-    cdef public unsigned char quitEmu, exitIfCpuHalted, exitCode, noUI
+    cdef public unsigned char quitEmu, exitIfCpuHalted, exitCode, noUI, exitOnTripleFault
     cdef public unsigned long long memSize
     cdef public bytes romPath, biosname, vgaBiosname, fdaFilename, fdbFilename
     def __init__(self):
         self.quitEmu = False
+        self.exitOnTripleFault = True
         self.exitCode = 0
         atexit.register(self.quitFunc)
         self.misc = misc.Misc(self)

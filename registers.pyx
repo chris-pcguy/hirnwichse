@@ -223,6 +223,8 @@ cdef class Segments:
     cdef public object main, cpu, registers, gdt, idt
     def __init__(self, object main, object cpu, object registers):
         self.main, self.cpu, self.registers = main, cpu, registers
+        self.reset()
+    def reset(self):
         self.gdt = Gdt(self.main)
         self.idt = Idt(self.main, 0, 0x3ff)
     def getBaseAddr(self, unsigned short segId): # segId == segments regId
@@ -286,9 +288,11 @@ cdef class Registers:
         self.main, self.cpu = main, cpu
         self.regs = bytearray(CPU_REGISTER_LENGTH)
         self.segments = Segments(self.main, self.cpu, self)
-        self.reset()
-    def reset(self):
-        self.regs = bytearray(CPU_REGISTER_LENGTH)
+        self.reset(doInit=True)
+    def reset(self, unsigned char doInit=False):
+        if (not doInit):
+            self.regs = bytearray(CPU_REGISTER_LENGTH)
+            self.segments.reset()
         self.regWrite(CPU_REGISTER_EFLAGS, 0x2)
         self.segWrite(CPU_SEGMENT_CS, 0xffff000, shortSeg=False)
         self.regWrite(CPU_REGISTER_EIP, 0xfff0)

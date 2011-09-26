@@ -61,6 +61,11 @@ OPCODE_PREFIXES=(OPCODE_PREFIX_LOCK, OPCODE_PREFIX_OP, OPCODE_PREFIX_ADDR, OPCOD
                  OPCODE_PREFIX_GS, OPCODE_PREFIX_REPNE, OPCODE_PREFIX_REPE) 
                  #OPCODE_PREFIX_BRANCH_NOT_TAKEN, OPCODE_PREFIX_BRANCH_TAKEN
 
+OPCODES_LOCK_PREFIX_INVALID = (0x07, 0x17, 0x1f, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d,
+                               0x5e, 0x5f, 0x60, 0x69, 0x6b, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75,
+                               0x76, 0x77, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x84, 0x85, 0x90, 0x9a, 0x9c,
+                               0xa8, 0xa9, 0xe3, 0xe8, 0xe9, 0xea, 0xeb, 0xf9, 0xfb, 0xfd)
+
 
 BYTE_ORDER_LITTLE_ENDIAN = 'little'
 BYTE_ORDER_BIG_ENDIAN = 'big'
@@ -79,6 +84,10 @@ VALUEOPS = (VALUEOP_SAVE, VALUEOP_ADD, VALUEOP_ADC, VALUEOP_SUB, VALUEOP_SBB, VA
 GETADDR_OPCODE = 1
 GETADDR_NEXT_OPCODE = 2
 GETADDR_VALUES = (GETADDR_OPCODE, GETADDR_NEXT_OPCODE)
+
+class ChemuException(Exception):
+    pass
+
 
 cdef class Misc:
     cdef object main

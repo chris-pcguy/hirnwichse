@@ -60,9 +60,13 @@ cdef class PicChannel:
         #self.main.printMsg('1234_1: irq: {0:#04x}, eoi: {1:d}, isIrqMasked: {2:d}, maskByte: {3:#04x}', irq, self.eoi, isIrqMasked, self.maskByte)
         if (not isIrqMasked and self.eoi):
             self.eoi = False
+            
             self.main.cpu.setIntr(irq)
             if (not self.master): # TO..
+                self.main.cpu.setIntr(irq+8) # ..
                 self.pic.raiseIrq(2) # ..DO
+            else:
+                self.main.cpu.setIntr(irq)
     def getStep(self):
         return self.step
     def setStep(self, unsigned char step):
