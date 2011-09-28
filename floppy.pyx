@@ -15,18 +15,20 @@ MSR_DIO = 0x40 # MSR FIFO IO port expects an IN opcode (wiki.osdev.org)
 cdef class FloppyDrive:
     cdef public object main, fp
     cdef public bytes filename
-    cdef public unsigned char driveId
+    cdef public unsigned char driveId, isLoaded
     def __init__(self, object main, unsigned char driveId):
         self.main = main
         self.driveId = driveId
         self.filename = b''
         self.fp = None
+        self.isLoaded = False
     def loadDrive(self, bytes filename):
         if (not filename or not os.path.exists(filename)):
             self.main.printMsg("FD{0:d}: loadDrive: filename not found. (filename: {1:s})", self.driveId, filename)
             return
         self.filename = filename
         self.fp = open(filename, "r+b")
+        self.isLoaded = True
     def readSectors(self, unsigned long sector, unsigned long count): # count in sectors
         cdef bytes retData
         cdef unsigned long oldPos
@@ -73,7 +75,6 @@ cdef class Floppy:
         self.result = b''
         self.command += bytes([command])
         cmdLength = self.cmdLengthTable.get(self.command[0]&0x1f)
-        ###self.main.printMsg("cmdLength_is: {0:d}, cmdLength_should: {1:d}, command: {2:#04x}", len(self.command), cmdLength, self.command[0])
         if (not cmdLength):
             self.main.exitError("FDC: addToCommand: invalid command")
             return

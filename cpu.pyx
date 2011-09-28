@@ -90,6 +90,10 @@ cdef class Cpu:
             self.main.exitError('ERROR: exceptionId not a int; type is {0:s}', type(exception.args[0]), exitNow=True)
             return
         exceptionId = exception.args[0]
+        if (exceptionId == misc.CPU_EXCEPTION_UD):
+            self.main.printMsg("CPU::handleException: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
+        else:
+            self.main.printMsg("CPU::handleException: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
         self.exception(exceptionId, errorCode=errorCode)
     def isInProtectedMode(self):
         return self.protectedModeOn
@@ -150,7 +154,7 @@ cdef class Cpu:
         self.registers.resetPrefixes()
         self.savedCs  = self.registers.segRead(registers.CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(registers.CPU_REGISTER_EIP)
-        if (self.asyncEvent):
+        if (self.asyncEvent): # This is only for IRQs! (exceptions will use cpu.exception)
             if (self.irqNum != -1 and self.registers.getEFLAG(registers.FLAG_IF) ):
                 self.main.platform.pic.handleIrq(self.irqNum)
                 self.irqNum = -1
@@ -169,15 +173,12 @@ cdef class Cpu:
             else:
                 self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise misc.ChemuException(misc.CPU_EXCEPTION_UD)
-                ##self.exception(misc.CPU_EXCEPTION_UD)
-                ##sys.exit(1) # TODO!!!
-                ##self.main.exitError('TODO: opcode not found, exiting...', exitNow=True)
         except misc.ChemuException as exception: # exception
             try:
                 self.handleException(exception) # execute exception handler
             except misc.ChemuException as exception: # DF double fault
                 try:
-                    self.exception(misc.CPU_EXCEPTION_DF) # exec DF double fault
+                    raise misc.ChemuException(misc.CPU_EXCEPTION_DF, 0) # exec DF double fault
                 except misc.ChemuException as exception:
                     try:
                         self.handleException(exception) # handle DF double fault

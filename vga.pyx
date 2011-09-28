@@ -1,5 +1,7 @@
 import misc, sys, threading, time, mm, _thread, pygameUI
 
+cimport mm
+
 TEXTMODE_ADDR = 0xb8000
 
 VGA_SEQ_INDEX_ADDR = 0x3c4
@@ -19,28 +21,14 @@ VGA_CURSOR_BASE_ADDR  = 0x450
 VGA_CURRENT_MODE_ADDR = 0x449
 
 
-cdef class VRamArea: ## copied from MmArea (mm.pyx)
-    cdef public object main, mm
-    cdef object mmAreaData
-    cdef unsigned char mmReadOnly
-    cdef public unsigned long long mmBaseAddr, mmAreaSize
-    def __init__(self, object mm, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
-        self.mm = mm
-        self.main = self.mm.main
-        self.mmBaseAddr = mmBaseAddr
-        self.mmAreaSize = mmAreaSize
-        self.mmReadOnly = mmReadOnly
-        self.mmAreaData = bytearray(self.mmAreaSize)
-    def mmSetReadOnly(self, unsigned char mmReadOnly):
-        self.mmReadOnly = mmReadOnly
-    def mmAreaRead(self, unsigned long long mmPhyAddr, unsigned long long dataSize):
+cdef class VRamArea(mm.MmArea):
+    def __init__(self, object mmObj, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
+        mm.MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
+    cpdef mmAreaWrite(self, unsigned long long mmPhyAddr, bytes data, unsigned long long dataSize): # dataSize(type int) in bytes
         cdef unsigned long long mmAreaAddr = mmPhyAddr-self.mmBaseAddr
-        return bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+dataSize])
-    def mmAreaWrite(self, unsigned long long mmPhyAddr, bytes data, unsigned long long dataSize): # dataSize(type int) in bytes
-        cdef unsigned long long mmAreaAddr = mmPhyAddr-self.mmBaseAddr
-        self.mmAreaData[mmAreaAddr:mmAreaAddr+dataSize] = data
+        mm.MmArea.mmAreaWrite(self, mmPhyAddr, data, dataSize)
         self.handleVRamWrite(mmAreaAddr, dataSize)
-    def handleVRamWrite(self, unsigned long long mmAreaAddr, long long dataSize):
+    cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
         cdef list rectList = []
         cdef unsigned short x, y
         cdef bytes charstr
@@ -51,7 +39,7 @@ cdef class VRamArea: ## copied from MmArea (mm.pyx)
             charstr = bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+2])
             rectList.append(self.main.platform.vga.ui.putChar(x, y, chr(charstr[0]), charstr[1]))
             mmAreaAddr += 2
-            dataSize   -= 2
+            dataSize   -= min(dataSize, 2)
         self.main.platform.vga.ui.updateScreen(rectList)
 
 

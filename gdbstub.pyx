@@ -6,8 +6,8 @@ import misc, mm, registers, atexit, socket, threading, socketserver, sys, _threa
 
 GDBSTUB_HOST = '127.0.0.1'
 GDBSTUB_PORT = 1234
-MAX_PACKET_SIZE = 4096 # 4 kilobyte
-
+MAX_PACKET_SIZE = 16384 # 16 KB
+MAX_PACKET_DATA_SIZE = (MAX_PACKET_SIZE//2)-2
 RS_IDLE = 1
 RS_GETLINE = 2
 RS_CHKSUM1 = 3
@@ -53,8 +53,8 @@ cdef class GDBStubHandler:
         self.wasAcked = False
     def sendPacketType(self, str packetType):
         self.connHandler.request.send(packetType.encode())
-    def putPacketString(self, str data):
-        return self.putPacket(data.encode())
+    #def putPacketString(self, str data):
+    #    return self.putPacket(data.encode())
     def putPacket(self, bytes data):
         cdef bytes dataFull, dataChecksum
         if (self.connHandler):
@@ -90,8 +90,8 @@ cdef class GDBStubHandler:
             checksum &= 0xff
         return checksum
     def byteToHex(self, unsigned char data): # data is bytes, output==bytes
-        cdef str returnValue = '{0:02x}'.format(data)
-        return returnValue.encode()
+        cdef bytes returnValue = '{0:02x}'.format(data).encode()
+        return returnValue
     def bytesToHex(self, bytes data): # data is bytes, output==bytes
         cdef bytes returnValue = b''
         for c in data:
@@ -109,16 +109,22 @@ cdef class GDBStubHandler:
             i += 2
         return returnValue
     def sendInit(self, unsigned short gdbType):
-        self.putPacketString('T{0:02x}thread:{1:02x};'.format(gdbType, self.connId))
+        self.putPacket('T{0:02x}thread:{1:02x};'.format(gdbType, self.connId).encode())
     def unhandledCmd(self, bytes data, int noMsg=False):
         if (not noMsg):
             self.main.printMsg('handleCommand: unhandled cmd: {0:s}', repr(data))
         self.putPacket(b'')
     def handleCommand(self, bytes data):
+        cdef unsigned long long memAddr, memLength, blockSize, oldRip
+        cdef long long threadNum, res_signal, res_thread, signal, thread
+        cdef unsigned short minRegNum, maxRegNum, currRegNum
+        cdef unsigned char cpuType, singleStepOn, res
+        cdef list memList, actionList
+        cdef bytes memData, hexToSend
         if (data.startswith((b'q',b'Q'))):
             if (data.startswith(b'qSupported')):
-                #self.putPacketString('PacketSize={0:x};qXfer:features:read+'.format(MAX_PACKET_SIZE))
-                self.putPacketString('PacketSize={0:x}'.format(MAX_PACKET_SIZE))
+                #self.putPacket('PacketSize={0:x};qXfer:features:read+'.format(MAX_PACKET_SIZE).encode())
+                self.putPacket('PacketSize={0:x}'.format(MAX_PACKET_SIZE).encode())
             elif (data.startswith((b'qAttach', b'qTStatus'))):
                 self.putPacket(b'')
             elif (data == b'qC'):
@@ -128,10 +134,7 @@ cdef class GDBStubHandler:
         elif (data.startswith(b'H')):
             cpuType = data[1]
             threadNum = int(data[2:], 16)
-            #if (threadNum in (-1, 0)):
             self.putPacket(b'OK')
-            #else:
-            #    self.main.printMsg('handleCommand: H: threadNum not in (-1, 0)')
         elif (data == b'?'):
             self.sendInit(GDB_SIGNAL_TRAP)
         elif (data == b'k'):
@@ -177,27 +180,33 @@ cdef class GDBStubHandler:
                 self.main.printMsg('handleCommand: (r/e)ip got set, continue execution. (delete hlt flag)')
                 self.main.cpu.cpuHalted = False
         elif (data.startswith(b'm')):
-            memTuple = data[1:].split(b',')
-            memAddr = int(memTuple[0], 16)
-            memLength = int(memTuple[1], 16)
-            memData = self.main.mm.mmPhyRead(memAddr, memLength, ignoreFail=True)
-            self.putPacket(self.bytesToHex(memData))
+            memList = data[1:].split(b',')
+            memAddr = int(memList[0], 16)
+            memLength = int(memList[1], 16)
+            hexToSend = b''
+            while (memLength != 0):
+                blockSize = min(memLength, MAX_PACKET_DATA_SIZE)
+                memData = self.main.mm.mmPhyRead(memAddr, blockSize, ignoreFail=True)
+                hexToSend = self.bytesToHex(memData)
+                self.putPacket(hexToSend)
+                memLength -= blockSize
+                memAddr   += blockSize
         elif (data.startswith(b'v')):
             if (data.startswith(b'vCont')):
                 if (data == b'vCont?'):
                     self.putPacket(b'vCont;c;C;s;S')
                     return
-                actionArr = data[6:].split(b';')
-                res, res_signal, res_thread, thread = b'', 0, 0, 0
-                for action in actionArr:
+                actionList = data[6:].split(b';')
+                res, res_signal, res_thread, thread = 0, 0, 0, 0
+                for action in actionList:
                     signal = 0
                     if (not action):
-                        res = b''
+                        res = 0
                         return
                     if (action[0] in (ord(b'C'), ord(b'S')) ):
                         signal = int(action[1:], 16)
                     elif (action[0] not in (ord(b'c'), ord(b's')) ):
-                        res = b''
+                        res = 0
                         return
                     if (len(action)>1 and action[1] == ord(b':')):
                         if (len(action)>2):
@@ -217,8 +226,6 @@ cdef class GDBStubHandler:
                     self.main.cpu.debugHalt = singleStepOn
                     if (singleStepOn):
                         self.sendInit(GDB_SIGNAL_TRAP)
-                    #else:
-                    #    self.sendInit(GDB_SIGNAL_INT)
             else:
                 self.unhandledCmd(data)
         elif (data.startswith(b'p')): # TODO
@@ -229,15 +236,12 @@ cdef class GDBStubHandler:
             self.unhandledCmd(data)
     def handleReadData(self, bytes data):
         if (data.startswith(b'-')):
-            pass # got NACK
             #print('NACK!!')
-            self.wasAcked = False
+            self.wasAcked = False # got NACK
             if (len(self.lastWrittenData)>0):
                 self.putPacket(self.lastWrittenData)
         elif (data.startswith(b'+')):
-            pass # got ACK
-            self.wasAcked = True
-            #print('ACK.')
+            self.wasAcked = True # got ACK
         if (self.wasAcked):
             data = data.lstrip(b'+')[1:]
             if (len(data)>0):
@@ -258,24 +262,17 @@ cdef class GDBStubHandler:
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
-    #cdef public object gdbHandler
     def handle(self):
         self.gdbHandler = self.server.gdbHandler
         self.gdbHandler.connHandler = self
         self.gdbHandler.connId = self.gdbHandler.gdbStub.gdbStubConnId
         self.gdbHandler.gdbStub.gdbStubConnId += 1
-        #self.gdbHandler.sendInit(GDB_SIGNAL_INT)
         try:
             while (not self.gdbHandler.main.quitEmu):
                 self.gdbHandler.handleRead()
         except (SystemExit, KeyboardInterrupt):
             self.gdbHandler.gdbStub.server.shutdown()
             _thread.exit()
-        #data = self.request.recv(1024)
-        #cur_thread = threading.current_thread()
-        ##response = bytes("%s: %s" % (cur_thread.getName(), data),'ascii')
-        ##self.request.send(response)
-        #print('{0:d}: {1:s}'.format(len(data), repr(data)) )
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass

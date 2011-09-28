@@ -1,5 +1,7 @@
 import misc, registers, vga
 
+DISKETTE_RET_STATUS_ADDR = 0x441 # byte
+
 
 cdef class PythonBios:
     cdef public object main, cpu, registers
@@ -23,10 +25,13 @@ cdef class PythonBios:
             currMode = self.main.mm.mmPhyReadValue(vga.VGA_CURRENT_MODE_ADDR, 1)
             if (currMode <= 0x7):
                 if (ah == 0x0e): # AH == 0x0E
-                    if (currMode not in (0x4, 0x5, 0x6) and bl == 0):
-                        bl = 0x07
-                    self.main.platform.vga.writeCharacterTeletype(al, bl, bh, updateCursor=True)
-                    return True
+                    if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7)):
+                        if (currMode not in (0x4, 0x5, 0x6) and bl == 0):
+                            bl = 0x07
+                        self.main.platform.vga.writeCharacterTeletype(al, bl, bh, updateCursor=True)
+                        return True
+                    else:
+                        self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x0e: currMode {0:d} not supported here.", currMode)
                 elif (ah == 0x13): # AH == 0x13
                     if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7)):
                         updateCursor = al in (0x1, 0x3)
@@ -45,15 +50,15 @@ cdef class PythonBios:
                         if (not updateCursor):
                             self.setCursorPosition(bh, dl, dh)
                         return True
+                    else:
+                        self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x13: currMode {0:d} not supported here.", currMode)
             else:
-                self.main.printMsg("PythonBios::interrupt: currMode {0:d} not supported yet.", currMode)
+                self.main.printMsg("PythonBios::interrupt: int: 0x10: currMode {0:d} not supported here.", currMode)
         elif (intNum == 0x13): # data storage; floppy
-            ##self.main.printMsg("PythonBios::interrupt: intNum: {0:#04x}, ax: {1:#06x}", intNum, ax)
-            #return False
+            if (dl != 0x00 and not (self.main.platform.floppy.floppy[1].isLoaded and dl == 0x01)):
+                self.setRetError(True, 0x8000)
+                return True
             if (ah == 0x2):
-                if (dl not in (0x0,0x1)):
-                    self.setError(True, 0x8000)
-                    return False
                 if ( ((cl >> 6)&3 != 0) and (dl in (0, 1)) ):
                     self.main.printMsg("PythonBios::interrupt: floppy was selected, but cl-bits #6 and/or #7 are set.")
                     return False
@@ -63,18 +68,19 @@ cdef class PythonBios:
                 count = al
                 logicalSector = self.main.platform.floppy.ChsToSector(cylinder, head, sector)
                 if (logicalSector >= 2800 or count == 0):
-                    self.setError(True, 0x100)
-                    return False
+                    self.setRetError(True, 0x100)
+                    return True
                 data = self.main.platform.floppy.floppy[dl].readSectors(logicalSector, count)
                 self.main.mm.mmWrite(bx, data, count*512, segId=registers.CPU_SEGMENT_ES, allowOverride=False)
-                self.setError(False, al)
+                self.setRetError(False, al)
                 self.main.platform.floppy.setMsr(0xc0)
                 self.main.platform.floppy.raiseFloppyIrq()
                 return True
         return False
-    def setError(self, unsigned char newCF, unsigned short ax):
+    def setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy
         self.registers.setEFLAG( registers.FLAG_CF, newCF )
         self.registers.regWrite( registers.CPU_REGISTER_AX, ax )
+        self.main.mm.mmPhyWriteValue(DISKETTE_RET_STATUS_ADDR, ax>>8, misc.OP_SIZE_BYTE)
     def run(self):
         self.cpu = self.main.cpu
         self.registers = self.cpu.registers

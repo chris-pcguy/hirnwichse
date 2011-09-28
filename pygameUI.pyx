@@ -12,6 +12,7 @@ cdef class pygameUI:
         self.fontSize = self.fontWidth, self.fontHeight = self.width//80, self.height//25
         pygame.display.init()
         pygame.font.init()
+        pygame.display.set_caption("ChEmu - THE x86 Emulator written in Python. (c) 2011 by Christian Inci")
         self.display = pygame.display.set_mode(self.size)
         self.screen = pygame.Surface(self.size)
         self.font = pygame.font.SysFont( 'VeraMono',  self.fontHeight)
@@ -70,15 +71,22 @@ cdef class pygameUI:
             return (0xff, 0xff, 0xff)
         else:
             self.main.exitError('pygameUI: invalid color used. (color: {0:d})', color)
+    def getBlankChar(self, tuple bgColor):
+        cdef object blankSurface
+        blankSurface = pygame.Surface(self.fontSize)
+        blankSurface.fill(bgColor)
+        return blankSurface
     def putChar(self, unsigned char x, unsigned char y, str char, unsigned char colors): # returns rect
+        cdef object newRect, newChar, newBack
+        cdef tuple fgColor, bgColor
         try:
             newRect = self.getCharRect(x, y)
-            fgColor, bgColor = colors&0xf, (colors&0xf0)>>4
-            fgColor, bgColor = self.getColor(fgColor), self.getColor(bgColor)
-            if (not char.isprintable()):
-                char = ' '
-            newChar = self.font.render(char, False, fgColor, bgColor)
-            self.screen.blit(newChar, newRect)
+            fgColor, bgColor = self.getColor(colors&0xf), self.getColor((colors&0xf0)>>4)
+            newBack = self.getBlankChar(bgColor)
+            if (char.isprintable()):
+                newChar = self.font.render(char, False, fgColor, bgColor)
+                newBack.blit(newChar, ( (0, 0), self.fontSize ))
+            self.screen.blit(newBack, newRect)
             return newRect
         except pygame.error:
             print(sys.exc_info())
@@ -91,7 +99,7 @@ cdef class pygameUI:
     def handleEvent(self, object event):
         try:
             if (event.type == pygame.QUIT):
-                self.main.quitFunc()
+                self.quitFunc()
             elif (event.type == pygame.VIDEOEXPOSE):
                 self.updateScreen()
         except pygame.error:

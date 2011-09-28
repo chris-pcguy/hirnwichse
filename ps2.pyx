@@ -54,23 +54,30 @@ cdef class PS2:
         if (dataSize == misc.OP_SIZE_BYTE):
             if (ioPortAddr == 0x60):
                 if (self.needWriteBytes == 0):
+                    self.lastCtrlCmdByte = data
                     if (data == 0xee):
                         self.appendToOutBytes(bytearray(b'\xee'))
+                    elif (data == 0xf3): # set repeat rate
+                        self.needWriteBytes = 1
                     elif (data == 0xf4):
                         self.appendToOutBytes(bytearray(b'\xfa'))
                     elif (data == 0xf5):
                         self.appendToOutBytes(bytearray(b'\xfa'))
-                    elif (data == 0xfe):
+                    elif (data == 0xf6): # load default
+                        pass
+                    elif (data == 0xfe): # reset cpu
                         self.main.cpu.reset()
                     elif (data == 0xff):
                         self.appendToOutBytes(bytearray(b'\xfa\xaa'))
                     else:
                         self.main.printMsg("outPort: data {0:#04x} is not supported. (port {1:#04x})", data, ioPortAddr)
                 else:
-                    if (self.lastCtrlCmdByte == 0xd1):
+                    if (self.lastCtrlCmdByte == 0xd1): # port 0x64
                         self.main.cpu.setA20State( (data & PS2_A20) != 0 )
-                    elif (self.lastCtrlCmdByte == 0x60):
+                    elif (self.lastCtrlCmdByte == 0x60): # port 0x64
                         self.commandByte = data
+                    elif (self.lastCtrlCmdByte == 0xf3): # port 0x60
+                        pass
                     else:
                         self.main.printMsg("outPort: data {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastCtrlCmdByte=={3:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastCtrlCmdByte)
                     self.needWriteBytes -= 1

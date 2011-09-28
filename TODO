@@ -1,0 +1,2 @@
+mm.pyx: delete mm.pxd. This depends on Cython bugid #112
+

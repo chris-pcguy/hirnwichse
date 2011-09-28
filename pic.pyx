@@ -33,7 +33,8 @@ PIC_FLAG_AUTO_EOI = 0x2
 
 cdef class PicChannel:
     cdef public object main, pic
-    cdef unsigned char master, step, cmdByte, maskByte, irqBasePort, flags, mappedSlavesOnMasterMask, slaveOnThisMasterIrq, eoi
+    cdef unsigned char master, step, cmdByte, maskByte, irqBasePort, flags, mappedSlavesOnMasterMask, \
+                        slaveOnThisMasterIrq, eoi, inInit
     def __init__(self, object pic, object main, unsigned char master):
         self.pic    = pic
         self.main   = main
@@ -46,6 +47,7 @@ cdef class PicChannel:
         self.maskByte = 0xf8
         self.flags = 0x1
         self.eoi = True
+        self.inInit = False
         if (not self.master):
             self.irqBasePort = 0x70 
             self.maskByte = 0xde
@@ -57,14 +59,13 @@ cdef class PicChannel:
         self.main.cpu.opcodes.interrupt(intNum=(self.irqBasePort+irq))
     def raiseIrq(self, unsigned char irq):
         cdef unsigned char isIrqMasked = (self.maskByte & (1<<irq))
-        #self.main.printMsg('1234_1: irq: {0:#04x}, eoi: {1:d}, isIrqMasked: {2:d}, maskByte: {3:#04x}', irq, self.eoi, isIrqMasked, self.maskByte)
         if (not isIrqMasked and self.eoi):
             self.eoi = False
             
             self.main.cpu.setIntr(irq)
             if (not self.master): # TO..
                 self.main.cpu.setIntr(irq+8) # ..
-                self.pic.raiseIrq(2) # ..DO
+                ##self.pic.raiseIrq(2) # ..DO
             else:
                 self.main.cpu.setIntr(irq)
     def getStep(self):
@@ -78,7 +79,6 @@ cdef class PicChannel:
     def getMaskByte(self):
         return self.maskByte
     def setMaskByte(self, unsigned char maskByte):
-        #self.main.printMsg("PIC::setMaskByte: maskByte: {0:#04x} (master: {1:d})", maskByte, self.master)
         self.maskByte = maskByte
     def getIrqBasePort(self):
         return self.irqBasePort
@@ -119,6 +119,8 @@ cdef class Pic:
     def raiseIrq(self, unsigned char irq):
         if (irq > 15):
             self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", irq)
+        if (irq == 2):
+            irq = 9
         if (irq >= 8):
             return self.channels[1].raiseIrq(irq-8)
         return self.channels[0].raiseIrq(irq)
