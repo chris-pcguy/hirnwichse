@@ -1,6 +1,7 @@
 
 import misc, mm
 
+include "globals.pxi"
 
 PCI_DEVICE_CONFIG_SIZE  = 256
 PCIE_DEVICE_CONFIG_SIZE = 4096
@@ -40,11 +41,11 @@ cdef class PciDevice:
             return
         self.configSpace.csWriteValue(register, data, dataSize)
     def setVendorId(self, int vendorId):
-        self.setData(0, PCI_VENDOR_ID, vendorId, misc.OP_SIZE_WORD)
+        self.setData(0, PCI_VENDOR_ID, vendorId, OP_SIZE_WORD)
     def setDeviceId(self, int deviceId):
-        self.setData(0, PCI_DEVICE_ID, deviceId, misc.OP_SIZE_WORD)
+        self.setData(0, PCI_DEVICE_ID, deviceId, OP_SIZE_WORD)
     def setClassDevice(self, int classDevice):
-        self.setData(0, PCI_CLASS_DEVICE, classDevice, misc.OP_SIZE_WORD)
+        self.setData(0, PCI_CLASS_DEVICE, classDevice, OP_SIZE_WORD)
     def setVendorDeviceId(self, int vendorId, int deviceId):
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
@@ -54,8 +55,8 @@ cdef class PciBridge(PciDevice):
         PciDevice.__init__(self, bus, pci, main)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_430FX)
         self.setClassDevice(PCI_CLASS_BRIDGE_HOST)
-        self.setData(0, PCI_PRIMARY_BUS, 0, misc.OP_SIZE_BYTE)
-        self.setData(0, PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, misc.OP_SIZE_BYTE)
+        self.setData(0, PCI_PRIMARY_BUS, 0, OP_SIZE_BYTE)
+        self.setData(0, PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
     
 
 cdef class PciBus:
@@ -109,7 +110,7 @@ cdef class Pci:
             enableBit, bus, device, function, register = self.parseAddress(address)
             deviceHandle.setData(function, register, data, dataSize)
     def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        if (dataSize in (misc.OP_SIZE_BYTE, misc.OP_SIZE_WORD, misc.OP_SIZE_DWORD)):
+        if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
                 return self.readRegister((self.address&0xfffffffc)+(ioPortAddr&3), dataSize)
             else:
@@ -118,7 +119,7 @@ cdef class Pci:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPort(self, unsigned short ioPortAddr, unsigned long long data, unsigned char dataSize):
-        if (dataSize in (misc.OP_SIZE_BYTE, misc.OP_SIZE_WORD, misc.OP_SIZE_DWORD)):
+        if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0xcf8):
                 self.address = data
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):

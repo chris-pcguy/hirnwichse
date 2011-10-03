@@ -21,7 +21,7 @@ ROM_SIZES = (SIZE_64KB, SIZE_128KB, SIZE_256KB, SIZE_512KB, SIZE_1MB, SIZE_2MB, 
              SIZE_8MB, SIZE_16MB, SIZE_32MB, SIZE_64MB, SIZE_128MB, SIZE_256MB)
 
 cdef class Platform:
-    cdef public object main, cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel, gdbstub, pythonBios
+    cdef public object main, cmos, isadma, ps2, pic, pit, pci, vga, floppy, serial, parallel, gdbstub, pythonBios
     cdef dict readHandlers, writeHandlers
     cdef unsigned char copyRomToLowMem
     def __init__(self, object main):
@@ -31,10 +31,10 @@ cdef class Platform:
         self.writeHandlers = {}
         self.cmos     = cmos.Cmos(self.main)
         self.isadma   = isadma.ISADma(self.main)
-        self.pic      = pic.Pic(self.main)
-        self.pit      = pit.Pit(self.main)
-        self.pci      = pci.Pci(self.main)
         self.ps2      = ps2.PS2(self.main)
+        self.pic      = pic.Pic(self.main)
+        self.pit      = pit.Pit(self.main, self.ps2)
+        self.pci      = pci.Pci(self.main)
         self.vga      = vga.Vga(self.main)
         self.floppy   = floppy.Floppy(self.main)
         self.serial   = serial.Serial(self.main)
@@ -94,27 +94,27 @@ cdef class Platform:
                     break
                 romMemSize = size
                 mmAddr = 0x100000000-romMemSize
-            self.main.mm.mmAddArea(mmAddr, romMemSize, mmReadOnly=False)
         self.loadRomToMem(romFileName, mmAddr, romSize)
-        if (not isRomOptional and self.copyRomToLowMem):
-            self.main.mm.mmGetSingleArea(mmAddr, 0).mmSetReadOnly(True)
+        if (self.copyRomToLowMem):
             if (romMemSize > SIZE_1MB):
                 self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
                 return
             self.main.mm.mmPhyWrite(mmAddr&0xfffff, self.main.mm.mmPhyRead(mmAddr, romSize), romSize)
     def run(self, unsigned long long memSize):
         self.main.mm.mmAddArea(0, memSize)
+        self.main.mm.mmAddArea(0xfffc0000, 0x40000, mmReadOnly=False)
         self.loadRom(os.path.join(self.main.romPath, self.main.biosname), 0xffff0000, False)
         if (self.main.vgaBiosname):
-            self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosname), 0xc0000, True)
+            self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosname), 0xfffc0000, True)
+        self.main.mm.mmGetSingleArea(0xfffc0000, 0).mmSetReadOnly(True)
         self.runDevices()
     def runDevices(self):
         self.cmos.run()
         self.isadma.run()
+        self.ps2.run()
         self.pic.run()
         self.pit.run()
         self.pci.run()
-        self.ps2.run()
         self.vga.run()
         self.floppy.run()
         self.serial.run()

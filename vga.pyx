@@ -1,8 +1,11 @@
-import misc, sys, threading, time, mm, _thread, pygameUI
+import sys, threading, time, mm, pygameUI
+
+include "globals.pxi"
 
 cimport mm
 
 TEXTMODE_ADDR = 0xb8000
+VGA_MEMAREA_ADDR = 0xa0000
 
 VGA_SEQ_INDEX_ADDR = 0x3c4
 VGA_SEQ_DATA_ADDR  = 0x3c5
@@ -19,28 +22,32 @@ VGA_ATTRCTRLREG_DATA_LENGTH = 256
 
 VGA_CURSOR_BASE_ADDR  = 0x450
 VGA_CURRENT_MODE_ADDR = 0x449
-
+VGA_CURRENT_PAGE_ADDR = 0x462
 
 cdef class VRamArea(mm.MmArea):
     def __init__(self, object mmObj, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
         mm.MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
     cpdef mmAreaWrite(self, unsigned long long mmPhyAddr, bytes data, unsigned long long dataSize): # dataSize(type int) in bytes
-        cdef unsigned long long mmAreaAddr = mmPhyAddr-self.mmBaseAddr
+        cdef unsigned long long mmAreaAddr
+        mmAreaAddr = mmPhyAddr-self.mmBaseAddr
         mm.MmArea.mmAreaWrite(self, mmPhyAddr, data, dataSize)
         self.handleVRamWrite(mmAreaAddr, dataSize)
     cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
         cdef list rectList = []
         cdef unsigned short x, y
         cdef bytes charstr
+        ##mmAreaAddr -= self.mmBaseAddr # TODO
         if (mmAreaAddr % 2): # odd
             mmAreaAddr -= 1
         while (dataSize > 0):
             y, x = divmod(mmAreaAddr//2, 80)
             charstr = bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+2])
-            rectList.append(self.main.platform.vga.ui.putChar(x, y, chr(charstr[0]), charstr[1]))
+            if (self.main.platform.vga.ui):
+                rectList.append(self.main.platform.vga.ui.putChar(x, y, chr(charstr[0]), charstr[1]))
             mmAreaAddr += 2
             dataSize   -= min(dataSize, 2)
-        self.main.platform.vga.ui.updateScreen(rectList)
+        if (self.main.platform.vga.ui):
+            self.main.platform.vga.ui.updateScreen(rectList)
 
 
 cdef class VGA_REGISTER_RAW:
@@ -132,9 +139,11 @@ cdef class Vga:
         self.ui = None
         if (not self.main.noUI):
             self.ui = pygameUI.pygameUI(self, self.main)
-    def writeCharacterTeletype(self, unsigned char c, unsigned char attr, unsigned char page, unsigned char updateCursor=True):
+    def writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor=True):
         cdef unsigned char x, y
         cdef unsigned long address
+        if (page == 0xff):
+            page = self.main.mm.mmPhyReadValue(VGA_CURRENT_PAGE_ADDR, 1)
         x, y = self.getCursorPosition(page)
         address = self.getAddrOfPos(page, x, y)
         if (c == 0x7): # beep
@@ -154,10 +163,14 @@ cdef class Vga:
             x += 1
         if (updateCursor):
             self.setCursorPosition(page, x, y)
-    def writeCharacter(self, unsigned long address, unsigned char c, unsigned char attr):
+    def writeCharacter(self, unsigned long address, unsigned char c, short attr):
         cdef bytes charData
-        charData = bytes( [c, attr] )
-        self.main.mm.mmPhyWrite(address, charData, 2)
+        if (attr == -1):
+            charData = bytes( [c] )
+            self.main.mm.mmPhyWrite(address, charData, 1)
+        else:
+            charData = bytes( [c, attr] )
+            self.main.mm.mmPhyWrite(address, charData, 2)
     def getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
         cdef unsigned long offset
         offset = ((y*80)+x)*2
@@ -174,7 +187,7 @@ cdef class Vga:
         cursorData = bytes( [x, y] )
         self.main.mm.mmPhyWrite(VGA_CURSOR_BASE_ADDR+(page*2), cursorData, 2)
     def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        if (dataSize == misc.OP_SIZE_BYTE):
+        if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x3c5):
                 self.seq.getData(dataSize)
             elif (ioPortAddr == 0x3c6):
@@ -196,7 +209,7 @@ cdef class Vga:
                 self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return 0
     def outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
-        if (dataSize == misc.OP_SIZE_BYTE):
+        if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x400): # Bochs' Panic Port
                 sys.stdout.write(chr(data))
                 sys.stdout.flush()
@@ -233,7 +246,7 @@ cdef class Vga:
                 self.crt.setData(data, dataSize)
             else:
                 self.main.printMsg("outPort: port {0:#04x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
-        elif (dataSize == misc.OP_SIZE_WORD):
+        elif (dataSize == OP_SIZE_WORD):
             if (ioPortAddr == 0x3c4):
                 self.seq.setIndex(data)
             elif (ioPortAddr == 0x3c5):
@@ -253,17 +266,13 @@ cdef class Vga:
         return
     def VRamAddMemArea(self):
         self.main.mm.mmAddArea(TEXTMODE_ADDR, 4000, mmAreaObject=VRamArea)
+        ##self.main.mm.mmAddArea(VGA_MEMAREA_ADDR, 0x4000, mmAreaObject=VRamArea)
     def run(self):
-        try:
-            self.VRamAddMemArea()
-            if (self.ui):
-                threading.Thread(target=self.ui.handleThread, name='ui-0').start()
-            ###threading.Thread(target=self.startThread, name='vga-0').start()
-            self.main.platform.addReadHandlers((0x3c1,0x3c5,0x3cc,0x3c8,0x3da), self.inPort)
-            self.main.platform.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, 0x3cf, 0x3d4, 0x3d5, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self.outPort)
-        except:
-            print(sys.exc_info())
-            _thread.exit()
-    
+        self.VRamAddMemArea()
+        if (self.ui):
+            self.ui.run()
+        self.main.platform.addReadHandlers((0x3c1,0x3c5,0x3cc,0x3c8,0x3da), self.inPort)
+        self.main.platform.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, 0x3cf, 0x3d4, 0x3d5, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self.outPort)
+        
 
 

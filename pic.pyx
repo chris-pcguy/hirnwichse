@@ -1,4 +1,6 @@
-import misc
+
+include "globals.pxi"
+
 
 PIC_PIC1_BASE = 0x20
 PIC_PIC1_COMMAND = PIC_PIC1_BASE
@@ -30,11 +32,14 @@ PIC_DATA_STEP_ICW4 = 4
 PIC_FLAG_SHOULD_BE_SET_ON_PC = 0x1
 PIC_FLAG_AUTO_EOI = 0x2
 
+PIC_NEED_IRR = 1
+PIC_NEED_ISR = 2
+
 
 cdef class PicChannel:
     cdef public object main, pic
     cdef unsigned char master, step, cmdByte, maskByte, irqBasePort, flags, mappedSlavesOnMasterMask, \
-                        slaveOnThisMasterIrq, eoi, inInit
+                        slaveOnThisMasterIrq, inInit, isr, irr, needRegister
     def __init__(self, object pic, object main, unsigned char master):
         self.pic    = pic
         self.main   = main
@@ -46,7 +51,9 @@ cdef class PicChannel:
         self.irqBasePort = 0x8
         self.maskByte = 0xf8
         self.flags = 0x1
-        self.eoi = True
+        self.isr = 0
+        self.irr = 0
+        self.needRegister = PIC_NEED_IRR
         self.inInit = False
         if (not self.master):
             self.irqBasePort = 0x70 
@@ -54,20 +61,29 @@ cdef class PicChannel:
         self.mappedSlavesOnMasterMask = 0x4 # master
         self.slaveOnThisMasterIrq = 2 # slave
     def gotEOI(self):
-        self.eoi = True
+        for irq in range(8):
+            if (self.isr & (1<<irq)):
+                self.isr &= ~(1<<irq)
+                return
+    def handleLowestIrq(self):
+        for irq in range(8):
+            if (self.irr & (1<<irq)):
+                self.handleIrq(irq)
+                return
     def handleIrq(self, unsigned char irq):
-        self.main.cpu.opcodes.interrupt(intNum=(self.irqBasePort+irq))
+        self.irr &= ~(1<<irq)
+        self.isr |= 1<<irq
+        if (self.master and irq == 2):
+            self.pic.channels[1].handleLowestIrq()
+        else:
+            self.main.cpu.opcodes.interrupt(intNum=(self.irqBasePort+irq), hwInt=True)
     def raiseIrq(self, unsigned char irq):
         cdef unsigned char isIrqMasked = (self.maskByte & (1<<irq))
-        if (not isIrqMasked and self.eoi):
-            self.eoi = False
-            
-            self.main.cpu.setIntr(irq)
-            if (not self.master): # TO..
-                self.main.cpu.setIntr(irq+8) # ..
-                ##self.pic.raiseIrq(2) # ..DO
-            else:
-                self.main.cpu.setIntr(irq)
+        if (not isIrqMasked and not (self.isr&(1<<irq)) ):
+            self.irr |= 1<<irq
+            if (not self.master): # TODO: TO..
+                self.pic.raiseIrq(2) # ..DO
+            self.main.cpu.setAsync()
     def getStep(self):
         return self.step
     def setStep(self, unsigned char step):
@@ -97,16 +113,21 @@ cdef class PicChannel:
         self.flags = flags
         if (not (self.flags & PIC_FLAG_SHOULD_BE_SET_ON_PC)):
             self.main.exitError("Warning: setFlags: self.flags {0:#04x}, PIC_FLAG_SHOULD_BE_SET_ON_PC not set! (channel{1:d})", flags, self.master==False)
-    
-    
-    
+    def getIsr(self):
+        return self.isr
+    def getIrr(self):
+        return self.irr
+    def setNeededRegister(self, unsigned char picReg):
+        self.needRegister = picReg
+    def getNeededRegister(self):
+        return self.needRegister
     
 
 
 
 cdef class Pic:
     cdef public object main
-    cdef tuple channels
+    cdef public tuple channels
     def __init__(self, object main):
         self.main = main
         self.channels = (PicChannel(self, self.main, True), PicChannel(self, self.main, False))
@@ -125,18 +146,23 @@ cdef class Pic:
             return self.channels[1].raiseIrq(irq-8)
         return self.channels[0].raiseIrq(irq)
     def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        cdef unsigned char channel, oldStep
-        if (dataSize == misc.OP_SIZE_BYTE):
+        cdef unsigned char channel, oldStep, neededRegister
+        if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):
                 channel = 0
             elif (ioPortAddr in PIC_PIC2_PORTS):
                 channel = 1
-            else: # wrong ioPortAddr
-                self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
-                return 0
-            oldStep = self.channels[channel].getStep()
-            
-            if (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
+            if (ioPortAddr in (PIC_PIC1_COMMAND, PIC_PIC2_COMMAND)):
+                neededRegister = self.channels[channel].getNeededRegister()
+                if (neededRegister == PIC_NEED_IRR):
+                    return self.channels[channel].getIrr()
+                elif (neededRegister == PIC_NEED_ISR):
+                    return self.channels[channel].getIsr()
+                else:
+                    self.main.exitError("inPort: ioPortAddr {0:#04x} need neededRegister to be in (PIC_NEED_IRR, PIC_NEED_ISR) (dataSize == byte).", ioPortAddr)
+                    return 0
+            elif (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
+                oldStep = self.channels[channel].getStep()
                 if (oldStep == PIC_DATA_STEP_ICW1): # not cmd to exec, so set mask
                     return self.channels[channel].getMaskByte()
                 else: # wrong step
@@ -148,7 +174,7 @@ cdef class Pic:
         return 0
     def outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
         cdef unsigned char channel, oldStep, cmdByte
-        if (dataSize == misc.OP_SIZE_BYTE):
+        if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):
                 channel = 0
             elif (ioPortAddr in PIC_PIC2_PORTS):
@@ -164,6 +190,10 @@ cdef class Pic:
                     self.channels[channel].gotEOI()
                 elif (data & PIC_CMD_INITIALIZE and oldStep == PIC_DATA_STEP_ICW1):
                     self.channels[channel].setStep(PIC_DATA_STEP_ICW2)
+                elif (data == 0x0a and oldStep == PIC_DATA_STEP_ICW1): # IRR wanted
+                    self.channels[channel].setNeededRegister(PIC_NEED_IRR)
+                elif (data == 0x0b and oldStep == PIC_DATA_STEP_ICW1): # ISR wanted
+                    self.channels[channel].setNeededRegister(PIC_NEED_ISR)
                 else:
                     self.main.printMsg("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, oldStep == {2:d}, dataSize == byte).", data, ioPortAddr, oldStep)
             elif (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):

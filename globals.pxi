@@ -1,0 +1,301 @@
+
+# Parity Flag Table: DO NOT EDIT!!
+cdef public list PARITY_TABLE = [True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, False, True, True, False,
+                True, False, False, True, True, False, False, True, False, True,
+                True, False, False, True, True, False, True, False, False, True,
+                True, False, False, True, False, True, True, False, True, False,
+                False, True, False, True, True, False, False, True, True, False,
+                True, False, False, True, False, True, True, False, True, False,
+                False, True, True, False, False, True, False, True, True, False,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, True, False, False, True,
+                False, True, True, False, False, True, True, False, True, False,
+                False, True, False, True, True, False, True, False, False, True,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, True, False, False, True,
+                False, True, True, False, True, False, False, True, False, True,
+                True, False, False, True, True, False, True, False, False, True,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, False, True, True, False,
+                True, False, False, True, True, False, False, True, False, True,
+                True, False, True, False, False, True, False, True, True, False,
+                False, True, True, False, True, False, False, True, False, True,
+                True, False, True, False, False, True, True, False, False, True,
+                False, True, True, False, False, True, True, False, True, False,
+                False, True, True, False, False, True, False, True, True, False,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True]
+
+# regs:
+# offset 0 == QWORD
+# offset 1 == DWORD
+# offset 2 == WORD
+# offset 3 == HBYTE
+# offset 4 == LBYTE
+
+DEF CPU_REGISTER_OFFSET_QWORD = 0
+DEF CPU_REGISTER_OFFSET_DWORD = 1
+DEF CPU_REGISTER_OFFSET_WORD = 2
+DEF CPU_REGISTER_OFFSET_HBYTE = 3
+DEF CPU_REGISTER_OFFSET_LBYTE = 4
+
+
+
+DEF CPU_MIN_REGISTER = 20
+DEF CPU_REGISTER_NONE = 0
+DEF CPU_REGISTER_RAX = 20
+DEF CPU_REGISTER_EAX = 21
+DEF CPU_REGISTER_AX  = 22
+DEF CPU_REGISTER_AH  = 23
+DEF CPU_REGISTER_AL  = 24
+DEF CPU_REGISTER_RCX = 25
+DEF CPU_REGISTER_ECX = 26
+DEF CPU_REGISTER_CX  = 27
+DEF CPU_REGISTER_CH  = 28
+DEF CPU_REGISTER_CL  = 29
+DEF CPU_REGISTER_RDX = 30
+DEF CPU_REGISTER_EDX = 31
+DEF CPU_REGISTER_DX  = 32
+DEF CPU_REGISTER_DH  = 33
+DEF CPU_REGISTER_DL  = 34
+DEF CPU_REGISTER_RBX = 35
+DEF CPU_REGISTER_EBX = 36
+DEF CPU_REGISTER_BX  = 37
+DEF CPU_REGISTER_BH  = 38
+DEF CPU_REGISTER_BL  = 39
+DEF CPU_REGISTER_RSP = 40
+DEF CPU_REGISTER_ESP = 41
+DEF CPU_REGISTER_SP  = 42
+DEF CPU_REGISTER_RBP = 45
+DEF CPU_REGISTER_EBP = 46
+DEF CPU_REGISTER_BP  = 47
+DEF CPU_REGISTER_RSI = 50
+DEF CPU_REGISTER_ESI = 51
+DEF CPU_REGISTER_SI  = 52
+DEF CPU_REGISTER_RDI = 55
+DEF CPU_REGISTER_EDI = 56
+DEF CPU_REGISTER_DI  = 57
+DEF CPU_REGISTER_RIP = 60
+DEF CPU_REGISTER_EIP = 61
+DEF CPU_REGISTER_IP  = 62
+DEF CPU_REGISTER_RFLAGS = 65
+DEF CPU_REGISTER_EFLAGS = 66
+DEF CPU_REGISTER_FLAGS  = 67
+
+DEF CPU_SEGMENT_CS = 72
+DEF CPU_SEGMENT_SS = 77
+DEF CPU_SEGMENT_DS = 82
+DEF CPU_SEGMENT_ES = 87
+DEF CPU_SEGMENT_FS = 92
+DEF CPU_SEGMENT_GS = 97
+
+DEF CPU_REGISTER_CR0 = 101
+DEF CPU_REGISTER_CR2 = 106
+DEF CPU_REGISTER_CR3 = 111
+DEF CPU_REGISTER_CR4 = 116
+
+DEF CPU_MAX_REGISTER_WO_CR = 100 # without CRd
+DEF CPU_MAX_REGISTER = 120
+DEF CPU_REGISTER_LENGTH = 200*8
+DEF CPU_NB_REGS64 = 16
+DEF CPU_NB_REGS = 8
+DEF CPU_NB_REGS32 = CPU_NB_REGS
+DEF NUM_CORE_REGS = (CPU_NB_REGS * 2) + 25
+
+DEF FLAG_CF   = 0x1
+DEF FLAG_PF   = 0x4
+DEF FLAG_AF   = 0x10
+DEF FLAG_ZF   = 0x40
+DEF FLAG_SF   = 0x80
+DEF FLAG_TF   = 0x100
+DEF FLAG_IF   = 0x200
+DEF FLAG_DF   = 0x400
+DEF FLAG_OF   = 0x800
+DEF FLAG_IOPL = 0x3000
+DEF FLAG_NT   = 0x4000
+DEF FLAG_RF   = 0x10000 # resume flag
+DEF FLAG_VM   = 0x20000 # virtual 8086 mode
+DEF FLAG_AC   = 0x40000 # alignment check if this and CR0 #AM set
+DEF FLAG_VIF  = 0x80000 # virtual interrupt flag
+DEF FLAG_VIP  = 0x100000 # virtual interrupt pending flag
+DEF FLAG_ID   = 0x200000
+
+DEF CR0_FLAG_PE = 0x1
+DEF CR0_FLAG_MP = 0x2
+DEF CR0_FLAG_EM = 0x4
+DEF CR0_FLAG_TS = 0x8
+DEF CR0_FLAG_ET = 0x10
+DEF CR0_FLAG_NE = 0x20
+DEF CR0_FLAG_WP = 0x10000
+DEF CR0_FLAG_AM = 0x40000
+DEF CR0_FLAG_NW = 0x20000000
+DEF CR0_FLAG_CD = 0x40000000
+DEF CR0_FLAG_PG = 0x80000000
+
+
+DEF CR4_FLAG_VME = 0x1
+DEF CR4_FLAG_PVI = 0x2
+DEF CR4_FLAG_TSD = 0x4
+DEF CR4_FLAG_DE  = 0x8
+DEF CR4_FLAG_PSE = 0x10
+DEF CR4_FLAG_PAE = 0x20
+DEF CR4_FLAG_MCE = 0x40
+DEF CR4_FLAG_PGE = 0x80
+DEF CR4_FLAG_PCE = 0x100
+DEF CR4_FLAG_OSFXSR = 0x200
+DEF CR4_FLAG_OSXMMEXCPT = 0x400
+
+
+DEF MODRM_FLAGS_SREG = 1
+DEF MODRM_FLAGS_CREG = 2
+DEF MODRM_FLAGS_DREG = 4
+
+
+DEF IDT_INTR_TYPE_INTERRUPT = 6
+DEF IDT_INTR_TYPE_TRAP = 7
+DEF IDT_INTR_TYPE_TASK = 5
+
+cdef public tuple IDT_INTR_TYPES = (IDT_INTR_TYPE_INTERRUPT, IDT_INTR_TYPE_TRAP, IDT_INTR_TYPE_TASK)
+
+
+cdef public tuple CPU_REGISTER_QWORD=(CPU_REGISTER_RAX,CPU_REGISTER_RCX,CPU_REGISTER_RDX,CPU_REGISTER_RBX,CPU_REGISTER_RSP,
+                    CPU_REGISTER_RBP,CPU_REGISTER_RSI,CPU_REGISTER_RDI,CPU_REGISTER_RIP,CPU_REGISTER_RFLAGS)
+
+cdef public tuple CPU_REGISTER_DWORD=(CPU_REGISTER_EAX,CPU_REGISTER_ECX,CPU_REGISTER_EDX,CPU_REGISTER_EBX,CPU_REGISTER_ESP,
+                    CPU_REGISTER_EBP,CPU_REGISTER_ESI,CPU_REGISTER_EDI,CPU_REGISTER_EIP,CPU_REGISTER_EFLAGS,
+                    CPU_REGISTER_CR0,CPU_REGISTER_CR2,CPU_REGISTER_CR3,CPU_REGISTER_CR4)
+
+cdef public tuple CPU_REGISTER_WORD=(CPU_REGISTER_AX,CPU_REGISTER_CX,CPU_REGISTER_DX,CPU_REGISTER_BX,CPU_REGISTER_SP,
+                   CPU_REGISTER_BP,CPU_REGISTER_SI,CPU_REGISTER_DI,CPU_REGISTER_IP,CPU_REGISTER_FLAGS)
+
+cdef public tuple CPU_REGISTER_HBYTE=(CPU_REGISTER_AH,CPU_REGISTER_CH,CPU_REGISTER_DH,CPU_REGISTER_BH)
+cdef public tuple CPU_REGISTER_LBYTE=(CPU_REGISTER_AL,CPU_REGISTER_CL,CPU_REGISTER_DL,CPU_REGISTER_BL)
+
+cdef public tuple CPU_REGISTER_BYTE=(CPU_REGISTER_AL,CPU_REGISTER_CL,CPU_REGISTER_DL,CPU_REGISTER_BL,CPU_REGISTER_AH,CPU_REGISTER_CH,CPU_REGISTER_DH,CPU_REGISTER_BH)
+
+cdef public tuple CPU_REGISTER_SREG=(CPU_SEGMENT_ES,CPU_SEGMENT_CS,CPU_SEGMENT_SS,CPU_SEGMENT_DS,CPU_SEGMENT_FS,CPU_SEGMENT_GS,None,None)
+cdef public tuple CPU_REGISTER_CREG=(CPU_REGISTER_CR0, None, CPU_REGISTER_CR2, CPU_REGISTER_CR3, CPU_REGISTER_CR4, None, None, None)
+cdef public tuple CPU_REGISTER_DREG=()
+
+cdef public tuple CPU_REGISTER_INST_POINTER=(CPU_REGISTER_RIP, CPU_REGISTER_EIP, CPU_REGISTER_IP)
+
+DEF GDT_USE_LDT = 0x4
+DEF GDT_FLAG_GRANULARITY = 0x8
+DEF GDT_FLAG_SIZE = 0x4 # 0==16bit; 1==32bit
+DEF GDT_FLAG_LONGMODE = 0x2
+DEF GDT_FLAG_AVAILABLE = 0x1
+DEF GDT_ACCESS_EXECUTABLE = 0x8 # 1==code segment; 0==data segment
+DEF GDT_ACCESS_PRESENT = 0x80
+DEF GDT_ACCESS_READABLE_WRITABLE = 0x2 # segment readable/writable
+DEF GDT_ACCESS_DPL = 0x60
+
+
+
+
+
+
+
+
+
+
+
+DEF OP_SIZE_BYTE  = 1
+DEF OP_SIZE_WORD = 2
+DEF OP_SIZE_DWORD = 4
+DEF OP_SIZE_QWORD = 8
+
+
+DEF SET_FLAGS_ADD = 1
+DEF SET_FLAGS_SUB = 2
+DEF SET_FLAGS_MUL = 3
+DEF SET_FLAGS_DIV = 4
+
+
+DEF CPU_EXCEPTION_DE = 0 # divide-by-zero error
+DEF CPU_EXCEPTION_DB = 1 # debug
+DEF CPU_EXCEPTION_BP = 3 # breakpoint
+DEF CPU_EXCEPTION_OF = 4 # overflow
+DEF CPU_EXCEPTION_BR = 5 # bound range exceeded
+DEF CPU_EXCEPTION_UD = 6 # invalid opcode
+DEF CPU_EXCEPTION_NM = 7 # device not available
+DEF CPU_EXCEPTION_DF = 8 # double fault
+DEF CPU_EXCEPTION_TS = 10 # invalid TSS
+DEF CPU_EXCEPTION_NP = 11 # segment not present
+DEF CPU_EXCEPTION_SS = 12 # stack-segment fault
+DEF CPU_EXCEPTION_GP = 13 # general-protection fault
+DEF CPU_EXCEPTION_PF = 14 # page fault
+DEF CPU_EXCEPTION_MF = 16 # x87 floating-point exception
+DEF CPU_EXCEPTION_AC = 17 # alignment check
+DEF CPU_EXCEPTION_MC = 18 # machine check
+DEF CPU_EXCEPTION_XF = 19 # simd floating-point exception
+DEF CPU_EXCEPTION_SX = 30 # security exception
+
+
+cdef public tuple CPU_EXCEPTIONS_FAULT_GROUP = (CPU_EXCEPTION_DE, CPU_EXCEPTION_BR, CPU_EXCEPTION_UD, CPU_EXCEPTION_NM, CPU_EXCEPTION_TS, \
+                        CPU_EXCEPTION_NP, CPU_EXCEPTION_SS, CPU_EXCEPTION_GP, CPU_EXCEPTION_PF, CPU_EXCEPTION_MF, \
+                        CPU_EXCEPTION_AC, CPU_EXCEPTION_XF)
+cdef public tuple CPU_EXCEPTIONS_WITH_ERRORCODE = (CPU_EXCEPTION_DF, CPU_EXCEPTION_TS, CPU_EXCEPTION_NP, CPU_EXCEPTION_SS, \
+                                 CPU_EXCEPTION_GP, CPU_EXCEPTION_PF, CPU_EXCEPTION_AC)
+
+
+DEF OPCODE_PREFIX_CS=0x2e
+DEF OPCODE_PREFIX_SS=0x36
+DEF OPCODE_PREFIX_DS=0x3e
+DEF OPCODE_PREFIX_ES=0x26
+DEF OPCODE_PREFIX_FS=0x64
+DEF OPCODE_PREFIX_GS=0x65
+cdef public tuple OPCODE_PREFIX_SEGMENTS=(OPCODE_PREFIX_CS, OPCODE_PREFIX_SS, OPCODE_PREFIX_DS, OPCODE_PREFIX_ES, OPCODE_PREFIX_FS, OPCODE_PREFIX_GS)
+DEF OPCODE_PREFIX_OP=0x66
+DEF OPCODE_PREFIX_ADDR=0x67
+#DEF OPCODE_PREFIX_BRANCH_NOT_TAKEN=0x2e
+#DEF OPCODE_PREFIX_BRANCH_TAKEN=0x3e
+#cdef public tuple OPCODE_PREFIX_BRANCHES=(OPCODE_PREFIX_BRANCH_NOT_TAKEN,OPCODE_PREFIX_BRANCH_TAKEN)
+DEF OPCODE_PREFIX_LOCK=0xf0
+DEF OPCODE_PREFIX_REPNE=0xf2
+DEF OPCODE_PREFIX_REPE=0xf3
+cdef public tuple OPCODE_PREFIX_REPS=(OPCODE_PREFIX_REPNE,OPCODE_PREFIX_REPE)
+
+
+cdef public tuple OPCODE_PREFIXES=(OPCODE_PREFIX_LOCK, OPCODE_PREFIX_OP, OPCODE_PREFIX_ADDR, OPCODE_PREFIX_CS,
+                 OPCODE_PREFIX_SS, OPCODE_PREFIX_DS, OPCODE_PREFIX_ES, OPCODE_PREFIX_FS,
+                 OPCODE_PREFIX_GS, OPCODE_PREFIX_REPNE, OPCODE_PREFIX_REPE) 
+                 #OPCODE_PREFIX_BRANCH_NOT_TAKEN, OPCODE_PREFIX_BRANCH_TAKEN
+
+cdef public tuple OPCODES_LOCK_PREFIX_INVALID = (0x07, 0x17, 0x1f, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d,
+                               0x5e, 0x5f, 0x60, 0x61, 0x62, 0x63, 0x69, 0x6b, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75,
+                               0x76, 0x77, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x84, 0x85, 0x90, 0x9a, 0x9c,
+                               0xa8, 0xa9, 0xc8, 0xc9, 0xcd, 0xe3, 0xe8, 0xe9, 0xea, 0xeb, 0xf9, 0xfb, 0xfd)
+
+
+DEF VALUEOP_SAVE = 0
+DEF VALUEOP_ADD  = 1
+DEF VALUEOP_ADC  = 2
+DEF VALUEOP_SUB  = 3
+DEF VALUEOP_SBB  = 4
+DEF VALUEOP_AND  = 5
+DEF VALUEOP_OR   = 6
+DEF VALUEOP_XOR  = 7
+cdef public tuple VALUEOPS = (VALUEOP_SAVE, VALUEOP_ADD, VALUEOP_ADC, VALUEOP_SUB, VALUEOP_SBB, VALUEOP_AND, VALUEOP_OR, VALUEOP_XOR)
+
+DEF GETADDR_OPCODE = 1
+DEF GETADDR_NEXT_OPCODE = 2
+cdef public tuple GETADDR_VALUES = (GETADDR_OPCODE, GETADDR_NEXT_OPCODE)
+
+DEF BT_NONE = 0
+DEF BT_NOT = 1
+DEF BT_SET = 2
+DEF BT_CLEAR = 3
+
+DEF FDC_IRQ = 6 # floppy disk controller's IRQnum
+DEF KBC_IRQ = 1 # keyboard controller's IRQnum
+
+
+
+
+
+
+
+
+
+

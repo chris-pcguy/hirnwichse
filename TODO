@@ -1,2 +1,4 @@
 mm.pyx: delete mm.pxd. This depends on Cython bugid #112
 
+If in code are many REP operations, it could be that GUI-Events can't get executed.
+  This won't get fixed!

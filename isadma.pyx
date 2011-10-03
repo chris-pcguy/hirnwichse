@@ -1,4 +1,6 @@
-import misc
+
+include "globals.pxi"
+
 
 CONTROLLER_MASTER = 0
 CONTROLLER_SLAVE  = 1
@@ -197,7 +199,7 @@ cdef class ISADma:
             return
         return channel
     def inPortMaster(self, unsigned short ioPortAddr, unsigned char dataSize):
-        if (dataSize == misc.OP_SIZE_BYTE):
+        if (dataSize == OP_SIZE_BYTE):
             channelNum = (ioPortAddr&7)//2
             if (ioPortAddr == 0x08):
                 return self.controller[0].getStatus()
@@ -209,8 +211,8 @@ cdef class ISADma:
             elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07)):
                 return self.controller[0].getCountByte(channelNum)
             else:
-                self.main.printMsg("ISADMA: inPortMaster: dataSize misc.OP_SIZE_BYTE: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
-        elif (dataSize == misc.OP_SIZE_WORD):
+                self.main.printMsg("ISADMA: inPortMaster: dataSize OP_SIZE_BYTE: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+        elif (dataSize == OP_SIZE_WORD):
             channelNum = (ioPortAddr&7)//2
             if (ioPortAddr in (0x87, 0x83, 0x81, 0x82)):
                 channelNum = self.getPageChannelByPort(ioPortAddr)
@@ -220,12 +222,12 @@ cdef class ISADma:
             elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07)):
                 return self.controller[0].getCountWord(channelNum)
             else:
-                self.main.printMsg("ISADMA: inPortMaster: dataSize misc.OP_SIZE_WORD: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+                self.main.printMsg("ISADMA: inPortMaster: dataSize OP_SIZE_WORD: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         else:
             self.main.exitError("ISADMA: inPortMaster: dataSize {0:d} not supported.", dataSize)
         return 0
     def inPortSlave(self, unsigned short ioPortAddr, unsigned char dataSize):
-        if (dataSize == misc.OP_SIZE_BYTE):
+        if (dataSize == OP_SIZE_BYTE):
             channelNum = (ioPortAddr&7)//2
             if (ioPortAddr == 0xd0):
                 return self.controller[1].getStatus()
@@ -237,8 +239,8 @@ cdef class ISADma:
             elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07)):
                 return self.controller[1].getCountByte(channelNum)
             else:
-                self.main.printMsg("ISADMA: inPortSlave: dataSize misc.OP_SIZE_BYTE: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
-        elif (dataSize == misc.OP_SIZE_WORD):
+                self.main.printMsg("ISADMA: inPortSlave: dataSize OP_SIZE_BYTE: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+        elif (dataSize == OP_SIZE_WORD):
             channelNum = (ioPortAddr&7)//2
             if (ioPortAddr in (0x8f, 0x8b, 0x89, 0x8a)):
                 channelNum = self.getPageChannelByPort(ioPortAddr)
@@ -248,12 +250,12 @@ cdef class ISADma:
             elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07)):
                 return self.controller[1].getCountWord(channelNum)
             else:
-                self.main.printMsg("ISADMA: inPortSlave: dataSize misc.OP_SIZE_WORD: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
+                self.main.printMsg("ISADMA: inPortSlave: dataSize OP_SIZE_WORD: ioPortAddr not handled. (ioPortAddr: {0:#06x})", ioPortAddr)
         else:
             self.main.exitError("ISADMA: inPortSlave: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPortMaster(self, unsigned short ioPortAddr, unsigned short data, unsigned char dataSize):
-        if (dataSize == misc.OP_SIZE_BYTE):
+        if (dataSize == OP_SIZE_BYTE):
             channelNum = (ioPortAddr&7)//2
             if (ioPortAddr == 0x08):
                 self.controller[0].doCommand(data&0xff)
@@ -275,8 +277,8 @@ cdef class ISADma:
             elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07)):
                 self.controller[0].setCountByte(channelNum, data&0xff)
             else:
-                self.main.printMsg("ISADMA: outPortMaster: dataSize misc.OP_SIZE_BYTE: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
-        elif (dataSize == misc.OP_SIZE_WORD):
+                self.main.printMsg("ISADMA: outPortMaster: dataSize OP_SIZE_BYTE: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
+        elif (dataSize == OP_SIZE_WORD):
             channelNum = (ioPortAddr&7)//2
             if (ioPortAddr in (0x87, 0x83, 0x81, 0x82)):
                 channelNum = self.getPageChannelByPort(ioPortAddr)
@@ -286,12 +288,12 @@ cdef class ISADma:
             elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07)):
                 self.controller[0].setCountWord(channelNum, data&0xffff)
             else:
-                self.main.printMsg("ISADMA: outPortMaster: dataSize misc.OP_SIZE_WORD: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
+                self.main.printMsg("ISADMA: outPortMaster: dataSize OP_SIZE_WORD: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
         else:
             self.main.exitError("ISADMA: outPortMaster: dataSize {0:d} not supported. (ioPortAddr: {1:#06x}, data: {2:#04x})", dataSize, ioPortAddr, data)
         return
     def outPortSlave(self, unsigned short ioPortAddr, unsigned short data, unsigned char dataSize):
-        if (dataSize == misc.OP_SIZE_BYTE):
+        if (dataSize == OP_SIZE_BYTE):
             channelNum = (ioPortAddr&7)//2
             if (ioPortAddr == 0xd0):
                 self.controller[1].doCommand(data&0xff)
@@ -313,8 +315,8 @@ cdef class ISADma:
             elif (ioPortAddr in (0xc1, 0xc3, 0xc5, 0xc7)):
                 self.controller[1].setCountByte(channelNum, data&0xff)
             else:
-                self.main.printMsg("ISADMA: outPortSlave: dataSize misc.OP_SIZE_BYTE: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
-        elif (dataSize == misc.OP_SIZE_WORD):
+                self.main.printMsg("ISADMA: outPortSlave: dataSize OP_SIZE_BYTE: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
+        elif (dataSize == OP_SIZE_WORD):
             channelNum = (ioPortAddr&7)//2
             if (ioPortAddr in (0x8f, 0x8b, 0x89, 0x8a)):
                 channelNum = self.getPageChannelByPort(ioPortAddr)
@@ -324,7 +326,7 @@ cdef class ISADma:
             elif (ioPortAddr in (0xc1, 0xc3, 0xc5, 0xc7)):
                 self.controller[1].setCountWord(channelNum, data&0xffff)
             else:
-                self.main.printMsg("ISADMA: outPortSlave: dataSize misc.OP_SIZE_WORD: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
+                self.main.printMsg("ISADMA: outPortSlave: dataSize OP_SIZE_WORD: ioPortAddr not handled. (ioPortAddr: {0:#06x}, data: {1:#04x})", ioPortAddr, data)
         else:
             self.main.exitError("ISADMA: outPortSlave: dataSize {0:d} not supported. (ioPortAddr: {1:#06x}, data: {2:#06x})", dataSize, ioPortAddr, data)
         return

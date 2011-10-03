@@ -1,6 +1,6 @@
-import misc, os
+import os
 
-FDC_IRQ = 6 # floppy disk controller's IRQnum
+include "globals.pxi"
 
 ST0_SE = 0x20 # ST0 seek end
 ST3_WPDR = 0x40 # ST3 write protected
@@ -157,7 +157,7 @@ cdef class Floppy:
         return (cylinder*2*18)+(head*18)+(sector-1) # FIXME: 1.44MB floppy
     def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char result
-        if (dataSize == misc.OP_SIZE_BYTE):
+        if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x3f2): # read dor
                 return self.dor
             elif (ioPortAddr == 0x3f4): # read msr
@@ -178,7 +178,7 @@ cdef class Floppy:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
     def outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
-        if (dataSize == misc.OP_SIZE_BYTE):
+        if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x3f2): # set dor
                 drive = data&3
                 self.setDor(data)

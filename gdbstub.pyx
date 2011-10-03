@@ -1,5 +1,7 @@
 
-import misc, mm, registers, atexit, socket, threading, socketserver, sys, _thread
+import misc, mm, registers, atexit, socket, threading, socketserver, sys
+
+include "globals.pxi"
 
 # with MUCH help from qemu's gdbstub.c
 
@@ -59,7 +61,7 @@ cdef class GDBStubHandler:
         cdef bytes dataFull, dataChecksum
         if (self.connHandler):
             if (hasattr(self.connHandler, 'request') and self.connHandler.request):
-                dataChecksum = self.byteToHex(self.calcChecksumFromData(data))
+                dataChecksum = self.byteToHex(self.main.misc.checksum(data)&0xff)
                 dataFull = b'$'
                 dataFull += data
                 dataFull += b'#'+dataChecksum
@@ -83,12 +85,6 @@ cdef class GDBStubHandler:
                 self.main.printMsg('GDBStubHandler: handleRead: connHandler.request is NULL.')
         else:
             self.main.printMsg('GDBStubHandler: handleRead: connHandler is NULL.')
-    def calcChecksumFromData(self, bytes data): # data is bytes
-        cdef unsigned long checksum = 0
-        for c in data:
-            checksum += c
-            checksum &= 0xff
-        return checksum
     def byteToHex(self, unsigned char data): # data is bytes, output==bytes
         cdef bytes returnValue = '{0:02x}'.format(data).encode()
         return returnValue
@@ -150,32 +146,32 @@ cdef class GDBStubHandler:
             minRegNum = 0
             maxRegNum = GDB_NUM_REGISTERS
             currRegNum = minRegNum
-            hexToSend = b''
+            hexToSend = bytes()
             currReg = self.main.cpu.registers.regs
             while (currRegNum < maxRegNum):
-                regOffset = ((registers.CPU_MIN_REGISTER//5)+currRegNum)*8
+                regOffset = ((CPU_MIN_REGISTER//5)+currRegNum)*8
                 hexToSend += self.bytesToHex(bytes(currReg[regOffset+4:regOffset+8][::-1]))
                 currRegNum += 1
-            if (len(hexToSend) != SEND_REGHEX_SIZE):
-                self.main.printMsg('handleCommand: len(hexToSend) != SEND_REGHEX_SIZE')
+            ###if (len(hexToSend) != SEND_REGHEX_SIZE):
+            ###    self.main.printMsg('handleCommand: len(hexToSend) != SEND_REGHEX_SIZE')
             self.putPacket(hexToSend)
         elif (data.startswith(b'G')):
             minRegNum = 0
             maxRegNum = GDB_NUM_REGISTERS
             currRegNum = minRegNum
             data = data[1:]
-            oldRip = self.main.cpu.registers.regRead( registers.CPU_REGISTER_RIP )
+            oldRip = self.main.cpu.registers.regRead( CPU_REGISTER_RIP )
             while (currRegNum < maxRegNum):
                 dataOffset = currRegNum*8
-                if (currRegNum*5 >= registers.CPU_MAX_REGISTER_WO_CR):
+                if (currRegNum*5 >= CPU_MAX_REGISTER_WO_CR):
                     break
-                regOffset = ((registers.CPU_MIN_REGISTER//5)+currRegNum)*8
+                regOffset = ((CPU_MIN_REGISTER//5)+currRegNum)*8
                 newReg = self.hexToBytes(data[dataOffset:dataOffset+8])
                 self.main.cpu.registers.regs[regOffset:regOffset+4]   = b'\x00\x00\x00\x00'
                 self.main.cpu.registers.regs[regOffset+4:regOffset+8] = newReg[::-1]
                 currRegNum += 1
             self.putPacket(b'OK')
-            newRip = self.main.cpu.registers.regRead( registers.CPU_REGISTER_RIP )
+            newRip = self.main.cpu.registers.regRead( CPU_REGISTER_RIP )
             if (oldRip != newRip):
                 self.main.printMsg('handleCommand: (r/e)ip got set, continue execution. (delete hlt flag)')
                 self.main.cpu.cpuHalted = False
@@ -252,7 +248,7 @@ cdef class GDBStubHandler:
                     return
                 self.cmdStr = data[:self.cmdStrChecksumIndex]
                 self.cmdStrChecksumProof = int(data[self.cmdStrChecksumIndex+1:self.cmdStrChecksumIndex+3].decode(), 16)
-                self.cmdStrChecksum = self.calcChecksumFromData(self.cmdStr)
+                self.cmdStrChecksum = self.main.misc.checksum(self.cmdStr)&0xff
                 if (self.cmdStrChecksum != self.cmdStrChecksumProof):
                     self.sendPacketType(PACKET_NACK)
                 else:
@@ -272,7 +268,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 self.gdbHandler.handleRead()
         except (SystemExit, KeyboardInterrupt):
             self.gdbHandler.gdbStub.server.shutdown()
-            _thread.exit()
+
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
@@ -280,7 +276,8 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 
 cdef class GDBStub:
-    cdef public object main, server, gdbHandler, serverThread
+    cdef public object main, server, gdbHandler
+    cdef object serverThread
     cdef public unsigned short gdbStubConnId
     def __init__(self, object main):
         self.main = main
@@ -304,7 +301,6 @@ cdef class GDBStub:
             self.server.serve_forever()
         except (SystemExit, KeyboardInterrupt):
             self.server.shutdown()
-            _thread.exit()
     def run(self):
         try:
             self.serverThread = threading.Thread(target=self.serveGDBStub, name='gdbstub-0')
