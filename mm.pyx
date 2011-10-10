@@ -67,7 +67,7 @@ cdef class Mm:
             self.main.exitError("mmPhyRead: mmAreas not found! (mmAddr: {0:#10x}, dataSize: {1:d})", mmAddr, dataSize)
             return
         return mmArea.mmAreaRead(mmAddr, dataSize)
-    cpdef public long long mmPhyReadValue(self, long long mmAddr, unsigned long long dataSize, int signed=False): # dataSize in bytes
+    cpdef public mmPhyReadValue(self, long long mmAddr, unsigned long long dataSize, int signed=False): # dataSize in bytes
         cdef object data = self.mmPhyRead(mmAddr, dataSize)
         cdef long long retDataSigned
         cdef unsigned long long retDataUnsigned
@@ -81,7 +81,7 @@ cdef class Mm:
         self.main.cpu.registers.checkMemAccessRights(segId, False)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)
         return self.mmPhyRead(mmAddr, dataSize)
-    cpdef public long long mmReadValue(self, long long mmAddr, unsigned long long dataSize, unsigned short segId=CPU_SEGMENT_DS, int signed=False, unsigned char allowOverride=True): # dataSize in bytes
+    cpdef public mmReadValue(self, long long mmAddr, unsigned long long dataSize, unsigned short segId=CPU_SEGMENT_DS, int signed=False, unsigned char allowOverride=True): # dataSize in bytes
         cdef long long valueSigned
         cdef unsigned long long valueUnsigned
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride=allowOverride)

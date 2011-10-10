@@ -25,20 +25,18 @@ cdef class PythonBios:
         bh, bl = bx>>8, bx&0xff
         if (intNum == 0x10): # video
             currMode = self.main.mm.mmPhyReadValue(vga.VGA_CURRENT_MODE_ADDR, 1)
-            #if (currMode <= 0x7):
-            ##if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7)):
-            #if (currMode in (0x0, 0x1, 0x2, 0x3)): #, 0x7)):
-            if (currMode in (0x2, 0x3)):
+            if (currMode <= 0x7):
                 if (ah == 0x0e): # AH == 0x0E
-                    if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7)):
-                        if (currMode not in (0x4, 0x5, 0x6) and bl == 0):
-                            bl = 0x07
-                        ####self.main.platform.vga.writeCharacterTeletype(al, bl, bh, updateCursor=True)
-                        ##self.main.platform.vga.writeCharacterTeletype(al, bl, 0xff, updateCursor=True)
-                        self.main.platform.vga.writeCharacterTeletype(al, -1, 0xff, updateCursor=True)
+                    if (currMode in (0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7)):
+                        ##if (currMode not in (0x4, 0x5, 0x6) and bl == 0):
+                        ##    bl = 0x07
+                        if (currMode in (0x4, 0x5, 0x6)):
+                            self.main.platform.vga.writeCharacterTeletype(al, bl, 0xff, updateCursor=True) # page 0xff == current page
+                        else:
+                            self.main.platform.vga.writeCharacterTeletype(al, -1, 0xff, updateCursor=True) # page 0xff == current page
                         return True
                     else:
-                        self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x0e: currMode {0:d} not supported here.", currMode)
+                        self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x0e: currMode {0:d} not supported here. (ax: {1:#04x})", currMode, ax)
                         return False
                 elif (ah == 0x13): # AH == 0x13
                     if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7)):
@@ -59,12 +57,12 @@ cdef class PythonBios:
                             self.main.platform.vga.setCursorPosition(bh, dl, dh)
                         return True
                     else:
-                        self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x13: currMode {0:d} not supported here.", currMode)
+                        self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x13: currMode {0:d} not supported here. (ax: {1:#04x})", currMode, ax)
                         return False
                 else: # AH
                     return False
             else:
-                self.main.printMsg("PythonBios::interrupt: int: 0x10: currMode {0:d} not supported here.", currMode)
+                self.main.printMsg("PythonBios::interrupt: int: 0x10: currMode {0:d} not supported here. (ax: {1:#04x})", currMode, ax)
                 return False
         elif (intNum == 0x13): # data storage; floppy
             if (dl != 0x00 and not (self.main.platform.floppy.floppy[1].isLoaded and dl == 0x01)):

@@ -71,9 +71,11 @@ cdef class Cpu:
         self.registers.regAdd(regSizeId, numBytes)
         return opcodeData
     cpdef public exception(self, unsigned char exceptionId, long errorCode=-1):
-        if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
-            self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
-            self.registers.regWrite(CPU_REGISTER_EIP, self.savedEip)
+        ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
+        if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
+            self.savedEip += 1
+        self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
+        self.registers.regWrite(CPU_REGISTER_EIP, self.savedEip)
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
             if (errorCode == -1):
                 self.main.exitError("CPU exception: errorCode should be set, is -1.")
@@ -103,7 +105,12 @@ cdef class Cpu:
     cpdef public unsigned char isInProtectedMode(self):
         return self.protectedModeOn
     cpdef public unsigned char parsePrefixes(self, unsigned char opcode):
+        cdef unsigned char count
+        count = 0
         while (opcode in OPCODE_PREFIXES):
+            count += 1
+            if (count >= 16):
+                raise misc.ChemuException(CPU_EXCEPTION_UD)
             if (opcode == OPCODE_PREFIX_LOCK):
                 self.registers.lockPrefix = True
             #elif (opcode in OPCODE_PREFIX_BRANCHES):
@@ -146,7 +153,7 @@ cdef class Cpu:
                 time.sleep(1)
                 continue
             ## handle gui events: BEGIN
-            if (self.main.platform.vga.ui and self.cycles % 2000):
+            if (not (self.cycles % 200) and self.main.platform.vga.ui):
                 self.main.platform.vga.ui.handleEvents()
             ## handle gui events: END
             self.doCycle()
@@ -156,7 +163,8 @@ cdef class Cpu:
             return
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
-        self.cycles = (self.cycles+(1*TICKS_PER_CYCLE))&TICK_BITMASK
+        #self.cycles = (self.cycles+(1*TICKS_PER_CYCLE))&TICK_BITMASK
+        self.cycles = (self.cycles+1)&TICK_BITMASK
         self.registers.resetPrefixes()
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(CPU_REGISTER_EIP)

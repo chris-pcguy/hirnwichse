@@ -22,9 +22,9 @@ cdef class Mm:
     cpdef public list mmGetAreas(self, long long mmAddr, unsigned long long dataSize) # dataSize in bytes
     cpdef public unsigned long long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride=*)
     cpdef public bytes mmPhyRead(self, long long mmAddr, unsigned long long dataSize, int ignoreFail=*) # dataSize in bytes
-    cpdef public long long mmPhyReadValue(self, long long mmAddr, unsigned long long dataSize, int signed=*) # dataSize in bytes
+    cpdef public mmPhyReadValue(self, long long mmAddr, unsigned long long dataSize, int signed=*) # dataSize in bytes
     cpdef public bytes mmRead(self, long long mmAddr, unsigned long long dataSize, unsigned short segId=*, unsigned char allowOverride=*) # dataSize in bytes
-    cpdef public long long mmReadValue(self, long long mmAddr, unsigned long long dataSize, unsigned short segId=*, int signed=*, unsigned char allowOverride=*) # dataSize in bytes
+    cpdef public mmReadValue(self, long long mmAddr, unsigned long long dataSize, unsigned short segId=*, int signed=*, unsigned char allowOverride=*) # dataSize in bytes
     cpdef public mmPhyWrite(self, long long mmAddr, bytes data, unsigned long long dataSize) # dataSize in bytes
     cpdef public unsigned long long mmPhyWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize) # dataSize in bytes
     cpdef public mmWrite(self, long long mmAddr, bytes data, unsigned long long dataSize, unsigned short segId=*, unsigned char allowOverride=*) # dataSize in bytes

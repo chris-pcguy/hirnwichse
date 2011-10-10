@@ -91,7 +91,8 @@ cdef class pygameUI:
             fgColor, bgColor = self.getColor(colors&0xf), self.getColor((colors&0xf0)>>4)
             newBack = self.getBlankChar(bgColor)
             if (char.isprintable()):
-                newChar = self.font.render(char, False, fgColor, bgColor)
+                #newChar = self.font.render(char, False, fgColor, bgColor)
+                newChar = self.font.render(char, True, fgColor, bgColor)
                 newBack.blit(newChar, ( (0, 0), self.fontSize ))
             self.screen.blit(newBack, newRect)
             return newRect

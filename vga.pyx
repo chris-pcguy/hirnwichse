@@ -24,6 +24,8 @@ VGA_CURSOR_BASE_ADDR  = 0x450
 VGA_CURRENT_MODE_ADDR = 0x449
 VGA_CURRENT_PAGE_ADDR = 0x462
 
+VGA_EXTREG_PROCESS_RAM = 0x2
+
 cdef class VRamArea(mm.MmArea):
     def __init__(self, object mmObj, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
         mm.MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
@@ -31,7 +33,8 @@ cdef class VRamArea(mm.MmArea):
         cdef unsigned long long mmAreaAddr
         mmAreaAddr = mmPhyAddr-self.mmBaseAddr
         mm.MmArea.mmAreaWrite(self, mmPhyAddr, data, dataSize)
-        self.handleVRamWrite(mmAreaAddr, dataSize)
+        if (self.main.platform.vga.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
+            self.handleVRamWrite(mmAreaAddr, dataSize)
     cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
         cdef list rectList = []
         cdef unsigned short x, y
@@ -105,7 +108,7 @@ cdef class ExtReg(VGA_REGISTER_RAW):
     cdef unsigned char miscOutReg
     def __init__(self, object vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_EXTREG_DATA_LENGTH, vga, main)
-        self.miscOutReg = 0
+        self.miscOutReg = VGA_EXTREG_PROCESS_RAM
     def getMiscOutReg(self):
         return self.miscOutReg
     def setMiscOutReg(self, int value):
@@ -126,7 +129,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 
 
 cdef class Vga:
-    cdef object main, seq, crt, gdc, dac, extreg, attrctrlreg
+    cdef public object main, seq, crt, gdc, dac, extreg, attrctrlreg
     cdef public object ui
     def __init__(self, object main):
         self.main = main
