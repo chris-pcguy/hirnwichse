@@ -1413,7 +1413,7 @@ cdef class Opcodes:
                         raise misc.ChemuException(CPU_EXCEPTION_UD)
                     elif (self.registers.cpl != 0 or op1&0xfff8 == 0):
                         raise misc.ChemuException( CPU_EXCEPTION_GP, 0)
-                    elif (self.registers.segments.isSegPresent(op1)):
+                    elif (not self.registers.segments.isSegPresent(op1)):
                         raise misc.ChemuException( CPU_EXCEPTION_NP, op1)
                     self.main.exitError("opcodeGroup0F_00: LTR not supported yet.")
             elif (operOpcodeModId == 4): # VERR
