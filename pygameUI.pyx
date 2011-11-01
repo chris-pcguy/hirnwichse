@@ -4,15 +4,15 @@ include "globals.pxi"
 
 
 cdef class pygameUI:
-    cdef public object main, vga
-    cdef object display, screen, font
-    cdef tuple screenSize, fontSize
-    cdef unsigned short screenWidth, screenHeight, fontWidth, fontHeight
+    cpdef public object main, vga
+    cpdef object display, screen, font
+    cpdef tuple screenSize, fontSize
+    cpdef unsigned short screenWidth, screenHeight, fontWidth, fontHeight
     def __init__(self, object vga, object main):
         self.vga  = vga
         self.main = main
         self.display, self.screen, self.font = None, None, None
-        self.screenSize = self.screenWidth, self.screenHeight = 640, 400
+        self.screenSize = self.screenWidth, self.screenHeight = 720, 400 # 640, 400
         self.fontSize = self.fontWidth, self.fontHeight = self.screenWidth//80, self.screenHeight//25
     cpdef initPygame(self):
         pygame.display.init()
@@ -25,7 +25,7 @@ cdef class pygameUI:
         pygame.event.set_blocked([ pygame.ACTIVEEVENT, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP, pygame.MOUSEBUTTONDOWN,\
                                    pygame.JOYAXISMOTION, pygame.JOYBALLMOTION, pygame.JOYHATMOTION, pygame.JOYBUTTONUP,\
                                    pygame.JOYBUTTONDOWN, pygame.VIDEORESIZE, pygame.USEREVENT ])
-    cpdef public quitFunc(self):
+    cpdef quitFunc(self):
         try:
             pygame.font.quit()
             pygame.display.quit()
@@ -34,7 +34,7 @@ cdef class pygameUI:
         except:
             print(sys.exc_info())
         self.main.quitFunc()
-    cpdef public getCharRect(self, unsigned char x, unsigned char y):
+    cpdef getCharRect(self, unsigned char x, unsigned char y):
         try:
             return pygame.Rect((self.fontWidth*x, self.fontHeight*y), self.fontSize)
         except pygame.error:
@@ -43,7 +43,7 @@ cdef class pygameUI:
         except:
             print(sys.exc_info())
             return
-    cpdef public tuple getColor(self, unsigned char color):
+    cpdef tuple getColor(self, unsigned char color):
         if (color == 0x0): # black
             return (0, 0, 0)
         elif (color == 0x1): # blue
@@ -78,13 +78,13 @@ cdef class pygameUI:
             return (0xff, 0xff, 0xff)
         else:
             self.main.exitError('pygameUI: invalid color used. (color: {0:d})', color)
-    cpdef public object getBlankChar(self, tuple bgColor):
-        cdef object blankSurface
+    cpdef object getBlankChar(self, tuple bgColor):
+        cpdef object blankSurface
         blankSurface = pygame.Surface(self.fontSize)
         blankSurface.fill(bgColor)
         return blankSurface
-    cpdef public object putChar(self, unsigned char x, unsigned char y, str char, unsigned char colors): # returns rect
-        cdef object newRect, newChar, newBack
+    cpdef object putChar(self, unsigned char x, unsigned char y, str char, unsigned char colors): # returns rect
+        cpdef object newRect, newChar, newBack
         cdef tuple fgColor, bgColor
         try:
             newRect = self.getCharRect(x, y)
@@ -100,9 +100,9 @@ cdef class pygameUI:
             print(sys.exc_info())
         except:
             print(sys.exc_info())
-    cpdef public setRepeatRate(self, unsigned short delay, unsigned short interval):
+    cpdef setRepeatRate(self, unsigned short delay, unsigned short interval):
         pygame.key.set_repeat(delay, interval)
-    cpdef public unsigned short keyToScancode(self, unsigned long key):
+    cpdef unsigned short keyToScancode(self, unsigned long key):
         if (key == pygame.K_ESCAPE):
             return 0x01
         elif (key == pygame.K_1):
@@ -226,10 +226,10 @@ cdef class pygameUI:
         elif (key == pygame.K_RALT):
             return 0xe038
         return 0x0000
-    cpdef public addKeyToBuffer(self, unsigned short key, unsigned char up): # if KEYUP: up=True, otherwise up=False
+    cpdef addKeyToBuffer(self, unsigned short key, unsigned char up): # if KEYUP: up=True, otherwise up=False
         cdef unsigned char escKey
         cdef unsigned char normalKey
-        cdef object keys = bytearray()
+        cpdef object keys = bytearray()
         if (self.main.platform.ps2.keyboardDisabled):
             return
         escKey = (key>>8)&0xff
@@ -244,12 +244,12 @@ cdef class pygameUI:
         ###self.main.printMsg("appendToOutBytes({0:s})", repr(keys))
         self.main.platform.ps2.appendToOutBytes(keys)
         self.main.platform.pic.raiseIrq(KBC_IRQ)
-    cpdef public handleEvent(self, object event):
+    cpdef handleEvent(self, object event):
         try:
             if (event.type == pygame.QUIT):
                 self.quitFunc()
             elif (event.type == pygame.VIDEOEXPOSE):
-                self.updateScreen()
+                self.updateScreen(list())
             elif (event.type == pygame.KEYDOWN):
                 ###self.main.printMsg("event.type == pygame.KEYDOWN")
                 self.addKeyToBuffer(self.keyToScancode(event.key), False)
@@ -259,7 +259,7 @@ cdef class pygameUI:
             print(sys.exc_info())
         except:
             print(sys.exc_info())
-    cpdef public updateScreen(self, object rectList=None):
+    cpdef updateScreen(self, list rectList):
         try:
             if (self.display and self.screen and not self.main.quitEmu):
                 self.display.blit(self.screen, ((0, 0), self.screenSize))
@@ -268,13 +268,13 @@ cdef class pygameUI:
             print(sys.exc_info())
         except:
             print(sys.exc_info())
-    cpdef public handleEvents(self):
-        cdef object event
+    cpdef handleEvents(self):
+        cpdef object event
         for event in pygame.event.get():
             ##self.main.printMsg("pygameUI::eventLoop: event: {0:s}", repr(event))
             self.handleEvent(event)
         ##self.main.printMsg("pygameUI::eventLoop: while done.")
-    cpdef public run(self):
+    cpdef run(self):
         self.initPygame()
 
     

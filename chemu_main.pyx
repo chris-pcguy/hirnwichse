@@ -1,25 +1,19 @@
 
+#cython: boundscheck=False
+#cython: wraparound=False
+
 import sys, argparse, threading, time, atexit
 
+cimport misc, mm, X86Platform, cpu
 import misc, mm, X86Platform, cpu
 
 
+
 cdef class ChEmu:
-    cdef public object misc, mm, platform, cpu
-    cdef object parser, cmdArgs
-    cdef unsigned char debugEnabled
-    cdef public unsigned char quitEmu, exitIfCpuHalted, exitCode, noUI, exitOnTripleFault
-    cdef public unsigned long long memSize
-    cdef public bytes romPath, biosname, vgaBiosname, fdaFilename, fdbFilename
     def __init__(self):
         self.quitEmu = False
         self.exitOnTripleFault = True
         self.exitCode = 0
-        self.parseArgs()
-        self.misc = misc.Misc(self)
-        self.mm = mm.Mm(self)
-        self.platform = X86Platform.Platform(self)
-        self.cpu = cpu.Cpu(self)
         atexit.register(self.quitFunc)
     cpdef parseArgs(self):
         self.parser = argparse.ArgumentParser(description='ChEmu: a x86 emulator in python.')
@@ -32,6 +26,7 @@ cdef class ChEmu:
         self.parser.add_argument('--fdaFilename', dest='fdaFilename', action='store', type=str, default='floppy0.img', help='fdaFilename')
         self.parser.add_argument('--fdbFilename', dest='fdbFilename', action='store', type=str, default='floppy1.img', help='fdbFilename')
         self.parser.add_argument('--noUI', dest='noUI', action='store_true', default=False, help='Disable UI.')
+        self.parser.add_argument('--forceFloppyDiskType', dest='forceFloppyDiskType', action='store', type=int, default=0, help='Force FloppyDiskType: 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
         self.cmdArgs = self.parser.parse_args(sys.argv[1:])
         
         self.exitIfCpuHalted = self.cmdArgs.exitIfCpuHalted
@@ -42,35 +37,44 @@ cdef class ChEmu:
         self.vgaBiosname = self.cmdArgs.vgaBiosname.encode() # filename, default: 'vgabios.bin'
         self.fdaFilename = self.cmdArgs.fdaFilename.encode() # default: ''
         self.fdbFilename = self.cmdArgs.fdbFilename.encode() # default: ''
+        self.forceFloppyDiskType    = self.cmdArgs.forceFloppyDiskType
         self.memSize = self.cmdArgs.memSize*1024*1024
-    cpdef public quitFunc(self):
+    cpdef quitFunc(self):
         self.quitEmu = True
-    def exitError(self, str errorStr, *errorStrArguments, int errorExitCode=1, int exitNow=False):
+    def exitError(self, str errorStr, *errorStrArguments, unsigned char errorExitCode=1, unsigned char exitNow=False): # this needs to be 'def'
         self.exitCode = errorExitCode
         self.quitFunc()
         self.printMsg("ERROR: {0:s}".format(errorStr), *errorStrArguments)
         if (exitNow):
             sys.exit(errorExitCode)
-    def debug(self, str debugStr, *debugStrArguments):
+    def debug(self, str debugStr, *debugStrArguments): # this needs to be 'def'
         if (self.debugEnabled):
             self.printMsg(debugStr, *debugStrArguments)
-    def printMsg(self, str msgStr, *msgStrArguments):
+    def printMsg(self, str msgStr, *msgStrArguments): # this needs to be 'def'
         print(msgStr.format(*msgStrArguments))
+    #cpdef runCDEF(self):
     cpdef run(self):
+        self.parseArgs()
+        self.misc = misc.Misc(self)
+        self.mm = mm.Mm(self)
+        self.platform = X86Platform.Platform(self)
+        self.cpu = cpu.Cpu(self)
+        self.platform.run(self.memSize)
+        self.cpu.run()
+        #cpdef run(self):
         try:
             self.platform.run(self.memSize)
             self.cpu.run()
+            #self.misc.createThread(self.cpu.run, True)
+            ###self.cpu.run()
         except:
             print(sys.exc_info())
             sys.exit(1)
-        ##threading.Thread(target=self.cpu.run, name='cpu-0').start()
-        #while (threading.active_count() > 1 and not self.quitEmu):
-        #    if (self.quitEmu):
-        #        break
-        #    time.sleep(2)
-        ##if (self.platform.vga.ui):
-        ##    self.platform.vga.ui.eventLoop()
-
+        ##while (threading.active_count() > 1 and not self.quitEmu):
+        ##    if (self.quitEmu):
+        ##        break
+        ##    time.sleep(2)
+        ###
 
 
 

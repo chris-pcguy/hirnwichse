@@ -9,11 +9,12 @@ PS2_A20 = 2
 PS2_IRQ = 0x01
 
 cdef class PS2:
-    cdef object main, outBuffer, inBuffer
+    cpdef object main, outBuffer, inBuffer
     cdef public unsigned char ppcbT2Both, ppcbT2Out, keyboardDisabled
     cdef unsigned char lastUsedPort, needWriteBytes, commandByte, lastKbcCmdByte, lastKbCmdByte
     def __init__(self, object main):
         self.main = main
+    cpdef reset(self):
         self.outBuffer = bytearray() # KBC -> CPU
         self.inBuffer  = bytearray() # CPU -> KBC
         self.lastUsedPort = False # 0==0x60; 1==(0x61 or 0x64)
@@ -24,11 +25,11 @@ cdef class PS2:
         self.commandByte = 0
         self.lastKbcCmdByte = 0
         self.lastKbCmdByte = 0
-    def appendToOutBytes(self, object data):
+    cpdef appendToOutBytes(self, object data):
         self.outBuffer += data
-    def appendToInBytes(self, object data):
+    cpdef appendToInBytes(self, object data):
         self.inBuffer += data
-    def setKeyboardRepeatRate(self, unsigned char data): # input is data from cmd 0xf3
+    cpdef setKeyboardRepeatRate(self, unsigned char data): # input is data from cmd 0xf3
         cdef unsigned short delay, interval
         interval = data&0x1f
         delay = ((data&0x60)>>5)&3
@@ -47,7 +48,7 @@ cdef class PS2:
             self.main.exitError("setKeyboardRepeatRate: interval {0:d} unknown.", interval)
         if (self.main.platform.vga.ui):
             self.main.platform.vga.ui.setRepeatRate(delay, interval)
-    def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char retByte = 0
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x64):
@@ -74,7 +75,7 @@ cdef class PS2:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    def outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
+    cpdef outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x60):
                 if (self.needWriteBytes == 0):
@@ -144,8 +145,9 @@ cdef class PS2:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
-    def run(self):
-        self.main.platform.addReadHandlers((0x60, 0x61, 0x64, 0x92), self.inPort)
-        self.main.platform.addWriteHandlers((0x60, 0x61, 0x64, 0x92), self.outPort)
+    cpdef run(self):
+        self.reset()
+        self.main.platform.addReadHandlers((0x60, 0x61, 0x64, 0x92), self)
+        self.main.platform.addWriteHandlers((0x60, 0x61, 0x64, 0x92), self)
 
 

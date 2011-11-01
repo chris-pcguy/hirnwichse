@@ -1,5 +1,10 @@
 
-import os
+import sys, os, traceback
+
+cimport mm
+import mm
+#from mm cimport Mm, MmArea
+#from mm import Mm, MmArea
 
 import cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel, gdbstub, pythonBios
 
@@ -21,14 +26,12 @@ ROM_SIZES = (SIZE_64KB, SIZE_128KB, SIZE_256KB, SIZE_512KB, SIZE_1MB, SIZE_2MB, 
              SIZE_8MB, SIZE_16MB, SIZE_32MB, SIZE_64MB, SIZE_128MB, SIZE_256MB)
 
 cdef class Platform:
-    cdef public object main, cmos, isadma, ps2, pic, pit, pci, vga, floppy, serial, parallel, gdbstub, pythonBios
-    cdef dict readHandlers, writeHandlers
-    cdef unsigned char copyRomToLowMem
     def __init__(self, object main):
         self.main = main
         self.copyRomToLowMem = True
         self.readHandlers  = {}
         self.writeHandlers = {}
+    cpdef initDevices(self):
         self.cmos     = cmos.Cmos(self.main)
         self.isadma   = isadma.ISADma(self.main)
         self.ps2      = ps2.PS2(self.main)
@@ -41,41 +44,49 @@ cdef class Platform:
         self.parallel = parallel.Parallel(self.main)
         self.gdbstub  = gdbstub.GDBStub(self.main)
         self.pythonBios = pythonBios.PythonBios(self.main)
-    def addHandlers(self, tuple portNums, object portHandler):
-        self.addReadHandlers (portNums, portHandler)
-        self.addWriteHandlers(portNums, portHandler)
-    def addReadHandlers(self, tuple portNums, object portHandler):
+    cpdef addHandlers(self, tuple portNums, object devObject):
+        self.addReadHandlers (portNums, devObject)
+        self.addWriteHandlers(portNums, devObject)
+    cpdef addReadHandlers(self, tuple portNums, object devObject):
         for portNum in portNums:
-            self.readHandlers[portNum] = portHandler
-    def addWriteHandlers(self, tuple portNums, object portHandler):
+            self.readHandlers[portNum] = devObject
+    cpdef addWriteHandlers(self, tuple portNums, object devObject):
         for portNum in portNums:
-            self.writeHandlers[portNum] = portHandler
-    def delHandlers(self, tuple portNums):
+            self.writeHandlers[portNum] = devObject
+    cpdef delHandlers(self, tuple portNums):
         self.delReadHandlers (portNums)
         self.delWriteHandlers(portNums)
-    def delReadHandlers(self, tuple portNums):
+    cpdef delReadHandlers(self, tuple portNums):
         for portNum in portNums:
             del self.readHandlers[portNum]
-    def delWriteHandlers(self, tuple portNums):
+    cpdef delWriteHandlers(self, tuple portNums):
         for portNum in portNums:
             del self.writeHandlers[portNum]
-    def inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned long long retVal
-        if (not ioPortAddr in self.readHandlers):
-            self.main.printMsg("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
-            return 0
-        self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
-        retVal = self.readHandlers[ioPortAddr](ioPortAddr, dataSize)
-        self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
-        return retVal
-    def outPort(self, unsigned short ioPortAddr, unsigned long long data, unsigned char dataSize):
-        if (not ioPortAddr in self.writeHandlers):
-            self.main.printMsg("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
-            return
-        self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
-        self.writeHandlers[ioPortAddr](ioPortAddr, data, dataSize)
-    def loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize):
-        cdef object romFp
+        try:
+            if (not ioPortAddr in self.readHandlers):
+                self.main.printMsg("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
+                return 0
+            self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
+            retVal = self.readHandlers[ioPortAddr].inPort(ioPortAddr, dataSize)
+            self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
+            return retVal
+        except:
+            traceback.print_exc()
+            sys.exit(1)
+    cpdef outPort(self, unsigned short ioPortAddr, unsigned long long data, unsigned char dataSize):
+        try:
+            if (not ioPortAddr in self.writeHandlers):
+                self.main.printMsg("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
+                return
+            self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
+            self.writeHandlers[ioPortAddr].outPort(ioPortAddr, data, dataSize)
+        except:
+            traceback.print_exc()
+            sys.exit(1)
+    cpdef loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize):
+        cpdef object romFp
         cdef bytes romData
         try:
             romFp = open(romFileName, "rb")
@@ -84,10 +95,9 @@ cdef class Platform:
         finally:
             if (romFp):
                 romFp.close()
-    def loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional):
+    cpdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional):
         cdef unsigned long long romMemSize = SIZE_64KB
         cdef unsigned long long romSize = os.stat(romFileName).st_size
-        
         if (not isRomOptional):
             for size in ROM_SIZES:
                 if (size > romSize):
@@ -100,15 +110,19 @@ cdef class Platform:
                 self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
                 return
             self.main.mm.mmPhyWrite(mmAddr&0xfffff, self.main.mm.mmPhyRead(mmAddr, romSize), romSize)
-    def run(self, unsigned long long memSize):
-        self.main.mm.mmAddArea(0, memSize)
-        self.main.mm.mmAddArea(0xfffc0000, 0x40000, mmReadOnly=False)
+    #cpdef runCDEF(self, unsigned long long memSize):
+    cpdef run(self, unsigned long long memSize):
+        self.initDevices()
+        self.main.mm.mmAddArea(0, memSize, False, mm.MmArea)
+        self.main.mm.mmAddArea(0xfffc0000, 0x40000, False, mm.MmArea)
         self.loadRom(os.path.join(self.main.romPath, self.main.biosname), 0xffff0000, False)
         if (self.main.vgaBiosname):
             self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosname), 0xfffc0000, True)
         self.main.mm.mmGetSingleArea(0xfffc0000, 0).mmSetReadOnly(True)
         self.runDevices()
-    def runDevices(self):
+    #cpdef run(self, unsigned long long memSize):
+    #    self.runCDEF(memSize)
+    cpdef runDevices(self):
         self.cmos.run()
         self.isadma.run()
         self.ps2.run()
