@@ -66,11 +66,12 @@ cdef class PythonBios:
                 return False
         elif (intNum == 0x13): # data storage; floppy
             fdcNum = 0
+            #self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) AX {0:#06x} not supported yet in PythonBIOS.", ax)
             return False
             if (dl not in (0, 1) or (not self.main.platform.floppy.controller[fdcNum].drive[dl].isLoaded)):
                 self.setRetError(True, 0x8000)
                 return True
-            if (ah == 0x2):
+            elif (ah == 0x2):
                 if ( ((cl >> 6)&3 != 0) and (dl in (0, 1)) ):
                     self.main.printMsg("PythonBios::interrupt: floppy was selected, but cl-bits #6 and/or #7 are set.")
                     return False
@@ -85,8 +86,8 @@ cdef class PythonBios:
                 data = self.main.platform.floppy.controller[fdcNum].drive[dl].readSectors(logicalSector, count)
                 self.main.mm.mmWrite(bx, data, count*512, CPU_SEGMENT_ES, False)
                 self.setRetError(False, al)
-                self.main.platform.floppy.controller[fdcNum].setMsr(0xc0)
-                self.main.platform.floppy.raiseFloppyIrq()
+                ###self.main.platform.floppy.controller[fdcNum].setMsr((FDC_MSR_RQM | FDC_MSR_DIO | FDC_MSR_BUSY) | (1 << (dl&3)) ) # do we need this
+                ##self.main.platform.floppy.raiseFloppyIrq() # lines here??
                 return True
             elif (not (dl & 0x80)):
                 self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) ah {0:#04x} not supported yet in PythonBIOS.", ah)

@@ -77,7 +77,7 @@ cdef class PicChannel:
                         self.intr = True
                         self.irq = irq
                         if (self.master):
-                            self.main.cpu.setIrq(True)
+                            self.main.cpu.setINTR(True)
                         else:
                             self.pic.raiseIrq(2)
                         return
@@ -88,17 +88,17 @@ cdef class PicChannel:
                     break
     cpdef raiseIrq(self, unsigned char irq):
         cdef unsigned char mask
-        mask = 1 << (irq&7)
-        if (not (self.IRQ_in & mask)):
+        mask = (1 << (irq&7))
+        if ((irq >= 0 and irq < 16) and (not (self.IRQ_in & mask))):
             self.IRQ_in |= mask
             self.irr |= mask
             self.servicePicChannel()
     cpdef lowerIrq(self, unsigned char irq):
         cdef unsigned char mask
-        mask = 1 << (irq&7)
-        if (self.IRQ_in & mask):
-            self.IRQ_in &= ~mask
-            self.irr &= ~mask
+        mask = (1 << (irq&7))
+        if ((irq >= 0 and irq < 16) and (self.IRQ_in & mask)):
+            self.IRQ_in &= (~mask)
+            self.irr &= (~mask)
     cpdef getCmdByte(self):
         return self.cmdByte
     cpdef setCmdByte(self, unsigned char cmdByte):
@@ -138,22 +138,24 @@ cdef class Pic:
         self.main = main
         self.channels = (PicChannel(self, self.main, True), PicChannel(self, self.main, False))
     cpdef raiseIrq(self, unsigned char irq):
+        cdef unsigned char ma_sl = False
         if (irq > 15):
             self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
-            return self.channels[1].raiseIrq(irq-8)
-        return self.channels[0].raiseIrq(irq)
+            ma_sl = True
+        self.channels[ma_sl].raiseIrq(irq)
     cpdef lowerIrq(self, unsigned char irq):
+        cdef unsigned char ma_sl = False
         if (irq > 15):
             self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
-            return self.channels[1].lowerIrq(irq-8)
-        return self.channels[0].lowerIrq(irq)
-    cpdef IAC(self):
+            ma_sl = True
+        self.channels[ma_sl].lowerIrq(irq)
+    cpdef unsigned char IAC(self):
         cpdef object master, slave
         cdef unsigned char vector
         master, slave = self.channels
-        self.main.cpu.setIrq(False)
+        self.main.cpu.setINTR(False)
         master.intr = False
         if (not master.irr):
             return master.getIrqBasePort()+7
@@ -301,7 +303,6 @@ cdef class Pic:
     cpdef run(self):
         for channel in self.channels:
             channel.run()
-        self.main.platform.addReadHandlers((0x20, 0x21, 0xa0, 0xa1), self)
-        self.main.platform.addWriteHandlers((0x20, 0x21, 0xa0, 0xa1), self)
+        self.main.platform.addHandlers((0x20, 0x21, 0xa0, 0xa1), self)
 
 

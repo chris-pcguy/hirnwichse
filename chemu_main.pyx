@@ -17,8 +17,8 @@ cdef class ChEmu:
         atexit.register(self.quitFunc)
     cpdef parseArgs(self):
         self.parser = argparse.ArgumentParser(description='ChEmu: a x86 emulator in python.')
-        self.parser.add_argument('--biosname', dest='biosname', action='store', type=str, default='bios.bin', help='bios filename')
-        self.parser.add_argument('--vgaBiosname', dest='vgaBiosname', action='store', type=str, default='vgabios.bin', help='vgabios filename')
+        self.parser.add_argument('--biosFilename', dest='biosFilename', action='store', type=str, default='bios.bin', help='bios filename')
+        self.parser.add_argument('--vgaBiosFilename', dest='vgaBiosFilename', action='store', type=str, default='vgabios.bin', help='vgabios filename')
         self.parser.add_argument('-m', dest='memSize', action='store', type=int, default=32, help='memSize in MB')
         self.parser.add_argument('-L', dest='romPath', action='store', type=str, default='./bios', help='romPath')
         self.parser.add_argument('-x', dest='exitIfCpuHalted', action='store_true', default=False, help='Exit if CPU if halted')
@@ -33,8 +33,8 @@ cdef class ChEmu:
         self.debugEnabled    = self.cmdArgs.debugEnabled
         self.noUI    = self.cmdArgs.noUI
         self.romPath = self.cmdArgs.romPath.encode() # default: './bios'
-        self.biosname = self.cmdArgs.biosname.encode() # filename, default: 'bios.bin'
-        self.vgaBiosname = self.cmdArgs.vgaBiosname.encode() # filename, default: 'vgabios.bin'
+        self.biosFilename = self.cmdArgs.biosFilename.encode() # filename, default: 'bios.bin'
+        self.vgaBiosFilename = self.cmdArgs.vgaBiosFilename.encode() # filename, default: 'vgabios.bin'
         self.fdaFilename = self.cmdArgs.fdaFilename.encode() # default: ''
         self.fdbFilename = self.cmdArgs.fdbFilename.encode() # default: ''
         self.forceFloppyDiskType    = self.cmdArgs.forceFloppyDiskType

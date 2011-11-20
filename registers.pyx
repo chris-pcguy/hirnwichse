@@ -142,9 +142,10 @@ cdef class Idt:
         cdef unsigned short entrySegment
         cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent
         entryData = self.main.mm.mmPhyReadValue(self.tableBase+(num*8), 8, False)
-        entryEip = entryData&0xffff # interrupt eip: lower word
+        entryEip = ((entryData>>48)&0xffff) # interrupt eip: upper word
+        entryEip <<= 16
+        entryEip |= entryData&0xffff # interrupt eip: lower word
         entrySegment = (entryData>>16)&0xffff # interrupt segment
-        entryEip |= ((entryData>>48)&0xffff)<<16 # interrupt eip: upper word
         entryType = (entryData>>40)&0x7 # interrupt type
         entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
         entryPresent = (entryData>>47)&1 # is interrupt present
@@ -293,7 +294,7 @@ cdef class Segments:
 
 cdef class Registers:
     cpdef public object main, cpu, segments, regs
-    cdef public unsigned char lockPrefix, branchPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, addressSizePrefix, cpl, iopl
+    cdef public unsigned char lockPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, addressSizePrefix, cpl, iopl
     def __init__(self, object main, object cpu):
         self.main, self.cpu = main, cpu
     cpdef reset(self):
@@ -304,15 +305,11 @@ cdef class Registers:
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
         self.regWrite(CPU_REGISTER_EIP, 0xfff0)
         self.regWrite(CPU_REGISTER_CR0, 0x60000034)
+        self.cpl = self.iopl = 0
         self.resetPrefixes()
     cpdef resetPrefixes(self):
-        self.lockPrefix = False
-        self.branchPrefix = False
-        self.repPrefix = False
+        self.lockPrefix = self.repPrefix = self.operandSizePrefix = self.addressSizePrefix = False
         self.segmentOverridePrefix = 0
-        self.operandSizePrefix = False
-        self.addressSizePrefix = False
-        self.cpl, self.iopl = 0, 0 # TODO
     cpdef unsigned short regGetSize(self, unsigned short regId): # return size in bits
         if (regId in CPU_REGISTER_QWORD):
             return OP_SIZE_QWORD
@@ -639,7 +636,7 @@ cdef class Registers:
         mod = (modRMByte>>6)&0x3
 
         rmNameSegId = self.segmentOverridePrefix or CPU_SEGMENT_DS
-        rmName0, rmName1, rmName2 = 0, 0, 0
+        rmName0 = rmName1 = rmName2 = 0
         regName = 0
         if (self.segments.getAddrSegSize(CPU_SEGMENT_CS) == OP_SIZE_WORD):
             if (mod in (0, 1, 2)): # rm: source ; reg: dest

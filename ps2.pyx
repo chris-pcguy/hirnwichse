@@ -147,7 +147,6 @@ cdef class PS2:
         return
     cpdef run(self):
         self.reset()
-        self.main.platform.addReadHandlers((0x60, 0x61, 0x64, 0x92), self)
-        self.main.platform.addWriteHandlers((0x60, 0x61, 0x64, 0x92), self)
+        self.main.platform.addHandlers((0x60, 0x61, 0x64, 0x92), self)
 
 

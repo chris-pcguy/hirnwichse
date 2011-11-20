@@ -2054,7 +2054,7 @@ cdef class Opcodes:
             if ((self.registers.cpl != 0 and self.registers.cpl > entrySegment&3) or self.registers.segments.getSegDPL(entrySegment) != 0):
                 self.main.exitError("Interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")
                 return
-            entrySegment = (entrySegment&0xfffc)|(self.registers.cpl&3)
+            entrySegment = ((entrySegment&0xfffc)|(self.registers.cpl&3))
         if (self.registers.cpl != 0):
             self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
             self.stackPushRegId(CPU_REGISTER_ESP, entrySize)

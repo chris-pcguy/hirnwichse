@@ -5,7 +5,7 @@ cdef class ChEmu:
     cdef unsigned char debugEnabled
     cdef public unsigned char quitEmu, exitIfCpuHalted, exitCode, noUI, exitOnTripleFault, forceFloppyDiskType
     cdef public unsigned long long memSize
-    cdef public bytes romPath, biosname, vgaBiosname, fdaFilename, fdbFilename
+    cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename
     cpdef parseArgs(self)
     cpdef quitFunc(self)
     #cpdef runCDEF(self)

@@ -165,7 +165,6 @@ cdef class Pit:
         return
     cpdef run(self):
         self.reset()
-        self.main.platform.addReadHandlers((0x40, 0x41, 0x42, 0x43), self)
-        self.main.platform.addWriteHandlers((0x40, 0x41, 0x42, 0x43), self)
+        self.main.platform.addHandlers((0x40, 0x41, 0x42, 0x43), self)
 
 

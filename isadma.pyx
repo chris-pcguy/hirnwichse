@@ -1,6 +1,8 @@
 
 include "globals.pxi"
 
+# This file contains (much) code from the Bochs Emulator (c) by it's developers
+
 
 DEF CONTROLLER_MASTER = 0
 DEF CONTROLLER_SLAVE  = 1
@@ -14,13 +16,16 @@ DEF DMA_MODE_CASCADE = 3
 DEF DMA_REQREG_REQUEST = 0x4
 DEF DMA_CMD_DISABLE = 0x4
 
-cpdef tuple DMA_CHANNEL_INDEX = (2, 3, 1, 0, 0, 0, 0)
+cdef tuple DMA_CHANNEL_INDEX = (2, 3, 1, 0, 0, 0, 0)
+
+cdef tuple DMA_MASTER_CONTROLLER_PORTS = (0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,
+                                      0x0d,0xe,0x0f,0x81,0x82,0x83,0x87)
+cdef tuple DMA_SLAVE_CONTROLLER_PORTS = (0x89,0x8a,0x8b,0x8f,0xc0,0xc1,0xc2,0xc3,0xc4,0xc5,0xc6,0xc7,
+                                      0xd0,0xd2,0xd4,0xd6,0xd8,0xda,0xdc,0xde)
+cdef tuple DMA_EXT_PAGE_REG_PORTS = (0x80, 0x84, 0x85, 0x86, 0x88, 0x8c, 0x8d, 0x8e)
+    
 
 cdef class Channel:
-    cpdef public object controller, isadma, main, dmaReadFromMem, dmaWriteToMem
-    cdef public unsigned char channelMasked, transferDirection, autoInit, addressDecrement, transferMode, page, DRQ, DACK
-    cdef public short baseAddress, baseCount, currentAddress, currentCount
-    cdef unsigned char channelNum
     def __init__(self, object controller, unsigned char channelNum):
         self.controller = controller
         self.isadma = self.controller.isadma
@@ -39,10 +44,6 @@ cdef class Channel:
     ###
 
 cdef class Controller:
-    cpdef public object isadma, main
-    cpdef public tuple channel
-    cpdef unsigned char flipFlop, firstChannel, master, ctrlDisabled, cmdReg
-    cpdef public unsigned char statusReg
     def __init__(self, object isadma, unsigned char master):
         self.master = master
         self.firstChannel = 0
@@ -97,7 +98,7 @@ cdef class Controller:
         self.channel[channel].page = data
     cpdef setAddrByte(self, unsigned char channel, unsigned char data):
         if (self.flipFlop):
-            self.channel[channel].baseAddress = (self.channel[channel].baseAddress&0xff) | ( data<<8)
+            self.channel[channel].baseAddress = (self.channel[channel].baseAddress&0xff) | (data<<8)
             self.channel[channel].currentAddress = self.channel[channel].baseAddress
         else:
             self.channel[channel].baseAddress = (self.channel[channel].baseAddress&0xff00) | data
@@ -131,17 +132,17 @@ cdef class Controller:
         return retVal
     cpdef setAddrWord(self, unsigned char channel, unsigned short data):
         self.channel[channel].baseAddress = data
-        self.channel[channel].currentAddress = self.channel[channel].baseAddress
+        self.channel[channel].currentAddress = data
     cpdef setCountWord(self, unsigned char channel, unsigned short data):
         self.channel[channel].baseCount = data
         self.channel[channel].currentCount = self.channel[channel].baseCount
     cpdef getAddrWord(self, unsigned char channel):
         cdef unsigned short retVal
-        retVal = self.channel[channel].currentAddress&0xffff
+        retVal = self.channel[channel].currentAddress
         return retVal
     cpdef getCountWord(self, unsigned char channel):
         cdef unsigned short retVal
-        retVal = self.channel[channel].currentCount&0xffff
+        retVal = self.channel[channel].currentCount
         return retVal
     cpdef getStatus(self):
         cdef unsigned char status
@@ -167,20 +168,10 @@ cdef class Controller:
     cpdef run(self):
         self.reset()
 
-cdef class ISADma:
-    cpdef public object main
-    cpdef public tuple controller
-    cpdef tuple ioMasterControllerPorts, ioSlaveControllerPorts, extPageRegPorts
-    cpdef list extPageReg # extPageReg is unused.
-    cpdef unsigned char HLDA, TC
+cdef class ISADMA:
     def __init__(self, object main):
         self.main = main
         self.controller = (Controller(self, True), Controller(self, False))
-        self.ioMasterControllerPorts = (0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,
-                                      0x0d,0xe,0x0f,0x81,0x82,0x83,0x87)
-        self.ioSlaveControllerPorts = (0x89,0x8a,0x8b,0x8f,0xc0,0xc1,0xc2,0xc3,0xc4,0xc5,0xc6,0xc7,
-                                      0xd0,0xd2,0xd4,0xd6,0xd8,0xda,0xdc,0xde)
-        self.extPageRegPorts = (0x80, 0x84, 0x85, 0x86, 0x88, 0x8c, 0x8d, 0x8e)
         self.extPageReg = [0]*16
         self.HLDA = self.TC = False
     cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
@@ -205,7 +196,7 @@ cdef class ISADma:
         elif (ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
             return self.controller[1].getPageByte(channelNum)
-        elif (ioPortAddr in self.extPageRegPorts):
+        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
             return self.extPageReg[ioPortAddr&0xf]
         else:
             self.main.exitError("ISADma::inPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
@@ -247,12 +238,15 @@ cdef class ISADma:
         elif (ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
             self.controller[1].setPageByte(channelNum, data&0xff)
-        elif (ioPortAddr in self.extPageRegPorts):
+        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
             self.extPageReg[ioPortAddr&0xf] = data&0xff
         else:
             self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
+    cpdef getTC(self):
+        return self.TC
     cpdef setDRQ(self, unsigned char channel, unsigned char val):
-        cdef unsigned long dmaBase, dmaRoof, ma_sl
+        cdef unsigned long dmaBase, dmaRoof
+        cdef unsigned char ma_sl
         cpdef object currController, currChannel
         if (channel > 7):
             self.main.exitError("ISADMA::setDRQ: channel > 7")
@@ -267,20 +261,21 @@ cdef class ISADma:
             currController.controlHRQ()
             return
         currController.statusReg |= (1 << (channel+4))
-        if (currChannel.transferMode == DMA_MODE_BLOCK):
-            self.main.exitError("ISADMA::setDRQ: transferMode DMA_MODE_BLOCK not handled.")
+        if (currChannel.transferMode not in (DMA_MODE_DEMAND, DMA_MODE_SINGLE, DMA_MODE_CASCADE)):
+            self.main.exitError("ISADMA::setDRQ: transferMode {0:d} not handled.", currChannel.transferMode)
             return
-        dmaBase = ((currChannel.page << 16) | (currChannel.baseAddress << (not self.master)))
-        if (currChannel.addressDecrement):
-            dmaRoof = dmaBase - (currChannel.baseCount << (not self.master))
+        dmaBase = ((currChannel.page << 16) | (currChannel.baseAddress << ma_sl))
+        if (not currChannel.addressDecrement):
+            dmaRoof = dmaBase + (currChannel.baseCount << ma_sl)
         else:
-            dmaRoof = dmaBase + (currChannel.baseCount << (not self.master))
-        if ( (dmaBase & (0x7fff0000 << (not self.master))) != (dmaRoof & (0x7fff0000 << (not self.master)))):
+            dmaRoof = dmaBase - (currChannel.baseCount << ma_sl)
+        if ( (dmaBase & (0x7fff0000 << ma_sl)) != (dmaRoof & (0x7fff0000 << ma_sl))):
             self.main.exitError("ISADMA::setDRQ: request outside 64k boundary.")
             return
         currController.controlHRQ()
     cpdef raiseHLDA(self):
-        cdef unsigned char ma_sl, channel, countExpired, data
+        cdef unsigned char ma_sl, channel, countExpired
+        cdef unsigned short data
         cdef unsigned long phyAddr
         cpdef object currController, currChannel
         ma_sl = channel = countExpired = 0
@@ -288,7 +283,7 @@ cdef class ISADma:
         for i in range(4):
             if ((self.controller[1].statusReg & (1 << (channel+4))) and \
                 (not self.controller[1].channel[channel].channelMasked)):
-                    ma_sl = 1
+                    ma_sl = True
                     break
             channel = i
         if (channel == 0):
@@ -296,7 +291,7 @@ cdef class ISADma:
             for i in range(4):
                 if ((self.controller[0].statusReg & (1 << (channel+4))) and \
                     (not self.controller[0].channel[channel].channelMasked)):
-                        ma_sl = 0
+                        ma_sl = False
                         break
                 channel = i
         if (channel >= 4):
@@ -307,9 +302,15 @@ cdef class ISADma:
                    (currChannel.currentAddress << ma_sl))
         self.controller[ma_sl].channel[channel].DACK = True
         if (currChannel.addressDecrement):
-            currChannel.currentAddress -= 1
+            if (currChannel.currentAddress == 0): # TODO: HACK: cython won't allow unsigned overflow
+                currChannel.currentAddress = 0xffff
+            else:
+                currChannel.currentAddress -= 1
         else:
-            currChannel.currentAddress += 1
+            if (currChannel.currentAddress == 0xffff): # TODO: HACK: cython won't allow unsigned overflow
+                currChannel.currentAddress = 0
+            else:
+                currChannel.currentAddress += 1
         if (currChannel.currentCount == 0): # TODO: HACK: cython won't allow unsigned overflow
             currChannel.currentCount = 0xffff
         else:
@@ -326,22 +327,23 @@ cdef class ISADma:
         
         if (currChannel.transferDirection == 1): # IODEV -> MEM
             if (currChannel.dmaWriteToMem != None):
-                currChannel.dmaWriteToMem(&data)
+                data = currChannel.dmaWriteToMem()&0xffff
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
                 return
-            data &= 0xff # TODO: is this correct?
+            if (not ma_sl):
+                data &= 0xff
             self.main.mm.mmPhyWriteValue(phyAddr, data, ma_sl+1)
         elif (currChannel.transferDirection == 2): # MEM -> IODEV
-            data = self.main.mm.mmPhyReadValue(phyAddr, ma_sl+1, False)&0xff
+            data = self.main.mm.mmPhyReadValue(phyAddr, ma_sl+1, False)&0xffff
             if (currChannel.dmaReadFromMem != None):
-                currChannel.dmaReadFromMem(&data)
-            else: # TODO: is this correct?
+                currChannel.dmaReadFromMem(data)
+            else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaRead handler for channel {0:d}", channel)
                 return
         elif (currChannel.transferDirection == 0): # Verify
             if (currChannel.dmaWriteToMem != None):
-                currChannel.dmaWriteToMem(&data)
+                data = currChannel.dmaWriteToMem()&0xffff
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
                 return
@@ -360,11 +362,8 @@ cdef class ISADma:
     cpdef run(self):
         for controller in self.controller:
             controller.run()
-        self.main.platform.addReadHandlers(self.ioMasterControllerPorts, self)
-        self.main.platform.addReadHandlers(self.ioSlaveControllerPorts, self)
-        self.main.platform.addReadHandlers(self.extPageRegPorts, self)
-        self.main.platform.addWriteHandlers(self.ioMasterControllerPorts, self)
-        self.main.platform.addWriteHandlers(self.ioSlaveControllerPorts, self)
-        self.main.platform.addWriteHandlers(self.extPageRegPorts, self)
+        self.main.platform.addHandlers(DMA_MASTER_CONTROLLER_PORTS, self)
+        self.main.platform.addHandlers(DMA_SLAVE_CONTROLLER_PORTS, self)
+        self.main.platform.addHandlers(DMA_EXT_PAGE_REG_PORTS, self)
 
 

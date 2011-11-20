@@ -24,7 +24,6 @@ cdef class Serial:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
     cpdef run(self):
-        self.main.platform.addReadHandlers(self.ports, self)
-        self.main.platform.addWriteHandlers(self.ports, self)
+        self.main.platform.addHandlers(self.ports, self)
 
 

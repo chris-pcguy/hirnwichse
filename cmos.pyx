@@ -119,8 +119,9 @@ cdef class Cmos:
     cpdef run(self):
         self.reset()
         ##self.updateTime()
-        self.main.platform.addReadHandlers((0x70, 0x71, 0x511), self)
-        self.main.platform.addWriteHandlers((0x70, 0x71, 0x510), self)
+        self.main.platform.addHandlers((0x70, 0x71), self)
+        self.main.platform.addReadHandlers((0x511,), self)
+        self.main.platform.addWriteHandlers((0x510,), self)
 
 
 

@@ -259,9 +259,6 @@ DEF OPCODE_PREFIX_GS=0x65
 cdef tuple OPCODE_PREFIX_SEGMENTS = (OPCODE_PREFIX_CS, OPCODE_PREFIX_SS, OPCODE_PREFIX_DS, OPCODE_PREFIX_ES, OPCODE_PREFIX_FS, OPCODE_PREFIX_GS)
 DEF OPCODE_PREFIX_OP=0x66
 DEF OPCODE_PREFIX_ADDR=0x67
-#DEF OPCODE_PREFIX_BRANCH_NOT_TAKEN=0x2e
-#DEF OPCODE_PREFIX_BRANCH_TAKEN=0x3e
-#cdef tuple OPCODE_PREFIX_BRANCHES = (OPCODE_PREFIX_BRANCH_NOT_TAKEN,OPCODE_PREFIX_BRANCH_TAKEN)
 DEF OPCODE_PREFIX_LOCK=0xf0
 DEF OPCODE_PREFIX_REPNE=0xf2
 DEF OPCODE_PREFIX_REPE=0xf3
@@ -271,7 +268,6 @@ cdef tuple OPCODE_PREFIX_REPS = (OPCODE_PREFIX_REPNE,OPCODE_PREFIX_REPE)
 cdef tuple OPCODE_PREFIXES = (OPCODE_PREFIX_LOCK, OPCODE_PREFIX_OP, OPCODE_PREFIX_ADDR, OPCODE_PREFIX_CS,
                  OPCODE_PREFIX_SS, OPCODE_PREFIX_DS, OPCODE_PREFIX_ES, OPCODE_PREFIX_FS,
                  OPCODE_PREFIX_GS, OPCODE_PREFIX_REPNE, OPCODE_PREFIX_REPE) 
-                 #OPCODE_PREFIX_BRANCH_NOT_TAKEN, OPCODE_PREFIX_BRANCH_TAKEN
 
 cdef tuple OPCODES_LOCK_PREFIX_INVALID = (0x07, 0x17, 0x1f, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d,
                                0x5e, 0x5f, 0x60, 0x61, 0x62, 0x63, 0x69, 0x6b, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75,
@@ -340,16 +336,34 @@ DEF BDA_TICK_COUNTER_ADDR  = 0x46c # dword
 DEF BDA_MIDNIGHT_FLAG_ADDR = 0x470 # byte
 
 
+DEF FDC_ST0_NR = 0x8 # ST0 drive not ready
+DEF FDC_ST0_UC = 0x10 # ST0 unit check, set on error
 DEF FDC_ST0_SE = 0x20 # ST0 seek end
+DEF FDC_ST1_NID = 0x1 # ST1 no address mark
+DEF FDC_ST1_NW = 0x2 # ST1 write protected
+DEF FDC_ST1_NDAT = 0x4 # ST1 no data
+DEF FDC_ST1_TO = 0x10 # ST1 time-out
+DEF FDC_ST1_DE = 0x20 # ST1 data error
+DEF FDC_ST1_EN = 0x80 # ST1 end of cylinder
 DEF FDC_ST3_DSDR = 0x8 # ST3 double sided drive/floppy
+DEF FDC_ST3_TRKO = 0x10 # ST3 track 0 seeked
 DEF FDC_ST3_RDY = 0x20 # ST3 drive ready
 DEF FDC_ST3_WPDR = 0x40 # ST3 write protected
-DEF FDC_DOR_RST = 0x4 # DOR reset
-DEF FDC_DOR_IRQ = 0x8 # DOR dma && irq enabled
+DEF FDC_DOR_NORESET = 0x4 # DOR reset
+DEF FDC_DOR_DMA = 0x8 # DOR dma && irq enabled
 DEF FDC_MSR_BUSY = 0x10 # MSR command busy
-DEF FDC_MSR_NDMA = 0x20 # MSR only use PIO. (NO DMA!)
+DEF FDC_MSR_NODMA = 0x20 # MSR just use PIO. (NO DMA!)
 DEF FDC_MSR_DIO = 0x40 # MSR FIFO IO port expects an IN opcode (wiki.osdev.org)
-DEF FDC_MSR_MRQ = 0x80 # MSR ok (or mandatory) to exchange bytes with the FIFO IO port (wiki.osdev.org)
+DEF FDC_MSR_RQM = 0x80 # MSR ok (or mandatory) to exchange bytes with the FIFO IO port (wiki.osdev.org)
+DEF FDC_SECTOR_SIZE = 512
+
+cdef dict FDC_CMDLENGTH_TABLE = { 0x3: 3, 0x4: 2, 0x7: 2, 0x8: 1, 0xf: 3, 0x45: 9, 0x46: 9, 0x4a: 2, 0x66: 9, 0xc5: 9, 0xc6: 9, 0xe6: 9}
+cdef tuple FDC_FIRST_READ_PORTS = (0x3f0, 0x3f1, 0x3f2, 0x3f3, 0x3f4, 0x3f5, 0x3f6, 0x3f7)
+cdef tuple FDC_SECOND_READ_PORTS = (0x370, 0x371, 0x372, 0x373, 0x374, 0x375, 0x376, 0x377)
+cdef tuple FDC_FIRST_WRITE_PORTS = (0x3f2, 0x3f3, 0x3f4, 0x3f5, 0x3f6, 0x3f7)
+cdef tuple FDC_SECOND_WRITE_PORTS = (0x372, 0x373, 0x374, 0x375, 0x376, 0x377)
+
+
 
 DEF FDC_FIRST_PORTBASE  = 0x3f0
 DEF FDC_SECOND_PORTBASE = 0x370

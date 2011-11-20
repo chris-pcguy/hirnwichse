@@ -17,8 +17,8 @@ cdef class Platform:
     cpdef outPort(self, unsigned short ioPortAddr, unsigned long long data, unsigned char dataSize)
     cpdef loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize)
     cpdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional)
-    #cpdef runCDEF(self, unsigned long long memSize)
+    cdef runCDEF(self, unsigned long long memSize)
     cpdef run(self, unsigned long long memSize)
-    cpdef runDevices(self)
+    cdef runDevices(self)
 
 

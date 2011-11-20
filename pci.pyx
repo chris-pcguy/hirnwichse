@@ -141,7 +141,6 @@ cdef class Pci:
     cpdef run(self):
         for busid, busobj in self.busList.items():
             busobj.run()
-        self.main.platform.addReadHandlers(self.ports, self)
-        self.main.platform.addWriteHandlers(self.ports, self)
+        self.main.platform.addHandlers(self.ports, self)
 
 

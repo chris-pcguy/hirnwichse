@@ -33,7 +33,7 @@ cdef class Platform:
         self.writeHandlers = {}
     cpdef initDevices(self):
         self.cmos     = cmos.Cmos(self.main)
-        self.isadma   = isadma.ISADma(self.main)
+        self.isadma   = isadma.ISADMA(self.main)
         self.ps2      = ps2.PS2(self.main)
         self.pic      = pic.Pic(self.main)
         self.pit      = pit.Pit(self.main, self.ps2)
@@ -110,19 +110,18 @@ cdef class Platform:
                 self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
                 return
             self.main.mm.mmPhyWrite(mmAddr&0xfffff, self.main.mm.mmPhyRead(mmAddr, romSize), romSize)
-    #cpdef runCDEF(self, unsigned long long memSize):
-    cpdef run(self, unsigned long long memSize):
+    cdef runCDEF(self, unsigned long long memSize):
         self.initDevices()
         self.main.mm.mmAddArea(0, memSize, False, mm.MmArea)
         self.main.mm.mmAddArea(0xfffc0000, 0x40000, False, mm.MmArea)
-        self.loadRom(os.path.join(self.main.romPath, self.main.biosname), 0xffff0000, False)
-        if (self.main.vgaBiosname):
-            self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosname), 0xfffc0000, True)
+        self.loadRom(os.path.join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
+        if (self.main.vgaBiosFilename):
+            self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
         self.main.mm.mmGetSingleArea(0xfffc0000, 0).mmSetReadOnly(True)
         self.runDevices()
-    #cpdef run(self, unsigned long long memSize):
-    #    self.runCDEF(memSize)
-    cpdef runDevices(self):
+    cpdef run(self, unsigned long long memSize):
+        self.runCDEF(memSize)
+    cdef runDevices(self):
         self.cmos.run()
         self.isadma.run()
         self.ps2.run()

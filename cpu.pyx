@@ -32,8 +32,8 @@ cdef class Cpu:
         self.HRQ = state
         if (state):
             self.asyncEvent = True
-    cpdef setIrq(self, unsigned char state):
-        self.irqEvent = state
+    cpdef setINTR(self, unsigned char state):
+        self.INTR = state
         self.asyncEvent = True
     cpdef unsigned long long getCurrentOpcodeAddr(self):
         cdef unsigned char eipSize
@@ -68,15 +68,24 @@ cdef class Cpu:
         cdef unsigned short regSizeId  = self.registers.getWordAsDword(CPU_REGISTER_IP, operSize)
         self.registers.regAdd(regSizeId, numBytes)
         return opcodeData
+    cpdef saveCurrentInstPointer(self):
+        self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
+        self.savedEip = self.registers.regRead(CPU_REGISTER_EIP, False)
     cpdef unsigned char handleAsyncEvent(self): # return True if irq was handled, otherwise False
         cdef unsigned char irqVector
         if (self.asyncEvent): # This is only for IRQs! (exceptions will use cpu.exception)
-            if (self.irqEvent and self.registers.getEFLAG(FLAG_IF) ):
-                self.setIrq(False)
+            #self.main.printMsg("in asyncEvent_1.0: INTR: {0:d}, HRQ: {1:d}", self.INTR, self.HRQ)
+            if (self.INTR and self.registers.getEFLAG(FLAG_IF) ):
+                #self.main.printMsg("in asyncEvent_1.1 DO IRQ: HRQ: {0:d}", self.HRQ)
                 irqVector = self.main.platform.pic.IAC()
+                #self.main.printMsg("in asyncEvent_1.11 DO IRQ: irqVector: {0:#04x}", irqVector)
                 self.opcodes.interrupt(irqVector, -1, True)
                 self.asyncEvent = False
                 return True
+            elif (self.HRQ):
+                #self.main.printMsg("in asyncEvent_1.2 DO DMA: INTR: {0:d}", self.INTR)
+                self.main.platform.isadma.raiseHLDA()
+                #self.main.printMsg("in asyncEvent_1.21 DO DMA is DONE")
         return False
     cpdef exception(self, unsigned char exceptionId, long errorCode):
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
@@ -122,8 +131,6 @@ cdef class Cpu:
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
             if (opcode == OPCODE_PREFIX_LOCK):
                 self.registers.lockPrefix = True
-            #elif (opcode in OPCODE_PREFIX_BRANCHES):
-            #    self.registers.branchPrefix = opcode
             elif (opcode in OPCODE_PREFIX_REPS):
                 self.registers.repPrefix = opcode
             elif (opcode in OPCODE_PREFIX_SEGMENTS):
@@ -168,22 +175,19 @@ cdef class Cpu:
             ## handle gui events: END
             self.doCycle()
     cpdef doCycle(self):
-        ##cpdef object opcodeHandle
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
             return
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
-        #self.cycles = (self.cycles+(1*TICKS_PER_CYCLE))&TICK_BITMASK
         self.cycles = (self.cycles+1)&TICK_BITMASK
         self.registers.resetPrefixes()
-        self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
-        self.savedEip = self.registers.regRead(CPU_REGISTER_EIP, False)
-        self.handleAsyncEvent()
+        self.saveCurrentInstPointer()
+        if (self.handleAsyncEvent()):
+            return
         self.opcode = self.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-        ##opcodeHandle = self.opcodes.opcodeList.get(self.opcode)
         try:
             if (self.registers.lockPrefix and self.opcode in OPCODES_LOCK_PREFIX_INVALID):
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
