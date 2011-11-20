@@ -68,6 +68,7 @@ cdef class FloppyDrive:
             diskType = FLOPPY_DISK_TYPE_2_88M
         else:
             self.main.printMsg("FloppyDrive::getDiskType: can't assign filesize {0:d} to a type, mark disk as unrecognized", size)
+        self.main.printMsg("FloppyDrive::getDiskType: floppy has disktype {0:d}.", diskType)
         return diskType
     cpdef loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType, driveType
