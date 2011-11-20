@@ -56,15 +56,15 @@ cdef class FloppyDrive:
         cdef unsigned char diskType = FLOPPY_DISK_TYPE_NONE
         if (self.main.forceFloppyDiskType != FLOPPY_DISK_TYPE_NONE):
             diskType = self.main.forceFloppyDiskType
-        elif (size == SIZE_360K):
+        elif (size <= SIZE_360K):
             diskType = FLOPPY_DISK_TYPE_360K
-        elif (size == SIZE_1_2M):
-            diskType = FLOPPY_DISK_TYPE_1_2M
-        elif (size == SIZE_720K):
+        elif (size <= SIZE_720K):
             diskType = FLOPPY_DISK_TYPE_720K
-        elif (size == SIZE_1_44M):
+        elif (size <= SIZE_1_2M):
+            diskType = FLOPPY_DISK_TYPE_1_2M
+        elif (size <= SIZE_1_44M):
             diskType = FLOPPY_DISK_TYPE_1_44M
-        elif (size == SIZE_2_88M):
+        elif (size <= SIZE_2_88M):
             diskType = FLOPPY_DISK_TYPE_2_88M
         else:
             self.main.printMsg("FloppyDrive::getDiskType: can't assign filesize {0:d} to a type, mark disk as unrecognized", size)
