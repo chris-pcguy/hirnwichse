@@ -53,7 +53,6 @@ DEF POP_SS = 0x17
 
 
 cdef class Opcodes:
-    cpdef public object main, cpu, registers
     def __init__(self, object main, object cpu):
         self.main = main
         self.cpu = cpu
@@ -2518,7 +2517,7 @@ cdef class Opcodes:
         regValue, regValue2 = self.registers.regRead( regName, False ), self.registers.regRead( regName2, False )
         self.registers.regWrite( regName, regValue2 )
         self.registers.regWrite( regName2, regValue )
-    ##### both, XCHG AX, AX == NOP is opcode 0x90, so don't use this (xchg) for it (opcode 0x90)
+    ##### DON'T USE XCHG AX, AX FOR OPCODE 0x90, use NOP instead!!
     cdef xchgReg(self):
         cdef unsigned char operSize
         cdef unsigned short regName, regName2

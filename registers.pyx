@@ -4,10 +4,6 @@ include "globals.pxi"
 
 
 cdef class Gdt:
-    cpdef public object segments, registers, main
-    cdef public unsigned char needFlush, setGdtLoadedTo, gdtLoaded
-    cdef unsigned long long tableBase
-    cdef unsigned long tableLimit
     def __init__(self, object segments):
         self.segments = segments
         self.registers = self.segments.registers
@@ -126,9 +122,6 @@ cdef class Ldt(Gdt):
     pass
 
 cdef class Idt:
-    cpdef public object segments, main
-    cdef public unsigned long long tableBase
-    cdef public unsigned long tableLimit
     def __init__(self, object segments):
         self.segments = segments
         self.main = self.segments.main
@@ -183,7 +176,6 @@ cdef class Idt:
         self.loadTable(tableBase, tableLimit)
 
 cdef class Segments:
-    cpdef public object main, cpu, registers, gdt, ldt, idt
     def __init__(self, object main, object cpu, object registers):
         self.main, self.cpu, self.registers = main, cpu, registers
     cpdef reset(self):
@@ -293,8 +285,6 @@ cdef class Segments:
         self.reset()
 
 cdef class Registers:
-    cpdef public object main, cpu, segments, regs
-    cdef public unsigned char lockPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, addressSizePrefix, cpl, iopl
     def __init__(self, object main, object cpu):
         self.main, self.cpu = main, cpu
     cpdef reset(self):
