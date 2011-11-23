@@ -69,7 +69,7 @@ cdef class Platform:
                 self.main.printMsg("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
                 return 0
             self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
-            retVal = self.readHandlers[ioPortAddr].inPort(ioPortAddr, dataSize)
+            retVal = self.readHandlers[ioPortAddr].inPort(ioPortAddr, dataSize)&self.main.misc.getBitMaskFF(dataSize)
             self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
             return retVal
         except:

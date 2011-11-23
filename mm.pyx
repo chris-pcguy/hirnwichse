@@ -97,9 +97,9 @@ cdef class Mm:
         for mmArea in mmAreas:
             mmArea.mmAreaWrite(mmAddr, data, dataSize)
     cpdef unsigned long long mmPhyWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize): # dataSize in bytes
-        cdef unsigned long long bitMask = self.main.misc.getBitMaskFF(dataSize)
-        data &= bitMask
-        cdef bytes bytesData = data.to_bytes(length=dataSize, byteorder="little")
+        cdef bytes bytesData
+        data &= self.main.misc.getBitMaskFF(dataSize)
+        bytesData = data.to_bytes(length=dataSize, byteorder="little")
         self.mmPhyWrite(mmAddr, bytesData, dataSize)
         return data
     cpdef mmWrite(self, long long mmAddr, bytes data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes
@@ -107,54 +107,64 @@ cdef class Mm:
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         self.mmPhyWrite(mmAddr, data, dataSize)
     cpdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp): # dataSize in bytes
-        if (valueOp == VALUEOP_SAVE):
+        if (valueOp == OPCODE_SAVE):
             return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
-        elif (valueOp == VALUEOP_ADD):
+        elif (valueOp == OPCODE_ADD):
             return self.mmAddValue(mmAddr, data, dataSize, segId, allowOverride)
-        elif (valueOp == VALUEOP_ADC):
+        elif (valueOp == OPCODE_ADC):
             return self.mmAdcValue(mmAddr, data, dataSize, segId, allowOverride)
-        elif (valueOp == VALUEOP_SUB):
+        elif (valueOp == OPCODE_SUB):
             return self.mmSubValue(mmAddr, data, dataSize, segId, allowOverride)
-        elif (valueOp == VALUEOP_SBB):
+        elif (valueOp == OPCODE_SBB):
             return self.mmSbbValue(mmAddr, data, dataSize, segId, allowOverride)
-        elif (valueOp == VALUEOP_AND):
+        elif (valueOp == OPCODE_AND):
             return self.mmAndValue(mmAddr, data, dataSize, segId, allowOverride)
-        elif (valueOp == VALUEOP_OR):
+        elif (valueOp == OPCODE_OR):
             return self.mmOrValue(mmAddr, data, dataSize, segId, allowOverride)
-        elif (valueOp == VALUEOP_XOR):
+        elif (valueOp == OPCODE_XOR):
             return self.mmXorValue(mmAddr, data, dataSize, segId, allowOverride)
+        elif (valueOp == OPCODE_NEG):
+            data = (-data)&self.main.misc.getBitMaskFF(dataSize)
+            return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
+        elif (valueOp == OPCODE_NOT):
+            data = (~data)&self.main.misc.getBitMaskFF(dataSize)
+            return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
         else:
             self.main.exitError("Mm::mmWriteValueWithOp: unknown valueOp. ({0:d})", valueOp)
     cpdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
+        data &= self.main.misc.getBitMaskFF(dataSize)
         return self.mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef unsigned long long mmAddValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes, data==int
-        cdef unsigned long long bitMask = self.main.misc.getBitMaskFF(dataSize)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        return self.mmPhyWriteValue(mmAddr, (self.mmPhyReadValue(mmAddr, dataSize, False)+data)&bitMask, dataSize)
+        data = (self.mmPhyReadValue(mmAddr, dataSize, False)+data)&self.main.misc.getBitMaskFF(dataSize)
+        return self.mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef unsigned long long mmAdcValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes, data==int
-        cdef unsigned long long bitMask = self.main.misc.getBitMaskFF(dataSize)
         cdef unsigned char withCarry = self.main.cpu.registers.getEFLAG( FLAG_CF )
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        return self.mmPhyWriteValue(mmAddr, (self.mmPhyReadValue(mmAddr, dataSize, False)+(data+withCarry))&bitMask, dataSize)
+        data = (self.mmPhyReadValue(mmAddr, dataSize, False)+(data+withCarry))&self.main.misc.getBitMaskFF(dataSize)
+        return self.mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef unsigned long long mmSubValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes, data==int
-        cdef unsigned long long bitMask = self.main.misc.getBitMaskFF(dataSize)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        return self.mmPhyWriteValue(mmAddr, (self.mmPhyReadValue(mmAddr, dataSize, False)-data)&bitMask, dataSize)
+        data = (self.mmPhyReadValue(mmAddr, dataSize, False)-data)&self.main.misc.getBitMaskFF(dataSize)
+        return self.mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef unsigned long long mmSbbValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes, data==int
-        cdef unsigned long long bitMask = self.main.misc.getBitMaskFF(dataSize)
         cdef unsigned char withCarry = self.main.cpu.registers.getEFLAG( FLAG_CF )
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        return self.mmPhyWriteValue(mmAddr, (self.mmPhyReadValue(mmAddr, dataSize, False)-(data+withCarry))&bitMask, dataSize)
+        data = (self.mmPhyReadValue(mmAddr, dataSize, False)-(data+withCarry))&self.main.misc.getBitMaskFF(dataSize)
+        return self.mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef unsigned long long mmAndValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes, data==int
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize, False)&data, dataSize)
+        data = (self.mmPhyReadValue(mmAddr, dataSize, False)&data)&self.main.misc.getBitMaskFF(dataSize)
+        return self.mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef unsigned long long mmOrValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes, data==int
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize, False)|data, dataSize)
+        data = (self.mmPhyReadValue(mmAddr, dataSize, False)|data)&self.main.misc.getBitMaskFF(dataSize)
+        return self.mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef unsigned long long mmXorValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes, data==int
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        return self.mmPhyWriteValue(mmAddr, self.mmPhyReadValue(mmAddr, dataSize, False)^data, dataSize)
+        data = (self.mmPhyReadValue(mmAddr, dataSize, False)^data)&self.main.misc.getBitMaskFF(dataSize)
+        return self.mmPhyWriteValue(mmAddr, data, dataSize)
     
 
 

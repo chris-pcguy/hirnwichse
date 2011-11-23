@@ -4,7 +4,8 @@ cdef class Cpu:
     cdef public unsigned long long cycles
     cdef public unsigned char opcode, cpuHalted, debugHalt, debugSingleStep, A20Active, protectedModeOn
     cdef unsigned char asyncEvent, INTR, HRQ
-    cdef unsigned long long savedCs, savedEip, oldCycles
+    cdef unsigned long savedCs, savedEip
+    cdef unsigned long long oldCycles
     cpdef object cpuThread
     cpdef reset(self)
     cpdef unsigned char getA20State(self)

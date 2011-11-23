@@ -21,39 +21,16 @@ cdef class Opcodes:
     cdef loope(self)
     cdef loopne(self)
     cdef loopFunc(self, unsigned char loopType)
-    cdef cmpRM_R(self, unsigned char operSize)
-    cdef cmpR_RM(self, unsigned char operSize)
-    cdef cmpAxImm(self, unsigned char operSize)
+    cdef opcodeR_RM(self, unsigned char opcode, unsigned char operSize)
+    cdef opcodeRM_R(self, unsigned char opcode, unsigned char operSize)
+    cdef opcodeAxEaxImm(self, unsigned char opcode, unsigned char operSize)
     cdef movImmToR(self, unsigned char operSize)
     cdef movRM_R(self, unsigned char operSize)
-    cdef testRM_R(self, unsigned char operSize)
-    cdef testAxImm(self, unsigned char operSize)
     cdef movR_RM(self, unsigned char operSize, unsigned char cond)
     cdef movRM16_SREG(self)
     cdef movSREG_RM16(self)
     cdef movAxMoffs(self, unsigned char operSize, unsigned char addrSize)
     cdef movMoffsAx(self, unsigned char operSize, unsigned char addrSize)
-    cdef addRM_R(self, unsigned char operSize)
-    cdef addR_RM(self, unsigned char operSize)
-    cdef addAxImm(self, unsigned char operSize)
-    cdef adcRM_R(self, unsigned char operSize)
-    cdef adcR_RM(self, unsigned char operSize)
-    cdef adcAxImm(self, unsigned char operSize)
-    cdef subRM_R(self, unsigned char operSize)
-    cdef subR_RM(self, unsigned char operSize)
-    cdef subAxImm(self, unsigned char operSize)
-    cdef sbbRM_R(self, unsigned char operSize)
-    cdef sbbR_RM(self, unsigned char operSize)
-    cdef sbbAxImm(self, unsigned char operSize)
-    cdef andRM_R(self, unsigned char operSize)
-    cdef andR_RM(self, unsigned char operSize)
-    cdef andAxImm(self, unsigned char operSize)
-    cdef orRM_R(self, unsigned char operSize)
-    cdef orR_RM(self, unsigned char operSize)
-    cdef orAxImm(self, unsigned char operSize)
-    cdef xorRM_R(self, unsigned char operSize)
-    cdef xorR_RM(self, unsigned char operSize)
-    cdef xorAxImm(self, unsigned char operSize)
     cdef stosFunc(self, unsigned char operSize)
     cdef movsFunc(self, unsigned char operSize)
     cdef lodsFunc(self, unsigned char operSize)
@@ -65,22 +42,6 @@ cdef class Opcodes:
     cdef outDxAx(self, unsigned char operSize)
     cdef outsFunc(self, unsigned char operSize)
     cdef insFunc(self, unsigned char operSize)
-    cdef jgShort(self, unsigned char size) # byte8
-    cdef jgeShort(self, unsigned char size) # byte8
-    cdef jlShort(self, unsigned char size) # byte8
-    cdef jleShort(self, unsigned char size) # byte8
-    cdef jnzShort(self, unsigned char size) # byte8
-    cdef jzShort(self, unsigned char size) # byte8
-    cdef jaShort(self, unsigned char size) # byte8
-    cdef jbeShort(self, unsigned char size) # byte8
-    cdef jncShort(self, unsigned char size) # byte8
-    cdef jcShort(self, unsigned char size) # byte8
-    cdef jnpShort(self, unsigned char size) # byte8
-    cdef jpShort(self, unsigned char size) # byte8
-    cdef jnoShort(self, unsigned char size) # byte8
-    cdef joShort(self, unsigned char size) # byte8
-    cdef jnsShort(self, unsigned char size) # byte8
-    cdef jsShort(self, unsigned char size) # byte8
     cdef jcxzShort(self)
     cdef jumpShort(self, unsigned char offsetSize, unsigned char c)
     cdef callNearRel16_32(self)

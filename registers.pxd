@@ -61,7 +61,7 @@ cdef class Registers:
     cdef public unsigned char lockPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, addressSizePrefix, cpl, iopl
     cpdef reset(self)
     cpdef resetPrefixes(self)
-    cpdef unsigned short regGetSize(self, unsigned short regId) # return size in bits
+    cpdef unsigned short getRegSize(self, unsigned short regId) # return size in bits
     cpdef unsigned short segRead(self, unsigned short segId) # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
     cpdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue) # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
     cpdef long long regRead(self, unsigned short regId, unsigned char signed) # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
@@ -92,13 +92,13 @@ cdef class Registers:
     cpdef setSZP_C0_O0_A0(self, unsigned long value, unsigned char regSize)
     cpdef unsigned long long getRMValueFull(self, tuple rmNames, unsigned char rmSize)
     cpdef long long modRMLoad(self, tuple rmOperands, unsigned char regSize, unsigned char signed, unsigned char allowOverride) # imm == unsigned ; disp == signed; regSize in bits
-    cpdef unsigned long long modRMSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp) # imm == unsigned ; disp == signed; stdAllowOverride==True, stdValueOp==VALUEOP_SAVE
+    cpdef unsigned long long modRMSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp) # imm == unsigned ; disp == signed; stdAllowOverride==True, stdValueOp==OPCODE_SAVE
     cpdef unsigned short modSegLoad(self, tuple rmOperands, unsigned char regSize) # imm == unsigned ; disp == signed
     cpdef unsigned short modSegSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value) # imm == unsigned ; disp == signed
     cpdef long long modRLoad(self, tuple rmOperands, unsigned char regSize, unsigned char signed) # imm == unsigned ; disp == signed
     cpdef unsigned long long modRSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value, unsigned char valueOp) # imm == unsigned ; disp == signed
     cpdef unsigned short getRegValueWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize)
-    cpdef tuple sibOperands(self, unsigned char mod)
+    cdef tuple sibOperands(self, unsigned char mod)
     cpdef tuple modRMOperands(self, unsigned char regSize, unsigned char modRMflags) # imm == unsigned ; disp == signed ; regSize in bytes
     cpdef tuple modRMOperandsResetEip(self, unsigned char regSize, unsigned char modRMflags)
     cpdef unsigned char getCond(self, unsigned char index)

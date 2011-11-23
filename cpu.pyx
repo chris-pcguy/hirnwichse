@@ -91,6 +91,7 @@ cdef class Cpu:
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
         if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
             self.savedEip += 1
+            self.savedEip &= 0xffffffff
         self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
         self.registers.regWrite(CPU_REGISTER_EIP, self.savedEip)
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
