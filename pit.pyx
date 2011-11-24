@@ -44,7 +44,7 @@ cdef class PitChannel:
             self.main.platform.pic.raiseIrq(0)
         else:
             self.main.printMsg("runTimer: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
-        if (self.counterModeTimer and self.counterMode == 2):
+        if (self.counterModeTimer and self.counterMode == 2 and (not self.main.quitEmu)):
             self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
     cpdef runTimer(self):
         ##cpdef float timerValue
@@ -63,11 +63,13 @@ cdef class PitChannel:
                 self.ps2.ppcbT2Out = False
             if (self.counterModeTimer):
                 self.counterModeTimer = None
-            self.counterModeTimer = self.main.misc.createThread(self.mode0Func, True)
+            if (not self.main.quitEmu):
+                self.counterModeTimer = self.main.misc.createThread(self.mode0Func, True)
         elif (self.counterMode == 2): # mode 2
             if (self.counterModeTimer):
                 self.counterModeTimer = None
-            self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
+            if (not self.main.quitEmu):
+                self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
         else:
             self.main.exitError("runTimer: counterMode {0:d} not supported yet.".format(self.counterMode))
             return

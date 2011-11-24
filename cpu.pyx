@@ -4,9 +4,6 @@ import registers, opcodes, misc
 include "globals.pxi"
 
 
-##DEF TICKS_PER_CYCLE = 2000
-DEF TICK_BITMASK  = 0xffffffffffffffff
-
 cdef class Cpu:
     def __init__(self, object main):
         self.main = main
@@ -19,7 +16,6 @@ cdef class Cpu:
         self.debugHalt = False
         self.debugSingleStep = False
         self.cycles = 0
-        self.oldCycles = 0
         self.A20Active = False
         self.protectedModeOn = False
         self.HRQ = False
@@ -72,22 +68,27 @@ cdef class Cpu:
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(CPU_REGISTER_EIP, False)
     cpdef unsigned char handleAsyncEvent(self): # return True if irq was handled, otherwise False
-        cdef unsigned char irqVector
+        cdef unsigned char irqVector, oldIF
         if (self.asyncEvent): # This is only for IRQs! (exceptions will use cpu.exception)
-            #self.main.printMsg("in asyncEvent_1.0: INTR: {0:d}, HRQ: {1:d}", self.INTR, self.HRQ)
-            if (self.INTR and self.registers.getEFLAG(FLAG_IF) ):
-                #self.main.printMsg("in asyncEvent_1.1 DO IRQ: HRQ: {0:d}", self.HRQ)
+            oldIF = self.registers.getEFLAG(FLAG_IF)
+            #self.main.printMsg("in asyncEvent_1.0: INTR: {0:d}, HRQ: {1:d}, IF: {2:#04x}", self.INTR, self.HRQ, self.registers.getEFLAG(FLAG_IF))
+            if (self.INTR and oldIF ):
+                self.main.printMsg("in asyncEvent_1.1 DO IRQ: HRQ: {0:d}", self.HRQ)
                 irqVector = self.main.platform.pic.IAC()
-                #self.main.printMsg("in asyncEvent_1.11 DO IRQ: irqVector: {0:#04x}", irqVector)
+                self.main.printMsg("in asyncEvent_1.11 DO IRQ: irqVector: {0:#04x}", irqVector)
                 self.opcodes.interrupt(irqVector, -1, True)
-                self.asyncEvent = False
-                return True
+                #self.asyncEvent = False
+                #return True
+                self.saveCurrentInstPointer()
             elif (self.HRQ):
-                #self.main.printMsg("in asyncEvent_1.2 DO DMA: INTR: {0:d}", self.INTR)
+                self.main.printMsg("in asyncEvent_1.2 DO DMA: INTR: {0:d}", self.INTR)
                 self.main.platform.isadma.raiseHLDA()
-                #self.main.printMsg("in asyncEvent_1.21 DO DMA is DONE")
+                self.main.printMsg("in asyncEvent_1.21 DO DMA is DONE")
+            if (not ((self.INTR and oldIF ) or (self.HRQ)) ):
+                self.asyncEvent = False
         return False
     cpdef exception(self, unsigned char exceptionId, long errorCode):
+        self.main.printMsg("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
         if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
             self.savedEip += 1
@@ -180,11 +181,12 @@ cdef class Cpu:
             return
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
-        self.cycles = (self.cycles+1)&TICK_BITMASK
+        self.cycles += 1
         self.registers.resetPrefixes()
         self.saveCurrentInstPointer()
-        if (self.handleAsyncEvent()):
-            return
+        self.handleAsyncEvent()
+        #if (self.handleAsyncEvent()):
+        #    return
         self.opcode = self.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)

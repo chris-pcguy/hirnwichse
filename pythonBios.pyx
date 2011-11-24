@@ -67,7 +67,7 @@ cdef class PythonBios:
         elif (intNum == 0x13): # data storage; floppy
             fdcNum = 0
             #self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) AX {0:#06x} not supported yet in PythonBIOS.", ax)
-            #return False
+            return False
             if (dl not in (0, 1) or (not self.main.platform.floppy.controller[fdcNum].drive[dl].isLoaded)):
                 self.setRetError(True, 0x8000)
                 return True

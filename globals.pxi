@@ -305,8 +305,8 @@ DEF BT_NOT = 1
 DEF BT_SET = 2
 DEF BT_CLEAR = 3
 
-DEF FDC_IRQ = 6 # floppy disk controller's IRQnum
 DEF KBC_IRQ = 1 # keyboard controller's IRQnum
+DEF FDC_IRQ = 6 # floppy disk controller's IRQnum
 
 
 DEF CMOS_CURRENT_SECOND    = 0x00

@@ -59,21 +59,17 @@ cdef class ChEmu:
         self.mm = mm.Mm(self)
         self.platform = X86Platform.Platform(self)
         self.cpu = cpu.Cpu(self)
-        self.platform.run(self.memSize)
-        self.cpu.run()
-        #cpdef run(self):
         try:
             self.platform.run(self.memSize)
-            self.cpu.run()
-            #self.misc.createThread(self.cpu.run, True)
+            self.misc.createThread(self.cpu.run, True)
             ###self.cpu.run()
+            while (threading.active_count() > 1 and not self.quitEmu):
+                if (self.quitEmu):
+                    break
+                time.sleep(2)
         except:
             print(sys.exc_info())
             sys.exit(1)
-        ##while (threading.active_count() > 1 and not self.quitEmu):
-        ##    if (self.quitEmu):
-        ##        break
-        ##    time.sleep(2)
         ###
 
 

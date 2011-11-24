@@ -102,135 +102,226 @@ cdef class pygameUI:
             print(sys.exc_info())
     cpdef setRepeatRate(self, unsigned short delay, unsigned short interval):
         pygame.key.set_repeat(delay, interval)
-    cpdef unsigned short keyToScancode(self, unsigned long key):
-        if (key == pygame.K_ESCAPE):
-            return 0x01
-        elif (key == pygame.K_1):
-            return 0x02
-        elif (key == pygame.K_2):
-            return 0x03
-        elif (key == pygame.K_3):
-            return 0x04
-        elif (key == pygame.K_4):
-            return 0x05
-        elif (key == pygame.K_5):
-            return 0x06
-        elif (key == pygame.K_6):
-            return 0x07
-        elif (key == pygame.K_7):
-            return 0x08
-        elif (key == pygame.K_8):
-            return 0x09
-        elif (key == pygame.K_9):
-            return 0x0a
-        elif (key == pygame.K_0):
-            return 0x0b
-        elif (key == pygame.K_MINUS):
-            return 0x0c
-        elif (key == pygame.K_PLUS):
-            return 0x0d
-        elif (key == pygame.K_BACKSPACE):
-            return 0x0e
-        elif (key == pygame.K_TAB):
-            return 0x0f
-        elif (key == pygame.K_q):
-            return 0x10
-        elif (key == pygame.K_w):
-            return 0x11
-        elif (key == pygame.K_e):
-            return 0x12
-        elif (key == pygame.K_r):
-            return 0x13
-        elif (key == pygame.K_t):
-            return 0x14
-        elif (key == pygame.K_y):
-            return 0x15
-        elif (key == pygame.K_u):
-            return 0x16
-        elif (key == pygame.K_i):
-            return 0x17
-        elif (key == pygame.K_o):
-            return 0x18
-        elif (key == pygame.K_p):
-            return 0x19
-        elif (key == pygame.K_RETURN):
-            return 0x1c
-        elif (key == pygame.K_LCTRL):
-            return 0x1d
-        elif (key == pygame.K_a):
-            return 0x1e
-        elif (key == pygame.K_s):
-            return 0x1f
-        elif (key == pygame.K_d):
-            return 0x20
-        elif (key == pygame.K_f):
-            return 0x21
-        elif (key == pygame.K_g):
-            return 0x22
-        elif (key == pygame.K_h):
-            return 0x23
-        elif (key == pygame.K_j):
-            return 0x24
-        elif (key == pygame.K_k):
-            return 0x25
-        elif (key == pygame.K_l):
-            return 0x26
+    cpdef unsigned char keyToScancode(self, unsigned short key):
+        if (key == pygame.K_LCTRL):
+            return 0x00
         elif (key == pygame.K_LSHIFT):
-            return 0x2a
-        elif (key == pygame.K_z):
-            return 0x2c
-        elif (key == pygame.K_x):
-            return 0x2d
-        elif (key == pygame.K_c):
-            return 0x2e
-        elif (key == pygame.K_v):
-            return 0x2f
-        elif (key == pygame.K_b):
-            return 0x30
-        elif (key == pygame.K_n):
-            return 0x31
-        elif (key == pygame.K_m):
-            return 0x32
+            return 0x01
+        elif (key == pygame.K_F1):
+            return 0x02
+        elif (key == pygame.K_F2):
+            return 0x03
+        elif (key == pygame.K_F3):
+            return 0x04
+        elif (key == pygame.K_F4):
+            return 0x05
+        elif (key == pygame.K_F5):
+            return 0x06
+        elif (key == pygame.K_F6):
+            return 0x07
+        elif (key == pygame.K_F7):
+            return 0x08
+        elif (key == pygame.K_F8):
+            return 0x09
+        elif (key == pygame.K_F9):
+            return 0x0a
+        elif (key == pygame.K_F10):
+            return 0x0b
+        elif (key == pygame.K_F11):
+            return 0x0c
+        elif (key == pygame.K_F12):
+            return 0x0d
+        elif (key == pygame.K_RCTRL):
+            return 0x0e
         elif (key == pygame.K_RSHIFT):
-            return 0x36
+            return 0x0f
+        elif (key == pygame.K_CAPSLOCK):
+            return 0x10
+        elif (key == pygame.K_NUMLOCK):
+            return 0x11
         elif (key == pygame.K_LALT):
+            return 0x12
+        elif (key == pygame.K_RALT):
+            return 0x13
+        elif (key == pygame.K_a):
+            return 0x14
+        elif (key == pygame.K_b):
+            return 0x15
+        elif (key == pygame.K_c):
+            return 0x16
+        elif (key == pygame.K_d):
+            return 0x17
+        elif (key == pygame.K_e):
+            return 0x18
+        elif (key == pygame.K_f):
+            return 0x19
+        elif (key == pygame.K_g):
+            return 0x1a
+        elif (key == pygame.K_h):
+            return 0x1b
+        elif (key == pygame.K_i):
+            return 0x1c
+        elif (key == pygame.K_j):
+            return 0x1d
+        elif (key == pygame.K_k):
+            return 0x1e
+        elif (key == pygame.K_l):
+            return 0x1f
+        elif (key == pygame.K_m):
+            return 0x20
+        elif (key == pygame.K_n):
+            return 0x21
+        elif (key == pygame.K_o):
+            return 0x22
+        elif (key == pygame.K_p):
+            return 0x23
+        elif (key == pygame.K_q):
+            return 0x24
+        elif (key == pygame.K_r):
+            return 0x25
+        elif (key == pygame.K_s):
+            return 0x26
+        elif (key == pygame.K_t):
+            return 0x27
+        elif (key == pygame.K_u):
+            return 0x28
+        elif (key == pygame.K_v):
+            return 0x29
+        elif (key == pygame.K_w):
+            return 0x2a
+        elif (key == pygame.K_x):
+            return 0x2b
+        elif (key == pygame.K_y):
+            return 0x2c
+        elif (key == pygame.K_z):
+            return 0x2d
+        elif (key == pygame.K_0):
+            return 0x2e
+        elif (key == pygame.K_1):
+            return 0x2f
+        elif (key == pygame.K_2):
+            return 0x30
+        elif (key == pygame.K_3):
+            return 0x31
+        elif (key == pygame.K_4):
+            return 0x32
+        elif (key == pygame.K_5):
+            return 0x33
+        elif (key == pygame.K_6):
+            return 0x34
+        elif (key == pygame.K_7):
+            return 0x35
+        elif (key == pygame.K_8):
+            return 0x36
+        elif (key == pygame.K_9):
+            return 0x37
+        elif (key == pygame.K_ESCAPE):
             return 0x38
         elif (key == pygame.K_SPACE):
             return 0x39
-        elif (key == pygame.K_F1):
+        elif (key == pygame.K_QUOTE):
+            return 0x3a
+        elif (key == pygame.K_COMMA):
             return 0x3b
-        elif (key == pygame.K_F2):
+        elif (key == pygame.K_PERIOD):
             return 0x3c
-        elif (key == pygame.K_F3):
+        elif (key == pygame.K_SLASH):
             return 0x3d
-        elif (key == pygame.K_F4):
+        elif (key == pygame.K_SEMICOLON):
             return 0x3e
-        elif (key == pygame.K_F5):
+        elif (key == pygame.K_EQUALS):
             return 0x3f
-        elif (key == pygame.K_F6):
+        elif (key == pygame.K_LEFTBRACKET):
             return 0x40
-        elif (key == pygame.K_F7):
+        elif (key == pygame.K_BACKSLASH):
             return 0x41
-        elif (key == pygame.K_F8):
+        elif (key == pygame.K_RIGHTBRACKET):
             return 0x42
-        elif (key == pygame.K_F9):
+        elif (key == pygame.K_MINUS):
             return 0x43
-        elif (key == pygame.K_F10):
+        elif (key == pygame.K_BACKQUOTE):
             return 0x44
-        elif (key == pygame.K_F11):
-            return 0x57
-        elif (key == pygame.K_F12):
-            return 0x58
-        elif (key == pygame.K_RCTRL):
-            return 0xe01d
-        elif (key == pygame.K_RALT):
-            return 0xe038
-        return 0x0000
+        elif (key == pygame.K_BACKSPACE):
+            return 0x45
+        elif (key == pygame.K_RETURN):
+            return 0x46
+        elif (key == pygame.K_TAB):
+            return 0x47
+        #elif (key == pygame.K_BACKSLASH): # left backslash??
+        #    return 0x48
+        elif (key == pygame.K_PRINT):
+            return 0x49
+        elif (key == pygame.K_SCROLLOCK):
+            return 0x4a
+        elif (key == pygame.K_PAUSE):
+            return 0x4b
+        elif (key == pygame.K_INSERT):
+            return 0x4c
+        elif (key == pygame.K_DELETE):
+            return 0x4d
+        elif (key == pygame.K_HOME):
+            return 0x4e
+        elif (key == pygame.K_END):
+            return 0x4f
+        elif (key == pygame.K_PAGEUP):
+            return 0x50
+        elif (key == pygame.K_PAGEDOWN):
+            return 0x51
+        #elif (key == pygame.K_KP_PLUS):
+        #    return 0x52
+        #elif (key == pygame.K_KP_MINUS):
+        #    return 0x53
+        #elif (key == pygame.K_END):
+        #    return 0x54
+        #elif (key == pygame.K_DOWN):
+        #    return 0x55
+        #elif (key == pygame.K_PAGEDOWN):
+        #    return 0x56
+        #elif (key == pygame.K_LEFT):
+        #    return 0x57
+        #elif (key == pygame.K_RIGHT):
+        #    return 0x58
+        #elif (key == pygame.K_HOME):
+        #    return 0x59
+        #elif (key == pygame.K_UP):
+        #    return 0x5a
+        #elif (key == pygame.K_PAGEUP):
+        #    return 0x5b
+        #elif (key == pygame.K_INSERT):
+        #    return 0x5c
+        #elif (key == pygame.K_DELETE):
+        #    return 0x5d
+        #elif (key == pygame.K_KP5):
+        #    return 0x5e
+        elif (key == pygame.K_UP):
+            return 0x5f
+        elif (key == pygame.K_DOWN):
+            return 0x60
+        elif (key == pygame.K_LEFT):
+            return 0x61
+        elif (key == pygame.K_RIGHT):
+            return 0x62
+        #elif (key == pygame.K_KP_ENTER):
+        #    return 0x63
+        #elif (key == pygame.K_KP_MULTIPLY):
+        #    return 0x64
+        #elif (key == pygame.K_KP_DIVIDE):
+        #    return 0x65
+        elif (key == pygame.K_LSUPER):
+            return 0x66
+        elif (key == pygame.K_RSUPER):
+            return 0x67
+        elif (key == pygame.K_MENU):
+            return 0x68
+        elif (key == pygame.K_SYSRQ):
+            return 0x69
+        elif (key == pygame.K_BREAK):
+            return 0x6a
+        return 0xff
     cpdef addKeyToBuffer(self, unsigned short key, unsigned char up): # if KEYUP: up=True, otherwise up=False
-        cdef unsigned char escKey
-        cdef unsigned char normalKey
-        cpdef object keys = bytearray()
-        if (self.main.platform.ps2.keyboardDisabled):
+        cdef unsigned char escKey, normalKey
+        cdef bytes keys = bytes()
+        if (not self.main.platform.ps2.kbdClockEnabled):
             return
         escKey = (key>>8)&0xff
         normalKey = key&0xff
@@ -242,8 +333,8 @@ cdef class pygameUI:
             normalKey |= 0x80
         keys += bytes([normalKey])
         ###self.main.printMsg("appendToOutBytes({0:s})", repr(keys))
-        self.main.platform.ps2.appendToOutBytes(keys)
-        self.main.platform.pic.raiseIrq(KBC_IRQ)
+        self.main.platform.ps2.appendToOutBytesDoIrq(keys)
+        ###self.main.platform.pic.raiseIrq(KBC_IRQ)
     cpdef handleEvent(self, object event):
         try:
             if (event.type == pygame.QUIT):
@@ -252,9 +343,9 @@ cdef class pygameUI:
                 self.updateScreen(list())
             elif (event.type == pygame.KEYDOWN):
                 ###self.main.printMsg("event.type == pygame.KEYDOWN")
-                self.addKeyToBuffer(self.keyToScancode(event.key), False)
+                self.main.platform.ps2.keySend(self.keyToScancode(event.key), False)
             elif (event.type == pygame.KEYUP):
-                self.addKeyToBuffer(self.keyToScancode(event.key), True)
+                self.main.platform.ps2.keySend(self.keyToScancode(event.key), True)
         except pygame.error:
             print(sys.exc_info())
         except:
