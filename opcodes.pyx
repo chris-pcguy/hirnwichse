@@ -413,6 +413,7 @@ cdef class Opcodes:
         self.registers.setEFLAG(FLAG_IF, False)
     cdef sti(self):
         self.registers.setEFLAG(FLAG_IF, True)
+        self.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
     cdef cld(self):
         self.registers.setEFLAG(FLAG_DF, False)
     cdef std(self):
@@ -422,7 +423,7 @@ cdef class Opcodes:
     cdef stc(self):
         self.registers.setEFLAG(FLAG_CF, True)
     cdef cmc(self):
-        self.registers.setEFLAG(FLAG_CF, not self.registers.getEFLAG(FLAG_CF) )
+        self.registers.setEFLAG(FLAG_CF, self.registers.getEFLAG(FLAG_CF)==0 )
     cdef hlt(self):
         self.cpu.cpuHalted = True
     cdef nop(self):
@@ -464,7 +465,7 @@ cdef class Opcodes:
         operSize, addrSize = self.registers.segments.getOpAddrSegSize(CPU_SEGMENT_CS)
         countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, addrSize)
         bitMask = self.main.misc.getBitMaskFF(operSize)
-        oldZF = self.registers.getEFLAG(FLAG_ZF)
+        oldZF = self.registers.getEFLAG(FLAG_ZF)!=0
         rel8 = self.cpu.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
         countOrNewEip = self.registers.regSub(countReg, 1)
         cond = False
@@ -606,7 +607,7 @@ cdef class Opcodes:
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = self.registers.getEFLAG(FLAG_DF)
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         dataLength = operSize*countVal
         destAddr = self.registers.regRead(dataReg, False)
         if (df):
@@ -636,7 +637,7 @@ cdef class Opcodes:
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = self.registers.getEFLAG(FLAG_DF)
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg, False)
         ediVal = self.registers.regRead(ediReg, False)
@@ -669,7 +670,7 @@ cdef class Opcodes:
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = self.registers.getEFLAG(FLAG_DF)
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         dataLength = operSize*countVal
         if (not df):
             esiVal = self.registers.regAdd(esiReg, dataLength)-operSize
@@ -693,7 +694,7 @@ cdef class Opcodes:
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = self.registers.getEFLAG(FLAG_DF)
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         esiVal = self.registers.regRead(esiReg, False)
         ediVal = self.registers.regRead(ediReg, False)
         for i in range(countVal):
@@ -706,7 +707,7 @@ cdef class Opcodes:
             else:
                 esiVal = self.registers.regSub(esiReg, operSize)
                 ediVal = self.registers.regSub(ediReg, operSize)
-            zf = self.registers.getEFLAG(FLAG_ZF)
+            zf = self.registers.getEFLAG(FLAG_ZF)!=0
             if ((self.registers.repPrefix == OPCODE_PREFIX_REPE and not zf) or \
                 (self.registers.repPrefix == OPCODE_PREFIX_REPNE and zf)):
                 newCount = countVal-i-1
@@ -727,7 +728,7 @@ cdef class Opcodes:
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = self.registers.getEFLAG(FLAG_DF)
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
             ediVal = self.registers.regRead(ediReg, False)
             src1 = self.registers.regRead(eaxReg, False)
@@ -737,7 +738,7 @@ cdef class Opcodes:
                 self.registers.regAdd(ediReg, operSize)
             else:
                 self.registers.regSub(ediReg, operSize)
-            zf = self.registers.getEFLAG(FLAG_ZF)
+            zf = self.registers.getEFLAG(FLAG_ZF)!=0
             if ((self.registers.repPrefix == OPCODE_PREFIX_REPE and not zf) or \
                 (self.registers.repPrefix == OPCODE_PREFIX_REPNE and zf)):
                 newCount = countVal-i-1
@@ -774,7 +775,7 @@ cdef class Opcodes:
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = self.registers.getEFLAG(FLAG_DF)
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
             esiVal = self.registers.regRead(esiReg, False)
             ioPort = self.registers.regRead(dxReg, False)
@@ -800,7 +801,7 @@ cdef class Opcodes:
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = self.registers.getEFLAG(FLAG_DF)
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
             ediVal = self.registers.regRead(ediReg, False)
             ioPort = self.registers.regRead(dxReg, False)
@@ -926,7 +927,7 @@ cdef class Opcodes:
         self.registers.setEFLAG(0x8, False)
         self.registers.setEFLAG(0x20, False)
         self.registers.setEFLAG(0x8000, False)
-        if (self.registers.getEFLAG(FLAG_VM)):
+        if (self.registers.getEFLAG(FLAG_VM)!=0):
             self.main.exitError("TODO: virtual 8086 mode not supported yet.")
     cdef stackPopRM(self, tuple rmOperands, unsigned char operSize):
         cdef unsigned long value
@@ -1196,7 +1197,7 @@ cdef class Opcodes:
             if (self.registers.cpl != 0):
                 raise misc.ChemuException( CPU_EXCEPTION_GP, 0 )
             if (operOpcode == 0x06): # CLTS
-                self.registers.regDelFlag( CPU_REGISTER_CR0, CR0_FLAG_TS )
+                self.registers.regAnd( CPU_REGISTER_CR0, ~CR0_FLAG_TS )
         elif (operOpcode == 0x0b): # UD2
             raise misc.ChemuException( CPU_EXCEPTION_UD )
         elif (operOpcode == 0x20): # MOV R32, CRn
@@ -1421,7 +1422,7 @@ cdef class Opcodes:
             op2 = self.registers.modRMLoad(rmOperands, operSize, False, True)
             op1 = bin(op2).count('1')
             self.registers.modRSave(rmOperands, operSize, op1, OPCODE_SAVE)
-            self.registers.clearThisEFLAGS( FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | FLAG_OF )
+            self.registers.setEFLAG( FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | FLAG_OF, False )
             self.registers.setEFLAG( FLAG_ZF, op2==0 )
         elif (operOpcode == 0xba): # BT/BTS/BTR/BTC RM16/32 IMM8
             operOpcodeMod = self.cpu.getCurrentOpcode(OP_SIZE_BYTE, False)
@@ -1571,7 +1572,7 @@ cdef class Opcodes:
     cdef incFuncReg(self, unsigned char regId):
         cdef unsigned char origCF, regSize
         cdef unsigned long retValue
-        origCF = self.registers.getEFLAG(FLAG_CF)
+        origCF = self.registers.getEFLAG(FLAG_CF)!=0
         regSize = self.registers.getRegSize(regId)
         retValue = self.registers.regAdd(regId, 1)
         self.registers.setFullFlags(retValue-1, 1, regSize, OPCODE_ADD, False)
@@ -1579,7 +1580,7 @@ cdef class Opcodes:
     cdef decFuncReg(self, unsigned char regId):
         cdef unsigned char origCF, regSize
         cdef unsigned long retValue
-        origCF = self.registers.getEFLAG(FLAG_CF)
+        origCF = self.registers.getEFLAG(FLAG_CF)!=0
         regSize = self.registers.getRegSize(regId)
         retValue = self.registers.regSub(regId, 1)
         self.registers.setFullFlags(retValue+1, 1, regSize, OPCODE_SUB, False)
@@ -1587,14 +1588,14 @@ cdef class Opcodes:
     cdef incFuncRM(self, tuple rmOperands, unsigned char rmSize): # rmSize in bits
         cdef unsigned char origCF
         cdef unsigned long retValue
-        origCF = self.registers.getEFLAG(FLAG_CF)
+        origCF = self.registers.getEFLAG(FLAG_CF)!=0
         retValue = self.registers.modRMSave(rmOperands, rmSize, 1, True, OPCODE_ADD)
         self.registers.setFullFlags(retValue-1, 1, rmSize, OPCODE_ADD, False)
         self.registers.setEFLAG(FLAG_CF, origCF)
     cdef decFuncRM(self, tuple rmOperands, unsigned char rmSize): # rmSize in bits
         cdef unsigned char origCF
         cdef unsigned long retValue
-        origCF = self.registers.getEFLAG(FLAG_CF)
+        origCF = self.registers.getEFLAG(FLAG_CF)!=0
         retValue = self.registers.modRMSave(rmOperands, rmSize, 1, True, OPCODE_SUB)
         self.registers.setFullFlags(retValue+1, 1, rmSize, OPCODE_SUB, False)
         self.registers.setEFLAG(FLAG_CF, origCF)
@@ -1897,7 +1898,7 @@ cdef class Opcodes:
             self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
             self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
         self.stackPushRegId(CPU_REGISTER_EFLAGS, entrySize)
-        self.registers.clearThisEFLAGS(eflagsClearThis)
+        self.registers.setEFLAG(eflagsClearThis, False)
         self.stackPushSegId(CPU_SEGMENT_CS, entrySize)
         self.stackPushRegId(CPU_REGISTER_EIP, entrySize)
         self.registers.segWrite(CPU_SEGMENT_CS, entrySegment)
@@ -1905,7 +1906,7 @@ cdef class Opcodes:
         if (errorCode != -1):
             self.stackPushValue(errorCode, entrySize)
     cdef into(self):
-        if (self.registers.getEFLAG( FLAG_OF )):
+        if (self.registers.getEFLAG( FLAG_OF )!=0):
             self.interrupt(CPU_EXCEPTION_OF, -1, False)
     cdef int3(self):
         self.interrupt(CPU_EXCEPTION_BP, -1, False)
@@ -1971,14 +1972,14 @@ cdef class Opcodes:
         tempAX = self.registers.regRead(CPU_REGISTER_AX, False)
         tempAL = tempAX&0xff
         tempAH = (tempAX>>8)&0xff
-        AFflag = self.registers.getEFLAG(FLAG_AF)
+        AFflag = self.registers.getEFLAG(FLAG_AF)!=0
         if (((tempAL&0xf)>9) or AFflag):
             tempAL += 6
-            self.registers.setThisEFLAGS(FLAG_AF | FLAG_CF)
+            self.registers.setEFLAG(FLAG_AF | FLAG_CF, True)
             self.registers.regAdd(CPU_REGISTER_AH, 1)
             self.registers.regWrite(CPU_REGISTER_AL, tempAL&0xf)
         else:
-            self.registers.clearThisEFLAGS(FLAG_AF | FLAG_CF)
+            self.registers.setEFLAG(FLAG_AF | FLAG_CF, False)
             self.registers.regWrite(CPU_REGISTER_AL, tempAL&0xf)
         self.registers.setSZP_O0(self.registers.regRead(CPU_REGISTER_AL, False), OP_SIZE_BYTE)
     cdef aas(self):
@@ -1987,21 +1988,21 @@ cdef class Opcodes:
         tempAX = self.registers.regRead(CPU_REGISTER_AX, False)
         tempAL = tempAX&0xff
         tempAH = (tempAX>>8)&0xff
-        AFflag = self.registers.getEFLAG(FLAG_AF)
+        AFflag = self.registers.getEFLAG(FLAG_AF)!=0
         if (((tempAL&0xf)>9) or AFflag):
             tempAL -= 6
-            self.registers.setThisEFLAGS(FLAG_AF | FLAG_CF)
+            self.registers.setEFLAG(FLAG_AF | FLAG_CF, True)
             self.registers.regSub(CPU_REGISTER_AH, 1)
             self.registers.regWrite(CPU_REGISTER_AL, tempAL&0xf)
         else:
-            self.registers.clearThisEFLAGS(FLAG_AF | FLAG_CF)
+            self.registers.setEFLAG(FLAG_AF | FLAG_CF, False)
             self.registers.regWrite(CPU_REGISTER_AL, tempAL&0xf)
         self.registers.setSZP_O0(self.registers.regRead(CPU_REGISTER_AL, False), OP_SIZE_BYTE)
     cdef daa(self):
         cdef unsigned char old_AL, old_AF, old_CF
         old_AL = self.registers.regRead(CPU_REGISTER_AL, False)
-        old_AF = self.registers.getEFLAG(FLAG_AF)
-        old_CF = self.registers.getEFLAG(FLAG_CF)
+        old_AF = self.registers.getEFLAG(FLAG_AF)!=0
+        old_CF = self.registers.getEFLAG(FLAG_CF)!=0
         self.registers.setEFLAG(FLAG_CF, False)
         if (((old_AL&0xf)>9) or old_AF):
             self.registers.regAdd(CPU_REGISTER_AL, 0x6)
@@ -2018,8 +2019,8 @@ cdef class Opcodes:
     cdef das(self):
         cdef unsigned char old_AL, old_AF, old_CF
         old_AL = self.registers.regRead(CPU_REGISTER_AL, False)
-        old_AF = self.registers.getEFLAG(FLAG_AF)
-        old_CF = self.registers.getEFLAG(FLAG_CF)
+        old_AF = self.registers.getEFLAG(FLAG_AF)!=0
+        old_CF = self.registers.getEFLAG(FLAG_CF)!=0
         self.registers.setEFLAG(FLAG_CF, False)
         if (((old_AL&0xf)>9) or old_AF):
             self.registers.regSub(CPU_REGISTER_AL, 6)
@@ -2144,7 +2145,7 @@ cdef class Opcodes:
             count %= 9
         elif (operSize == OP_SIZE_WORD):
             count %= 17
-        newCF = self.registers.getEFLAG( FLAG_CF )
+        newCF = self.registers.getEFLAG( FLAG_CF )!=0
         for i in range(count):
             tempCF_OF = (dest&bitMaskHalf)!=0
             dest = (dest<<1)|newCF
@@ -2169,7 +2170,7 @@ cdef class Opcodes:
         bitMaskHalf = self.main.misc.getBitMask80(operSize)
         dest = self.registers.modRMLoad(rmOperands, operSize, False, True)
         count = count&0x1f
-        newCF = self.registers.getEFLAG( FLAG_CF )
+        newCF = self.registers.getEFLAG( FLAG_CF )!=0
         if (operSize == OP_SIZE_BYTE):
             count %= 9
         elif (operSize == OP_SIZE_WORD):
@@ -2326,8 +2327,8 @@ cdef class Opcodes:
     cdef sahf(self):
         cdef unsigned char ahVal, orThis
         ahVal = self.registers.regRead( CPU_REGISTER_AH, False )
-        self.registers.clearThisEFLAGS( FLAG_CF | FLAG_PF | \
-            FLAG_AF | FLAG_ZF | FLAG_SF )
+        self.registers.setEFLAG( FLAG_CF | FLAG_PF | \
+            FLAG_AF | FLAG_ZF | FLAG_SF, False )
         orThis = 0x2
         orThis |= ahVal & FLAG_CF
         orThis |= ahVal & FLAG_PF

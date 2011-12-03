@@ -302,19 +302,19 @@ cdef class ISADMA:
                    (currChannel.currentAddress << ma_sl))
         self.controller[ma_sl].channel[channel].DACK = True
         if (currChannel.addressDecrement):
-            #if (currChannel.currentAddress == 0): # TODO: HACK: cython won't allow unsigned overflow
-            #    currChannel.currentAddress = 0xffff
-            #else:
-            currChannel.currentAddress -= 1
+            if (currChannel.currentAddress == 0): # TODO: HACK: cython won't allow unsigned overflow
+                currChannel.currentAddress = 0xffff
+            else:
+                currChannel.currentAddress -= 1
         else:
-            #if (currChannel.currentAddress == 0xffff): # TODO: HACK: cython won't allow unsigned overflow
-            #    currChannel.currentAddress = 0
-            #else:
-            currChannel.currentAddress += 1
-        #if (currChannel.currentCount == 0): # TODO: HACK: cython won't allow unsigned overflow
-        #    currChannel.currentCount = 0xffff
-        #else:
-        currChannel.currentCount -= 1
+            if (currChannel.currentAddress == 0xffff): # TODO: HACK: cython won't allow unsigned overflow
+                currChannel.currentAddress = 0
+            else:
+                currChannel.currentAddress += 1
+        if (currChannel.currentCount == 0): # TODO: HACK: cython won't allow unsigned overflow
+            currChannel.currentCount = 0xffff
+        else:
+            currChannel.currentCount -= 1
         if (currChannel.currentCount == 0xffff):
             currController.statusReg |= (1 << channel)
             self.TC = True

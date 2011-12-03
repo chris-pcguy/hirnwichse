@@ -76,16 +76,11 @@ cdef class Registers:
     cpdef unsigned long regNeg(self, unsigned short regId)
     cpdef unsigned long regNot(self, unsigned short regId)
     cpdef unsigned long regWriteWithOp(self, unsigned short regId, unsigned long value, unsigned char valueOp)
-    cpdef unsigned long regDelFlag(self, unsigned short regId, unsigned long value) # by val, not bit
-    cpdef unsigned long regSetBit(self, unsigned short regId, unsigned char bit, unsigned char state)
-    cpdef unsigned char regGetBit(self, unsigned short regId, unsigned char bit) # return True if bit is set, otherwise False
     cpdef unsigned long valSetBit(self, unsigned long value, unsigned char bit, unsigned char state)
     cpdef unsigned char valGetBit(self, unsigned long value, unsigned char bit) # return True if bit is set, otherwise False
+    cpdef unsigned long getEFLAG(self, unsigned long flags)
     cpdef unsigned long setEFLAG(self, unsigned long flags, unsigned char flagState)
-    cpdef unsigned char getEFLAG(self, unsigned long flags)
-    cpdef unsigned char getFlag(self, unsigned short regId, unsigned long flags)
-    cpdef unsigned long clearThisEFLAGS(self, unsigned long flags)
-    cpdef unsigned long setThisEFLAGS(self, unsigned long flags)
+    cpdef unsigned long getFlag(self, unsigned short regId, unsigned long flags)
     cpdef unsigned short getWordAsDword(self, unsigned short regWord, unsigned char wantRegSize)
     cpdef setSZP(self, unsigned long value, unsigned char regSize)
     cpdef setSZP_O0(self, unsigned long value, unsigned char regSize)

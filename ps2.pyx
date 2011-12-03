@@ -280,8 +280,8 @@ cdef class PS2:
         return
     cpdef timerFunc(self):
         while (not self.main.quitEmu):
-            if ((not len(self.ctrlBuffer) and len(self.outBuffer)) and self.allowIrq1 and self.kbdClockEnabled and self.irq1Requested):
-                print('5678_1')
+            if (((not len(self.ctrlBuffer)) and len(self.outBuffer)) and self.allowIrq1 and self.kbdClockEnabled and self.irq1Requested):
+                print('9876_1')
                 self.doKbcIrq()
             self.irq1Requested = False
             time.sleep(0.20)

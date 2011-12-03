@@ -2,8 +2,8 @@
 cdef class Cpu:
     cpdef public object main, registers, opcodes
     cdef public unsigned long long cycles
-    cdef public unsigned char opcode, cpuHalted, debugHalt, debugSingleStep, A20Active, protectedModeOn
-    cdef unsigned char asyncEvent, INTR, HRQ
+    cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, A20Active, protectedModeOn
+    cdef unsigned char INTR, HRQ
     cdef unsigned long savedCs, savedEip
     cpdef object cpuThread
     cpdef reset(self)

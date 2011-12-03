@@ -140,7 +140,7 @@ cdef class Mm:
         data = (self.mmPhyReadValue(mmAddr, dataSize, False)+data)&self.main.misc.getBitMaskFF(dataSize)
         return self.mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef unsigned long long mmAdcValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes, data==int
-        cdef unsigned char withCarry = self.main.cpu.registers.getEFLAG( FLAG_CF )
+        cdef unsigned char withCarry = self.main.cpu.registers.getEFLAG( FLAG_CF )!=0
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         data = (self.mmPhyReadValue(mmAddr, dataSize, False)+(data+withCarry))&self.main.misc.getBitMaskFF(dataSize)
         return self.mmPhyWriteValue(mmAddr, data, dataSize)
@@ -149,7 +149,7 @@ cdef class Mm:
         data = (self.mmPhyReadValue(mmAddr, dataSize, False)-data)&self.main.misc.getBitMaskFF(dataSize)
         return self.mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef unsigned long long mmSbbValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes, data==int
-        cdef unsigned char withCarry = self.main.cpu.registers.getEFLAG( FLAG_CF )
+        cdef unsigned char withCarry = self.main.cpu.registers.getEFLAG( FLAG_CF )!=0
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         data = (self.mmPhyReadValue(mmAddr, dataSize, False)-(data+withCarry))&self.main.misc.getBitMaskFF(dataSize)
         return self.mmPhyWriteValue(mmAddr, data, dataSize)

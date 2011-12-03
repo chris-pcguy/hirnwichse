@@ -377,14 +377,14 @@ cdef class Registers:
         newVal = (newVal+value)&self.main.misc.getBitMaskFF(self.getRegSize(regId))
         return self.regWrite(regId, newVal)
     cpdef unsigned long regAdc(self, unsigned short regId, unsigned long value):
-        cdef unsigned char withCarry = self.getEFLAG( FLAG_CF )
+        cdef unsigned char withCarry = self.getEFLAG( FLAG_CF )!=0
         return self.regAdd(regId, value+withCarry)
     cpdef unsigned long regSub(self, unsigned short regId, unsigned long value):
         cdef unsigned long newVal = self.regRead(regId, False)
         newVal = (newVal-value)&self.main.misc.getBitMaskFF(self.getRegSize(regId))
         return self.regWrite(regId, newVal)
     cpdef unsigned long regSbb(self, unsigned short regId, unsigned long value):
-        cdef unsigned char withCarry = self.getEFLAG( FLAG_CF )
+        cdef unsigned char withCarry = self.getEFLAG( FLAG_CF )!=0
         return self.regSub(regId, value+withCarry)
     cpdef unsigned long regXor(self, unsigned short regId, unsigned long value):
         cdef unsigned long newVal
@@ -431,33 +431,20 @@ cdef class Registers:
             return self.regWrite(regId, value)
         else:
             self.main.printMsg("REGISTERS::regWriteWithOp: unknown valueOp {0:d}.", valueOp)
-    cpdef unsigned long regDelFlag(self, unsigned short regId, unsigned long value): # by val, not bit
-        return self.regAnd(regId, ~value)
-    cpdef unsigned long regSetBit(self, unsigned short regId, unsigned char bit, unsigned char state):
-        if (state):
-            return self.regOr(regId, (1<<bit))
-        return self.regAnd(regId, ~(1<<bit))
-    cpdef unsigned char regGetBit(self, unsigned short regId, unsigned char bit): # return True if bit is set, otherwise False
-        cdef unsigned long bitMask = (1<<bit)
-        return (self.regRead(regId, False)&bitMask)!=0
     cpdef unsigned long valSetBit(self, unsigned long value, unsigned char bit, unsigned char state):
         if (state):
             return ( value | (1<<bit) )
         return ( value & (~(1<<bit)) )
     cpdef unsigned char valGetBit(self, unsigned long value, unsigned char bit): # return True if bit is set, otherwise False
         return (value&(1<<bit))!=0
+    cpdef unsigned long getEFLAG(self, unsigned long flags):
+        return self.getFlag(CPU_REGISTER_EFLAGS, flags)
     cpdef unsigned long setEFLAG(self, unsigned long flags, unsigned char flagState):
         if (flagState):
             return self.regOr(CPU_REGISTER_EFLAGS, flags)
-        return self.regDelFlag(CPU_REGISTER_EFLAGS, flags)
-    cpdef unsigned char getEFLAG(self, unsigned long flags):
-        return (self.regRead(CPU_REGISTER_EFLAGS, False)&flags)
-    cpdef unsigned char getFlag(self, unsigned short regId, unsigned long flags):
+        return self.regAnd(CPU_REGISTER_EFLAGS, ~flags)
+    cpdef unsigned long getFlag(self, unsigned short regId, unsigned long flags):
         return (self.regRead(regId, False)&flags)
-    cpdef unsigned long clearThisEFLAGS(self, unsigned long flags):
-        return self.regAnd( CPU_REGISTER_EFLAGS, ~flags )
-    cpdef unsigned long setThisEFLAGS(self, unsigned long flags):
-        return self.regOr( CPU_REGISTER_EFLAGS, flags )
     cpdef unsigned short getWordAsDword(self, unsigned short regWord, unsigned char wantRegSize):
         if (regWord in CPU_REGISTER_BYTE):
             # regWord should be LBYTE...
@@ -490,10 +477,10 @@ cdef class Registers:
         self.setEFLAG(FLAG_PF, PARITY_TABLE[value&0xff])
     cpdef setSZP_O0(self, unsigned long value, unsigned char regSize):
         self.setSZP(value, regSize)
-        self.clearThisEFLAGS(FLAG_OF)
+        self.setEFLAG(FLAG_OF, False)
     cpdef setSZP_C0_O0_A0(self, unsigned long value, unsigned char regSize):
         self.setSZP_O0(value, regSize)
-        self.clearThisEFLAGS(FLAG_CF | FLAG_AF)
+        self.setEFLAG(FLAG_CF | FLAG_AF, False)
     cpdef unsigned long long getRMValueFull(self, tuple rmNames, unsigned char rmSize):
         cdef unsigned long rmMask
         cdef unsigned long long rmValueFull
@@ -693,37 +680,37 @@ cdef class Registers:
         return rmOperands
     cpdef unsigned char getCond(self, unsigned char index):
         if (index == 0x0): # O
-            return self.getEFLAG( FLAG_OF )
+            return self.getEFLAG( FLAG_OF )!=0
         elif (index == 0x1): # NO
-            return (not self.getEFLAG( FLAG_OF ))
+            return self.getEFLAG( FLAG_OF )==0
         elif (index == 0x2): # C
-            return self.getEFLAG( FLAG_CF )
+            return self.getEFLAG( FLAG_CF )!=0
         elif (index == 0x3): # NC
-            return (not self.getEFLAG( FLAG_CF ))
+            return self.getEFLAG( FLAG_CF )==0
         elif (index == 0x4): # E
-            return self.getEFLAG( FLAG_ZF )
+            return self.getEFLAG( FLAG_ZF )!=0
         elif (index == 0x5): # NE
-            return (not self.getEFLAG( FLAG_ZF ))
+            return self.getEFLAG( FLAG_ZF )==0
         elif (index == 0x6): # NA
-            return self.getEFLAG( FLAG_CF_ZF )
+            return self.getEFLAG( FLAG_CF_ZF )!=0
         elif (index == 0x7): # A
-            return (not self.getEFLAG( FLAG_CF_ZF ))
+            return self.getEFLAG( FLAG_CF_ZF )==0
         elif (index == 0x8): # S
-            return self.getEFLAG( FLAG_SF )
+            return self.getEFLAG( FLAG_SF )!=0
         elif (index == 0x9): # NS
-            return (not self.getEFLAG( FLAG_SF ))
+            return self.getEFLAG( FLAG_SF )==0
         elif (index == 0xa): # P
-            return self.getEFLAG( FLAG_PF )
+            return self.getEFLAG( FLAG_PF )!=0
         elif (index == 0xb): # NP
-            return (not self.getEFLAG( FLAG_PF ))
+            return self.getEFLAG( FLAG_PF )==0
         elif (index == 0xc): # L
             return (self.getEFLAG( FLAG_SF_OF ) in ( FLAG_SF, FLAG_OF ))
         elif (index == 0xd): # GE
             return (self.getEFLAG( FLAG_SF_OF ) in ( 0, (FLAG_SF_OF) ))
         elif (index == 0xe): # LE
-            return (self.getEFLAG( FLAG_ZF ) or (self.getEFLAG( FLAG_SF | FLAG_OF ) in ( FLAG_SF, FLAG_OF )) )
+            return (self.getEFLAG( FLAG_ZF )!=0 or (self.getEFLAG( FLAG_SF | FLAG_OF ) in ( FLAG_SF, FLAG_OF )) )
         elif (index == 0xf): # G
-            return (not self.getEFLAG( FLAG_ZF ) and (self.getEFLAG( FLAG_SF_OF ) in ( 0, (FLAG_SF_OF) )) )
+            return (self.getEFLAG( FLAG_ZF )==0 and (self.getEFLAG( FLAG_SF_OF ) in ( 0, (FLAG_SF_OF) )) )
         else:
             self.main.exitError("getCond: index {0:#x} invalid.", index)
     cpdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method, unsigned char signed): # regSize in bits
@@ -739,7 +726,7 @@ cdef class Registers:
         bitMaskHalf = self.main.misc.getBitMask80(regSize)
         
         if (method in (OPCODE_ADD, OPCODE_ADC)):
-            if (method == OPCODE_ADC and self.getEFLAG(FLAG_CF)):
+            if (method == OPCODE_ADC and self.getEFLAG(FLAG_CF)!=0):
                 reg0 += 1
             regSum = reg0+reg1
             regSumMasked = regSum&bitMask
@@ -761,7 +748,7 @@ cdef class Registers:
             self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
             self.setEFLAG(FLAG_SF, regSum!=0)
         elif (method in (OPCODE_SUB, OPCODE_SBB)):
-            if (method == OPCODE_SBB and self.getEFLAG(FLAG_CF)):
+            if (method == OPCODE_SBB and self.getEFLAG(FLAG_CF)!=0):
                 reg0 -= 1
             regSum = reg0-reg1
             regSumMasked = regSum&bitMask
