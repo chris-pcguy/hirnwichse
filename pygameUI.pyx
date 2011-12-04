@@ -313,28 +313,11 @@ cdef class pygameUI:
             return 0x67
         elif (key == pygame.K_MENU):
             return 0x68
-        elif (key == pygame.K_SYSRQ):
-            return 0x69
+        #elif (key == pygame.K_SYSREQ): # OR SYSRQ?
+        #    return 0x69
         elif (key == pygame.K_BREAK):
             return 0x6a
         return 0xff
-    cpdef addKeyToBuffer(self, unsigned short key, unsigned char up): # if KEYUP: up=True, otherwise up=False
-        cdef unsigned char escKey, normalKey
-        cdef bytes keys = bytes()
-        if (not self.main.platform.ps2.kbdClockEnabled):
-            return
-        escKey = (key>>8)&0xff
-        normalKey = key&0xff
-        if (escKey != 0):
-            keys += bytes([escKey])
-        if (normalKey == 0):
-            return
-        if (up):
-            normalKey |= 0x80
-        keys += bytes([normalKey])
-        ###self.main.printMsg("appendToOutBytes({0:s})", repr(keys))
-        self.main.platform.ps2.appendToOutBytesDoIrq(keys)
-        ###self.main.platform.pic.raiseIrq(KBC_IRQ)
     cpdef handleEvent(self, object event):
         try:
             if (event.type == pygame.QUIT):

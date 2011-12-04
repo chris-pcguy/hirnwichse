@@ -87,7 +87,7 @@ cdef class Controller:
         self.channel[2].channelMasked = (maskByte&4)!=0
         self.channel[3].channelMasked = (maskByte&8)!=0
         self.controlHRQ()
-    cpdef getChannelMasks(self):
+    cpdef unsigned char getChannelMasks(self):
         cdef unsigned char retVal
         retVal = (self.channel[0].channelMasked!=0)
         retVal |= (self.channel[1].channelMasked!=0)<<1
@@ -112,9 +112,9 @@ cdef class Controller:
             self.channel[channel].baseCount = (self.channel[channel].baseCount&0xff00) | data
             self.channel[channel].currentCount = self.channel[channel].baseCount
         self.setFlipFlop(not self.flipFlop)
-    cpdef getPageByte(self, unsigned char channel):
+    cpdef unsigned char getPageByte(self, unsigned char channel):
         return self.channel[channel].page&0xff
-    cpdef getAddrByte(self, unsigned char channel):
+    cpdef unsigned char getAddrByte(self, unsigned char channel):
         cdef unsigned char retVal
         if (self.flipFlop):
             retVal = (self.channel[channel].currentAddress>>8)&0xff
@@ -122,7 +122,7 @@ cdef class Controller:
             retVal = self.channel[channel].currentAddress&0xff
         self.setFlipFlop(not self.flipFlop)
         return retVal
-    cpdef getCountByte(self, unsigned char channel):
+    cpdef unsigned char getCountByte(self, unsigned char channel):
         cdef unsigned char retVal
         if (self.flipFlop):
             retVal = (self.channel[channel].currentCount>>8)&0xff
@@ -136,15 +136,11 @@ cdef class Controller:
     cpdef setCountWord(self, unsigned char channel, unsigned short data):
         self.channel[channel].baseCount = data
         self.channel[channel].currentCount = self.channel[channel].baseCount
-    cpdef getAddrWord(self, unsigned char channel):
-        cdef unsigned short retVal
-        retVal = self.channel[channel].currentAddress
-        return retVal
-    cpdef getCountWord(self, unsigned char channel):
-        cdef unsigned short retVal
-        retVal = self.channel[channel].currentCount
-        return retVal
-    cpdef getStatus(self):
+    cpdef unsigned short getAddrWord(self, unsigned char channel):
+        return self.channel[channel].currentAddress
+    cpdef unsigned short getCountWord(self, unsigned char channel):
+        return self.channel[channel].currentCount
+    cpdef unsigned char getStatus(self):
         cdef unsigned char status
         status = self.statusReg
         self.statusReg &= 0xf0
@@ -178,25 +174,33 @@ cdef class ISADMA:
         cdef unsigned char ma_sl, channelNum
         ma_sl = (ioPortAddr>=0xc0)
         channelNum = (ioPortAddr>>(1+ma_sl))&3
-        if (dataSize != OP_SIZE_BYTE):
-            self.main.exitError("ISADma::inPort: invalid dataSize. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
-        elif (ioPortAddr in (0x00, 0x02, 0x04, 0x06, 0xc0, 0xc4, 0xc8, 0xcc)):
-            return self.controller[ma_sl].getAddrByte(channelNum)
+        if (ioPortAddr in (0x00, 0x02, 0x04, 0x06, 0xc0, 0xc4, 0xc8, 0xcc)):
+            if (dataSize == OP_SIZE_BYTE):
+                return self.controller[ma_sl].getAddrByte(channelNum)
+            elif (dataSize == OP_SIZE_WORD):
+                return self.controller[ma_sl].getAddrWord(channelNum)
+            else:
+                self.main.exitError("ISADma::inPort: unknown dataSize. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
         elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07, 0xc2, 0xc6, 0xca, 0xce)):
-            return self.controller[ma_sl].getCountByte(channelNum)
-        elif (ioPortAddr in (0x08,0xd0)):
+            if (dataSize == OP_SIZE_BYTE):
+                return self.controller[ma_sl].getCountByte(channelNum)
+            elif (dataSize == OP_SIZE_WORD):
+                return self.controller[ma_sl].getCountWord(channelNum)
+            else:
+                self.main.exitError("ISADma::inPort: unknown dataSize. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x08,0xd0)):
             return self.controller[ma_sl].getStatus()
-        elif (ioPortAddr in (0x0d,0xda)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0d,0xda)):
             return 0
-        elif (ioPortAddr in (0x0f,0xde)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0f,0xde)):
             return (0xf0 | self.controller[ma_sl].getChannelMasks())
-        elif (ioPortAddr in (0x81, 0x82, 0x83, 0x87)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x81, 0x82, 0x83, 0x87)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x81]
             return self.controller[0].getPageByte(channelNum)
-        elif (ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
             return self.controller[1].getPageByte(channelNum)
-        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
             return self.extPageReg[ioPortAddr&0xf]
         else:
             self.main.exitError("ISADma::inPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
@@ -205,40 +209,47 @@ cdef class ISADMA:
         cdef unsigned char ma_sl, channelNum
         ma_sl = (ioPortAddr>=0xc0)
         channelNum = (ioPortAddr>>(1+ma_sl))&3
-        if (dataSize != OP_SIZE_BYTE):
-            if (ioPortAddr == 0x0b and dataSize == OP_SIZE_WORD):
-                self.outPort(ioPortAddr, data&0xff, OP_SIZE_BYTE)
-                self.outPort(ioPortAddr+1, (data>>8)&0xff, OP_SIZE_BYTE)
-                return
+        if (dataSize == OP_SIZE_WORD and ioPortAddr == 0x0b):
+            self.outPort(ioPortAddr, data&0xff, OP_SIZE_BYTE)
+            self.outPort(ioPortAddr+1, (data>>8)&0xff, OP_SIZE_BYTE)
+            return
+        elif (ioPortAddr in (0x00, 0x02, 0x04, 0x06, 0xc0, 0xc4, 0xc8, 0xcc)):
+            if (dataSize == OP_SIZE_BYTE):
+                self.controller[ma_sl].setAddrByte(channelNum, data&0xff)
+            elif (dataSize == OP_SIZE_WORD):
+                self.controller[ma_sl].setAddrWord(channelNum, data)
             else:
                 self.main.exitError("ISADma::outPort: unknown dataSize. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
-        elif (ioPortAddr in (0x00, 0x02, 0x04, 0x06, 0xc0, 0xc4, 0xc8, 0xcc)):
-            self.controller[ma_sl].setAddrByte(channelNum, data&0xff)
         elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07, 0xc2, 0xc6, 0xca, 0xce)):
-            self.controller[ma_sl].setCountByte(channelNum, data&0xff)
-        elif (ioPortAddr in (0x08, 0xd0)):
+            if (dataSize == OP_SIZE_BYTE):
+                self.controller[ma_sl].setCountByte(channelNum, data&0xff)
+            elif (dataSize == OP_SIZE_WORD):
+                self.controller[ma_sl].setCountWord(channelNum, data)
+            else:
+                self.main.exitError("ISADma::outPort: unknown dataSize. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x08, 0xd0)):
             self.controller[ma_sl].doCommand(data&0xff)
-        elif (ioPortAddr in (0x09, 0xd2)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x09, 0xd2)):
             self.controller[ma_sl].doManualRequest(data&0xff)
-        elif (ioPortAddr in (0x0a, 0xd4)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0a, 0xd4)):
             self.controller[ma_sl].maskChannel(data&3, data&4)
-        elif (ioPortAddr in (0x0b, 0xd6)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0b, 0xd6)):
             self.controller[ma_sl].setTransferMode(data&0xff)
-        elif (ioPortAddr in (0x0c, 0xd8)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0c, 0xd8)):
             self.controller[ma_sl].setFlipFlop(False)
-        elif (ioPortAddr in (0x0d, 0xda)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0d, 0xda)):
             self.controller[ma_sl].reset()
-        elif (ioPortAddr in (0x0e, 0xdc)): # clear all mask registers
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0e, 0xdc)): # clear all mask registers
             self.controller[ma_sl].maskChannels(0)
-        elif (ioPortAddr in (0x0f, 0xde)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0f, 0xde)):
             self.controller[ma_sl].maskChannels(data&0xff)
-        elif (ioPortAddr in (0x81, 0x82, 0x83, 0x87)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x81, 0x82, 0x83, 0x87)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x81]
             self.controller[0].setPageByte(channelNum, data&0xff)
-        elif (ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
             self.controller[1].setPageByte(channelNum, data&0xff)
-        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
+        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
             self.extPageReg[ioPortAddr&0xf] = data&0xff
         else:
             self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)

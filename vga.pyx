@@ -36,7 +36,7 @@ cdef class VRamArea(MmArea):
         cdef unsigned long long mmAreaAddr
         mmAreaAddr = mmPhyAddr-self.mmBaseAddr
         MmArea.mmAreaWrite(self, mmPhyAddr, data, dataSize)
-        if (self.main.platform.vga.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
+        if (self.main.platform.vga.processVideoMem and self.main.platform.vga.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
             self.handleVRamWrite(mmAreaAddr, dataSize)
     cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
         cdef list rectList
@@ -135,6 +135,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 cdef class Vga:
     cpdef public object main, seq, crt, gdc, dac, extreg, attrctrlreg
     cpdef public object ui
+    cdef public unsigned char processVideoMem
     def __init__(self, object main):
         self.main = main
         self.seq = Sequencer(self, self.main)
@@ -143,14 +144,20 @@ cdef class Vga:
         self.dac = DAC(self, self.main)
         self.extreg = ExtReg(self, self.main)
         self.attrctrlreg = AttrCtrlReg(self, self.main)
+        self.processVideoMem = True
         self.ui = None
         if (not self.main.noUI):
             self.ui = pygameUI.pygameUI(self, self.main)
-    cpdef writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor):
-        cdef unsigned char x, y
-        cdef unsigned long address
+    cpdef setProcessVideoMem(self, unsigned char processVideoMem):
+        self.processVideoMem = processVideoMem
+    cpdef unsigned char getCorrectPage(self, unsigned char page):
         if (page == 0xff):
             page = self.main.mm.mmPhyReadValue(VGA_CURRENT_PAGE_ADDR, 1, False)
+        return page
+    cpdef writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page):
+        cdef unsigned char x, y
+        cdef unsigned long address
+        page = self.getCorrectPage(page)
         x, y = self.getCursorPosition(page)
         address = self.getAddrOfPos(page, x, y)
         if (c == 0x7): # beep
@@ -168,8 +175,7 @@ cdef class Vga:
         else:
             self.writeCharacter(address, c, attr)
             x += 1
-        if (updateCursor):
-            self.setCursorPosition(page, x, y)
+        self.setCursorPosition(page, x, y)
     cpdef writeCharacter(self, unsigned long address, unsigned char c, short attr):
         cdef bytes charData
         if (attr == -1):
@@ -180,10 +186,12 @@ cdef class Vga:
             self.main.mm.mmPhyWrite(address, charData, 2)
     cpdef getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
         cdef unsigned long offset
+        page = self.getCorrectPage(page)
         offset = ((y*80)+x)*2
         return TEXTMODE_ADDR+(page*0x1000)+offset
-    cpdef getCursorPosition(self, unsigned char page):
+    cpdef tuple getCursorPosition(self, unsigned char page):
         cdef bytes cursorData
+        page = self.getCorrectPage(page)
         if (page > 7):
             self.main.printMsg("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
             return
@@ -191,8 +199,21 @@ cdef class Vga:
         return cursorData[0], cursorData[1] # x, y ## because of little endian
     cpdef setCursorPosition(self, unsigned char page, unsigned char x, unsigned char y):
         cdef bytes cursorData
+        page = self.getCorrectPage(page)
         cursorData = bytes( [x, y] )
         self.main.mm.mmPhyWrite(VGA_CURSOR_BASE_ADDR+(page*2), cursorData, 2)
+    cpdef scrollDown(self, unsigned char page):
+        cdef bytes oldData
+        cdef unsigned long oldAddr
+        self.setProcessVideoMem(False)
+        page = self.getCorrectPage(page)
+        oldAddr = self.getAddrOfPos(page, 0, 0)
+        oldData = self.main.mm.mmPhyRead(oldAddr+160, 3840) # 3840==24*80*2
+        self.main.mm.mmPhyWrite(oldAddr, oldData, 3840)
+        self.main.mm.mmPhyWrite(oldAddr+3840, b'\x00'*160, 160)
+        self.setProcessVideoMem(True)
+        oldData = self.main.mm.mmPhyRead(oldAddr, 4000)
+        self.main.mm.mmPhyWrite(oldAddr, oldData, 4000)
     cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x3c5):

@@ -16,15 +16,13 @@ DEF PS2_CMDBYTE_IRQ1 = 0x01
 cdef class PS2:
     cpdef object main
     cdef public unsigned char ppcbT2Both, ppcbT2Out, kbdClockEnabled
-    cdef unsigned char lastUsedPort, needWriteBytes, lastKbcCmdByte, lastKbCmdByte, irq1Requested, allowIrq1, \
-                        sysf, translateScancodes, currentScancodesSet, scanningEnabled
-    cdef bytes outBuffer, inBuffer,  ctrlBuffer
+    cdef unsigned char lastUsedPort, needWriteBytes, lastKbcCmdByte, lastKbCmdByte, irq1Requested, allowIrq1, sysf, \
+                        translateScancodes, currentScancodesSet, scanningEnabled, outb, batInProgress, timerPending
+    cdef bytes outBuffer
     def __init__(self, object main):
         self.main = main
     cpdef resetInternals(self, unsigned char powerUp):
         self.outBuffer  = bytes() # KBC -> CPU
-        self.ctrlBuffer = bytes() # KBC -> CPU
-        self.inBuffer   = bytes() # CPU -> KBC
         self.needWriteBytes = 0 # need to write $N bytes to 0x60
         self.currentScancodesSet = 1 # MF2
         if (powerUp):
@@ -42,38 +40,30 @@ cdef class PS2:
         self.lastKbCmdByte = 0
         self.translateScancodes = True
         self.scanningEnabled = True
-    cpdef doKbcIrq(self):
-        cdef unsigned char irq1WasRequested
-        irq1WasRequested = self.irq1Requested
-        self.irq1Requested = False
-        print('5678_1')
-        if (irq1WasRequested and self.kbdClockEnabled and self.allowIrq1):
-            print('5678_2')
-            self.main.platform.pic.raiseIrq(KBC_IRQ)
-            print('5678_3')
-    cpdef appendToCtrlBytes(self, bytes data):
-        self.ctrlBuffer += data
-    cpdef appendToOutBytes(self, bytes data):
+        self.outb = False
+        self.batInProgress = False
+        self.timerPending = 0
+    cpdef appendToOutBytesJustAppend(self, bytes data):
         self.outBuffer += data
+    cpdef appendToOutBytes(self, bytes data):
+        self.appendToOutBytesJustAppend(data)
+        if (not self.outb and self.kbdClockEnabled):
+            self.activateTimer()
     cpdef appendToOutBytesImm(self, bytes data):
-        self.appendToOutBytes(data)
-        ##self.main.platform.pic.lowerIrq(KBC_IRQ)
-        if (self.allowIrq1): # and self.kbdClockEnabled):
+        self.appendToOutBytesJustAppend(data)
+        self.outb = True
+        if (self.allowIrq1):
             self.irq1Requested = True
-            ###self.doKbcIrq()
+            self.main.platform.pic.raiseIrq(KBC_IRQ)
     cpdef appendToOutBytesDoIrq(self, bytes data):
-        self.appendToCtrlBytes(data)
-        ###self.processCtrlToOut()
-    cpdef appendToInBytes(self, bytes data):
-        self.inBuffer += data
-    cpdef processCtrlToOut(self):
-        cdef unsigned short ctrlBufferLen
-        ctrlBufferLen = len(self.ctrlBuffer)
-        if (ctrlBufferLen):
-            self.appendToOutBytes(self.ctrlBuffer)
-            self.ctrlBuffer = bytes()
-        elif (self.allowIrq1 and self.kbdClockEnabled):
+        if (self.outb):
+            self.main.printMsg("KBC::appendToOutBytesDoIrq: self.outb!=0")
+            return
+        self.appendToOutBytesJustAppend(data)
+        self.outb = True
+        if (self.allowIrq1):
             self.irq1Requested = True
+            self.main.platform.pic.raiseIrq(KBC_IRQ)
     cpdef setKeyboardRepeatRate(self, unsigned char data): # input is data from cmd 0xf3
         cdef unsigned short delay, interval
         interval = data&0x1f
@@ -96,52 +86,54 @@ cdef class PS2:
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
         cdef unsigned char escaped
         cdef bytes scancode
+        escaped = 0x00
+        self.main.printMsg("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         if ((not self.kbdClockEnabled) or (not self.scanningEnabled) or (keyId == 0xff)):
             return
+        self.main.printMsg("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         scancode = SCANCODES[keyId][self.currentScancodesSet][keyUp]
         if (self.translateScancodes):
-            escaped = 0x00
             for sc in scancode:
                 if (sc == 0xf0):
                     escaped = 0x80
                 else:
-                    self.appendToOutBytes( bytes([( TRANSLATION_8042[sc] | escaped )]) )
+                    self.appendToOutBytesJustAppend( bytes([( TRANSLATION_8042[sc] | escaped )]) )
                     escaped = 0x00
         else:
-            self.appendToOutBytes(scancode)
+            self.appendToOutBytesJustAppend(scancode)
+        self.outb = True
         if (self.allowIrq1 and self.kbdClockEnabled):
             self.irq1Requested = True
+            self.main.platform.pic.raiseIrq(KBC_IRQ)
+        ###self.activateTimer()
     cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char retByte = 0
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x64):
+                if (len(self.outBuffer)):
+                    self.outb = True # TODO: HACK
                 return ((0x10) | \
                        (self.lastUsedPort << 3) | \
                        (self.sysf << 2) | \
-                       ((len(self.inBuffer)!=0)<<1) | \
-                       ( (len(self.ctrlBuffer)!=0) or (len(self.outBuffer)!=0)))
+                       (self.outb))
             elif (ioPortAddr == 0x60):
+                self.outb = False
                 self.irq1Requested = False
+                self.batInProgress = False
                 self.main.platform.pic.lowerIrq(KBC_IRQ)
-                ###self.processCtrlToOut()
-                if (len(self.ctrlBuffer) >= 1):
-                    retByte = self.ctrlBuffer[0]
-                    ###if (self.allowIrq1 and self.kbdClockEnabled):
-                    ###    self.irq1Requested = True
-                    if (len(self.ctrlBuffer) >= 2):
-                        self.ctrlBuffer = self.ctrlBuffer[1:]
-                    else:
-                        self.ctrlBuffer = bytes()
-                elif (len(self.outBuffer) >= 1):
+                if (len(self.outBuffer)):
                     retByte = self.outBuffer[0]
-                    if (self.allowIrq1 and self.kbdClockEnabled):
-                        self.irq1Requested = True
-                    if (len(self.outBuffer) >= 2):
+                    if (len(self.outBuffer) > 1):
                         self.outBuffer = self.outBuffer[1:]
+                        self.outb = True
+                        if (self.allowIrq1):
+                            self.irq1Requested = True
+                            self.main.platform.pic.raiseIrq(KBC_IRQ)
                     else:
                         self.outBuffer = bytes()
-                ##if (self.irq1Requested and self.allowIrq1 and self.kbdClockEnabled):
-                ##    self.doKbcIrq()
+                #self.main.platform.pic.lowerIrq(KBC_IRQ)
+                #if (len(self.outBuffer)):
+                #    self.activateTimer()
                 return retByte
             elif (ioPortAddr == 0x61):
                 return (self.ppcbT2Both and PPCB_T2BOTH) | \
@@ -156,8 +148,10 @@ cdef class PS2:
     cpdef outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x60):
-                if (self.needWriteBytes == 0):
+                if (not self.needWriteBytes):
                     self.lastKbcCmdByte, self.lastKbCmdByte = 0, data
+                    if (not self.kbdClockEnabled):
+                        self.setKbdClockEnable(True)
                     if (data == 0x00):
                         self.appendToOutBytes(b'\xfa')
                     elif (data == 0x05):
@@ -175,6 +169,11 @@ cdef class PS2:
                         self.appendToOutBytes(b'\xfa')
                     elif (data == 0xf2):
                         self.appendToOutBytes(b'\xfa')
+                        self.appendToOutBytes(b'\xab')
+                        if (self.translateScancodes):
+                            self.appendToOutBytes(b'\x41')
+                        else:
+                            self.appendToOutBytes(b'\x83')
                     elif (data == 0xf3): # set repeat rate
                         self.needWriteBytes = 1
                         self.appendToOutBytes(b'\xfa')
@@ -193,7 +192,9 @@ cdef class PS2:
                         self.main.exitError("KBD: got resend cmd, maybe it's better to check for bugs in ps2.pyx. exiting...")
                     elif (data == 0xff):
                         self.resetInternals(True)
-                        self.appendToOutBytes(b'\xfa\xaa')
+                        self.appendToOutBytes(b'\xfa')
+                        self.batInProgress = True
+                        self.appendToOutBytes(b'\xaa')
                     elif (data in (0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd)):
                         self.appendToOutBytes(b'\xfe')
                     else:
@@ -205,11 +206,12 @@ cdef class PS2:
                             self.main.cpu.reset()
                     elif (self.lastKbcCmdByte == 0x60): # port 0x64
                         self.translateScancodes = (data >> 6)&1
-                        self.kbdClockEnabled = not ((data >> 4)&1)
+                        self.setKbdClockEnable(not ((data >> 4)&1))
                         self.sysf = (data >> 2)&1
                         self.allowIrq1 = data&1
-                        if (self.allowIrq1 and (not len(self.ctrlBuffer) and len(self.outBuffer))):
+                        if (self.allowIrq1 and self.outb):
                             self.irq1Requested = True
+                            self.main.platform.pic.raiseIrq(KBC_IRQ)
                     elif (self.lastKbCmdByte == 0xf0): # port 0x60
                         if (data == 0x00): # get scancodes
                             self.appendToOutBytes(b'\xfa')
@@ -232,6 +234,9 @@ cdef class PS2:
             elif (ioPortAddr == 0x64):
                 self.lastKbcCmdByte, self.lastKbCmdByte = data, 0
                 if (data == 0x20): # read keyboard mode
+                    if (self.outb):
+                        self.main.printMsg("ERROR: KBC::outPort: Port 0x64, data 0x20: outb is set.")
+                        return
                     self.appendToOutBytesDoIrq(bytes([( \
                     (self.translateScancodes << 6) | \
                     (self.kbdClockEnabled << 4) | \
@@ -243,17 +248,23 @@ cdef class PS2:
                     self.main.printMsg("PS2::outPort: mouse isn't supported yet. (data: {0:#04x})", data)
                     self.appendToOutBytes(b'\xfe')
                 elif (data == 0xaa):
-                    self.ctrlBuffer = bytes()
                     self.outBuffer = bytes()
+                    self.outb = False
                     self.sysf = True
                     self.appendToOutBytesDoIrq(b'\x55')
                 elif (data == 0xab):
+                    if (self.outb):
+                        self.main.printMsg("ERROR: KBC::outPort: Port 0x64, data 0xab: outb is set.")
+                        return
                     self.appendToOutBytesDoIrq(b'\x00')
                 elif (data == 0xad): # disable keyboard
-                    self.kbdClockEnabled = False
+                    self.setKbdClockEnable(False)
                 elif (data == 0xae): # enable keyboard
-                    self.kbdClockEnabled = True
+                    self.setKbdClockEnable(True)
                 elif (data == 0xd0):
+                    if (self.outb):
+                        self.main.exitError("ERROR: KBC::outPort: Port 0x64, data 0xd0: outb is set.")
+                        return
                     outputByte = ((self.irq1Requested << 4) | (self.main.cpu.getA20State() << 1) | 0x01)
                     self.appendToOutBytesDoIrq(bytes([outputByte]))
                 elif (data == 0xd1):
@@ -278,13 +289,49 @@ cdef class PS2:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
+    cpdef setKbdClockEnable(self, unsigned char value):
+        cdef unsigned char prevKbdClockEnabled
+        if (not value):
+            self.kbdClockEnabled = False
+        else:
+            prevKbdClockEnabled = self.kbdClockEnabled
+            self.kbdClockEnabled = True
+            if (not prevKbdClockEnabled and not self.outb):
+                self.activateTimer()
+    cpdef activateTimer(self):
+        if (not self.timerPending):
+            self.timerPending = 1
+    cpdef unsigned char periodic(self, unsigned char usecDelta):
+        cdef unsigned char retVal
+        retVal = self.irq1Requested
+        self.irq1Requested = False
+        if (not self.timerPending):
+            return retVal
+        if (usecDelta >= self.timerPending):
+            self.timerPending = 0
+        else:
+            print('5678_3')
+            self.timerPending -= usecDelta
+            return retVal
+        if (self.outb):
+            print('5678_4')
+            return retVal
+        if (len(self.outBuffer) and (self.kbdClockEnabled or self.batInProgress)):
+            print('5678_2')
+            self.outb = True
+            if (self.allowIrq1):
+                self.irq1Requested = True
+        return retVal
     cpdef timerFunc(self):
+        cdef unsigned char retVal
         while (not self.main.quitEmu):
-            if (((not len(self.ctrlBuffer)) and len(self.outBuffer)) and self.allowIrq1 and self.kbdClockEnabled and self.irq1Requested):
-                print('9876_1')
-                self.doKbcIrq()
-            self.irq1Requested = False
-            time.sleep(0.20)
+            if (self.timerPending):
+                retVal = self.periodic(1)
+                if (retVal&1):
+                    print('5678_1')
+                    self.main.platform.pic.raiseIrq(KBC_IRQ)
+            else:
+                time.sleep(0.02)
     cpdef initThread(self):
         self.main.misc.createThread(self.timerFunc, True)
     cpdef run(self):
