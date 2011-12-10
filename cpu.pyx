@@ -1,6 +1,6 @@
 import struct, time, sys, threading
 
-import registers, opcodes, misc
+import registers, opcodes, cputrace, misc
 include "globals.pxi"
 
 
@@ -9,9 +9,10 @@ cdef class Cpu:
         self.main = main
         self.registers = registers.Registers(self.main, self)
         self.opcodes = opcodes.Opcodes(self.main, self)
+        self.trace = cputrace.Trace(self.main, self)
     cpdef reset(self):
-        self.savedCs  = 0
-        self.savedEip = 0
+        self.savedCs  = 0xf000
+        self.savedEip = 0xfff0
         self.cpuHalted = False
         self.debugHalt = False
         self.debugSingleStep = False
@@ -20,6 +21,7 @@ cdef class Cpu:
         self.protectedModeOn = False
         self.HRQ = False
         self.registers.reset()
+        self.trace.reset()
     cpdef unsigned char getA20State(self):
         return self.A20Active
     cpdef setA20State(self, unsigned char state):
@@ -195,6 +197,8 @@ cdef class Cpu:
         try:
             if (self.registers.lockPrefix and self.opcode in OPCODES_LOCK_PREFIX_INVALID):
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
+            elif (self.trace.isInTrace(self.opcode, self.savedEip)):
+                self.trace.executeTraceStep(self.savedEip)
             elif (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
@@ -216,11 +220,9 @@ cdef class Cpu:
         except:
             print(sys.exc_info())
             self.main.exitError('doCycle: exception while in opcodeHandle, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)    
-    cpdef runCDEF(self):
+    cpdef run(self):
         self.reset()
         ###self.misc.createThread(self.doInfiniteCycles, True)
         self.doInfiniteCycles()
-    cpdef run(self):
-        self.runCDEF()
-
+    ###
 

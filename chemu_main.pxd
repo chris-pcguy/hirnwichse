@@ -8,6 +8,7 @@ cdef class ChEmu:
     cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename
     cpdef parseArgs(self)
     cpdef quitFunc(self)
+    cpdef testCase(self)
     #cpdef runCDEF(self)
     cpdef run(self)
 

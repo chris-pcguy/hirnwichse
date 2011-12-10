@@ -128,6 +128,7 @@ cdef class FloppyController:
         ##self.msr &= ~FDC_MSR_NODMA # TODO: set msr here???
         self.reset(True)
     cpdef reset(self, unsigned char hwReset):
+        cdef unsigned char i
         self.resetSensei = self.msr = self.st0 = self.st1 = self.st2 = self.st3 = 0
         self.pendingIrq = False
         self.setupDMATransfer()

@@ -19,9 +19,6 @@ cdef class Gdt:
     cpdef unsigned char checkWriteAllowed(self, unsigned short num, unsigned char doException)
     cpdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment, unsigned char doException)
 
-cdef class Ldt(Gdt):
-    pass
-
 cdef class Idt:
     cpdef public object segments, main
     cdef public unsigned long long tableBase

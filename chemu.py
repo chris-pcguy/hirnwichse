@@ -1,4 +1,6 @@
 #!/usr/bin/env python3.2
+#cython: boundscheck=False
+#cython: wraparound=False
 
 import pyximport
 #pyximport.install(pyimport = True)

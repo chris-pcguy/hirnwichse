@@ -1,4 +1,9 @@
 
+
+DEF STRICT_CHECKS = 1
+
+
+
 # Parity Flag Table: DO NOT EDIT!!
 cdef tuple PARITY_TABLE = (True, False, False, True, False, True, True, False, False, True,
                 True, False, True, False, False, True, False, True, True, False,
@@ -215,10 +220,15 @@ DEF GDT_ACCESS_PRESENT = 0x80
 DEF SELECTOR_USE_LDT = 0x4
 
 DEF OP_SIZE_BYTE  = 1
-DEF OP_SIZE_WORD = 2
+DEF OP_SIZE_WORD  = 2
 DEF OP_SIZE_DWORD = 4
 DEF OP_SIZE_QWORD = 8
 
+
+DEF BITMASK_BYTE  = 0xffUL
+DEF BITMASK_WORD  = 0xffffUL
+DEF BITMASK_DWORD = 0xffffffffUL
+DEF BITMASK_QWORD = 0xffffffffffffffffULL
 
 
 DEF CPU_EXCEPTION_DE = 0 # divide-by-zero error

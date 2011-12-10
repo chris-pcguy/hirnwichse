@@ -26,20 +26,20 @@ cdef class Misc:
         return self.getBitMask7F(maskSize)+1
     cpdef unsigned long long getBitMaskFF(self, unsigned char maskSize):
         if (maskSize == OP_SIZE_BYTE):
-            return 0xff
+            return 0xffUL
         elif (maskSize == OP_SIZE_WORD):
-            return 0xffff
+            return 0xffffUL
         elif (maskSize == OP_SIZE_DWORD):
-            return 0xffffffff
+            return 0xffffffffUL
         elif (maskSize == OP_SIZE_QWORD):
-            return 0xffffffffffffffff
+            return 0xffffffffffffffffULL
         else:
             self.main.exitError("Misc::getBitMask: maskSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)", maskSize)
         return 0
     cpdef unsigned long checksum(self, bytes data): # data is bytes
         cdef unsigned long long checksum = 0
         for c in data:
-            checksum = (checksum+c)&0xffffffff
+            checksum = (checksum+c)&BITMASK_DWORD
         return checksum
     cpdef unsigned long long decToBcd(self, unsigned char dec):
         cdef unsigned char bcd = int(str(dec), 16)

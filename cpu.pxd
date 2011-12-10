@@ -1,6 +1,6 @@
 
 cdef class Cpu:
-    cpdef public object main, registers, opcodes
+    cpdef public object main, registers, opcodes, trace
     cdef public unsigned long long cycles
     cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, A20Active, protectedModeOn
     cdef unsigned char INTR, HRQ
@@ -24,7 +24,6 @@ cdef class Cpu:
     cpdef unsigned char parsePrefixes(self, unsigned char opcode)
     cpdef doInfiniteCycles(self)
     cpdef doCycle(self)
-    cpdef runCDEF(self)
     cpdef run(self)
 
 

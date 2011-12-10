@@ -1,12 +1,14 @@
 
-#cython: boundscheck=False
-#cython: wraparound=False
 
 import sys, argparse, threading, time, atexit
 
 cimport misc, mm, X86Platform, cpu
 import misc, mm, X86Platform, cpu
 
+include "globals.pxi"
+
+
+DEF TESTCASE_ROUNDS = 0xfffff
 
 
 cdef class ChEmu:
@@ -53,6 +55,17 @@ cdef class ChEmu:
     def printMsg(self, str msgStr, *msgStrArguments): # this needs to be 'def'
         print(msgStr.format(*msgStrArguments))
     #cpdef runCDEF(self):
+    cpdef testCase(self):
+        cdef unsigned long memAddr, memValue, i
+        cdef double oldTime, timeDiff
+        memAddr = 0x12345
+        memValue = 0xdeadbeef
+        oldTime = time.time()
+        for i in range(TESTCASE_ROUNDS):
+            self.mm.mmPhyWriteValue(memAddr, memValue, OP_SIZE_DWORD)
+        timeDiff = time.time()
+        timeDiff -= oldTime
+        self.exitError("timeDiff: {0:f}", timeDiff)
     cpdef run(self):
         self.parseArgs()
         self.misc = misc.Misc(self)
@@ -61,11 +74,11 @@ cdef class ChEmu:
         self.cpu = cpu.Cpu(self)
         try:
             self.platform.run(self.memSize)
+            #self.testCase()
             self.misc.createThread(self.cpu.run, True)
-            ###self.cpu.run()
             while (threading.active_count() > 1 and not self.quitEmu):
-                if (self.quitEmu):
-                    break
+                #if (self.quitEmu):
+                #    break
                 time.sleep(2)
         except:
             print(sys.exc_info())

@@ -22,12 +22,12 @@ cdef class Gdt:
         cdef unsigned long base, limit
         cdef unsigned char accessByte, flags
         entryData = self.main.mm.mmPhyReadValue(self.tableBase+(num&0xfff8), 8, False)
-        limit = entryData&0xffff
+        limit = entryData&BITMASK_WORD
         base  = (entryData>>16)&0xffffff
-        accessByte = (entryData>>40)&0xff
+        accessByte = (entryData>>40)&BITMASK_BYTE
         flags  = (entryData>>52)&0xf
         limit |= (( entryData>>48)&0xf)<<16
-        base  |= ( (entryData>>56)&0xff)<<24
+        base  |= ( (entryData>>56)&BITMASK_BYTE)<<24
         return base, limit, accessByte, flags
     cpdef unsigned char getSegSize(self, unsigned short num):
         cdef tuple entryRet
@@ -118,9 +118,6 @@ cdef class Gdt:
         return True
 
 
-cdef class Ldt(Gdt):
-    pass
-
 cdef class Idt:
     def __init__(self, object segments):
         self.segments = segments
@@ -135,10 +132,10 @@ cdef class Idt:
         cdef unsigned short entrySegment
         cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent
         entryData = self.main.mm.mmPhyReadValue(self.tableBase+(num*8), 8, False)
-        entryEip = ((entryData>>48)&0xffff) # interrupt eip: upper word
+        entryEip = ((entryData>>48)&BITMASK_WORD) # interrupt eip: upper word
         entryEip <<= 16
-        entryEip |= entryData&0xffff # interrupt eip: lower word
-        entrySegment = (entryData>>16)&0xffff # interrupt segment
+        entryEip |= entryData&BITMASK_WORD # interrupt eip: lower word
+        entrySegment = (entryData>>16)&BITMASK_WORD # interrupt segment
         entryType = (entryData>>40)&0x7 # interrupt type
         entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
         entryPresent = (entryData>>47)&1 # is interrupt present
@@ -180,7 +177,7 @@ cdef class Segments:
         self.main, self.cpu, self.registers = main, cpu, registers
     cpdef reset(self):
         self.gdt = Gdt(self)
-        self.ldt = Ldt(self)
+        self.ldt = Gdt(self)
         self.idt = Idt(self)
         self.idt.run(0, 0x3ff)
     cpdef unsigned long getBaseAddr(self, unsigned short segId): # segId == segments regId
@@ -198,7 +195,7 @@ cdef class Segments:
             else:
                 offsetAddr &= 0xfffff
         addr += offsetAddr
-        return addr&0xffffffff
+        return addr&BITMASK_DWORD
     cpdef unsigned char getSegSize(self, unsigned short segId): # segId == segments regId
         cdef unsigned short segVal
         if (self.cpu.isInProtectedMode()): # protected mode enabled
@@ -355,19 +352,14 @@ cdef class Registers:
             return 0
         aregId = (regId//5)*8
         if (regId in CPU_REGISTER_QWORD):
-            ##value &= 0xffffffffffffffff
             self.regs[aregId:aregId+8] = value.to_bytes(length=8, byteorder="big")
         elif (regId in CPU_REGISTER_DWORD):
-            ##value &= 0xffffffff
             self.regs[aregId+4:aregId+8] = value.to_bytes(length=4, byteorder="big")
         elif (regId in CPU_REGISTER_WORD):
-            ##value &= 0xffff
             self.regs[aregId+6:aregId+8] = value.to_bytes(length=2, byteorder="big")
         elif (regId in CPU_REGISTER_HBYTE):
-            ##value &= 0xff
             self.regs[aregId+6] = value
         elif (regId in CPU_REGISTER_LBYTE):
-            ##value &= 0xff
             self.regs[aregId+7] = value
         else:
             self.main.exitError("regWrite: regId is unknown! ({0:d})", regId)
@@ -474,7 +466,7 @@ cdef class Registers:
     cpdef setSZP(self, unsigned long value, unsigned char regSize):
         self.setEFLAG(FLAG_SF, (value&self.main.misc.getBitMask80(regSize))!=0)
         self.setEFLAG(FLAG_ZF, value==0)
-        self.setEFLAG(FLAG_PF, PARITY_TABLE[value&0xff])
+        self.setEFLAG(FLAG_PF, PARITY_TABLE[value&BITMASK_BYTE])
     cpdef setSZP_O0(self, unsigned long value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.setEFLAG(FLAG_OF, False)
@@ -566,10 +558,8 @@ cdef class Registers:
     cdef tuple sibOperands(self, unsigned char mod):
         cdef unsigned char sibByte, base, index, ss
         cdef unsigned short rmBase, rmNameSegId, indexReg
-        cdef unsigned long bitMask
         cdef unsigned long long rmIndex
         sibByte = self.cpu.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
-        bitMask = 0xffffffff
         base    = (sibByte)&7
         index   = (sibByte>>3)&7
         ss      = (sibByte>>6)&3
@@ -578,7 +568,7 @@ cdef class Registers:
         
         indexReg = MODRM_SIB_INDEX_REGS[index]
         
-        rmIndex = (self.regRead( indexReg, False ) * (1 << ss))&bitMask
+        rmIndex = (self.regRead( indexReg, False ) * (1 << ss))&BITMASK_DWORD
         
         if (mod == 0 and base == 5):
             rmIndex += self.cpu.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
@@ -732,7 +722,7 @@ cdef class Registers:
             regSumMasked = regSum&bitMask
             isResZero = regSumMasked==0
             unsignedOverflow = (regSumMasked < reg0 or regSumMasked < reg1)
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&0xff])
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&BITMASK_BYTE])
             self.setEFLAG(FLAG_ZF, isResZero)
             reg0Nibble = reg0&0xf
             reg1Nibble = reg1&0xf
@@ -754,7 +744,7 @@ cdef class Registers:
             regSumMasked = regSum&bitMask
             isResZero = regSumMasked==0
             unsignedOverflow = ( regSum<0 )
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&0xff])
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&BITMASK_BYTE])
             self.setEFLAG(FLAG_ZF, isResZero)
             reg0Nibble = reg0&0xf
             reg1Nibble = reg1&0xf
@@ -782,7 +772,7 @@ cdef class Registers:
                    (not signed and ((regSumu <= bitMask))))
             self.setEFLAG(FLAG_CF, signedOverflow)
             self.setEFLAG(FLAG_OF, signedOverflow)
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&0xff])
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&BITMASK_BYTE])
             self.setEFLAG(FLAG_ZF, isResZero)
             self.setEFLAG(FLAG_SF, (regSum&bitMaskHalf)!=0)
         elif (method == OPCODE_DIV):

@@ -154,8 +154,8 @@ cdef class Vga:
         if (page == 0xff):
             page = self.main.mm.mmPhyReadValue(VGA_CURRENT_PAGE_ADDR, 1, False)
         return page
-    cpdef writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page):
-        cdef unsigned char x, y
+    cpdef writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor):
+        cdef unsigned char x, y, i
         cdef unsigned long address
         page = self.getCorrectPage(page)
         x, y = self.getCursorPosition(page)
@@ -175,7 +175,8 @@ cdef class Vga:
         else:
             self.writeCharacter(address, c, attr)
             x += 1
-        self.setCursorPosition(page, x, y)
+        if (updateCursor):
+            self.setCursorPosition(page, x, y)
     cpdef writeCharacter(self, unsigned long address, unsigned char c, short attr):
         cdef bytes charData
         if (attr == -1):
