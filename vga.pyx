@@ -129,7 +129,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
         else:
             self.setData(data, dataSize)
         self.flipFlop = not self.flipFlop
-    
+
 
 
 cdef class Vga:
@@ -153,12 +153,16 @@ cdef class Vga:
     cpdef unsigned char getCorrectPage(self, unsigned char page):
         if (page == 0xff):
             page = self.main.mm.mmPhyReadValue(VGA_CURRENT_PAGE_ADDR, 1, False)
+        elif (page > 7):
+            self.main.printMsg("VGA::getCorrectPage: page: {0:d}", page)
         return page
     cpdef writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor):
         cdef unsigned char x, y, i
+        cdef unsigned short cursorPos
         cdef unsigned long address
         page = self.getCorrectPage(page)
-        x, y = self.getCursorPosition(page)
+        cursorPos = self.getCursorPosition(page)
+        y, x = cursorPos>>8, cursorPos&0xff
         address = self.getAddrOfPos(page, x, y)
         if (c == 0x7): # beep
             pass
@@ -176,7 +180,7 @@ cdef class Vga:
             self.writeCharacter(address, c, attr)
             x += 1
         if (updateCursor):
-            self.setCursorPosition(page, x, y)
+            self.setCursorPosition(page, (y<<8)|x)
     cpdef writeCharacter(self, unsigned long address, unsigned char c, short attr):
         cdef bytes charData
         if (attr == -1):
@@ -190,19 +194,20 @@ cdef class Vga:
         page = self.getCorrectPage(page)
         offset = ((y*80)+x)*2
         return TEXTMODE_ADDR+(page*0x1000)+offset
-    cpdef tuple getCursorPosition(self, unsigned char page):
-        cdef bytes cursorData
+    cpdef unsigned short getCursorPosition(self, unsigned char page):
+        cdef unsigned short pos
         page = self.getCorrectPage(page)
         if (page > 7):
             self.main.printMsg("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
-            return
-        cursorData = self.main.mm.mmPhyRead(VGA_CURSOR_BASE_ADDR+(page*2), 2)
-        return cursorData[0], cursorData[1] # x, y ## because of little endian
-    cpdef setCursorPosition(self, unsigned char page, unsigned char x, unsigned char y):
-        cdef bytes cursorData
+            return 0
+        pos = self.main.mm.mmPhyReadValue(VGA_CURSOR_BASE_ADDR+(page*2), 2, False)
+        return pos
+    cpdef setCursorPosition(self, unsigned char page, unsigned short pos):
         page = self.getCorrectPage(page)
-        cursorData = bytes( [x, y] )
-        self.main.mm.mmPhyWrite(VGA_CURSOR_BASE_ADDR+(page*2), cursorData, 2)
+        if (page > 7):
+            self.main.printMsg("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
+            return
+        self.main.mm.mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page*2), pos, 2)
     cpdef scrollDown(self, unsigned char page):
         cdef bytes oldData
         cdef unsigned long oldAddr

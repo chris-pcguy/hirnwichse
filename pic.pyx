@@ -31,7 +31,7 @@ cdef class PicChannel:
         self.edgeLevel = 0
         self.needRegister = PIC_NEED_IRR
         if (not self.master):
-            self.irqBasePort = 0x70 
+            self.irqBasePort = 0x70
         self.mappedSlavesOnMasterMask = 0x4 # master
         self.slaveOnThisMasterIrq = 2 # slave
     cpdef clearHighestInterrupt(self):

@@ -351,4 +351,4 @@ cdef class pygameUI:
     cpdef run(self):
         self.initPygame()
 
-    
+

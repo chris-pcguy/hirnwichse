@@ -30,7 +30,7 @@ cdef class ChEmu:
         self.parser.add_argument('--noUI', dest='noUI', action='store_true', default=False, help='Disable UI.')
         self.parser.add_argument('--forceFloppyDiskType', dest='forceFloppyDiskType', action='store', type=int, default=0, help='Force FloppyDiskType: 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
         self.cmdArgs = self.parser.parse_args(sys.argv[1:])
-        
+
         self.exitIfCpuHalted = self.cmdArgs.exitIfCpuHalted
         self.debugEnabled    = self.cmdArgs.debugEnabled
         self.noUI    = self.cmdArgs.noUI

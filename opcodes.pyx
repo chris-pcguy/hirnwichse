@@ -478,9 +478,6 @@ cdef class Opcodes:
         if (cond and countOrNewEip != 0):
             countOrNewEip = (self.registers.regRead(CPU_REGISTER_EIP, False)+rel8)&bitMask
             self.registers.regWrite(CPU_REGISTER_EIP, countOrNewEip)
-    
-    
-    
     cdef opcodeR_RM(self, unsigned char opcode, unsigned char operSize):
         cdef unsigned long op1, op2
         cdef tuple rmOperands
@@ -538,9 +535,6 @@ cdef class Opcodes:
             self.registers.setSZP_C0_O0_A0(op1&op2, operSize)
         else:
             self.main.printMsg("OPCODE::opcodeRM_R: invalid opcode: {0:d}.", opcode)
-    
-    
-    
     cdef movImmToR(self, unsigned char operSize):
         cdef unsigned char rReg
         cdef unsigned long src
@@ -585,11 +579,6 @@ cdef class Opcodes:
         regName = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
         mmAddr = self.cpu.getCurrentOpcodeAdd(addrSize, False)
         self.main.mm.mmWriteValue(mmAddr, self.registers.regRead(regName, False), operSize, CPU_SEGMENT_DS, True)
-    
-    
-    
-    
-    
     cdef stosFunc(self, unsigned char operSize):
         cdef unsigned char addrSize, df
         cdef unsigned short dataReg, srcReg, countReg
@@ -901,7 +890,7 @@ cdef class Opcodes:
         self.stackPopRegId(ecxName, operSize)
         self.stackPopRegId(eaxName, operSize)
     cdef pushfWD(self):
-        cdef unsigned char operSize, 
+        cdef unsigned char operSize
         cdef unsigned short regNameId
         cdef unsigned long value
         operSize = self.registers.segments.getOpSegSize(CPU_SEGMENT_CS)
@@ -1075,7 +1064,7 @@ cdef class Opcodes:
             if (operOpcodeModId in (0, 1)): # SLDT/STR
                 if (operOpcodeModId == 1): # STR
                     op1 = self.registers.modRMLoad(rmOperands, OP_SIZE_WORD, False, True)
-                    if (self.registers.lockPrefix or not self.cpu.isInProtectedMode()): 
+                    if (self.registers.lockPrefix or not self.cpu.isInProtectedMode()):
                         raise misc.ChemuException(CPU_EXCEPTION_UD)
                     self.main.exitError("opcodeGroup0F_00: STR not supported yet.")
                 elif (operOpcodeModId == 0): # SLDT
@@ -1094,7 +1083,7 @@ cdef class Opcodes:
                     self.registers.segments.ldt.loadTable(base, limit)
                 elif (operOpcodeModId == 3): # LTR
                     op1 = self.registers.modRMLoad(rmOperands, OP_SIZE_WORD, False, True)
-                    if (self.registers.lockPrefix or not self.cpu.isInProtectedMode()): 
+                    if (self.registers.lockPrefix or not self.cpu.isInProtectedMode()):
                         raise misc.ChemuException(CPU_EXCEPTION_UD)
                     elif (self.registers.cpl != 0 or op1&0xfff8 == 0):
                         raise misc.ChemuException( CPU_EXCEPTION_GP, 0)
@@ -1194,7 +1183,7 @@ cdef class Opcodes:
             self.main.printMsg("opcodeGroup0F_07: LOADALL 386 opcode isn't supported yet.")
             raise misc.ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode in (0x06, 0x08, 0x09)): # 0x06: CLTS, 0x08: INVD, 0x09: WBINVD
-            if (self.registers.lockPrefix): 
+            if (self.registers.lockPrefix):
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
             if (self.registers.cpl != 0):
                 raise misc.ChemuException( CPU_EXCEPTION_GP, 0 )
@@ -1246,7 +1235,7 @@ cdef class Opcodes:
         elif (operOpcode >= 0x40 and operOpcode <= 0x4f): # CMOVcc
             self.cmovFunc(operSize, self.registers.getCond( operOpcode&0xf ) )
         elif (operOpcode >= 0x80 and operOpcode <= 0x8f):
-            if (self.registers.lockPrefix): 
+            if (self.registers.lockPrefix):
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
             self.jumpShort(operSize, self.registers.getCond( operOpcode&0xf ))
         elif (operOpcode >= 0x90 and operOpcode <= 0x9f): # SETcc
@@ -1418,7 +1407,7 @@ cdef class Opcodes:
             op2 = self.registers.modRMLoad(rmOperands, OP_SIZE_WORD, False, True)
             self.registers.modRSave(rmOperands, OP_SIZE_DWORD, op2, OPCODE_SAVE)
         elif (operOpcode == 0xb8): # POPCNT R16/32 RM16/32
-            if (self.registers.lockPrefix or self.registers.repPrefix): 
+            if (self.registers.lockPrefix or self.registers.repPrefix):
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
             rmOperands = self.registers.modRMOperands(operSize, MODRM_FLAGS_NONE)
             op2 = self.registers.modRMLoad(rmOperands, operSize, False, True)
@@ -1615,8 +1604,6 @@ cdef class Opcodes:
         regName  = CPU_REGISTER_WORD[self.cpu.opcode&7]
         regName  = self.registers.getWordAsDword(regName, operSize)
         self.decFuncReg(regName)
-    
-    
     cdef pushReg(self):
         cdef unsigned char operSize
         cdef unsigned short regName
@@ -1803,16 +1790,13 @@ cdef class Opcodes:
                 temp, tempmod = divmod(sop1, operOp2)
                 if (sop2 != operOp2):
                     temp = -temp
-            else:    
+            else:
                 temp, tempmod = divmod(sop1, sop2)
             if ( ((temp >= <unsigned char>bitMaskHalf) or (temp < -(<signed short>bitMaskHalf)))):
                 raise misc.ChemuException(CPU_EXCEPTION_DE)
             self.registers.regWrite(CPU_REGISTER_AL, temp&BITMASK_BYTE)
             self.registers.regWrite(CPU_REGISTER_AH, tempmod&BITMASK_BYTE)
             self.registers.setFullFlags(sop1, operOp2, operSize, OPCODE_DIV, False)
-        
-        
-        
         elif (operOpcodeId == GROUP2_OP_MUL):
             eaxReg = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
             edxReg = self.registers.getWordAsDword(CPU_REGISTER_DX, operSize)
@@ -2158,18 +2142,18 @@ cdef class Opcodes:
             count %= 9
         elif (operSize == OP_SIZE_WORD):
             count %= 17
-        
+
         if (count == 0):
             return
         tempCF_OF = ( ((dest&bitMaskHalf)!=0)^newCF )
         self.registers.setEFLAG( FLAG_OF, tempCF_OF )
-        
+
         for i in range(count):
             tempCF_OF = (dest&1)!=0
             dest = (dest >> 1) | (newCF * bitMaskHalf)
             newCF = tempCF_OF
         dest &= bitMask
-        
+
         self.registers.modRMSave(rmOperands, operSize, dest, True, OPCODE_SAVE)
         self.registers.setEFLAG( FLAG_CF, newCF )
     cdef rolFunc(self, tuple rmOperands, unsigned char operSize, unsigned char count):
@@ -2178,17 +2162,17 @@ cdef class Opcodes:
         bitMask = self.main.misc.getBitMaskFF(operSize)
         bitMaskHalf = self.main.misc.getBitMask80(operSize)
         dest = self.registers.modRMLoad(rmOperands, operSize, False, True)
-        
+
         if ((count & 0x1f) > 0):
             count = count%(operSize<<3)
-            
+
             for i in range(count):
                 tempCF_OF = (dest&bitMaskHalf)!=0
                 dest = (dest << 1) | tempCF_OF
                 dest &= bitMask
-            
+
             self.registers.modRMSave(rmOperands, operSize, dest, True, OPCODE_SAVE)
-            
+
             if (count == 0):
                 return
             newCF = dest&1
@@ -2202,17 +2186,17 @@ cdef class Opcodes:
         bitMaskHalf = self.main.misc.getBitMask80(operSize)
         dest = self.registers.modRMLoad(rmOperands, operSize, False, True)
         destM1 = dest
-        
+
         if ((count & 0x1f) > 0):
             count = count%(operSize<<3)
-            
+
             for i in range(count):
                 destM1 = dest
                 tempCF_OF = destM1&1
                 dest = (destM1 >> 1) | (tempCF_OF * bitMaskHalf)
-            
+
             self.registers.modRMSave(rmOperands, operSize, dest, True, OPCODE_SAVE)
-            
+
             if (count == 0):
                 return
             tempCF_OF = (dest&bitMaskHalf)!=0

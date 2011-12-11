@@ -161,7 +161,6 @@ cdef class Pit:
                 self.channels[self.channel].counterMode = modeNumber
                 self.channels[self.channel].counterWriteMode = counterWriteMode
                 self.channels[self.channel].counterFlipFlop = False
-                
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return

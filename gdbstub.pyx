@@ -75,7 +75,7 @@ cdef class GDBStubHandler:
                 self.main.printMsg('GDBStubHandler: putPacket: connHandler.request is NULL.')
         else:
             self.main.printMsg('GDBStubHandler: putPacket: connHandler is NULL.')
-    
+
     cpdef handleRead(self):
         cdef bytes tempStr
         if (self.connHandler):
@@ -335,6 +335,6 @@ cdef class GDBStub:
             self.main.misc.createThread(self.serveGDBStub, True)
         except (SystemExit, KeyboardInterrupt):
             sys.exit(self.main.exitCode)
-        
+
 
 

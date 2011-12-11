@@ -16,7 +16,7 @@ cdef class FloppyDrive:
     cpdef bytes readBytes(self, unsigned long offset, unsigned long size)
     cpdef bytes readSectors(self, unsigned long sector, unsigned long count) # count in sectors
     cpdef writeSectors(self, unsigned long sector, bytes data)
-    
+
 
 cdef class FloppyController:
     cpdef public object main, fdcDma, isaDma, fdc

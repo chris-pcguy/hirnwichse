@@ -47,7 +47,7 @@ cdef class FloppyDrive:
         self.filename = b""
         self.fp = None
         self.isLoaded = False
-        self.isWriteProtected = False
+        self.isWriteProtected = True
         self.DIR = 0
         self.cylinder = self.head = self.sector = self.eot = 0
     cpdef unsigned long ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector):
@@ -113,7 +113,7 @@ cdef class FloppyDrive:
         self.fp.seek(sector*512)
         retData = self.fp.write(data)
         self.fp.seek(oldPos)
-    
+
 
 cdef class FloppyController:
     def __init__(self, object fdc, unsigned char controllerId):
@@ -233,11 +233,11 @@ cdef class FloppyController:
         drive = self.DOR & 0x3
         self.clearResult()
         self.msr |= (FDC_MSR_RQM | FDC_MSR_DIO | FDC_MSR_BUSY)
-        
+
         if ((self.st0 & 0xc0) == 0x80):
             self.addToResult(self.st0)
             return
-        
+
         if (len(self.command) > 0):
             if (self.command[0] == 0x4):
                 self.addToResult(self.st3)
@@ -358,18 +358,18 @@ cdef class FloppyController:
                 self.st2 = 0x00
                 self.handleResult()
                 return
-            
+
             if (not self.drive[drive].isLoaded):
                 return
-            
+
             if (sectorSize != 0x2):
                 self.main.exitError("FDC: read/write: sector size {0:d} isn't supported.", (128 << sectorSize))
                 return
-            
+
             if (cylinder >= self.drive[drive].media.tracks):
                 self.main.exitError("FDC: read/write: params out of range: sec#{0:d}, cyl#{1:d}, eot#{2:d}, head#{3:d}.", sector, cylinder, eot, head)
                 return
-            
+
             if (sector > self.drive[drive].media.sectorsPerTrack):
                 self.main.printMsg("FDC: attempt to read/write sector {0:d} past last sector {1:d}.", sector, self.drive[drive].media.sectorsPerTrack)
                 self.drive[drive].cylinder = cylinder
@@ -380,21 +380,21 @@ cdef class FloppyController:
                 self.st2 = 0x00
                 self.handleResult()
                 return
-            
+
             if (cylinder != self.drive[drive].cylinder):
                 self.resetChangeline()
-            
+
             logicalSector = self.drive[drive].ChsToSector(cylinder, head, sector)
-            
+
             if (logicalSector >= self.drive[drive].media.sectors):
                 self.main.exitError("FDC: logical sector out of bounds")
                 return
-            
+
             self.drive[drive].cylinder = cylinder
             self.drive[drive].head = head
             self.drive[drive].sector = sector
             self.drive[drive].eot = eot
-            
+
             if ((cmd & 0xf) == 0x6): # read
                 self.fdcBuffer = self.floppyXfer(drive, logicalSector*FDC_SECTOR_SIZE, FDC_SECTOR_SIZE, False)
                 if (self.msr & FDC_MSR_NODMA):
@@ -402,8 +402,10 @@ cdef class FloppyController:
                     self.msr |= (FDC_MSR_RQM | FDC_MSR_DIO)
                 else:
                     self.isaDma.setDRQ(FDC_DMA_CHANNEL, True)
-            else:
+            elif ((cmd & 0xf) == 0x5): # write
                 self.main.exitError("FDC: handleCommand 0x5: write not implemented yet.")
+            else:
+                self.main.exitError("FDC: handleCommand: unknown r/w cmd {0:#04x}.", cmd)
                 return
         else:
             self.main.printMsg("FDC: handleCommand: unknown command {0:#04x}.", self.command[0])

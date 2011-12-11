@@ -2,13 +2,15 @@
 
 cdef class MmArea:
     cpdef public object main, mm
-    cpdef object mmAreaData
+    #cpdef object mmAreaData
     cdef unsigned char mmReadOnly
     cdef public unsigned long long mmBaseAddr, mmAreaSize, mmEndAddr
+    cdef char *mmAreaData
+    cpdef mmFreeAreaData(self)
     cpdef mmSetReadOnly(self, unsigned char mmReadOnly)
     cpdef bytes mmAreaRead(self, unsigned long long mmAddr, unsigned long long dataSize)
     cpdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize) # dataSize(type int) is count in bytes
-
+    cpdef run(self)
 
 
 cdef class Mm:

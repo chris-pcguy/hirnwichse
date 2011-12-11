@@ -1,10 +1,10 @@
 ChEmu
 
-'Ch' are the first characters of my first name 'Chris'.
+'Ch' are the first two characters of my given name 'Chris'.
 'Emu' stands for 'emulator'!
 
 
-It's something like a 'life's goal' for me.
+This project is like a 'life's goal' for me.
 
 
 
@@ -12,4 +12,7 @@ It's something like a 'life's goal' for me.
 Licensed under 'GNU AGPL v3' (GNU Affero General Public License, Version 3)
 All other rights reserved!
 
+This project makes heavily use of Cython.
 This project may have included some parts of other projects, such as Qemu or Bochs.
+
+Thanks to all of them!

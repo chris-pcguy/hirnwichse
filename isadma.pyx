@@ -23,7 +23,7 @@ cdef tuple DMA_MASTER_CONTROLLER_PORTS = (0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x0
 cdef tuple DMA_SLAVE_CONTROLLER_PORTS = (0x89,0x8a,0x8b,0x8f,0xc0,0xc1,0xc2,0xc3,0xc4,0xc5,0xc6,0xc7,
                                       0xd0,0xd2,0xd4,0xd6,0xd8,0xda,0xdc,0xde)
 cdef tuple DMA_EXT_PAGE_REG_PORTS = (0x80, 0x84, 0x85, 0x86, 0x88, 0x8c, 0x8d, 0x8e)
-    
+
 
 cdef class Channel:
     def __init__(self, object controller, unsigned char channelNum):
@@ -34,7 +34,7 @@ cdef class Channel:
         self.channelNum = channelNum
         self.channelMasked = True
         self.page = 0
-        self.baseAddress = self.baseCount = self.currentAddress = self.currentCount = 0 
+        self.baseAddress = self.baseCount = self.currentAddress = self.currentCount = 0
         self.transferDirection = 3
         self.autoInit = False
         self.addressDecrement = 0 # if True, address-count, then data[::-1]
@@ -336,7 +336,7 @@ cdef class ISADMA:
             else:
                 currChannel.currentAddress = currChannel.baseAddress
                 currChannel.currentCount = currChannel.baseCount
-        
+
         if (currChannel.transferDirection == 1): # IODEV -> MEM
             if (currChannel.dmaWriteToMem is not None):
                 data = currChannel.dmaWriteToMem()&BITMASK_WORD
@@ -362,7 +362,7 @@ cdef class ISADMA:
         else:
             self.main.exitError("ISADMA::raiseHLDA: transferDirection 3 is unknown.")
             return
-        
+
         if (countExpired):
             self.TC = False
             self.HLDA = False

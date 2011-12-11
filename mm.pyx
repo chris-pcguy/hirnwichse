@@ -1,6 +1,7 @@
 
-#cimport mm
-import registers, misc
+import registers, misc, atexit
+from libc.stdlib cimport calloc, malloc, free
+from libc.string cimport strncpy, memcpy
 
 include "globals.pxi"
 
@@ -13,23 +14,35 @@ cdef class MmArea:
         self.mmAreaSize = mmAreaSize
         self.mmEndAddr  = self.mmBaseAddr+self.mmAreaSize
         self.mmReadOnly = mmReadOnly
-        self.mmAreaData = bytearray(self.mmAreaSize)
+        #self.mmAreaData = bytearray(self.mmAreaSize)
+    cpdef mmFreeAreaData(self):
+        free(self.mmAreaData)
+        self.mmAreaData = None
     cpdef mmSetReadOnly(self, unsigned char mmReadOnly):
         self.mmReadOnly = mmReadOnly
     cpdef bytes mmAreaRead(self, unsigned long long mmAddr, unsigned long long dataSize):
         mmAddr -= self.mmBaseAddr
         return bytes(self.mmAreaData[mmAddr:mmAddr+dataSize])
     cpdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize):
+        cdef char *tempAddr
         if (self.mmReadOnly):
             self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
             return
-        IF STRICT_CHECKS == 1:
-            if (len(data) != dataSize):
-                self.main.exitError("MmArea::mmAreaWrite: len(data): {0:#04x} != dataSize: {1:#04x}", len(data), dataSize)
-                return
+        ##IF STRICT_CHECKS == 1:
+        ##    if (len(data) != dataSize):
+        ##        self.main.exitError("MmArea::mmAreaWrite: len(data): {0:#04x} != dataSize: {1:#04x}", len(data), dataSize)
+        ##        return
         mmAddr -= self.mmBaseAddr
-        self.mmAreaData[mmAddr:mmAddr+dataSize] = data
-
+        tempAddr = <char*>(self.mmAreaData+mmAddr)
+        #self.mmAreaData[mmAddr:mmAddr+dataSize] = data
+        #strncpy(self.mmAreaData[mmAddr:mmAddr+dataSize], <char*>data, dataSize)
+        memcpy(<char*>tempAddr, <char*>data, dataSize)
+    cpdef run(self):
+        #self.mmAreaData = <char*>malloc(self.mmAreaSize)
+        self.mmAreaData = <char*>calloc(self.mmAreaSize, 1)
+        if (not self.mmAreaData):
+            raise MemoryError()
+        atexit.register(self.mmFreeAreaData)
 
 
 cdef class Mm:
@@ -37,7 +50,10 @@ cdef class Mm:
         self.main = main
         self.mmAreas = []
     cpdef mmAddArea(self, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly, object mmAreaObject):
-        self.mmAreas.append(mmAreaObject(self, mmBaseAddr, mmAreaSize, mmReadOnly))
+        cdef object mmAreaObjectInstance
+        mmAreaObjectInstance = mmAreaObject(self, mmBaseAddr, mmAreaSize, mmReadOnly)
+        mmAreaObjectInstance.run()
+        self.mmAreas.append(mmAreaObjectInstance)
     cpdef unsigned char mmDelArea(self, unsigned long long mmBaseAddr):
         cdef unsigned short i
         for i in range(len(self.mmAreas)):

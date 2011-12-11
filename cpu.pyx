@@ -158,9 +158,9 @@ cdef class Cpu:
                 self.registers.operandSizePrefix = True
             elif (opcode == OPCODE_PREFIX_ADDR):
                 self.registers.addressSizePrefix = True
-            
+
             opcode = self.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
-        
+
         return opcode
     cpdef doInfiniteCycles(self):
         while (not self.main.quitEmu):
@@ -219,7 +219,7 @@ cdef class Cpu:
                             self.cpu.reset()
         except:
             print(sys.exc_info())
-            self.main.exitError('doCycle: exception while in opcodeHandle, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)    
+            self.main.exitError('doCycle: exception while in opcodeHandle, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
     cpdef run(self):
         self.reset()
         ###self.misc.createThread(self.doInfiniteCycles, True)

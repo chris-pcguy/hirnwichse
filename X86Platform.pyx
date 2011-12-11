@@ -134,7 +134,6 @@ cdef class Platform:
         self.parallel.run()
         self.gdbstub.run()
         self.pythonBios.run()
-        
 
 
 

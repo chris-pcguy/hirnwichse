@@ -565,18 +565,15 @@ cdef class Registers:
         ss      = (sibByte>>6)&3
         rmBase  = CPU_REGISTER_NONE
         rmNameSegId = CPU_SEGMENT_DS
-        
         indexReg = MODRM_SIB_INDEX_REGS[index]
-        
         rmIndex = (self.regRead( indexReg, False ) * (1 << ss))&BITMASK_DWORD
-        
+
         if (mod == 0 and base == 5):
             rmIndex += self.cpu.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
         else:
             rmBase = self.getRegValueWithFlags(0, base, OP_SIZE_DWORD)
             if (rmBase in (CPU_REGISTER_ESP, CPU_REGISTER_EBP)):
                 rmNameSegId = CPU_SEGMENT_SS
-        
         return rmBase, rmNameSegId, rmIndex
     cpdef tuple modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # imm == unsigned ; disp == signed ; regSize in bytes
         cdef unsigned char modRMByte, rm, reg, mod, addrSegSize
@@ -714,7 +711,7 @@ cdef class Registers:
         afFlag = False
         bitMask = self.main.misc.getBitMaskFF(regSize)
         bitMaskHalf = self.main.misc.getBitMask80(regSize)
-        
+
         if (method in (OPCODE_ADD, OPCODE_ADC)):
             if (method == OPCODE_ADC and self.getEFLAG(FLAG_CF)!=0):
                 reg0 += 1
