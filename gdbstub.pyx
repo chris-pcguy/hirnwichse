@@ -158,12 +158,12 @@ cdef class GDBStubHandler:
             self.main.printMsg('handleCommand: unhandled cmd: {0:s}', repr(data))
         self.putPacket(bytes())
     cpdef handleCommand(self, bytes data):
-        cdef unsigned long memAddr, memLength, blockSize, oldEip, newEip
+        cdef unsigned long memAddr, memLength, blockSize, regVal
         cdef long threadNum, res_signal, res_thread, signal, thread
         cdef unsigned short minRegNum, maxRegNum, currRegNum
         cdef unsigned char cpuType, singleStepOn, res
         cdef list memList, actionList
-        cdef bytes memData, hexToSend, currReg, action
+        cdef bytes currData, hexToSend, action
         if (not len(data)):
             self.main.printMsg("INFO: handleCommand: data is empty, don't do anything.")
             return
@@ -197,10 +197,10 @@ cdef class GDBStubHandler:
             maxRegNum = GDB_NUM_REGISTERS
             currRegNum = minRegNum
             hexToSend = bytes()
-            currReg = bytes(self.main.cpu.registers.regs)
+            currData = bytes(self.main.cpu.registers.regs.csData)
             while (currRegNum < maxRegNum):
                 regOffset = ((CPU_MIN_REGISTER//5)+currRegNum)*8
-                hexToSend += self.bytesToHex(bytes(currReg[regOffset+4:regOffset+8][::-1]))
+                hexToSend += self.bytesToHex(bytes(currData[regOffset+4:regOffset+8][::-1]))
                 currRegNum += 1
             if (len(hexToSend) != SEND_REGHEX_SIZE):
                 self.main.printMsg('handleCommand: len(hexToSend) != SEND_REGHEX_SIZE')
@@ -210,20 +210,19 @@ cdef class GDBStubHandler:
             maxRegNum = GDB_NUM_REGISTERS
             currRegNum = minRegNum
             data = data[1:]
-            oldEip = self.main.cpu.registers.regRead( CPU_REGISTER_EIP, False )
             while (currRegNum < maxRegNum):
                 dataOffset = currRegNum*8
                 if (currRegNum*5 >= CPU_MAX_REGISTER_WO_CR):
                     break
                 regOffset = ((CPU_MIN_REGISTER//5)+currRegNum)*8
-                newReg = self.hexToBytes(data[dataOffset:dataOffset+8]) # newReg is a DWORD
-                self.main.cpu.registers.regs[regOffset:regOffset+8]   = b'\x00\x00\x00\x00'+newReg[::-1]
+                currData = self.hexToBytes(data[dataOffset:dataOffset+8]) # currData is bytes/DWORD
+                if (len(currData) != 4):
+                    self.main.exitError("GDB::handleCommand: len(currData)!=4; currData isn't DWORD.")
+                    return
+                regVal = int.from_bytes(bytes=currData, byteorder="little", signed=False)
+                self.main.cpu.registers.regs.csWriteValueBE(regOffset, regVal, OP_SIZE_QWORD)
                 currRegNum += 1
             self.putPacket(b'OK')
-            #newEip = self.main.cpu.registers.regRead( CPU_REGISTER_EIP, False )
-            #if (oldEip != newEip):
-            #    self.main.printMsg('handleCommand: (r/e)ip got set, continue execution. (delete hlt flag)')
-            #    self.main.cpu.cpuHalted = False
         elif (data.startswith(b'm')):
             memList = data[1:].split(b',')
             memAddr = int(memList[0], 16)
@@ -232,10 +231,10 @@ cdef class GDBStubHandler:
             while (memLength != 0):
                 blockSize = min(memLength, MAX_PACKET_DATA_SIZE)
                 if (self.main.mm.mmGetSingleArea(memAddr, blockSize)):
-                    memData = self.main.mm.mmPhyRead(memAddr, blockSize)
+                    currData = self.main.mm.mmPhyRead(memAddr, blockSize)
                 else:
-                    memData = b'\x00'*blockSize
-                hexToSend = self.bytesToHex(memData)
+                    currData = b'\x00'*blockSize
+                hexToSend = self.bytesToHex(currData)
                 self.putPacket(hexToSend)
                 memLength -= blockSize
                 memAddr   += blockSize

@@ -1,4 +1,6 @@
 
+cimport mm
+
 cdef class Gdt:
     cpdef public object segments, registers, main
     cdef public unsigned char needFlush, setGdtLoadedTo, gdtLoaded
@@ -54,7 +56,8 @@ cdef class Segments:
     cpdef run(self)
 
 cdef class Registers:
-    cpdef public object main, cpu, segments, regs
+    cpdef public object main, cpu, segments
+    cpdef public mm.ConfigSpace regs
     cdef public unsigned char lockPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, addressSizePrefix, cpl, iopl
     cpdef reset(self)
     cpdef resetPrefixes(self)

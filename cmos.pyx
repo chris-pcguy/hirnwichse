@@ -10,7 +10,7 @@ cdef class Cmos:
         self.main = main
         self.cmosIndex = 0
     cdef unsigned long readValue(self, unsigned char index, unsigned char size):
-        return self.configSpace.csReadValue(index, size)
+        return self.configSpace.csReadValue(index, size, False)
     cdef writeValue(self, unsigned char index, unsigned long value, unsigned char size):
         self.configSpace.csWriteValue(index, value, size)
     cdef reset(self):

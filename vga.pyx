@@ -77,7 +77,7 @@ cdef class VGA_REGISTER_RAW:
     cpdef indexSub(self, unsigned short n):
         self.index -= n
     cpdef getData(self, unsigned char dataSize):
-        return self.configSpace.csReadValue(self.index, dataSize)
+        return self.configSpace.csReadValue(self.index, dataSize, False)
     cpdef setData(self, unsigned long long data, unsigned char dataSize):
         self.configSpace.csWriteValue(self.index, data, dataSize)
     cpdef run(self):

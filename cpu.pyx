@@ -209,8 +209,8 @@ cdef class Cpu:
         try:
             if (self.registers.lockPrefix and self.opcode in OPCODES_LOCK_PREFIX_INVALID):
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
-            elif (self.trace.isInTrace(self.opcode, self.savedEip)):
-                self.trace.executeTraceStep(self.savedEip)
+            #elif (self.trace.isInTrace(self.opcode, self.savedEip)):
+            #    self.trace.executeTraceStep(self.savedEip)
             elif (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
@@ -233,6 +233,7 @@ cdef class Cpu:
             print(sys.exc_info())
             self.main.exitError('doCycle: exception while in opcodeHandle, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
     cpdef run(self):
+        self.registers.run()
         self.reset()
         ###self.misc.createThread(self.doInfiniteCycles, True)
         self.doInfiniteCycles()

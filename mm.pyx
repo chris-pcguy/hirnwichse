@@ -192,18 +192,26 @@ cdef class ConfigSpace:
         tempAddr = <char*>(self.csData+offset)
         ####self.csData[offset:offset+size] = data
         memcpy(<char*>tempAddr, <char*>data, size)
-    cdef unsigned long long csReadValue(self, unsigned long offset, unsigned long size):
+    cdef unsigned long long csReadValue(self, unsigned long offset, unsigned long size, unsigned char signed):
         cdef bytes data = self.csRead(offset, size)
-        cdef unsigned long retData = int.from_bytes(data, byteorder="little", signed=False)
+        cdef unsigned long retData = int.from_bytes(data, byteorder="little", signed=signed)
+        return retData
+    cdef unsigned long long csReadValueBE(self, unsigned long offset, unsigned long size, unsigned char signed): # Big Endian
+        cdef bytes data = self.csRead(offset, size)
+        cdef unsigned long retData = int.from_bytes(data, byteorder="big", signed=signed)
         return retData
     cdef unsigned long long csWriteValue(self, unsigned long offset, unsigned long long data, unsigned long size):
         cdef bytes bytesData = data.to_bytes(length=size, byteorder="little")
         self.csWrite(offset, bytesData, size)
         return data
+    cdef unsigned long long csWriteValueBE(self, unsigned long offset, unsigned long long data, unsigned long size): # Big Endian
+        cdef bytes bytesData = data.to_bytes(length=size, byteorder="big")
+        self.csWrite(offset, bytesData, size)
+        return data
     cdef unsigned long long csAddValue(self, unsigned long offset, unsigned long long data, unsigned long size):
-        return self.csWriteValue(offset, self.csReadValue(offset, size)+data, size)
+        return self.csWriteValue(offset, self.csReadValue(offset, size, False)+data, size)
     cdef unsigned long long csSubValue(self, unsigned long offset, unsigned long long data, unsigned long size):
-        return self.csWriteValue(offset, self.csReadValue(offset, size)-data, size)
+        return self.csWriteValue(offset, self.csReadValue(offset, size, False)-data, size)
     cpdef run(self):
         self.csData = <char*>calloc(self.csSize, 1)
         if (not self.csData):

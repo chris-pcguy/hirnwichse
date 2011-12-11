@@ -37,7 +37,7 @@ cdef class PciDevice:
         if (function != 0):
             self.main.exitError("PciDevice::getData: function {0:d} != 0.", function)
             return bitMask
-        return self.configSpace.csReadValue(register, dataSize)
+        return self.configSpace.csReadValue(register, dataSize, False)
     cpdef setData(self, unsigned char function, unsigned char register, unsigned long long data, unsigned char dataSize):
         if (function != 0):
             self.main.exitError("PciDevice::getData: function {0:d} != 0.", function)

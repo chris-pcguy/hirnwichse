@@ -1,6 +1,9 @@
 
+cimport cputrace
+
 cdef class Cpu:
-    cpdef public object main, registers, opcodes, trace
+    cpdef public object main, registers, opcodes
+    cpdef public cputrace.Trace trace
     cdef public unsigned long long cycles
     cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, A20Active, protectedModeOn
     cdef unsigned char INTR, HRQ

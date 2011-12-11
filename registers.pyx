@@ -287,9 +287,8 @@ cdef class Registers:
     def __init__(self, object main, object cpu):
         self.main, self.cpu = main, cpu
     cpdef reset(self):
-        self.regs = bytearray(CPU_REGISTER_LENGTH)
-        self.segments = Segments(self.main, self.cpu, self)
-        self.segments.run()
+        self.regs.csResetData()
+        self.segments.reset()
         self.regWrite(CPU_REGISTER_EFLAGS, 0x2)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
         self.regWrite(CPU_REGISTER_EIP, 0xfff0)
@@ -315,7 +314,7 @@ cdef class Registers:
             self.main.exitError("segRead: segId is not a segment! ({0:d})", segId)
             return 0
         aregId = (segId//5)*8
-        segValue = int.from_bytes(bytes=self.regs[aregId+6:aregId+8], byteorder="big")
+        segValue = self.regs.csReadValueBE(aregId+6, OP_SIZE_WORD, False)
         return segValue
     cpdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as a byteorder here, IT WON'T WORK!!!!
         cdef unsigned short aregId
@@ -323,9 +322,10 @@ cdef class Registers:
             self.main.exitError("segWrite: segId is not a segment! ({0:d})", segId)
             return 0
         aregId = (segId//5)*8
-        self.regs[aregId+6:aregId+8] = segValue.to_bytes(length=2, byteorder="big")
+        self.regs.csWriteValueBE(aregId+6, segValue, OP_SIZE_WORD)
         return segValue
     cpdef long long regRead(self, unsigned short regId, unsigned char signed): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
+        cdef unsigned char opSize
         cdef unsigned short aregId
         cdef long long regValue
         if (regId == CPU_REGISTER_NONE):
@@ -335,36 +335,47 @@ cdef class Registers:
             return 0
         aregId = (regId//5)*8
         if (regId in CPU_REGISTER_QWORD):
-            regValue = int.from_bytes(bytes=self.regs[aregId:aregId+8], byteorder="big", signed=signed)
+            opSize = OP_SIZE_QWORD
         elif (regId in CPU_REGISTER_DWORD):
-            regValue = int.from_bytes(bytes=self.regs[aregId+4:aregId+8], byteorder="big", signed=signed)
+            opSize = OP_SIZE_DWORD
+            aregId += 4
         elif (regId in CPU_REGISTER_WORD):
-            regValue = int.from_bytes(bytes=self.regs[aregId+6:aregId+8], byteorder="big", signed=signed)
-        elif (regId in CPU_REGISTER_HBYTE):
-            regValue = int.from_bytes(bytes=self.regs[aregId+6:aregId+7], byteorder="big", signed=signed)
-        elif (regId in CPU_REGISTER_LBYTE):
-            regValue = int.from_bytes(bytes=self.regs[aregId+7:aregId+8], byteorder="big", signed=signed)
+            opSize = OP_SIZE_WORD
+            aregId += 6
+        elif (regId in CPU_REGISTER_BYTE):
+            opSize = OP_SIZE_BYTE
+            if (regId in CPU_REGISTER_HBYTE):
+                aregId += 6
+            else:
+                aregId += 7
         else:
             self.main.exitError("regRead: regId is unknown! ({0:d})", regId)
+        regValue = self.regs.csReadValueBE(aregId, opSize, signed)
         return regValue
     cpdef unsigned long regWrite(self, unsigned short regId, unsigned long value): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
+        cdef unsigned char opSize
         cdef unsigned short aregId
         if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
             self.main.exitError("regWrite: regId is reserved! ({0:d})", regId)
             return 0
         aregId = (regId//5)*8
         if (regId in CPU_REGISTER_QWORD):
-            self.regs[aregId:aregId+8] = value.to_bytes(length=8, byteorder="big")
+            opSize = OP_SIZE_QWORD
         elif (regId in CPU_REGISTER_DWORD):
-            self.regs[aregId+4:aregId+8] = value.to_bytes(length=4, byteorder="big")
+            opSize = OP_SIZE_DWORD
+            aregId += 4
         elif (regId in CPU_REGISTER_WORD):
-            self.regs[aregId+6:aregId+8] = value.to_bytes(length=2, byteorder="big")
-        elif (regId in CPU_REGISTER_HBYTE):
-            self.regs[aregId+6] = value
-        elif (regId in CPU_REGISTER_LBYTE):
-            self.regs[aregId+7] = value
+            opSize = OP_SIZE_WORD
+            aregId += 6
+        elif (regId in CPU_REGISTER_BYTE):
+            opSize = OP_SIZE_BYTE
+            if (regId in CPU_REGISTER_HBYTE):
+                aregId += 6
+            else:
+                aregId += 7
         else:
             self.main.exitError("regWrite: regId is unknown! ({0:d})", regId)
+        self.regs.csWriteValueBE(aregId, value, opSize)
         return value # return value is unsigned!!
     cpdef unsigned long regAdd(self, unsigned short regId, long long value):
         cdef unsigned long newVal = self.regRead(regId, False)
@@ -806,6 +817,9 @@ cdef class Registers:
             if (self.segments.isCodeSeg(segVal) and not self.segments.isSegReadableWritable(segVal) ):
                 raise misc.ChemuException(CPU_EXCEPTION_GP, segVal)
     cpdef run(self):
-        self.reset()
+        self.regs = mm.ConfigSpace(CPU_REGISTER_LENGTH)
+        self.regs.run()
+        self.segments = Segments(self.main, self.cpu, self)
+        self.segments.run()
 
 
