@@ -1,5 +1,5 @@
 
-import registers, misc, atexit
+import misc, atexit
 from libc.stdlib cimport calloc, malloc, free
 from libc.string cimport strncpy, memcpy, memset
 
@@ -21,10 +21,14 @@ cdef class MmArea:
     cdef mmSetReadOnly(self, unsigned char mmReadOnly):
         self.mmReadOnly = mmReadOnly
     cdef bytes mmAreaRead(self, unsigned long long mmAddr, unsigned long long dataSize):
+        if (not self.mmAreaData):
+            raise MemoryError()
         mmAddr -= self.mmBaseAddr
         return bytes(self.mmAreaData[mmAddr:mmAddr+dataSize])
     cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize):
         cdef char *tempAddr
+        if (not self.mmAreaData):
+            raise MemoryError()
         if (self.mmReadOnly):
             self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
             return
@@ -75,38 +79,32 @@ cdef class Mm:
             segId = self.main.cpu.registers.segmentOverridePrefix
         mmAddr = self.main.cpu.registers.segments.getRealAddr(segId, mmAddr)
         return mmAddr
-    cpdef bytes mmPhyRead(self, long long mmAddr, unsigned long long dataSize): # dataSize in bytes
+    cdef bytes mmPhyRead(self, long long mmAddr, unsigned long long dataSize): # dataSize in bytes
         cdef MmArea mmArea
         mmArea = self.mmGetSingleArea(mmAddr, dataSize)
         if (not mmArea):
             self.main.exitError("mmPhyRead: mmAreas not found! (mmAddr: {0:#10x}, dataSize: {1:d})", mmAddr, dataSize)
             return
         return mmArea.mmAreaRead(mmAddr, dataSize)
-    cpdef mmPhyReadValue(self, long long mmAddr, unsigned long long dataSize, unsigned char signed): # dataSize in bytes
-        cdef bytes data = self.mmPhyRead(mmAddr, dataSize)
-        cdef long long retDataSigned
-        cdef unsigned long long retDataUnsigned
-        if (signed):
-            retData = int.from_bytes(data, byteorder="little", signed=signed)
-            return retData
-        else:
-            retDataUnsigned = int.from_bytes(data, byteorder="little", signed=signed)
-            return retDataUnsigned
-    cpdef bytes mmRead(self, long long mmAddr, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes
+    cdef bytes mmRead(self, long long mmAddr, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes
         #self.main.cpu.registers.checkMemAccessRights(segId, False) # TODO
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return self.mmPhyRead(mmAddr, dataSize)
-    cpdef mmReadValue(self, long long mmAddr, unsigned long long dataSize, unsigned short segId, unsigned char signed, unsigned char allowOverride): # dataSize in bytes
-        cdef long long valueSigned
-        cdef unsigned long long valueUnsigned
+    cdef long long mmPhyReadValueSigned(self, long long mmAddr, unsigned char dataSize):
+        cdef bytes data
+        data = self.mmPhyRead(mmAddr, dataSize)
+        return int.from_bytes(data, byteorder="little", signed=True)
+    cdef unsigned long long mmPhyReadValueUnsigned(self, long long mmAddr, unsigned char dataSize):
+        cdef bytes data
+        data = self.mmPhyRead(mmAddr, dataSize)
+        return int.from_bytes(data, byteorder="little", signed=False)
+    cdef long long mmReadValueSigned(self, long long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        if (signed):
-            valueSigned = self.mmPhyReadValue(mmAddr, dataSize, signed)
-            return valueSigned
-        else:
-            valueUnsigned = self.mmPhyReadValue(mmAddr, dataSize, signed)
-            return valueUnsigned
-    cpdef mmPhyWrite(self, long long mmAddr, bytes data, unsigned long long dataSize): # dataSize in bytes
+        return self.mmPhyReadValueSigned(mmAddr, dataSize)
+    cdef unsigned long long mmReadValueUnsigned(self, long long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
+        mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
+        return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
+    cdef mmPhyWrite(self, long long mmAddr, bytes data, unsigned long long dataSize): # dataSize in bytes
         cdef MmArea mmArea
         cdef list mmAreas
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
@@ -115,21 +113,21 @@ cdef class Mm:
             return
         for mmArea in mmAreas:
             mmArea.mmAreaWrite(mmAddr, data, dataSize)
-    cpdef unsigned long long mmPhyWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize):
+    cdef unsigned long long mmPhyWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize):
         cdef bytes bytesData
         data &= self.main.misc.getBitMaskFF(dataSize)
         bytesData = data.to_bytes(length=dataSize, byteorder="little")
         self.mmPhyWrite(mmAddr, bytesData, dataSize)
         return data
-    cpdef mmWrite(self, long long mmAddr, bytes data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes
+    cdef mmWrite(self, long long mmAddr, bytes data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes
         #self.main.cpu.registers.checkMemAccessRights(segId, True) # TODO
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         self.mmPhyWrite(mmAddr, data, dataSize)
-    cpdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes
+    cdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride): # dataSize in bytes
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         data &= self.main.misc.getBitMaskFF(dataSize)
         return self.mmPhyWriteValue(mmAddr, data, dataSize)
-    cpdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp): # dataSize in bytes
+    cdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp): # dataSize in bytes
         cdef unsigned char carryOn
         cdef unsigned long long oldData, bitMask
         bitMask = self.main.misc.getBitMaskFF(dataSize)
@@ -142,7 +140,7 @@ cdef class Mm:
             data = (~data)&bitMask
             return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
         else:
-            oldData = self.mmReadValue(mmAddr, dataSize, segId, False, allowOverride)
+            oldData = self.mmReadValueUnsigned(mmAddr, dataSize, segId, allowOverride)
             if (valueOp == OPCODE_ADD):
                 data = (oldData+data)&bitMask
                 return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
@@ -184,9 +182,13 @@ cdef class ConfigSpace:
             free(self.csData)
         self.csData = None
     cdef bytes csRead(self, unsigned long offset, unsigned long size):
+        if (not self.csData):
+            raise MemoryError()
         return bytes(self.csData[offset:offset+size])
     cdef csWrite(self, unsigned long offset, bytes data, unsigned long size):
         cdef char *tempAddr
+        if (not self.csData):
+            raise MemoryError()
         tempAddr = <char*>(self.csData+offset)
         ####self.csData[offset:offset+size] = data
         memcpy(<char*>tempAddr, <char*>data, size)

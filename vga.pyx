@@ -154,7 +154,7 @@ cdef class Vga:
         self.processVideoMem = processVideoMem
     cpdef unsigned char getCorrectPage(self, unsigned char page):
         if (page == 0xff):
-            page = self.main.mm.mmPhyReadValue(VGA_CURRENT_PAGE_ADDR, 1, False)
+            page = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURRENT_PAGE_ADDR, 1)
         elif (page > 7):
             self.main.printMsg("VGA::getCorrectPage: page: {0:d}", page)
         return page
@@ -187,10 +187,10 @@ cdef class Vga:
         cdef bytes charData
         if (attr == -1):
             charData = bytes( [c] )
-            self.main.mm.mmPhyWrite(address, charData, 1)
+            (<mm.Mm>self.main.mm).mmPhyWrite(address, charData, 1)
         else:
             charData = bytes( [c, attr] )
-            self.main.mm.mmPhyWrite(address, charData, 2)
+            (<mm.Mm>self.main.mm).mmPhyWrite(address, charData, 2)
     cpdef getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
         cdef unsigned long offset
         page = self.getCorrectPage(page)
@@ -202,26 +202,26 @@ cdef class Vga:
         if (page > 7):
             self.main.printMsg("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
             return 0
-        pos = self.main.mm.mmPhyReadValue(VGA_CURSOR_BASE_ADDR+(page*2), 2, False)
+        pos = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURSOR_BASE_ADDR+(page*2), 2)
         return pos
     cpdef setCursorPosition(self, unsigned char page, unsigned short pos):
         page = self.getCorrectPage(page)
         if (page > 7):
             self.main.printMsg("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
-        self.main.mm.mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page*2), pos, 2)
+        (<mm.Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page*2), pos, 2)
     cpdef scrollDown(self, unsigned char page):
         cdef bytes oldData
         cdef unsigned long oldAddr
         self.setProcessVideoMem(False)
         page = self.getCorrectPage(page)
         oldAddr = self.getAddrOfPos(page, 0, 0)
-        oldData = self.main.mm.mmPhyRead(oldAddr+160, 3840) # 3840==24*80*2
-        self.main.mm.mmPhyWrite(oldAddr, oldData, 3840)
-        self.main.mm.mmPhyWrite(oldAddr+3840, b'\x00'*160, 160)
+        oldData = (<mm.Mm>self.main.mm).mmPhyRead(oldAddr+160, 3840) # 3840==24*80*2
+        (<mm.Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 3840)
+        (<mm.Mm>self.main.mm).mmPhyWrite(oldAddr+3840, b'\x00'*160, 160)
         self.setProcessVideoMem(True)
-        oldData = self.main.mm.mmPhyRead(oldAddr, 4000)
-        self.main.mm.mmPhyWrite(oldAddr, oldData, 4000)
+        oldData = (<mm.Mm>self.main.mm).mmPhyRead(oldAddr, 4000)
+        (<mm.Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
     cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x3c5):
@@ -302,7 +302,7 @@ cdef class Vga:
         return
     cpdef VRamAddMemArea(self):
         (<mm.Mm>self.main.mm).mmAddArea(TEXTMODE_ADDR, 4000, False, <mm.MmArea>VRamArea)
-        ##self.main.mm.mmAddArea(VGA_MEMAREA_ADDR, 0x4000, False, VRamArea)
+        ##(<mm.Mm>self.main.mm).mmAddArea(VGA_MEMAREA_ADDR, 0x4000, False, VRamArea)
     cpdef run(self):
         self.seq.run()
         self.crt.run()

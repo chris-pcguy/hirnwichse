@@ -1,12 +1,8 @@
 
 import sys, os, traceback
 
+import mm, cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel, gdbstub, pythonBios
 cimport mm
-import mm
-#from mm cimport Mm, MmArea
-#from mm import Mm, MmArea
-
-import cmos, isadma, pic, pit, pci, ps2, vga, floppy, serial, parallel, gdbstub, pythonBios
 
 
 SIZE_64KB  = 0x10000
@@ -95,7 +91,7 @@ cdef class Platform:
         try:
             romFp = open(romFileName, "rb")
             romData = romFp.read(romSize)
-            self.main.mm.mmPhyWrite(mmAddr, romData, romSize)
+            (<mm.Mm>self.main.mm).mmPhyWrite(mmAddr, romData, romSize)
         finally:
             if (romFp):
                 romFp.close()
@@ -114,7 +110,7 @@ cdef class Platform:
             if (romMemSize > SIZE_1MB):
                 self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
                 return
-            self.main.mm.mmPhyWrite(mmAddr&0xfffff, self.main.mm.mmPhyRead(mmAddr, romSize), romSize)
+            (<mm.Mm>self.main.mm).mmPhyWrite(mmAddr&0xfffff, (<mm.Mm>self.main.mm).mmPhyRead(mmAddr, romSize), romSize)
     cdef run(self, unsigned long long memSize):
         self.initDevices()
         (<mm.Mm>self.main.mm).mmAddArea(0, memSize, False, <mm.MmArea>mm.MmArea)

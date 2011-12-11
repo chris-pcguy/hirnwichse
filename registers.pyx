@@ -1,4 +1,6 @@
-import misc
+
+import misc, mm
+cimport mm
 
 include "globals.pxi"
 
@@ -21,7 +23,7 @@ cdef class Gdt:
         cdef unsigned long long entryData
         cdef unsigned long base, limit
         cdef unsigned char accessByte, flags
-        entryData = self.main.mm.mmPhyReadValue(self.tableBase+(num&0xfff8), 8, False)
+        entryData = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(self.tableBase+(num&0xfff8), 8)
         limit = entryData&BITMASK_WORD
         base  = (entryData>>16)&0xffffff
         accessByte = (entryData>>40)&BITMASK_BYTE
@@ -131,7 +133,7 @@ cdef class Idt:
         cdef unsigned long entryEip
         cdef unsigned short entrySegment
         cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent
-        entryData = self.main.mm.mmPhyReadValue(self.tableBase+(num*8), 8, False)
+        entryData = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(self.tableBase+(num*8), 8)
         entryEip = ((entryData>>48)&BITMASK_WORD) # interrupt eip: upper word
         entryEip <<= 16
         entryEip |= entryData&BITMASK_WORD # interrupt eip: lower word
@@ -146,19 +148,19 @@ cdef class Idt:
     cpdef unsigned char isEntryPresent(self, unsigned short num):
         cdef unsigned long long entryData
         cdef unsigned char entryPresent
-        entryData = self.main.mm.mmPhyReadValue(self.tableBase+(num*8), 8, False)
+        entryData = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(self.tableBase+(num*8), 8)
         entryPresent = (entryData>>47)&1 # is interrupt present
         return entryPresent
     cpdef unsigned char getEntryNeededDPL(self, unsigned short num):
         cdef unsigned long long entryData
         cdef unsigned char entryPresent
-        entryData = self.main.mm.mmPhyReadValue(self.tableBase+(num*8), 8, False)
+        entryData = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(self.tableBase+(num*8), 8)
         entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
         return entryNeededDPL
     cpdef unsigned char getEntrySize(self, unsigned short num):
         cdef unsigned long long entryData
         cdef unsigned char entrySize
-        entryData = self.main.mm.mmPhyReadValue(self.tableBase+(num*8), 8, False)
+        entryData = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(self.tableBase+(num*8), 8)
         entrySize = (entryData>>43)&1 # interrupt size: 1==32bit; 0==16bit; return 4 for 32bit, 2 for 16bit
         if (entrySize!=0): entrySize = OP_SIZE_DWORD
         else: entrySize = OP_SIZE_WORD
@@ -166,8 +168,8 @@ cdef class Idt:
     cpdef tuple getEntryRealMode(self, unsigned short num):
         cdef unsigned short offset, entrySegment, entryEip
         offset = num*4
-        entryEip = self.main.mm.mmPhyReadValue(offset, 2, False)
-        entrySegment = self.main.mm.mmPhyReadValue(offset+2, 2, False)
+        entryEip = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(offset, 2)
+        entrySegment = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(offset+2, 2)
         return entrySegment, entryEip
     cpdef run(self, unsigned long long tableBase, unsigned long tableLimit):
         self.loadTable(tableBase, tableLimit)
@@ -307,7 +309,7 @@ cdef class Registers:
         elif (regId in CPU_REGISTER_BYTE):
             return OP_SIZE_BYTE
         self.main.exitError("regId is unknown! ({0:d})", regId)
-    cpdef unsigned short segRead(self, unsigned short segId): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
+    cpdef unsigned short segRead(self, unsigned short segId): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as a byteorder here, IT WON'T WORK!!!!
         cdef unsigned short aregId, segValue
         if (not segId and not (segId in CPU_REGISTER_SREG)):
             self.main.exitError("segRead: segId is not a segment! ({0:d})", segId)
@@ -315,7 +317,7 @@ cdef class Registers:
         aregId = (segId//5)*8
         segValue = int.from_bytes(bytes=self.regs[aregId+6:aregId+8], byteorder="big")
         return segValue
-    cpdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
+    cpdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as a byteorder here, IT WON'T WORK!!!!
         cdef unsigned short aregId
         if (not segId and not (segId in CPU_REGISTER_SREG)):
             self.main.exitError("segWrite: segId is not a segment! ({0:d})", segId)
@@ -487,7 +489,10 @@ cdef class Registers:
         addrSize = self.segments.getAddrSegSize(CPU_SEGMENT_CS)
         returnInt = self.getRMValueFull(rmNames[0], addrSize)
         if (mod in (0, 1, 2)):
-            returnInt = self.main.mm.mmReadValue(returnInt, regSize, rmNames[1], signed, allowOverride)
+            if (signed):
+                returnInt = (<mm.Mm>self.main.mm).mmReadValueSigned(returnInt, regSize, rmNames[1], allowOverride)
+            else:
+                returnInt = (<mm.Mm>self.main.mm).mmReadValueUnsigned(returnInt, regSize, rmNames[1], allowOverride)
         else:
             returnInt = self.regRead(rmNames[0][0], signed)
         return returnInt
@@ -500,7 +505,7 @@ cdef class Registers:
         addrSize = self.segments.getAddrSegSize(CPU_SEGMENT_CS)
         rmValueFull = self.getRMValueFull(rmNames[0], addrSize)
         if (mod in (0, 1, 2)):
-            return self.main.mm.mmWriteValueWithOp(rmValueFull, value, regSize, rmNames[1], allowOverride, valueOp)
+            return (<mm.Mm>self.main.mm).mmWriteValueWithOp(rmValueFull, value, regSize, rmNames[1], allowOverride, valueOp)
         else:
             return self.regWriteWithOp(rmNames[0][0], value, valueOp)
     cpdef unsigned short modSegLoad(self, tuple rmOperands, unsigned char regSize): # imm == unsigned ; disp == signed

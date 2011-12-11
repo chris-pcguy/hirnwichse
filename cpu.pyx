@@ -1,6 +1,8 @@
 import struct, time, sys, threading
 
-import registers, opcodes, cputrace, misc
+import registers, opcodes, cputrace, misc, mm
+cimport mm
+
 include "globals.pxi"
 
 
@@ -42,8 +44,13 @@ cdef class Cpu:
         opcodeAddr = self.registers.segments.getRealAddr(CPU_SEGMENT_CS, self.registers.regRead(eipSizeRegId, False))
         return opcodeAddr
     cpdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed): # numBytes in bytes
-        cdef unsigned long opcodeAddr = self.getCurrentOpcodeAddr()
-        cdef long long currentOpcode = self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed)
+        cdef unsigned long opcodeAddr
+        cdef long long currentOpcode
+        opcodeAddr = self.getCurrentOpcodeAddr()
+        if (signed):
+            currentOpcode = (<mm.Mm>self.main.mm).mmPhyReadValueSigned(opcodeAddr, numBytes)
+        else:
+            currentOpcode = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(opcodeAddr, numBytes)
         return currentOpcode
     cpdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed): # numBytes in bytes
         cdef long long currentOpcode = self.getCurrentOpcode(numBytes, signed)
@@ -52,8 +59,13 @@ cdef class Cpu:
         self.registers.regAdd(regSizeId, numBytes)
         return currentOpcode
     cpdef tuple getCurrentOpcodeWithAddr(self, unsigned char getAddr, unsigned char numBytes, unsigned char signed): # numBytes in bytes
-        cdef unsigned long opcodeAddr = self.getCurrentOpcodeAddr()
-        cdef long long currentOpcode = self.main.mm.mmPhyReadValue(opcodeAddr, numBytes, signed)
+        cdef unsigned long opcodeAddr
+        cdef long long currentOpcode
+        opcodeAddr = self.getCurrentOpcodeAddr()
+        if (signed):
+            currentOpcode = (<mm.Mm>self.main.mm).mmPhyReadValueSigned(opcodeAddr, numBytes)
+        else:
+            currentOpcode = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(opcodeAddr, numBytes)
         if (getAddr == GETADDR_OPCODE):
             return currentOpcode, opcodeAddr
         elif (getAddr == GETADDR_NEXT_OPCODE):

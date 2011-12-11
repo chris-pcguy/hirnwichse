@@ -1,4 +1,6 @@
-import misc, registers, vga
+
+import misc, registers, mm, vga
+cimport mm
 
 include "globals.pxi"
 
@@ -25,7 +27,7 @@ cdef class PythonBios:
         bh, bl = bx>>8, bx&0xff
         if (intNum == 0x10): # video; TODO
             #return False
-            currMode = self.main.mm.mmPhyReadValue(vga.VGA_CURRENT_MODE_ADDR, 1, False)
+            currMode = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(vga.VGA_CURRENT_MODE_ADDR, 1)
             if (ah == 0x02): # set cursor position
                 self.main.platform.vga.setCursorPosition(bh, dx)
             elif (ah == 0x0f): # get currMode; write it to AL
@@ -60,7 +62,7 @@ cdef class PythonBios:
                         self.main.platform.vga.setCursorPosition(bh, dx)
                         if (attrInBuf):
                             count *= 2
-                        data = self.main.mm.mmRead(bp, count, CPU_SEGMENT_ES, False)
+                        data = (<mm.Mm>self.main.mm).mmRead(bp, count, CPU_SEGMENT_ES, False)
                         for i in range(0, count, attrInBuf+1):
                             c = data[i]
                             if (attrInBuf):
@@ -105,7 +107,7 @@ cdef class PythonBios:
                 logicalSector = self.main.platform.floppy.controller[fdcNum].drive[dl].ChsToSector(cylinder, head, sector)
                 data = self.main.platform.floppy.controller[fdcNum].drive[dl].readSectors(logicalSector, count)
                 ##self.main.printMsg("pythonBios: 1234_1: logicalSector: {0:d}, count: {1:d}, dataLen: {2:d}", logicalSector, count, len(data))
-                self.main.mm.mmPhyWrite(memAddr, data, count*512)
+                (<mm.Mm>self.main.mm).mmPhyWrite(memAddr, data, count*512)
                 self.setRetError(False, al)
                 return True
             elif (not (dl & 0x80)):
@@ -114,7 +116,7 @@ cdef class PythonBios:
     cdef setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy
         self.registers.setEFLAG( FLAG_CF, newCF )
         self.registers.regWrite( CPU_REGISTER_AX, ax )
-        self.main.mm.mmPhyWriteValue(DISKETTE_RET_STATUS_ADDR, ax>>8, OP_SIZE_BYTE)
+        (<mm.Mm>self.main.mm).mmPhyWriteValue(DISKETTE_RET_STATUS_ADDR, ax>>8, OP_SIZE_BYTE)
     cpdef run(self):
         self.cpu = self.main.cpu
         self.registers = self.cpu.registers

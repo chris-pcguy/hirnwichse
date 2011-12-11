@@ -18,18 +18,20 @@ cdef class Mm:
     cdef list mmAreas
     cdef mmAddArea(self, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly, MmArea mmAreaObject)
     cpdef unsigned char mmDelArea(self, unsigned long long mmBaseAddr)
-    cdef MmArea mmGetSingleArea(self, long long mmAddr, unsigned long long dataSize) # dataSize in bytes
-    cdef list mmGetAreas(self, long long mmAddr, unsigned long long dataSize) # dataSize in bytes
+    cdef MmArea mmGetSingleArea(self, long long mmAddr, unsigned long long dataSize)
+    cdef list mmGetAreas(self, long long mmAddr, unsigned long long dataSize)
     cdef unsigned long long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride)
-    cpdef bytes mmPhyRead(self, long long mmAddr, unsigned long long dataSize)
-    cpdef bytes mmRead(self, long long mmAddr, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
-    cpdef mmPhyReadValue(self, long long mmAddr, unsigned long long dataSize, unsigned char signed)
-    cpdef mmReadValue(self, long long mmAddr, unsigned long long dataSize, unsigned short segId, unsigned char signed, unsigned char allowOverride) # dataSize in bytes
-    cpdef mmPhyWrite(self, long long mmAddr, bytes data, unsigned long long dataSize)
-    cpdef mmWrite(self, long long mmAddr, bytes data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
-    cpdef unsigned long long mmPhyWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize)
-    cpdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
-    cpdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
+    cdef bytes mmPhyRead(self, long long mmAddr, unsigned long long dataSize)
+    cdef bytes mmRead(self, long long mmAddr, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef long long mmPhyReadValueSigned(self, long long mmAddr, unsigned char dataSize)
+    cdef unsigned long long mmPhyReadValueUnsigned(self, long long mmAddr, unsigned char dataSize)
+    cdef long long mmReadValueSigned(self, long long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned long long mmReadValueUnsigned(self, long long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef mmPhyWrite(self, long long mmAddr, bytes data, unsigned long long dataSize)
+    cdef mmWrite(self, long long mmAddr, bytes data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned long long mmPhyWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize)
+    cdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
 
 
 

@@ -1,4 +1,7 @@
 
+import mm
+cimport mm
+
 include "globals.pxi"
 
 # This file contains (much) code from the Bochs Emulator (c) by it's developers
@@ -345,9 +348,9 @@ cdef class ISADMA:
                 return
             if (not ma_sl):
                 data &= BITMASK_BYTE
-            self.main.mm.mmPhyWriteValue(phyAddr, data, ma_sl+1)
+            (<mm.Mm>self.main.mm).mmPhyWriteValue(phyAddr, data, ma_sl+1)
         elif (currChannel.transferDirection == 2): # MEM -> IODEV
-            data = self.main.mm.mmPhyReadValue(phyAddr, ma_sl+1, False)&BITMASK_WORD
+            data = (<mm.Mm>self.main.mm).mmPhyReadValueUnsigned(phyAddr, ma_sl+1)
             if (currChannel.dmaReadFromMem is not None):
                 currChannel.dmaReadFromMem(data)
             else:
