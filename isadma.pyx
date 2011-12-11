@@ -372,6 +372,7 @@ cdef class ISADMA:
                 self.setDRQ(4, False)
                 self.controller[1].channel[0].DACK = False
     cpdef run(self):
+        cdef Controller controller
         for controller in self.controller:
             controller.run()
         self.main.platform.addHandlers(DMA_MASTER_CONTROLLER_PORTS, self)

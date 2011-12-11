@@ -48,18 +48,22 @@ cdef class Platform:
         self.addReadHandlers (portNums, devObject)
         self.addWriteHandlers(portNums, devObject)
     cpdef addReadHandlers(self, tuple portNums, object devObject):
+        cdef unsigned short portNum
         for portNum in portNums:
             self.readHandlers[portNum] = devObject
     cpdef addWriteHandlers(self, tuple portNums, object devObject):
+        cdef unsigned short portNum
         for portNum in portNums:
             self.writeHandlers[portNum] = devObject
     cpdef delHandlers(self, tuple portNums):
         self.delReadHandlers (portNums)
         self.delWriteHandlers(portNums)
     cpdef delReadHandlers(self, tuple portNums):
+        cdef unsigned short portNum
         for portNum in portNums:
             del self.readHandlers[portNum]
     cpdef delWriteHandlers(self, tuple portNums):
+        cdef unsigned short portNum
         for portNum in portNums:
             del self.writeHandlers[portNum]
     cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
@@ -96,8 +100,9 @@ cdef class Platform:
             if (romFp):
                 romFp.close()
     cpdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional):
-        cdef unsigned long long romMemSize = SIZE_64KB
-        cdef unsigned long long romSize = os.stat(romFileName).st_size
+        cdef unsigned long long romMemSize, romSize, size
+        romMemSize = SIZE_64KB
+        romSize = os.stat(romFileName).st_size
         if (not isRomOptional):
             for size in ROM_SIZES:
                 if (size > romSize):
@@ -110,17 +115,15 @@ cdef class Platform:
                 self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
                 return
             self.main.mm.mmPhyWrite(mmAddr&0xfffff, self.main.mm.mmPhyRead(mmAddr, romSize), romSize)
-    cdef runCDEF(self, unsigned long long memSize):
+    cdef run(self, unsigned long long memSize):
         self.initDevices()
-        self.main.mm.mmAddArea(0, memSize, False, mm.MmArea)
-        self.main.mm.mmAddArea(0xfffc0000, 0x40000, False, mm.MmArea)
+        (<mm.Mm>self.main.mm).mmAddArea(0, memSize, False, <mm.MmArea>mm.MmArea)
+        (<mm.Mm>self.main.mm).mmAddArea(0xfffc0000, 0x40000, False, <mm.MmArea>mm.MmArea)
         self.loadRom(os.path.join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
         if (self.main.vgaBiosFilename):
             self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
-        self.main.mm.mmGetSingleArea(0xfffc0000, 0).mmSetReadOnly(True)
+        <mm.MmArea>((<mm.Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
         self.runDevices()
-    cpdef run(self, unsigned long long memSize):
-        self.runCDEF(memSize)
     cdef runDevices(self):
         self.cmos.run()
         self.pic.run()

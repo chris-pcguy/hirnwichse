@@ -1,5 +1,6 @@
 
 import misc, mm
+cimport mm
 
 include "globals.pxi"
 
@@ -23,13 +24,14 @@ PCI_DEVICE_ID_INTEL_430FX = 0x122d
 PCI_HEADER_TYPE_BRIDGE = 1
 
 cdef class PciDevice:
-    cpdef object main, pci, bus, configSpace
+    cpdef object main, pci, bus
+    cpdef mm.ConfigSpace configSpace
     def __init__(self, object bus, object pci, object main):
         self.bus = bus
         self.pci = pci
         self.main = main
     cpdef reset(self):
-        self.configSpace = mm.ConfigSpace(PCI_DEVICE_CONFIG_SIZE)
+        self.configSpace.csResetData()
     cpdef getData(self, unsigned char function, unsigned char register, unsigned char dataSize):
         cdef unsigned long bitMask = self.main.misc.getBitMaskFF(dataSize)
         if (function != 0):
@@ -51,7 +53,8 @@ cdef class PciDevice:
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
     cpdef run(self):
-        self.reset()
+        self.configSpace = mm.ConfigSpace(PCI_DEVICE_CONFIG_SIZE)
+        self.configSpace.run()
 
 cdef class PciBridge(PciDevice):
     def __init__(self, object bus, object pci, object main):
@@ -74,6 +77,8 @@ cdef class PciBus:
         deviceHandle = self.deviceList.get(index)
         return deviceHandle
     cpdef run(self):
+        cdef unsigned char devid
+        cdef PciDevice devobj
         for devid, devobj in self.deviceList.items():
             devobj.run()
     ####
@@ -139,6 +144,8 @@ cdef class Pci:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
     cpdef run(self):
+        cdef unsigned char busid
+        cdef PciBus busobj
         for busid, busobj in self.busList.items():
             busobj.run()
         self.main.platform.addHandlers(self.ports, self)

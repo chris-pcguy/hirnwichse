@@ -77,7 +77,7 @@ cdef class GDBStubHandler:
             self.main.printMsg('GDBStubHandler: putPacket: connHandler is NULL.')
 
     cpdef handleRead(self):
-        cdef bytes tempStr
+        cdef bytes tempStr, c
         if (self.connHandler):
             if (hasattr(self.connHandler, 'request') and self.connHandler.request):
                 while (not self.main.quitEmu and self.main.cpu.debugHalt):
@@ -133,7 +133,8 @@ cdef class GDBStubHandler:
         cdef bytes returnValue = '{0:02x}'.format(data).encode()
         return returnValue
     cpdef bytes bytesToHex(self, bytes data): # data is bytes, output==bytes
-        cdef bytes returnValue = bytes()
+        cdef bytes returnValue, c
+        returnValue = bytes()
         for c in data:
             returnValue += self.byteToHex(c)
         return returnValue
@@ -162,7 +163,7 @@ cdef class GDBStubHandler:
         cdef unsigned short minRegNum, maxRegNum, currRegNum
         cdef unsigned char cpuType, singleStepOn, res
         cdef list memList, actionList
-        cdef bytes memData, hexToSend, currReg
+        cdef bytes memData, hexToSend, currReg, action
         if (not len(data)):
             self.main.printMsg("INFO: handleCommand: data is empty, don't do anything.")
             return

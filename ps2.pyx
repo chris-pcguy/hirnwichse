@@ -84,7 +84,7 @@ cdef class PS2:
         if (self.main.platform.vga.ui):
             self.main.platform.vga.ui.setRepeatRate(delay, interval)
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
-        cdef unsigned char escaped
+        cdef unsigned char escaped, sc
         cdef bytes scancode
         escaped = 0x00
         self.main.printMsg("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)

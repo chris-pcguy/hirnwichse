@@ -1,5 +1,3 @@
-##class ChemuException(Exception):
-##    pass
 
 cdef class Misc:
     cpdef object main

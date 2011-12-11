@@ -1,9 +1,13 @@
 #cimport chemu_main
 #from chemu_main cimport ChEmu
 
+cimport cmos
+
+
 cdef class Platform:
     #cpdef public ChEmu main
-    cpdef public object main, cmos, isadma, ps2, pic, pit, pci, vga, floppy, serial, parallel, gdbstub, pythonBios
+    cpdef public object main, isadma, ps2, pic, pit, pci, vga, floppy, serial, parallel, gdbstub, pythonBios
+    cpdef public cmos.Cmos cmos
     cpdef dict readHandlers, writeHandlers
     cdef unsigned char copyRomToLowMem
     cpdef initDevices(self)
@@ -17,8 +21,7 @@ cdef class Platform:
     cpdef outPort(self, unsigned short ioPortAddr, unsigned long long data, unsigned char dataSize)
     cpdef loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize)
     cpdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional)
-    cdef runCDEF(self, unsigned long long memSize)
-    cpdef run(self, unsigned long long memSize)
+    cdef run(self, unsigned long long memSize)
     cdef runDevices(self)
 
 

@@ -1,7 +1,7 @@
 
 import registers, misc, atexit
 from libc.stdlib cimport calloc, malloc, free
-from libc.string cimport strncpy, memcpy
+from libc.string cimport strncpy, memcpy, memset
 
 include "globals.pxi"
 
@@ -14,24 +14,20 @@ cdef class MmArea:
         self.mmAreaSize = mmAreaSize
         self.mmEndAddr  = self.mmBaseAddr+self.mmAreaSize
         self.mmReadOnly = mmReadOnly
-        #self.mmAreaData = bytearray(self.mmAreaSize)
     cpdef mmFreeAreaData(self):
-        free(self.mmAreaData)
+        if (self.mmAreaData):
+            free(self.mmAreaData)
         self.mmAreaData = None
-    cpdef mmSetReadOnly(self, unsigned char mmReadOnly):
+    cdef mmSetReadOnly(self, unsigned char mmReadOnly):
         self.mmReadOnly = mmReadOnly
-    cpdef bytes mmAreaRead(self, unsigned long long mmAddr, unsigned long long dataSize):
+    cdef bytes mmAreaRead(self, unsigned long long mmAddr, unsigned long long dataSize):
         mmAddr -= self.mmBaseAddr
         return bytes(self.mmAreaData[mmAddr:mmAddr+dataSize])
-    cpdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize):
+    cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize):
         cdef char *tempAddr
         if (self.mmReadOnly):
             self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
             return
-        ##IF STRICT_CHECKS == 1:
-        ##    if (len(data) != dataSize):
-        ##        self.main.exitError("MmArea::mmAreaWrite: len(data): {0:#04x} != dataSize: {1:#04x}", len(data), dataSize)
-        ##        return
         mmAddr -= self.mmBaseAddr
         tempAddr = <char*>(self.mmAreaData+mmAddr)
         #self.mmAreaData[mmAddr:mmAddr+dataSize] = data
@@ -49,9 +45,9 @@ cdef class Mm:
     def __init__(self, object main):
         self.main = main
         self.mmAreas = []
-    cpdef mmAddArea(self, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly, object mmAreaObject):
-        cdef object mmAreaObjectInstance
-        mmAreaObjectInstance = mmAreaObject(self, mmBaseAddr, mmAreaSize, mmReadOnly)
+    cdef mmAddArea(self, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly, MmArea mmAreaObject):
+        cdef MmArea mmAreaObjectInstance
+        mmAreaObjectInstance = <MmArea>mmAreaObject(self, mmBaseAddr, mmAreaSize, mmReadOnly)
         mmAreaObjectInstance.run()
         self.mmAreas.append(mmAreaObjectInstance)
     cpdef unsigned char mmDelArea(self, unsigned long long mmBaseAddr):
@@ -61,23 +57,26 @@ cdef class Mm:
                 del self.mmAreas[i]
                 return True
         return False
-    cpdef object mmGetSingleArea(self, long long mmAddr, unsigned long long dataSize): # dataSize in bytes
+    cdef MmArea mmGetSingleArea(self, long long mmAddr, unsigned long long dataSize): # dataSize in bytes
+        cdef MmArea mmArea
         for mmArea in self.mmAreas:
             if (mmAddr >= mmArea.mmBaseAddr and mmAddr+dataSize <= mmArea.mmEndAddr):
                 return mmArea
-    cpdef list mmGetAreas(self, long long mmAddr, unsigned long long dataSize): # dataSize in bytes
-        cdef list foundAreas = []
+    cdef list mmGetAreas(self, long long mmAddr, unsigned long long dataSize): # dataSize in bytes
+        cdef MmArea mmArea
+        cdef list foundAreas
+        foundAreas = []
         for mmArea in self.mmAreas:
             if (mmAddr >= mmArea.mmBaseAddr and mmAddr+dataSize <= mmArea.mmEndAddr):
                 foundAreas.append(mmArea)
         return foundAreas
-    cpdef unsigned long long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride):
+    cdef unsigned long long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride):
         if (allowOverride and self.main.cpu.registers.segmentOverridePrefix):
             segId = self.main.cpu.registers.segmentOverridePrefix
         mmAddr = self.main.cpu.registers.segments.getRealAddr(segId, mmAddr)
         return mmAddr
     cpdef bytes mmPhyRead(self, long long mmAddr, unsigned long long dataSize): # dataSize in bytes
-        cpdef object mmArea
+        cdef MmArea mmArea
         mmArea = self.mmGetSingleArea(mmAddr, dataSize)
         if (not mmArea):
             self.main.exitError("mmPhyRead: mmAreas not found! (mmAddr: {0:#10x}, dataSize: {1:d})", mmAddr, dataSize)
@@ -108,7 +107,9 @@ cdef class Mm:
             valueUnsigned = self.mmPhyReadValue(mmAddr, dataSize, signed)
             return valueUnsigned
     cpdef mmPhyWrite(self, long long mmAddr, bytes data, unsigned long long dataSize): # dataSize in bytes
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef MmArea mmArea
+        cdef list mmAreas
+        mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
             self.main.exitError("mmPhyWrite: mmAreas not found! (mmAddr: {0:08x}, dataSize: {1:d})", mmAddr, dataSize)
             return
@@ -175,28 +176,37 @@ cdef class Mm:
 cdef class ConfigSpace:
     def __init__(self, unsigned long csSize):
         self.csSize = csSize
-        self.csData = bytearray(self.csSize)
-    cpdef bytes csRead(self, unsigned long offset, unsigned long size):
+    cpdef csResetData(self):
+        if (self.csData):
+            memset(self.csData, 0, self.csSize)
+    cpdef csFreeData(self):
+        if (self.csData):
+            free(self.csData)
+        self.csData = None
+    cdef bytes csRead(self, unsigned long offset, unsigned long size):
         return bytes(self.csData[offset:offset+size])
-    cpdef csWrite(self, unsigned long offset, bytes data, unsigned long size): # dataSize in bytes; use 'signed' only if writing 'int'
-        self.csData[offset:offset+size] = data
-    cpdef unsigned long long csReadValue(self, unsigned long offset, unsigned long size): # dataSize in bytes
+    cdef csWrite(self, unsigned long offset, bytes data, unsigned long size):
+        cdef char *tempAddr
+        tempAddr = <char*>(self.csData+offset)
+        ####self.csData[offset:offset+size] = data
+        memcpy(<char*>tempAddr, <char*>data, size)
+    cdef unsigned long long csReadValue(self, unsigned long offset, unsigned long size):
         cdef bytes data = self.csRead(offset, size)
         cdef unsigned long retData = int.from_bytes(data, byteorder="little", signed=False)
         return retData
-    cpdef unsigned long long csWriteValue(self, unsigned long offset, unsigned long long data, unsigned long size): # dataSize in bytes
+    cdef unsigned long long csWriteValue(self, unsigned long offset, unsigned long long data, unsigned long size):
         cdef bytes bytesData = data.to_bytes(length=size, byteorder="little")
         self.csWrite(offset, bytesData, size)
         return data
-    cpdef unsigned long long csAddValue(self, unsigned long offset, unsigned long long data, unsigned long size): # dataSize in bytes, data==int
+    cdef unsigned long long csAddValue(self, unsigned long offset, unsigned long long data, unsigned long size):
         return self.csWriteValue(offset, self.csReadValue(offset, size)+data, size)
-    cpdef unsigned long long csSubValue(self, unsigned long offset, unsigned long long data, unsigned long size): # dataSize in bytes, data==int
+    cdef unsigned long long csSubValue(self, unsigned long offset, unsigned long long data, unsigned long size):
         return self.csWriteValue(offset, self.csReadValue(offset, size)-data, size)
-
-
-
-
-
+    cpdef run(self):
+        self.csData = <char*>calloc(self.csSize, 1)
+        if (not self.csData):
+            raise MemoryError()
+        atexit.register(self.csFreeData)
 
 
 

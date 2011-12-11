@@ -1,8 +1,6 @@
 
-cimport mm
 import sys, threading, time, mm, pygameUI
-from mm cimport MmArea
-from mm import MmArea
+cimport mm
 
 include "globals.pxi"
 
@@ -29,16 +27,16 @@ VGA_CURRENT_PAGE_ADDR = 0x462
 
 VGA_EXTREG_PROCESS_RAM = 0x2
 
-cdef class VRamArea(MmArea):
+cdef class VRamArea(mm.MmArea):
     def __init__(self, object mmObj, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
-        MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
-    cpdef mmAreaWrite(self, unsigned long long mmPhyAddr, bytes data, unsigned long long dataSize): # dataSize(type int) in bytes
+        mm.MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
+    cdef mmAreaWrite(self, unsigned long long mmPhyAddr, bytes data, unsigned long long dataSize): # dataSize(type int) in bytes
         cdef unsigned long long mmAreaAddr
         mmAreaAddr = mmPhyAddr-self.mmBaseAddr
-        MmArea.mmAreaWrite(self, mmPhyAddr, data, dataSize)
+        mm.MmArea.mmAreaWrite(self, mmPhyAddr, data, dataSize)
         if (self.main.platform.vga.processVideoMem and self.main.platform.vga.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
             self.handleVRamWrite(mmAreaAddr, dataSize)
-    cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
+    cdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
         cdef list rectList
         cdef unsigned short x, y
         cdef bytes charstr
@@ -58,14 +56,17 @@ cdef class VRamArea(MmArea):
 
 
 cdef class VGA_REGISTER_RAW:
-    cpdef object main, vga, csData
-    cpdef unsigned short csDataSize, index
-    def __init__(self, unsigned short csDataSize, object vga, object main):
-        self.csDataSize = csDataSize
+    cpdef Vga vga
+    cpdef object main
+    cpdef mm.ConfigSpace configSpace
+    cpdef unsigned short registerSize, index
+    def __init__(self, unsigned short registerSize, object vga, object main):
+        self.registerSize = registerSize
         self.vga  = vga
         self.main = main
+        self.index = 0
     cpdef reset(self):
-        self.csData  = mm.ConfigSpace(self.csDataSize)
+        self.configSpace.csResetData()
         self.index = 0
     cpdef getIndex(self):
         return self.index
@@ -76,11 +77,12 @@ cdef class VGA_REGISTER_RAW:
     cpdef indexSub(self, unsigned short n):
         self.index -= n
     cpdef getData(self, unsigned char dataSize):
-        return self.csData.csReadValue(self.index, dataSize)
+        return self.configSpace.csReadValue(self.index, dataSize)
     cpdef setData(self, unsigned long long data, unsigned char dataSize):
-        self.csData.csWriteValue(self.index, data, dataSize)
+        self.configSpace.csWriteValue(self.index, data, dataSize)
     cpdef run(self):
-        self.reset()
+        self.configSpace  = mm.ConfigSpace(self.registerSize)
+        self.configSpace.run()
 
 cdef class CRT(VGA_REGISTER_RAW):
     def __init__(self, object vga, object main):
@@ -299,7 +301,7 @@ cdef class Vga:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return
     cpdef VRamAddMemArea(self):
-        self.main.mm.mmAddArea(TEXTMODE_ADDR, 4000, False, VRamArea)
+        (<mm.Mm>self.main.mm).mmAddArea(TEXTMODE_ADDR, 4000, False, <mm.MmArea>VRamArea)
         ##self.main.mm.mmAddArea(VGA_MEMAREA_ADDR, 0x4000, False, VRamArea)
     cpdef run(self):
         self.seq.run()

@@ -1,44 +1,41 @@
 
-cimport mm
 import misc, mm, time
+cimport mm
 
 include "globals.pxi"
 
 
 cdef class Cmos:
-    cpdef object main, configSpace, dt
-    cdef unsigned char cmosIndex
     def __init__(self, object main):
         self.main = main
         self.cmosIndex = 0
-    cpdef readValue(self, unsigned char index, unsigned char size):
-        cdef unsigned long value
-        value = self.configSpace.csReadValue(index, size)
-        return value
-    cpdef writeValue(self, unsigned char index, unsigned long value, unsigned char size):
+    cdef unsigned long readValue(self, unsigned char index, unsigned char size):
+        return self.configSpace.csReadValue(index, size)
+    cdef writeValue(self, unsigned char index, unsigned long value, unsigned char size):
         self.configSpace.csWriteValue(index, value, size)
-    cpdef reset(self):
-        self.configSpace = mm.ConfigSpace(128)
-        self.configSpace.csWriteValue(CMOS_STATUS_REGISTER_B, 0x06, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_STATUS_REGISTER_D, 0x80, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_EQUIPMENT_BYTE, 0x21, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_BASE_MEMORY_L, 0x80, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_BASE_MEMORY_H, 0x02, OP_SIZE_BYTE)
-        cdef unsigned long long extMemSizeInK = (self.main.memSize//1024)-640
+    cdef reset(self):
+        cdef unsigned long long extMemSizeInK
+        self.configSpace.csResetData()
+        self.writeValue(CMOS_STATUS_REGISTER_B, 0x06, OP_SIZE_BYTE)
+        self.writeValue(CMOS_STATUS_REGISTER_D, 0x80, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EQUIPMENT_BYTE, 0x21, OP_SIZE_BYTE)
+        self.writeValue(CMOS_BASE_MEMORY_L, 0x80, OP_SIZE_BYTE)
+        self.writeValue(CMOS_BASE_MEMORY_H, 0x02, OP_SIZE_BYTE)
+        extMemSizeInK = (self.main.memSize//1024)-640
         if (extMemSizeInK > 16384): # 16M
             extMemSizeInK = 16384   # 16M
-        self.configSpace.csWriteValue(CMOS_EXT_MEMORY_L, extMemSizeInK&0xff, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_EXT_MEMORY_H, (extMemSizeInK>>8)&0xff, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_EXT_MEMORY_L2, self.configSpace.csReadValue(CMOS_EXT_MEMORY_L, OP_SIZE_BYTE), OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_EXT_MEMORY_H2, self.configSpace.csReadValue(CMOS_EXT_MEMORY_H, OP_SIZE_BYTE), OP_SIZE_BYTE)
-        cdef unsigned long long extMemSizeIn64K = extMemSizeInK//64
-        self.configSpace.csWriteValue(CMOS_EXT_MEMORY2_L, extMemSizeIn64K&0xff, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_EXT_MEMORY2_H, (extMemSizeIn64K>>8)&0xff, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE) # boot from floppy first.
+        self.writeValue(CMOS_EXT_MEMORY_L, extMemSizeInK&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY_H, (extMemSizeInK>>8)&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY_L2, self.readValue(CMOS_EXT_MEMORY_L, OP_SIZE_BYTE), OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY_H2, self.readValue(CMOS_EXT_MEMORY_H, OP_SIZE_BYTE), OP_SIZE_BYTE)
+        extMemSizeInK //= 64 # next two lines will need the memSize in 64K-blocks
+        self.writeValue(CMOS_EXT_MEMORY2_L, extMemSizeInK&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY2_H, (extMemSizeInK>>8)&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE) # boot from floppy first.
         ##self.updateTime()
     cpdef updateTime(self):
         cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century
-        statusb = self.configSpace.csReadValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
+        statusb = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
         self.dt = time.localtime()
         second  = self.dt.tm_sec
         minute  = self.dt.tm_min
@@ -68,18 +65,18 @@ cdef class Cmos:
             month   = self.main.misc.decToBcd(month)
             year    = self.main.misc.decToBcd(year)
             century = self.main.misc.decToBcd(century)
-        self.configSpace.csWriteValue(CMOS_CURRENT_SECOND, second, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_CURRENT_MINUTE, minute, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_CURRENT_HOUR, hour, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_DAY_OF_WEEK, wday, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_DAY_OF_MONTH, mday, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_MONTH, month, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_YEAR_NO_CENTURY, year, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_CENTURY, century, OP_SIZE_BYTE)
+        self.writeValue(CMOS_CURRENT_SECOND, second, OP_SIZE_BYTE)
+        self.writeValue(CMOS_CURRENT_MINUTE, minute, OP_SIZE_BYTE)
+        self.writeValue(CMOS_CURRENT_HOUR, hour, OP_SIZE_BYTE)
+        self.writeValue(CMOS_DAY_OF_WEEK, wday, OP_SIZE_BYTE)
+        self.writeValue(CMOS_DAY_OF_MONTH, mday, OP_SIZE_BYTE)
+        self.writeValue(CMOS_MONTH, month, OP_SIZE_BYTE)
+        self.writeValue(CMOS_YEAR_NO_CENTURY, year, OP_SIZE_BYTE)
+        self.writeValue(CMOS_CENTURY, century, OP_SIZE_BYTE)
     cpdef makeCheckSum(self):
         cdef unsigned short checkSum = self.main.misc.checksum(bytes(self.configSpace.csRead(0x10, 0x1e))) # 0x10..0x2d
-        self.configSpace.csWriteValue(CMOS_CHECKSUM_L, checkSum&0xff, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(CMOS_CHECKSUM_H, (checkSum>>8)&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_CHECKSUM_L, checkSum&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_CHECKSUM_H, (checkSum>>8)&0xff, OP_SIZE_BYTE)
     cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x70):
@@ -87,7 +84,7 @@ cdef class Cmos:
             elif (ioPortAddr == 0x71):
                 if (self.cmosIndex <= 0x9 or self.cmosIndex == CMOS_CENTURY):
                     self.updateTime()
-                return self.configSpace.csReadValue(self.cmosIndex, OP_SIZE_BYTE)
+                return self.readValue(self.cmosIndex, OP_SIZE_BYTE)
             elif (ioPortAddr == 0x510): # qemu cfg read handler
                 return 0
         else:
@@ -98,17 +95,17 @@ cdef class Cmos:
             if (ioPortAddr == 0x70):
                 self.cmosIndex = data&0x7f #(~0x80)
             elif (ioPortAddr == 0x71):
-                self.configSpace.csWriteValue(self.cmosIndex, data, OP_SIZE_BYTE)
+                self.writeValue(self.cmosIndex, data, OP_SIZE_BYTE)
                 if (self.cmosIndex == CMOS_STATUS_REGISTER_A):
                     self.main.printMsg("CMOS::outPort: RTC not supported yet.")
                 elif (self.cmosIndex == CMOS_EXT_MEMORY_L):
-                    self.configSpace.csWriteValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
+                    self.writeValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
                 elif (self.cmosIndex == CMOS_EXT_MEMORY_H):
-                    self.configSpace.csWriteValue(CMOS_EXT_MEMORY_H2, data, OP_SIZE_BYTE)
+                    self.writeValue(CMOS_EXT_MEMORY_H2, data, OP_SIZE_BYTE)
                 elif (self.cmosIndex == CMOS_EXT_MEMORY_L2):
-                    self.configSpace.csWriteValue(CMOS_EXT_MEMORY_L, data, OP_SIZE_BYTE)
+                    self.writeValue(CMOS_EXT_MEMORY_L, data, OP_SIZE_BYTE)
                 elif (self.cmosIndex == CMOS_EXT_MEMORY_H2):
-                    self.configSpace.csWriteValue(CMOS_EXT_MEMORY_H, data, OP_SIZE_BYTE)
+                    self.writeValue(CMOS_EXT_MEMORY_H, data, OP_SIZE_BYTE)
                 self.makeCheckSum()
         else:
             if (ioPortAddr == 0x510): # qemu cfg write handler
@@ -117,6 +114,8 @@ cdef class Cmos:
                 self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
     cpdef run(self):
+        self.configSpace = mm.ConfigSpace(128)
+        self.configSpace.run()
         self.reset()
         ##self.updateTime()
         self.main.platform.addHandlers((0x70, 0x71), self)

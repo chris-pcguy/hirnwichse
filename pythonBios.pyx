@@ -24,7 +24,7 @@ cdef class PythonBios:
         dh, dl = dx>>8, dx&0xff
         bh, bl = bx>>8, bx&0xff
         if (intNum == 0x10): # video; TODO
-            return False
+            #return False
             currMode = self.main.mm.mmPhyReadValue(vga.VGA_CURRENT_MODE_ADDR, 1, False)
             if (ah == 0x02): # set cursor position
                 self.main.platform.vga.setCursorPosition(bh, dx)

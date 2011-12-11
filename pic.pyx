@@ -301,6 +301,7 @@ cdef class Pic:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
     cpdef run(self):
+        cdef PicChannel channel
         for channel in self.channels:
             channel.run()
         self.main.platform.addHandlers((0x20, 0x21, 0xa0, 0xa1), self)

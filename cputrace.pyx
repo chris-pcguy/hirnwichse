@@ -23,6 +23,7 @@ cdef class TraceStep:
         else:
             self.main.printMsg("TraceStep::handleOp: unknown op: {0:d}", op)
     cpdef doStep(self):
+        cdef unsigned char op
         for op in self.ops:
             self.handleOp(op, 0)
     ###

@@ -86,6 +86,7 @@ cdef class Pit:
         self.channels = (PitChannel(self.main, self, 0), PitChannel(self.main, self, 1),\
                          PitChannel(self.main, self, 2)) # channel 0-2
     cpdef reset(self):
+        cdef PitChannel channel
         self.channel = 0
         for channel in self.channels:
             channel.run()

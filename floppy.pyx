@@ -2,6 +2,8 @@ import os
 
 # This file contains (much) code from the Bochs Emulator (c) by it's developers
 
+cimport cmos
+
 include "globals.pxi"
 
 cdef class FloppyMedia:
@@ -84,14 +86,14 @@ cdef class FloppyDrive:
         self.fp = open(filename, "r+b")
         self.isLoaded = True
         if (self.driveId in (0, 1)):
-            cmosDiskType = self.main.platform.cmos.readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
+            cmosDiskType = (<cmos.Cmos>self.main.platform.cmos).readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
             if (self.driveId == 0):
                 cmosDiskType &= 0x0f
                 cmosDiskType |= (driveType&0xf)<<4
             elif (self.driveId == 1):
                 cmosDiskType &= 0xf0
                 cmosDiskType |= driveType&0xf
-            self.main.platform.cmos.writeValue(CMOS_FLOPPY_DRIVE_TYPE, cmosDiskType, OP_SIZE_BYTE)
+            (<cmos.Cmos>self.main.platform.cmos).writeValue(CMOS_FLOPPY_DRIVE_TYPE, cmosDiskType, OP_SIZE_BYTE)
     cpdef bytes readBytes(self, unsigned long offset, unsigned long size):
         cdef bytes data
         cdef unsigned long oldPos
@@ -578,6 +580,7 @@ cdef class Floppy:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
     cpdef run(self):
+        cdef FloppyController controller
         for controller in self.controller:
             controller.run()
         self.main.platform.addReadHandlers(FDC_FIRST_READ_PORTS, self)

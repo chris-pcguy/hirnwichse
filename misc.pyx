@@ -37,7 +37,9 @@ cdef class Misc:
             self.main.exitError("Misc::getBitMask: maskSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)", maskSize)
         return 0
     cpdef unsigned long checksum(self, bytes data): # data is bytes
-        cdef unsigned long long checksum = 0
+        cdef unsigned char c
+        cdef unsigned long checksum
+        checksum = 0
         for c in data:
             checksum = (checksum+c)&BITMASK_DWORD
         return checksum
