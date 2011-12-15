@@ -1,6 +1,6 @@
 
-import misc, mm, time
-cimport mm
+import misc, time
+from misc cimport Misc
 
 include "globals.pxi"
 
@@ -33,7 +33,7 @@ cdef class Cmos:
         self.writeValue(CMOS_EXT_MEMORY2_H, (extMemSizeInK>>8)&0xff, OP_SIZE_BYTE)
         self.writeValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE) # boot from floppy first.
         ##self.updateTime()
-    cpdef updateTime(self):
+    cdef updateTime(self):
         cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century
         statusb = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
         self.dt = time.localtime()
@@ -57,14 +57,14 @@ cdef class Cmos:
         if (wday == 0):
             wday = 7
         if (not statusb&CMOS_STATUSB_BIN):
-            second  = self.main.misc.decToBcd(second)
-            minute  = self.main.misc.decToBcd(minute)
-            hour    = self.main.misc.decToBcd(hour)
-            wday    = self.main.misc.decToBcd(wday)
-            mday    = self.main.misc.decToBcd(mday)
-            month   = self.main.misc.decToBcd(month)
-            year    = self.main.misc.decToBcd(year)
-            century = self.main.misc.decToBcd(century)
+            second  = (<Misc>self.main.misc).decToBcd(second)
+            minute  = (<Misc>self.main.misc).decToBcd(minute)
+            hour    = (<Misc>self.main.misc).decToBcd(hour)
+            wday    = (<Misc>self.main.misc).decToBcd(wday)
+            mday    = (<Misc>self.main.misc).decToBcd(mday)
+            month   = (<Misc>self.main.misc).decToBcd(month)
+            year    = (<Misc>self.main.misc).decToBcd(year)
+            century = (<Misc>self.main.misc).decToBcd(century)
         self.writeValue(CMOS_CURRENT_SECOND, second, OP_SIZE_BYTE)
         self.writeValue(CMOS_CURRENT_MINUTE, minute, OP_SIZE_BYTE)
         self.writeValue(CMOS_CURRENT_HOUR, hour, OP_SIZE_BYTE)
@@ -73,11 +73,11 @@ cdef class Cmos:
         self.writeValue(CMOS_MONTH, month, OP_SIZE_BYTE)
         self.writeValue(CMOS_YEAR_NO_CENTURY, year, OP_SIZE_BYTE)
         self.writeValue(CMOS_CENTURY, century, OP_SIZE_BYTE)
-    cpdef makeCheckSum(self):
-        cdef unsigned short checkSum = self.main.misc.checksum(bytes(self.configSpace.csRead(0x10, 0x1e))) # 0x10..0x2d
+    cdef makeCheckSum(self):
+        cdef unsigned short checkSum = (<Misc>self.main.misc).checksum(bytes(self.configSpace.csRead(0x10, 0x1e))) # 0x10..0x2d
         self.writeValue(CMOS_CHECKSUM_L, checkSum&0xff, OP_SIZE_BYTE)
         self.writeValue(CMOS_CHECKSUM_H, (checkSum>>8)&0xff, OP_SIZE_BYTE)
-    cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x70):
                 return self.cmosIndex
@@ -90,8 +90,9 @@ cdef class Cmos:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cpdef outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
+    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
+            data &= BITMASK_BYTE
             if (ioPortAddr == 0x70):
                 self.cmosIndex = data&0x7f #(~0x80)
             elif (ioPortAddr == 0x71):
@@ -113,14 +114,14 @@ cdef class Cmos:
             else:
                 self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
-    cpdef run(self):
-        self.configSpace = mm.ConfigSpace(128)
+    cdef run(self):
+        self.configSpace = ConfigSpace(128)
         self.configSpace.run()
         self.reset()
         ##self.updateTime()
-        self.main.platform.addHandlers((0x70, 0x71), self)
-        self.main.platform.addReadHandlers((0x511,), self)
-        self.main.platform.addWriteHandlers((0x510,), self)
+        #self.main.platform.addHandlers((0x70, 0x71), self)
+        #self.main.platform.addReadHandlers((0x511,), self)
+        #self.main.platform.addWriteHandlers((0x510,), self)
 
 
 

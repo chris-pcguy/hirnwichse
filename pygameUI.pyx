@@ -1,13 +1,15 @@
-import misc, pygame, threading, atexit, sys, time
+import pygame, threading, atexit, sys, time
 
 include "globals.pxi"
 
+from ps2 cimport PS2
 
-cdef class pygameUI:
+
+cdef class PygameUI:
     cpdef public object main, vga
     cpdef object display, screen, font
-    cpdef tuple screenSize, fontSize
-    cpdef unsigned short screenWidth, screenHeight, fontWidth, fontHeight
+    cdef tuple screenSize, fontSize
+    cdef unsigned short screenWidth, screenHeight, fontWidth, fontHeight
     def __init__(self, object vga, object main):
         self.vga  = vga
         self.main = main
@@ -43,7 +45,7 @@ cdef class pygameUI:
         except:
             print(sys.exc_info())
             return
-    cpdef tuple getColor(self, unsigned char color):
+    cdef tuple getColor(self, unsigned char color):
         if (color == 0x0): # black
             return (0, 0, 0)
         elif (color == 0x1): # blue
@@ -102,7 +104,7 @@ cdef class pygameUI:
             print(sys.exc_info())
     cpdef setRepeatRate(self, unsigned short delay, unsigned short interval):
         pygame.key.set_repeat(delay, interval)
-    cpdef unsigned char keyToScancode(self, unsigned short key):
+    cdef unsigned char keyToScancode(self, unsigned short key):
         if (key == pygame.K_LCTRL):
             return 0x00
         elif (key == pygame.K_LSHIFT):
@@ -326,9 +328,9 @@ cdef class pygameUI:
                 self.updateScreen(list())
             elif (event.type == pygame.KEYDOWN):
                 ###self.main.printMsg("event.type == pygame.KEYDOWN")
-                self.main.platform.ps2.keySend(self.keyToScancode(event.key), False)
+                (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), False)
             elif (event.type == pygame.KEYUP):
-                self.main.platform.ps2.keySend(self.keyToScancode(event.key), True)
+                (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), True)
         except pygame.error:
             print(sys.exc_info())
         except:

@@ -1,27 +1,57 @@
-#cimport chemu_main
-#from chemu_main cimport ChEmu
 
-cimport cmos
+from mm cimport Mm, MmArea
+from cmos cimport Cmos
+from isadma cimport IsaDma
+from pic cimport Pic
+from pit cimport Pit
+from pci cimport Pci
+from ps2 cimport PS2
+from vga cimport Vga
+from floppy cimport Floppy
+from serial cimport Serial
+from parallel cimport Parallel
+from gdbstub cimport GDBStub
+from pythonBios cimport PythonBios
+
+ctypedef unsigned long (*InPort)(self, unsigned short, unsigned char)
+ctypedef void (*OutPort)(self, unsigned short, unsigned long, unsigned char)
+
+
+cdef class PortHandler:
+    cdef tuple ports
+    cdef object classObject
+    cdef InPort inPort
+    cdef OutPort outPort
 
 
 cdef class Platform:
-    #cpdef public ChEmu main
-    cpdef public object main, isadma, ps2, pic, pit, pci, vga, floppy, serial, parallel, gdbstub, pythonBios
-    cpdef public cmos.Cmos cmos
-    cpdef dict readHandlers, writeHandlers
+    cpdef public object main
+    cdef public IsaDma isadma
+    cdef public PS2 ps2
+    cdef public Pic pic
+    cdef public Pit pit
+    cdef public Pci pci
+    cdef public Vga vga
+    cdef public Floppy floppy
+    cdef public Serial serial
+    cdef public Parallel parallel
+    cdef public GDBStub gdbstub
+    cdef public PythonBios pythonBios
+    cdef public Cmos cmos
+    cdef list ports
     cdef unsigned char copyRomToLowMem
-    cpdef initDevices(self)
-    cpdef addHandlers(self, tuple portNums, object devObject)
-    cpdef addReadHandlers(self, tuple portNums, object devObject)
-    cpdef addWriteHandlers(self, tuple portNums, object devObject)
-    cpdef delHandlers(self, tuple portNums)
-    cpdef delReadHandlers(self, tuple portNums)
-    cpdef delWriteHandlers(self, tuple portNums)
-    cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cpdef outPort(self, unsigned short ioPortAddr, unsigned long long data, unsigned char dataSize)
-    cpdef loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize)
-    cpdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional)
+    cdef initDevices(self)
+    cdef addReadHandlers(self, tuple portNums, object classObject, InPort inObject)
+    cdef addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject)
+    cdef delHandlers(self, tuple portNums)
+    cdef delReadHandlers(self, tuple portNums)
+    cdef delWriteHandlers(self, tuple portNums)
+    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
+    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
+    cdef loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize)
+    cdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional)
     cdef run(self, unsigned long long memSize)
+    cdef initDevicesPorts(self)
     cdef runDevices(self)
 
 

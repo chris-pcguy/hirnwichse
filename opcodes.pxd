@@ -1,8 +1,9 @@
 
 
+
 cdef class Opcodes:
-    cpdef public object main, cpu, registers
-    cpdef unsigned char executeOpcode(self, unsigned char opcode)
+    cpdef public object main
+    cdef unsigned char executeOpcode(self, unsigned char opcode)
     cdef undefNoUD(self)
     cdef cli(self)
     cdef sti(self)
@@ -83,7 +84,7 @@ cdef class Opcodes:
     cdef lfpFunc(self, unsigned char segId) # 'load far pointer' function
     cdef xlatb(self)
     cdef opcodeGroup2_RM(self, unsigned char operSize)
-    cpdef interrupt(self, short intNum, long errorCode, unsigned char hwInt) # TODO: complete this!
+    cdef interrupt(self, short intNum, long errorCode, unsigned char hwInt) # TODO: complete this!
     cdef into(self)
     cdef int3(self)
     cdef iret(self)

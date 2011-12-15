@@ -1,19 +1,19 @@
 
 cdef class TraceStep:
-    cpdef public object trace
+    cdef Trace trace
     cdef list ops
     cdef unsigned long temp[4]
-    cpdef handleOp(self, unsigned char op, unsigned long arg1)
-    cpdef doStep(self)
+    cdef handleOp(self, unsigned char op, unsigned long arg1)
+    cdef doStep(self)
     ###
 
 cdef class Trace:
-    cpdef public object main, cpu
+    cpdef public object main
     cdef dict traceList
-    cpdef reset(self)
-    cpdef unsigned char isInTrace(self, unsigned char opcode, unsigned long eip)
-    cpdef executeTraceStep(self, unsigned long eip)
-    cpdef run(self)
+    cdef reset(self)
+    cdef unsigned char isInTrace(self, unsigned char opcode, unsigned long eip)
+    cdef executeTraceStep(self, unsigned long eip)
+    cdef run(self)
     ###
 
 

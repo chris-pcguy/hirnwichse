@@ -1,20 +1,17 @@
+
 import sys, time, threading
+from pic cimport Pic
+from ps2 cimport PS2
 
 include "globals.pxi"
 
 
-
 cdef class PitChannel:
-    cpdef public object main, pit, ps2, counterModeTimer
-    cdef public unsigned char channelId, counterFormat, counterMode, counterWriteMode, counterFlipFlop
-    cdef public unsigned long counterValue, actualCounterValue
-    cdef public float tempTimerValue
-    def __init__(self, object main, object pit, unsigned char channelId):
+    def __init__(self, object main, Pit pit, unsigned char channelId):
         self.main = main
         self.pit = pit
-        self.ps2 = self.pit.ps2
         self.channelId = channelId
-    cpdef reset(self):
+    cdef reset(self):
         self.counterFormat = 0 # 0 == binary; 1 == BCD
         self.counterMode = 0 # 0-5 valid, 6,7 not
         self.counterWriteMode = 0 # 1 == LSB ; 2 == MSB ; 3 == LSB;MSB
@@ -24,16 +21,14 @@ cdef class PitChannel:
         self.tempTimerValue = 0.0
     cpdef mode0Func(self):
         self.actualCounterValue -= 1
-        if (self.channelId == 2 and self.ps2.ppcbT2Both):
-            self.ps2.ppcbT2Out = True
+        if (self.channelId == 2 and self.main.platform.ps2.ppcbT2Both):
+            self.main.platform.ps2.ppcbT2Out = True
         time.sleep(self.tempTimerValue)
         if (self.channelId == 0): # just raise IRQ on channel0
-            self.main.platform.pic.raiseIrq(0)
+            (<Pic>self.main.platform.pic).raiseIrq(0)
         else:
             self.main.printMsg("runTimer: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
     cpdef mode2Func(self):
-        ##cpdef float timerValue
-        ##elf.main.printMsg('PitChannel::mode2Func: entered mode2Func')
         if (not self.counterValue or self.counterMode != 2):
             return
         self.actualCounterValue -= 1
@@ -41,17 +36,16 @@ cdef class PitChannel:
             self.actualCounterValue = self.counterValue
         time.sleep(self.tempTimerValue)
         if (self.channelId == 0): # just raise IRQ on channel0
-            self.main.platform.pic.raiseIrq(0)
+            (<Pic>self.main.platform.pic).raiseIrq(0)
         else:
             self.main.printMsg("runTimer: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
         if (self.counterModeTimer and self.counterMode == 2 and (not self.main.quitEmu)):
             self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
     cpdef runTimer(self):
-        ##cpdef float timerValue
         if (self.channelId == 1):
             self.main.printMsg("PitChannel::runTimer: PIT-Channel 1 is ancient.")
         if (self.counterValue == 0):
-            self.counterValue = 65536 # 0x10000
+            self.counterValue = 0x10000
         if (self.counterFormat != 0):
             self.counterValue = self.main.misc.bcdToDec(self.counterValue)
         self.actualCounterValue = self.counterValue
@@ -59,8 +53,8 @@ cdef class PitChannel:
         if (self.tempTimerValue < 0.01):
             self.tempTimerValue = 0.01
         if (self.counterMode == 0): # mode 0
-            if (self.channelId == 2 and self.ps2.ppcbT2Both):
-                self.ps2.ppcbT2Out = False
+            if (self.channelId == 2 and self.main.platform.ps2.ppcbT2Both):
+                self.main.platform.ps2.ppcbT2Out = False
             if (self.counterModeTimer):
                 self.counterModeTimer = None
             if (not self.main.quitEmu):
@@ -73,24 +67,20 @@ cdef class PitChannel:
         else:
             self.main.exitError("runTimer: counterMode {0:d} not supported yet.".format(self.counterMode))
             return
-    cpdef run(self):
+    cdef run(self):
         self.reset()
 
 cdef class Pit:
-    cpdef public object main, ps2
-    cpdef public tuple channels
-    cpdef public unsigned char channel
-    def __init__(self, object main, object ps2):
+    def __init__(self, object main):
         self.main = main
-        self.ps2 = ps2
         self.channels = (PitChannel(self.main, self, 0), PitChannel(self.main, self, 1),\
                          PitChannel(self.main, self, 2)) # channel 0-2
-    cpdef reset(self):
+    cdef reset(self):
         cdef PitChannel channel
         self.channel = 0
         for channel in self.channels:
             channel.run()
-    cpdef unsigned char inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char channel, retVal
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
@@ -117,7 +107,7 @@ cdef class Pit:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cpdef outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
+    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef unsigned char channel, bcd, modeNumber, counterWriteMode
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
@@ -144,7 +134,7 @@ cdef class Pit:
                 counterWriteMode = (data>>4)&3
                 self.channel = (data>>6)&3
                 if (self.channel == 2):
-                    self.ps2.ppcbT2Out = False
+                    self.main.platform.ps2.ppcbT2Out = False
                 if (self.channels[self.channel].counterModeTimer):
                     self.channels[self.channel].counterModeTimer = None
                 if (bcd): # BCD
@@ -165,8 +155,8 @@ cdef class Pit:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
-    cpdef run(self):
+    cdef run(self):
         self.reset()
-        self.main.platform.addHandlers((0x40, 0x41, 0x42, 0x43), self)
+        #self.main.platform.addHandlers((0x40, 0x41, 0x42, 0x43), self)
 
 

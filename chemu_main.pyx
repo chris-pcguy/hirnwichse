@@ -1,9 +1,9 @@
 
+#cython: boundscheck=False
+#cython: wraparound=False
+
 
 import sys, argparse, threading, time, atexit
-
-cimport misc, mm, X86Platform, cpu
-import misc, mm, X86Platform, cpu
 
 include "globals.pxi"
 
@@ -54,17 +54,23 @@ cdef class ChEmu:
             self.printMsg(debugStr, *debugStrArguments)
     def printMsg(self, str msgStr, *msgStrArguments): # this needs to be 'def'
         print(msgStr.format(*msgStrArguments))
+        sys.stdout.flush()
     cpdef run(self):
         self.parseArgs()
-        self.misc = misc.Misc(self)
-        self.mm = mm.Mm(self)
-        self.platform = X86Platform.Platform(self)
-        self.cpu = cpu.Cpu(self)
+        self.misc = Misc(self)
+        self.mm = Mm(self)
+        self.platform = Platform(self)
+        self.cpu = Cpu(self)
         try:
             self.platform.run(self.memSize)
-            self.misc.createThread(self.cpu.run, True)
-            while (threading.active_count() > 1 and not self.quitEmu):
-                time.sleep(2)
+            self.platform.pic.cpuObject = self.cpu
+            self.platform.isadma.cpuObject = self.cpu
+            self.platform.pic.setINTR = <SetINTR>self.cpu.setINTR
+            self.platform.isadma.setHRQ = <SetHRQ>self.cpu.setHRQ
+            self.cpu.run()
+            #self.misc.createThread(self.cpu.run, True)
+            #while (threading.active_count() > 1 and not self.quitEmu):
+            #    time.sleep(2)
         except:
             print(sys.exc_info())
             sys.exit(1)

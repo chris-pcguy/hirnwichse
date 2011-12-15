@@ -10,7 +10,7 @@ class ChemuException(Exception):
 cdef class Misc:
     def __init__(self, object main):
         self.main = main
-    cpdef unsigned long long getBitMask7F(self, unsigned char maskSize):
+    cdef unsigned long long getBitMask7F(self, unsigned char maskSize):
         if (maskSize == OP_SIZE_BYTE):
             return 0x7f
         elif (maskSize == OP_SIZE_WORD):
@@ -22,9 +22,9 @@ cdef class Misc:
         else:
             self.main.exitError("Misc::getBitMask: maskSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)", maskSize)
         return 0
-    cpdef unsigned long long getBitMask80(self, unsigned char maskSize):
+    cdef unsigned long long getBitMask80(self, unsigned char maskSize):
         return self.getBitMask7F(maskSize)+1
-    cpdef unsigned long long getBitMaskFF(self, unsigned char maskSize):
+    cdef unsigned long long getBitMaskFF(self, unsigned char maskSize):
         if (maskSize == OP_SIZE_BYTE):
             return 0xffUL
         elif (maskSize == OP_SIZE_WORD):
@@ -36,20 +36,20 @@ cdef class Misc:
         else:
             self.main.exitError("Misc::getBitMask: maskSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)", maskSize)
         return 0
-    cpdef unsigned long checksum(self, bytes data): # data is bytes
+    cdef unsigned long checksum(self, bytes data): # data is bytes
         cdef unsigned char c
         cdef unsigned long checksum
         checksum = 0
         for c in data:
             checksum = (checksum+c)&BITMASK_DWORD
         return checksum
-    cpdef unsigned long long decToBcd(self, unsigned char dec):
+    cdef unsigned long long decToBcd(self, unsigned char dec):
         cdef unsigned char bcd = int(str(dec), 16)
         return bcd
-    cpdef unsigned long long bcdToDec(self, unsigned char bcd):
+    cdef unsigned long long bcdToDec(self, unsigned char bcd):
         cdef unsigned char dec = int(hex(bcd)[2:], 10)
         return dec
-    cpdef unsigned long long reverseByteOrder(self, unsigned long value, unsigned char valueSize):
+    cdef unsigned long long reverseByteOrder(self, unsigned long value, unsigned char valueSize):
         cdef bytes data
         data = value.to_bytes(length=valueSize, byteorder="big")
         value = int.from_bytes(bytes=data, byteorder="little")

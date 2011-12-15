@@ -1,32 +1,29 @@
 
-cimport cputrace
+from mm cimport Mm
+from segments cimport Segments
+from registers cimport Registers
+from opcodes cimport Opcodes
+from cputrace cimport Trace
+
 
 cdef class Cpu:
-    cpdef public object main, registers, opcodes
-    cpdef public cputrace.Trace trace
+    cpdef public object main
+    cdef public Registers registers
+    cdef public Opcodes opcodes
+    cdef public Trace trace
     cdef public unsigned long long cycles
-    cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, A20Active, protectedModeOn
-    cdef unsigned char INTR, HRQ
+    cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ
     cdef unsigned long savedCs, savedEip
-    cpdef object cpuThread
-    cpdef reset(self)
-    cpdef unsigned char getA20State(self)
-    cpdef setA20State(self, unsigned char state)
-    cpdef setHRQ(self, unsigned char state)
-    cpdef setINTR(self, unsigned char state)
-    cpdef unsigned long long getCurrentOpcodeAddr(self)
-    cpdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed) # numBytes in bytes
-    cpdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed) # numBytes in bytes
-    cpdef tuple getCurrentOpcodeWithAddr(self, unsigned char getAddr, unsigned char numBytes, unsigned char signed) # numBytes in bytes
-    cpdef tuple getCurrentOpcodeAddWithAddr(self, unsigned char getAddr, unsigned char numBytes, unsigned char signed) # numBytes in bytes
-    cpdef saveCurrentInstPointer(self)
-    cpdef unsigned char handleAsyncEvent(self) # return True if irq was handled, otherwise False
-    cpdef exception(self, unsigned char exceptionId, long errorCode)
-    cpdef handleException(self, object exception)
-    cpdef unsigned char isInProtectedMode(self)
-    cpdef unsigned char parsePrefixes(self, unsigned char opcode)
-    cpdef doInfiniteCycles(self)
-    cpdef doCycle(self)
-    cpdef run(self)
+    cdef reset(self)
+    cdef saveCurrentInstPointer(self)
+    cdef setINTR(self, unsigned char state)
+    cdef setHRQ(self, unsigned char state)
+    cdef unsigned char handleAsyncEvent(self) # return True if irq was handled, otherwise False
+    cdef exception(self, unsigned char exceptionId, long errorCode)
+    cdef handleException(self, object exception)
+    cdef unsigned char parsePrefixes(self, unsigned char opcode)
+    cdef doInfiniteCycles(self)
+    cdef doCycle(self)
+    cdef run(self)
 
 

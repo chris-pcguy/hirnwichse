@@ -3,16 +3,11 @@ include "globals.pxi"
 
 
 cdef class PicChannel:
-    cpdef public object main, pic
-    cdef unsigned char master, cmdByte, irqBasePort, mappedSlavesOnMasterMask, \
-                        slaveOnThisMasterIrq, needRegister
-    cdef public unsigned char step, inInit, irq, intr, imr, isr, irr, autoEOI, rotateOnAutoEOI, lowestPriority, polled, \
-                                specialMask, IRQ_in, edgeLevel
-    def __init__(self, object pic, object main, unsigned char master):
+    def __init__(self, Pic pic, object main, unsigned char master):
         self.pic    = pic
         self.main   = main
         self.master = master
-    cpdef reset(self):
+    cdef reset(self):
         self.inInit = False
         self.step = PIC_DATA_STEP_ICW1
         self.cmdByte = 0
@@ -34,7 +29,7 @@ cdef class PicChannel:
             self.irqBasePort = 0x70
         self.mappedSlavesOnMasterMask = 0x4 # master
         self.slaveOnThisMasterIrq = 2 # slave
-    cpdef clearHighestInterrupt(self):
+    cdef clearHighestInterrupt(self):
         cdef unsigned char irq, lowestPrioriry, highestPriority
         lowestPriority = self.lowestPriority
         highestPriority = lowestPriority+1
@@ -50,7 +45,7 @@ cdef class PicChannel:
                 irq = 0
             if (irq == highestPriority):
                 break
-    cpdef servicePicChannel(self):
+    cdef servicePicChannel(self):
         cdef unsigned char highestPriority, irq, maxIrq, unmaskedRequests
         highestPriority = self.lowestPriority+1
         if (highestPriority > 7):
@@ -77,7 +72,8 @@ cdef class PicChannel:
                         self.intr = True
                         self.irq = irq
                         if (self.master):
-                            self.main.cpu.setINTR(True)
+                            if (self.pic.cpuObject is not None and self.pic.setINTR is not NULL):
+                                self.pic.setINTR(self.pic.cpuObject, True)
                         else:
                             self.pic.raiseIrq(2)
                         return
@@ -86,41 +82,42 @@ cdef class PicChannel:
                     irq = 0
                 if (irq == maxIrq):
                     break
-    cpdef raiseIrq(self, unsigned char irq):
+    cdef raiseIrq(self, unsigned char irq):
         cdef unsigned char mask
         mask = (1 << (irq&7))
         if ((irq >= 0 and irq < 16) and (not (self.IRQ_in & mask))):
             self.IRQ_in |= mask
             self.irr |= mask
             self.servicePicChannel()
-    cpdef lowerIrq(self, unsigned char irq):
+    cdef lowerIrq(self, unsigned char irq):
         cdef unsigned char mask
         mask = (1 << (irq&7))
         if ((irq >= 0 and irq < 16) and (self.IRQ_in & mask)):
             self.IRQ_in &= (~mask)
             self.irr &= (~mask)
-    cpdef getCmdByte(self):
+    cdef getCmdByte(self):
         return self.cmdByte
-    cpdef setCmdByte(self, unsigned char cmdByte):
+    cdef setCmdByte(self, unsigned char cmdByte):
         self.cmdByte = cmdByte
-    cpdef getIrqBasePort(self):
+    cdef getIrqBasePort(self):
         return self.irqBasePort
-    cpdef setIrqBasePort(self, unsigned char irqBasePort):
+    cdef setIrqBasePort(self, unsigned char irqBasePort):
         self.irqBasePort = irqBasePort
         if (self.irqBasePort % 8):
-            self.main.exitError("Notice: setIrqBasePort: (self.irqBasePort {0:#04x} MODULO 8) != 0. (channel{1:d})", irqBasePort, self.master==False)
-    cpdef setMasterSlaveMap(self, unsigned char value):
+            self.main.exitError("Notice: setIrqBasePort: (self.irqBasePort {0:#04x} MODULO 8) != 0. (channel{1:d})", \
+                         irqBasePort, self.master==False)
+    cdef setMasterSlaveMap(self, unsigned char value):
         if (self.master):
             self.mappedSlavesOnMasterMask = value
         else:
             self.slaveOnThisMasterIrq = value
-    cpdef setFlags(self, unsigned char flags):
+    cdef setFlags(self, unsigned char flags):
         self.autoEOI = (flags&2)!=0
         if (not (flags & PIC_FLAG_80x86)):
             self.main.exitError("Warning: setFlags: flags {0:#04x}, PIC_FLAG_80x86 not set! (channel{1:d})", flags, self.master==False)
-    cpdef setNeededRegister(self, unsigned char needRegister):
+    cdef setNeededRegister(self, unsigned char needRegister):
         self.needRegister = needRegister
-    cpdef getNeededRegister(self):
+    cdef getNeededRegister(self):
         if (self.needRegister == PIC_NEED_IRR):
             return self.irr
         elif (self.needRegister == PIC_NEED_ISR):
@@ -128,34 +125,33 @@ cdef class PicChannel:
         else:
             self.main.exitError("PicChannel::getNeededRegister: self.needRegister not in (PIC_NEED_IRR, PIC_NEED_ISR).")
             return
-    cpdef run(self):
+    cdef run(self):
         self.reset()
 
 cdef class Pic:
-    cpdef public object main
-    cdef public tuple channels
     def __init__(self, object main):
         self.main = main
         self.channels = (PicChannel(self, self.main, True), PicChannel(self, self.main, False))
-    cpdef raiseIrq(self, unsigned char irq):
+    cdef raiseIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
         if (irq > 15):
             self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
             ma_sl = True
-        self.channels[ma_sl].raiseIrq(irq)
-    cpdef lowerIrq(self, unsigned char irq):
+        (<PicChannel>self.channels[ma_sl]).raiseIrq(irq)
+    cdef lowerIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
         if (irq > 15):
             self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
             ma_sl = True
-        self.channels[ma_sl].lowerIrq(irq)
-    cpdef unsigned char IAC(self):
-        cpdef object master, slave
+        (<PicChannel>self.channels[ma_sl]).lowerIrq(irq)
+    cdef unsigned char IAC(self):
+        cdef PicChannel master, slave
         cdef unsigned char vector
         master, slave = self.channels
-        self.main.cpu.setINTR(False)
+        if (self.cpuObject is not None and self.setINTR is not NULL):
+            self.setINTR(self.cpuObject, False)
         master.intr = False
         if (not master.irr):
             return master.getIrqBasePort()+7
@@ -182,7 +178,7 @@ cdef class Pic:
             slave.servicePicChannel()
         master.servicePicChannel()
         return vector
-    cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char channel, oldStep
         if (ioPortAddr in PIC_PIC1_PORTS):
             channel = 0
@@ -190,12 +186,12 @@ cdef class Pic:
             channel = 1
         if (dataSize == OP_SIZE_BYTE):
             if (self.channels[channel].polled):
-                self.channels[channel].clearHighestInterrupt()
+                (<PicChannel>self.channels[channel]).clearHighestInterrupt()
                 self.channels[channel].polled = False
-                self.channels[channel].servicePicChannel()
+                (<PicChannel>self.channels[channel]).servicePicChannel()
                 return self.channels[channel].irq
             elif (ioPortAddr in (PIC_PIC1_COMMAND, PIC_PIC2_COMMAND)):
-                return self.channels[channel].getNeededRegister()
+                return (<PicChannel>self.channels[channel]).getNeededRegister()
             elif (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
                 return self.channels[channel].imr
             else:
@@ -203,7 +199,7 @@ cdef class Pic:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cpdef outPort(self, unsigned short ioPortAddr, unsigned char data, unsigned char dataSize):
+    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef unsigned char channel, oldStep, cmdByte, specialMask, poll, readOp
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):
@@ -224,7 +220,7 @@ cdef class Pic:
                     self.channels[channel].autoEOI = False
                     self.channels[channel].rotateOnAutoEOI = False
                     self.channels[channel].lowestPriority = 7
-                    self.channels[channel].setCmdByte(data)
+                    (<PicChannel>self.channels[channel]).setCmdByte(data)
                     self.channels[channel].step = PIC_DATA_STEP_ICW2
                     if (channel == 1):
                         self.channels[0].IRQ_in &= 0xfb
@@ -239,44 +235,44 @@ cdef class Pic:
                         self.channels[channel].polled = True
                         return
                     if (readOp == 0x02): # IRR is needed
-                        self.channels[channel].setNeededRegister(PIC_NEED_IRR)
+                        (<PicChannel>self.channels[channel]).setNeededRegister(PIC_NEED_IRR)
                     elif (readOp == 0x03): # ISR is needed
-                        self.channels[channel].setNeededRegister(PIC_NEED_ISR)
+                        (<PicChannel>self.channels[channel]).setNeededRegister(PIC_NEED_ISR)
                     if (specialMask == 0x02):
                         self.channels[channel].specialMask = False
                     elif (specialMask == 0x03):
                         self.channels[channel].specialMask = True
-                        self.channels[channel].servicePicChannel()
+                        (<PicChannel>self.channels[channel]).servicePicChannel()
                     return
                 elif (data in (0x00, 0x80)):
                     self.channels[channel].rotateOnAutoEOI = (data != 0)
                 elif (data in (0x20, 0xa0)):
-                    self.channels[channel].clearHighestInterrupt()
+                    (<PicChannel>self.channels[channel]).clearHighestInterrupt()
                     if (data == 0xa0):
                         self.channels[channel].lowestPriority += 1
                         if (self.channels[channel].lowestPriority > 7):
                             self.channels[channel].lowestPriority = 0
-                    self.channels[channel].servicePicChannel()
+                    (<PicChannel>self.channels[channel]).servicePicChannel()
                 elif (data >= 0x60 and data <= 0x67):
                     self.channels[channel].isr &= ~(1 << (data&0x07))
-                    self.channels[channel].servicePicChannel()
+                    (<PicChannel>self.channels[channel]).servicePicChannel()
                 elif (data >= 0xc0 and data <= 0xc7):
                     self.channels[channel].lowestPriority = (data&0x07)
                 elif (data >= 0xe0 and data <= 0xe7):
                     self.channels[channel].isr &= ~(1 << (data&0x07))
                     self.channels[channel].lowestPriority = (data&0x07)
-                    self.channels[channel].servicePicChannel()
+                    (<PicChannel>self.channels[channel]).servicePicChannel()
                 elif (data in (0x02, 0x40)):
                     pass
                 else:
                     self.main.printMsg("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, oldStep == {2:d}, dataSize == byte).", data, ioPortAddr, oldStep)
             elif (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
-                cmdByte = self.channels[channel].getCmdByte()
+                cmdByte = (<PicChannel>self.channels[channel]).getCmdByte()
                 if (not self.channels[channel].inInit): # set mask if self.channels[channel].inInit is False
                     self.channels[channel].imr = data
-                    self.channels[channel].servicePicChannel()
+                    (<PicChannel>self.channels[channel]).servicePicChannel()
                 elif (oldStep == PIC_DATA_STEP_ICW2):
-                    self.channels[channel].setIrqBasePort(data)
+                    (<PicChannel>self.channels[channel]).setIrqBasePort(data)
                     if (cmdByte & PIC_SINGLE_MODE_NO_ICW3):
                         if (cmdByte & PIC_GET_ICW4):
                             self.channels[channel].step = PIC_DATA_STEP_ICW4
@@ -285,13 +281,13 @@ cdef class Pic:
                     else:
                         self.channels[channel].step = PIC_DATA_STEP_ICW3
                 elif (oldStep == PIC_DATA_STEP_ICW3):
-                    self.channels[channel].setMasterSlaveMap(data)
+                    (<PicChannel>self.channels[channel]).setMasterSlaveMap(data)
                     if (cmdByte & PIC_GET_ICW4):
                         self.channels[channel].step = PIC_DATA_STEP_ICW4
                     else:
                         self.channels[channel].inInit = False
                 elif (oldStep == PIC_DATA_STEP_ICW4):
-                    self.channels[channel].setFlags(data)
+                    (<PicChannel>self.channels[channel]).setFlags(data)
                     self.channels[channel].inInit = False
                 else: # wrong step
                     self.main.exitError("outPort: oldStep {0:d} not supported (ioPortAddr == {1:#04x}, dataSize == byte).", oldStep, ioPortAddr)
@@ -300,10 +296,12 @@ cdef class Pic:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
-    cpdef run(self):
+    cdef run(self):
         cdef PicChannel channel
+        self.cpuObject = None
+        self.setINTR = NULL
         for channel in self.channels:
             channel.run()
-        self.main.platform.addHandlers((0x20, 0x21, 0xa0, 0xa1), self)
+        #self.main.platform.addHandlers((0x20, 0x21, 0xa0, 0xa1), self)
 
 
