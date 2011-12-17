@@ -683,8 +683,8 @@ cdef class Registers:
         if (self.isInProtectedMode()): # protected mode enabled
             segValue = self.segRead(segId)
             if (segValue & SELECTOR_USE_LDT):
-                return self.segments.ldt.getSegSize(segValue)
-            return self.segments.gdt.getSegSize(segValue)
+                return self.segments.ldt.isSegPresent(segValue)
+            return self.segments.gdt.isSegPresent(segValue)
         #else: # real mode
         return True
     cdef unsigned char getOpSegSize(self, unsigned short segId):
