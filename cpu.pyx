@@ -60,7 +60,7 @@ cdef class Cpu:
             self.opcodes.interrupt(exceptionId, errorCode)
             return
         self.opcodes.interrupt(exceptionId, -1)
-    cdef handleException(self, object exception):
+    cpdef handleException(self, object exception):
         cdef unsigned char exceptionId
         cdef long errorCode
         if (len(exception.args) not in (1, 2)):
@@ -171,12 +171,12 @@ cdef class Cpu:
                         else:
                             self.main.printMsg("CPU::doCycle: TRIPLE FAULT! reset.")
                             self.cpu.reset()
-        except SystemExit:
+        except (SystemExit, KeyboardInterrupt):
             print(sys.exc_info())
-            self.main.exitError('doCycle: exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
+            self.main.exitError('doCycle: (SystemExit, KeyboardInterrupt) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
         except:
             print(sys.exc_info())
-            self.main.exitError('doCycle: exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
+            self.main.exitError('doCycle: (else case) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
     cdef run(self):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)

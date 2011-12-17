@@ -1,15 +1,13 @@
 
-from mm cimport Mm
+from mm cimport Mm, ConfigSpace
 
 
 cdef class GDBStubHandler:
     cpdef public object main, connHandler
-    cdef public GDBStub gdbStub
+    cdef GDBStub gdbStub
     cdef bytes lastReadData, lastWrittenData, cmdStr
-    cdef unsigned char cmdStrChecksum, cmdStrChecksumProof, readState
-    cdef unsigned long cmdStrChecksumIndex
-    cdef public unsigned char initSent
-    cdef public unsigned long connId
+    cdef unsigned char cmdStrChecksum, cmdStrChecksumProof, readState, initSent
+    cdef unsigned long cmdStrChecksumIndex, connId
     cdef clearData(self)
     cdef sendPacketType(self, bytes packetType)
     cdef putPacket(self, bytes data)
@@ -25,8 +23,7 @@ cdef class GDBStubHandler:
 
 cdef class GDBStub:
     cpdef public object main, server
-    cdef public GDBStubHandler gdbHandler
-    cpdef object serverThread
+    cdef GDBStubHandler gdbHandler
     cpdef quitFunc(self)
     cpdef serveGDBStub(self)
     cpdef run(self)

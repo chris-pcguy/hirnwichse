@@ -30,10 +30,19 @@ cdef class PythonBios:
         if (intNum == 0x10): # video; TODO
             #return False
             currMode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURRENT_MODE_ADDR, 1)
+            #self.main.printMsg("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
             if (ah == 0x02): # set cursor position
                 (<Vga>self.main.platform.vga).setCursorPosition(bh, dx)
+                return True
+            elif (ah == 0x03): # get cursor position
+                dx = (<Vga>self.main.platform.vga).getCursorPosition(bh)
+                cx = 0x607
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DX, dx)
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, cx)
+                return True
             elif (ah == 0x0f): # get currMode; write it to AL
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, currMode)
+                return True
             elif (currMode <= 0x7 or currMode in (0x12, 0x13)):
                 if (ah in (0x09, 0x0a, 0x0e)): # AH in (0x09, 0x0A, 0x0E) / PRINT CHARACTER
                     if (currMode in (0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x12, 0x13)):
@@ -41,7 +50,8 @@ cdef class PythonBios:
                         if (ah in (0x09, 0x0a)):
                             count = cx
                         for i in range(count):
-                            if ((currMode in (0x4, 0x5, 0x6, 0x12, 0x13)) and (ah in (0x09, 0x0e))):
+                            # ah==0x09: bl for textmode/graphicsmode;; ah==0x0e: bl for textmode
+                            if (currMode in (0x00, 0x01, 0x02, 0x03, 0x07) and ah == 0x09):
                                 (<Vga>self.main.platform.vga).writeCharacterTeletype(al, bl, 0xff, ah==0x0e) # page 0xff == current page
                             else:
                                 (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, 0xff, ah==0x0e) # page 0xff == current page
@@ -107,6 +117,14 @@ cdef class PythonBios:
                 (<Mm>self.main.mm).mmPhyWrite(memAddr, data, count*512)
                 self.setRetError(False, al)
                 return True
+            elif (ah == 0x8):
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DH, \
+                (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl].media.heads))
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, \
+                ((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl].media.tracks)<<8) | \
+                ((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl].media.sectors)))
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, 0)
+                (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, False)
             elif (not (dl & 0x80)):
                 self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) ax {0:#06x} not supported yet in PythonBIOS.", ax)
         return False

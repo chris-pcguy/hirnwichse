@@ -20,7 +20,7 @@ cdef class Cpu:
     cdef setHRQ(self, unsigned char state)
     cdef handleAsyncEvent(self)
     cdef exception(self, unsigned char exceptionId, long errorCode)
-    cdef handleException(self, object exception)
+    cpdef handleException(self, object exception)
     cdef unsigned char parsePrefixes(self, unsigned char opcode)
     cdef doInfiniteCycles(self)
     cdef doCycle(self)

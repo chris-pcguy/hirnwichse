@@ -1,5 +1,5 @@
 
-import misc
+import sys, misc
 
 from misc cimport Misc
 from registers cimport Registers
@@ -65,364 +65,391 @@ cdef class Opcodes:
         self.main = main
     cdef unsigned char executeOpcode(self, unsigned char opcode):
         cdef unsigned char operSize, addrSize
-        operSize, addrSize = (<Registers>self.main.cpu.registers).getOpAddrSegSize(CPU_SEGMENT_CS)
-        if (opcode == 0x00):
-            self.opcodeRM_R(OPCODE_ADD, OP_SIZE_BYTE)
-        elif (opcode == 0x01):
-            self.opcodeRM_R(OPCODE_ADD, operSize)
-        elif (opcode == 0x02):
-            self.opcodeR_RM(OPCODE_ADD, OP_SIZE_BYTE)
-        elif (opcode == 0x03):
-            self.opcodeR_RM(OPCODE_ADD, operSize)
-        elif (opcode == 0x04):
-            self.opcodeAxEaxImm(OPCODE_ADD, OP_SIZE_BYTE)
-        elif (opcode == 0x05):
-            self.opcodeAxEaxImm(OPCODE_ADD, operSize)
-        elif (opcode == 0x06):
-            self.pushSeg(-1)
-        elif (opcode == 0x07):
-            self.popSeg(-1)
-        elif (opcode == 0x08):
-            self.opcodeRM_R(OPCODE_OR, OP_SIZE_BYTE)
-        elif (opcode == 0x09):
-            self.opcodeRM_R(OPCODE_OR, operSize)
-        elif (opcode == 0x0a):
-            self.opcodeR_RM(OPCODE_OR, OP_SIZE_BYTE)
-        elif (opcode == 0x0b):
-            self.opcodeR_RM(OPCODE_OR, operSize)
-        elif (opcode == 0x0c):
-            self.opcodeAxEaxImm(OPCODE_OR, OP_SIZE_BYTE)
-        elif (opcode == 0x0d):
-            self.opcodeAxEaxImm(OPCODE_OR, operSize)
-        elif (opcode == 0x0e):
-            self.pushSeg(-1)
-        elif (opcode == 0x0f):
-            self.opcodeGroup0F()
-        elif (opcode == 0x10):
-            self.opcodeRM_R(OPCODE_ADC, OP_SIZE_BYTE)
-        elif (opcode == 0x11):
-            self.opcodeRM_R(OPCODE_ADC, operSize)
-        elif (opcode == 0x12):
-            self.opcodeR_RM(OPCODE_ADC, OP_SIZE_BYTE)
-        elif (opcode == 0x13):
-            self.opcodeR_RM(OPCODE_ADC, operSize)
-        elif (opcode == 0x14):
-            self.opcodeAxEaxImm(OPCODE_ADC, OP_SIZE_BYTE)
-        elif (opcode == 0x15):
-            self.opcodeAxEaxImm(OPCODE_ADC, operSize)
-        elif (opcode == 0x16):
-            self.pushSeg(-1)
-        elif (opcode == 0x17):
-            self.popSeg(-1)
-        elif (opcode == 0x18):
-            self.opcodeRM_R(OPCODE_SBB, OP_SIZE_BYTE)
-        elif (opcode == 0x19):
-            self.opcodeRM_R(OPCODE_SBB, operSize)
-        elif (opcode == 0x1a):
-            self.opcodeR_RM(OPCODE_SBB, OP_SIZE_BYTE)
-        elif (opcode == 0x1b):
-            self.opcodeR_RM(OPCODE_SBB, operSize)
-        elif (opcode == 0x1c):
-            self.opcodeAxEaxImm(OPCODE_SBB, OP_SIZE_BYTE)
-        elif (opcode == 0x1d):
-            self.opcodeAxEaxImm(OPCODE_SBB, operSize)
-        elif (opcode == 0x1e):
-            self.pushSeg(-1)
-        elif (opcode == 0x1f):
-            self.popSeg(-1)
-        elif (opcode == 0x20):
-            self.opcodeRM_R(OPCODE_AND, OP_SIZE_BYTE)
-        elif (opcode == 0x21):
-            self.opcodeRM_R(OPCODE_AND, operSize)
-        elif (opcode == 0x22):
-            self.opcodeR_RM(OPCODE_AND, OP_SIZE_BYTE)
-        elif (opcode == 0x23):
-            self.opcodeR_RM(OPCODE_AND, operSize)
-        elif (opcode == 0x24):
-            self.opcodeAxEaxImm(OPCODE_AND, OP_SIZE_BYTE)
-        elif (opcode == 0x25):
-            self.opcodeAxEaxImm(OPCODE_AND, operSize)
-        elif (opcode == 0x27):
-            self.daa()
-        elif (opcode == 0x28):
-            self.opcodeRM_R(OPCODE_SUB, OP_SIZE_BYTE)
-        elif (opcode == 0x29):
-            self.opcodeRM_R(OPCODE_SUB, operSize)
-        elif (opcode == 0x2a):
-            self.opcodeR_RM(OPCODE_SUB, OP_SIZE_BYTE)
-        elif (opcode == 0x2b):
-            self.opcodeR_RM(OPCODE_SUB, operSize)
-        elif (opcode == 0x2c):
-            self.opcodeAxEaxImm(OPCODE_SUB, OP_SIZE_BYTE)
-        elif (opcode == 0x2d):
-            self.opcodeAxEaxImm(OPCODE_SUB, operSize)
-        elif (opcode == 0x2f):
-            self.das()
-        elif (opcode == 0x30):
-            self.opcodeRM_R(OPCODE_XOR, OP_SIZE_BYTE)
-        elif (opcode == 0x31):
-            self.opcodeRM_R(OPCODE_XOR, operSize)
-        elif (opcode == 0x32):
-            self.opcodeR_RM(OPCODE_XOR, OP_SIZE_BYTE)
-        elif (opcode == 0x33):
-            self.opcodeR_RM(OPCODE_XOR, operSize)
-        elif (opcode == 0x34):
-            self.opcodeAxEaxImm(OPCODE_XOR, OP_SIZE_BYTE)
-        elif (opcode == 0x35):
-            self.opcodeAxEaxImm(OPCODE_XOR, operSize)
-        elif (opcode == 0x37):
-            self.aaa()
-        elif (opcode == 0x38):
-            self.opcodeRM_R(OPCODE_CMP, OP_SIZE_BYTE)
-        elif (opcode == 0x39):
-            self.opcodeRM_R(OPCODE_CMP, operSize)
-        elif (opcode == 0x3a):
-            self.opcodeR_RM(OPCODE_CMP, OP_SIZE_BYTE)
-        elif (opcode == 0x3b):
-            self.opcodeR_RM(OPCODE_CMP, operSize)
-        elif (opcode == 0x3c):
-            self.opcodeAxEaxImm(OPCODE_CMP, OP_SIZE_BYTE)
-        elif (opcode == 0x3d):
-            self.opcodeAxEaxImm(OPCODE_CMP, operSize)
-        elif (opcode == 0x3f):
-            self.aas()
-        elif (opcode >= 0x40 and opcode <= 0x47):
-            self.incReg()
-        elif (opcode >= 0x48 and opcode <= 0x4f):
-            self.decReg()
-        elif (opcode >= 0x50 and opcode <= 0x57):
-            self.pushReg()
-        elif (opcode >= 0x58 and opcode <= 0x5f):
-            self.popReg()
-        elif (opcode == 0x60):
-            self.pushaWD()
-        elif (opcode == 0x61):
-            self.popaWD()
-        elif (opcode == 0x62):
-            self.bound()
-        elif (opcode == 0x63):
-            self.arpl()
-        elif (opcode == 0x68):
-            self.pushIMM(False)
-        elif (opcode == 0x69):
-            self.imulR_RM_ImmFunc(False)
-        elif (opcode == 0x6a):
-            self.pushIMM(True)
-        elif (opcode == 0x6b):
-            self.imulR_RM_ImmFunc(True)
-        elif (opcode == 0x6c):
-            self.insFunc(OP_SIZE_BYTE)
-        elif (opcode == 0x6d):
-            self.insFunc(operSize)
-        elif (opcode == 0x6e):
-            self.outsFunc(OP_SIZE_BYTE)
-        elif (opcode == 0x6f):
-            self.outsFunc(operSize)
-        elif (opcode >= 0x70 and opcode <= 0x7f):
-            self.jumpShort(OP_SIZE_BYTE, (<Registers>self.main.cpu.registers).getCond(opcode&0xf))
-        elif (opcode == 0x80):
-            self.opcodeGroup1_RM_ImmFunc(OP_SIZE_BYTE, True)
-        elif (opcode == 0x81):
-            self.opcodeGroup1_RM_ImmFunc(operSize, False)
-        elif (opcode == 0x83):
-            self.opcodeGroup1_RM_ImmFunc(operSize, True)
-        elif (opcode == 0x84):
-            self.opcodeRM_R(OPCODE_TEST, OP_SIZE_BYTE)
-        elif (opcode == 0x85):
-            self.opcodeRM_R(OPCODE_TEST, operSize)
-        elif (opcode == 0x86):
-            self.xchgR_RM(OP_SIZE_BYTE)
-        elif (opcode == 0x87):
-            self.xchgR_RM(operSize)
-        elif (opcode == 0x88):
-            self.movRM_R(OP_SIZE_BYTE)
-        elif (opcode == 0x89):
-            self.movRM_R(operSize)
-        elif (opcode == 0x8a):
-            self.movR_RM(OP_SIZE_BYTE, True)
-        elif (opcode == 0x8b):
-            self.movR_RM(operSize, True)
-        elif (opcode == 0x8c):
-            self.movRM16_SREG()
-        elif (opcode == 0x8d):
-            self.lea()
-        elif (opcode == 0x8e):
-            self.movSREG_RM16()
-        elif (opcode == 0x8f):
-            self.popRM16_32()
-        elif (opcode == 0x90):
-            self.nop()
-        elif (opcode >= 0x91 and opcode <= 0x97):
-            self.xchgReg()
-        elif (opcode == 0x98):
-            self.cbw_cwde()
-        elif (opcode == 0x99):
-            self.cwd_cdq()
-        elif (opcode == 0x9a):
-            self.callPtr16_32()
-        elif (opcode == 0x9b): # WAIT/FWAIT
-            if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR0, (CR0_FLAG_MP | CR0_FLAG_TS)) == (CR0_FLAG_MP | CR0_FLAG_TS)):
-                raise misc.ChemuException(CPU_EXCEPTION_NM)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
-        elif (opcode == 0x9c):
-            self.pushfWD()
-        elif (opcode == 0x9d):
-            self.popfWD()
-        elif (opcode == 0x9e):
-            self.sahf()
-        elif (opcode == 0x9f):
-            self.lahf()
-        elif (opcode == 0xa0):
-            self.movAxMoffs(OP_SIZE_BYTE, addrSize)
-        elif (opcode == 0xa1):
-            self.movAxMoffs(operSize, addrSize)
-        elif (opcode == 0xa2):
-            self.movMoffsAx(OP_SIZE_BYTE, addrSize)
-        elif (opcode == 0xa3):
-            self.movMoffsAx(operSize, addrSize)
-        elif (opcode == 0xa4):
-            self.movsFunc(OP_SIZE_BYTE)
-        elif (opcode == 0xa5):
-            self.movsFunc(operSize)
-        elif (opcode == 0xa6):
-            self.cmpsFunc(OP_SIZE_BYTE)
-        elif (opcode == 0xa7):
-            self.cmpsFunc(operSize)
-        elif (opcode == 0xa8):
-            self.opcodeAxEaxImm(OPCODE_TEST, OP_SIZE_BYTE)
-        elif (opcode == 0xa9):
-            self.opcodeAxEaxImm(OPCODE_TEST, operSize)
-        elif (opcode == 0xaa):
-            self.stosFunc(OP_SIZE_BYTE)
-        elif (opcode == 0xab):
-            self.stosFunc(operSize)
-        elif (opcode == 0xac):
-            self.lodsFunc(OP_SIZE_BYTE)
-        elif (opcode == 0xad):
-            self.lodsFunc(operSize)
-        elif (opcode == 0xae):
-            self.scasFunc(OP_SIZE_BYTE)
-        elif (opcode == 0xaf):
-            self.scasFunc(operSize)
-        elif (opcode >= 0xb0 and opcode <= 0xb7):
-            self.movImmToR(OP_SIZE_BYTE)
-        elif (opcode >= 0xb8 and opcode <= 0xbf):
-            self.movImmToR(operSize)
-        elif (opcode == 0xc0):
-            self.opcodeGroup4_RM_IMM8(OP_SIZE_BYTE)
-        elif (opcode == 0xc1):
-            self.opcodeGroup4_RM_IMM8(operSize)
-        elif (opcode == 0xc2):
-            self.retNearImm()
-        elif (opcode == 0xc3):
-            self.retNear(0)
-        elif (opcode == 0xc4):
-            self.lfpFunc(CPU_SEGMENT_ES)
-        elif (opcode == 0xc5):
-            self.lfpFunc(CPU_SEGMENT_DS)
-        elif (opcode == 0xc6):
-            self.opcodeGroup3_RM_ImmFunc(OP_SIZE_BYTE)
-        elif (opcode == 0xc7):
-            self.opcodeGroup3_RM_ImmFunc(operSize)
-        elif (opcode == 0xc8):
-            self.enter()
-        elif (opcode == 0xc9):
-            self.leave()
-        elif (opcode == 0xca):
-            self.retFarImm()
-        elif (opcode == 0xcb):
-            self.retFar(0)
-        elif (opcode == 0xcc):
-            self.int3()
-        elif (opcode == 0xcd):
-            self.interrupt(-1, -1)
-        elif (opcode == 0xce):
-            self.into()
-        elif (opcode == 0xcf):
-            self.iret()
-        elif (opcode == 0xd0):
-            self.opcodeGroup4_RM_1(OP_SIZE_BYTE)
-        elif (opcode == 0xd1):
-            self.opcodeGroup4_RM_1(operSize)
-        elif (opcode == 0xd2):
-            self.opcodeGroup4_RM_CL(OP_SIZE_BYTE)
-        elif (opcode == 0xd3):
-            self.opcodeGroup4_RM_CL(operSize)
-        elif (opcode == 0xd4):
-            self.aam()
-        elif (opcode == 0xd5):
-            self.aad()
-        elif (opcode == 0xd6):
-            self.undefNoUD()
-        elif (opcode == 0xd7):
-            self.xlatb()
-        elif (opcode >= 0xd8 and opcode <= 0xdf):
-            if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR) == 0):
+        try:
+            operSize, addrSize = (<Registers>self.main.cpu.registers).getOpAddrSegSize(CPU_SEGMENT_CS)
+            if (opcode == 0x00):
+                self.opcodeRM_R(OPCODE_ADD, OP_SIZE_BYTE)
+            elif (opcode == 0x01):
+                self.opcodeRM_R(OPCODE_ADD, operSize)
+            elif (opcode == 0x02):
+                self.opcodeR_RM(OPCODE_ADD, OP_SIZE_BYTE)
+            elif (opcode == 0x03):
+                self.opcodeR_RM(OPCODE_ADD, operSize)
+            elif (opcode == 0x04):
+                self.opcodeAxEaxImm(OPCODE_ADD, OP_SIZE_BYTE)
+            elif (opcode == 0x05):
+                self.opcodeAxEaxImm(OPCODE_ADD, operSize)
+            elif (opcode == 0x06):
+                self.pushSeg(-1)
+            elif (opcode == 0x07):
+                self.popSeg(-1)
+            elif (opcode == 0x08):
+                self.opcodeRM_R(OPCODE_OR, OP_SIZE_BYTE)
+            elif (opcode == 0x09):
+                self.opcodeRM_R(OPCODE_OR, operSize)
+            elif (opcode == 0x0a):
+                self.opcodeR_RM(OPCODE_OR, OP_SIZE_BYTE)
+            elif (opcode == 0x0b):
+                self.opcodeR_RM(OPCODE_OR, operSize)
+            elif (opcode == 0x0c):
+                self.opcodeAxEaxImm(OPCODE_OR, OP_SIZE_BYTE)
+            elif (opcode == 0x0d):
+                self.opcodeAxEaxImm(OPCODE_OR, operSize)
+            elif (opcode == 0x0e):
+                self.pushSeg(-1)
+            elif (opcode == 0x0f):
+                self.opcodeGroup0F()
+            elif (opcode == 0x10):
+                self.opcodeRM_R(OPCODE_ADC, OP_SIZE_BYTE)
+            elif (opcode == 0x11):
+                self.opcodeRM_R(OPCODE_ADC, operSize)
+            elif (opcode == 0x12):
+                self.opcodeR_RM(OPCODE_ADC, OP_SIZE_BYTE)
+            elif (opcode == 0x13):
+                self.opcodeR_RM(OPCODE_ADC, operSize)
+            elif (opcode == 0x14):
+                self.opcodeAxEaxImm(OPCODE_ADC, OP_SIZE_BYTE)
+            elif (opcode == 0x15):
+                self.opcodeAxEaxImm(OPCODE_ADC, operSize)
+            elif (opcode == 0x16):
+                self.pushSeg(-1)
+            elif (opcode == 0x17):
+                self.popSeg(-1)
+            elif (opcode == 0x18):
+                self.opcodeRM_R(OPCODE_SBB, OP_SIZE_BYTE)
+            elif (opcode == 0x19):
+                self.opcodeRM_R(OPCODE_SBB, operSize)
+            elif (opcode == 0x1a):
+                self.opcodeR_RM(OPCODE_SBB, OP_SIZE_BYTE)
+            elif (opcode == 0x1b):
+                self.opcodeR_RM(OPCODE_SBB, operSize)
+            elif (opcode == 0x1c):
+                self.opcodeAxEaxImm(OPCODE_SBB, OP_SIZE_BYTE)
+            elif (opcode == 0x1d):
+                self.opcodeAxEaxImm(OPCODE_SBB, operSize)
+            elif (opcode == 0x1e):
+                self.pushSeg(-1)
+            elif (opcode == 0x1f):
+                self.popSeg(-1)
+            elif (opcode == 0x20):
+                self.opcodeRM_R(OPCODE_AND, OP_SIZE_BYTE)
+            elif (opcode == 0x21):
+                self.opcodeRM_R(OPCODE_AND, operSize)
+            elif (opcode == 0x22):
+                self.opcodeR_RM(OPCODE_AND, OP_SIZE_BYTE)
+            elif (opcode == 0x23):
+                self.opcodeR_RM(OPCODE_AND, operSize)
+            elif (opcode == 0x24):
+                self.opcodeAxEaxImm(OPCODE_AND, OP_SIZE_BYTE)
+            elif (opcode == 0x25):
+                self.opcodeAxEaxImm(OPCODE_AND, operSize)
+            elif (opcode == 0x27):
+                self.daa()
+            elif (opcode == 0x28):
+                self.opcodeRM_R(OPCODE_SUB, OP_SIZE_BYTE)
+            elif (opcode == 0x29):
+                self.opcodeRM_R(OPCODE_SUB, operSize)
+            elif (opcode == 0x2a):
+                self.opcodeR_RM(OPCODE_SUB, OP_SIZE_BYTE)
+            elif (opcode == 0x2b):
+                self.opcodeR_RM(OPCODE_SUB, operSize)
+            elif (opcode == 0x2c):
+                self.opcodeAxEaxImm(OPCODE_SUB, OP_SIZE_BYTE)
+            elif (opcode == 0x2d):
+                self.opcodeAxEaxImm(OPCODE_SUB, operSize)
+            elif (opcode == 0x2f):
+                self.das()
+            elif (opcode == 0x30):
+                self.opcodeRM_R(OPCODE_XOR, OP_SIZE_BYTE)
+            elif (opcode == 0x31):
+                self.opcodeRM_R(OPCODE_XOR, operSize)
+            elif (opcode == 0x32):
+                self.opcodeR_RM(OPCODE_XOR, OP_SIZE_BYTE)
+            elif (opcode == 0x33):
+                self.opcodeR_RM(OPCODE_XOR, operSize)
+            elif (opcode == 0x34):
+                self.opcodeAxEaxImm(OPCODE_XOR, OP_SIZE_BYTE)
+            elif (opcode == 0x35):
+                self.opcodeAxEaxImm(OPCODE_XOR, operSize)
+            elif (opcode == 0x37):
+                self.aaa()
+            elif (opcode == 0x38):
+                self.opcodeRM_R(OPCODE_CMP, OP_SIZE_BYTE)
+            elif (opcode == 0x39):
+                self.opcodeRM_R(OPCODE_CMP, operSize)
+            elif (opcode == 0x3a):
+                self.opcodeR_RM(OPCODE_CMP, OP_SIZE_BYTE)
+            elif (opcode == 0x3b):
+                self.opcodeR_RM(OPCODE_CMP, operSize)
+            elif (opcode == 0x3c):
+                self.opcodeAxEaxImm(OPCODE_CMP, OP_SIZE_BYTE)
+            elif (opcode == 0x3d):
+                self.opcodeAxEaxImm(OPCODE_CMP, operSize)
+            elif (opcode == 0x3f):
+                self.aas()
+            elif (opcode >= 0x40 and opcode <= 0x47):
+                self.incReg()
+            elif (opcode >= 0x48 and opcode <= 0x4f):
+                self.decReg()
+            elif (opcode >= 0x50 and opcode <= 0x57):
+                self.pushReg()
+            elif (opcode >= 0x58 and opcode <= 0x5f):
+                self.popReg()
+            elif (opcode == 0x60):
+                self.pushaWD()
+            elif (opcode == 0x61):
+                self.popaWD()
+            elif (opcode == 0x62):
+                self.bound()
+            elif (opcode == 0x63):
+                self.arpl()
+            elif (opcode == 0x68):
+                self.pushIMM(False)
+            elif (opcode == 0x69):
+                self.imulR_RM_ImmFunc(False)
+            elif (opcode == 0x6a):
+                self.pushIMM(True)
+            elif (opcode == 0x6b):
+                self.imulR_RM_ImmFunc(True)
+            elif (opcode == 0x6c):
+                self.insFunc(OP_SIZE_BYTE)
+            elif (opcode == 0x6d):
+                self.insFunc(operSize)
+            elif (opcode == 0x6e):
+                self.outsFunc(OP_SIZE_BYTE)
+            elif (opcode == 0x6f):
+                self.outsFunc(operSize)
+            elif (opcode >= 0x70 and opcode <= 0x7f):
+                self.jumpShort(OP_SIZE_BYTE, (<Registers>self.main.cpu.registers).getCond(opcode&0xf))
+            elif (opcode == 0x80):
+                self.opcodeGroup1_RM_ImmFunc(OP_SIZE_BYTE, True)
+            elif (opcode == 0x81):
+                self.opcodeGroup1_RM_ImmFunc(operSize, False)
+            elif (opcode == 0x83):
+                self.opcodeGroup1_RM_ImmFunc(operSize, True)
+            elif (opcode == 0x84):
+                self.opcodeRM_R(OPCODE_TEST, OP_SIZE_BYTE)
+            elif (opcode == 0x85):
+                self.opcodeRM_R(OPCODE_TEST, operSize)
+            elif (opcode == 0x86):
+                self.xchgR_RM(OP_SIZE_BYTE)
+            elif (opcode == 0x87):
+                self.xchgR_RM(operSize)
+            elif (opcode == 0x88):
+                self.movRM_R(OP_SIZE_BYTE)
+            elif (opcode == 0x89):
+                self.movRM_R(operSize)
+            elif (opcode == 0x8a):
+                self.movR_RM(OP_SIZE_BYTE, True)
+            elif (opcode == 0x8b):
+                self.movR_RM(operSize, True)
+            elif (opcode == 0x8c):
+                self.movRM16_SREG()
+            elif (opcode == 0x8d):
+                self.lea()
+            elif (opcode == 0x8e):
+                self.movSREG_RM16()
+            elif (opcode == 0x8f):
+                self.popRM16_32()
+            elif (opcode == 0x90):
+                self.nop()
+            elif (opcode >= 0x91 and opcode <= 0x97):
+                self.xchgReg()
+            elif (opcode == 0x98):
+                self.cbw_cwde()
+            elif (opcode == 0x99):
+                self.cwd_cdq()
+            elif (opcode == 0x9a):
+                self.callPtr16_32()
+            elif (opcode == 0x9b): # WAIT/FWAIT
+                if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR0, (CR0_FLAG_MP | CR0_FLAG_TS)) == \
+                                                                                   (CR0_FLAG_MP | CR0_FLAG_TS)):
+                    raise misc.ChemuException(CPU_EXCEPTION_NM)
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
-            if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS)) != 0):
-                raise misc.ChemuException(CPU_EXCEPTION_NM)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
-        elif (opcode == 0xe0):
-            self.loopne()
-        elif (opcode == 0xe1):
-            self.loope()
-        elif (opcode == 0xe2):
-            self.loop()
-        elif (opcode == 0xe3):
-            self.jcxzShort()
-        elif (opcode == 0xe4):
-            self.inAxImm8(OP_SIZE_BYTE)
-        elif (opcode == 0xe5):
-            self.inAxImm8(operSize)
-        elif (opcode == 0xe6):
-            self.outImm8Ax(OP_SIZE_BYTE)
-        elif (opcode == 0xe7):
-            self.outImm8Ax(operSize)
-        elif (opcode == 0xe8):
-            self.callNearRel16_32()
-        elif (opcode == 0xe9):
-            self.jumpShortRelativeWordDWord()
-        elif (opcode == 0xea):
-            self.jumpFarAbsolutePtr()
-        elif (opcode == 0xeb):
-            self.jumpShortRelativeByte()
-        elif (opcode == 0xec):
-            self.inAxDx(OP_SIZE_BYTE)
-        elif (opcode == 0xed):
-            self.inAxDx(operSize)
-        elif (opcode == 0xee):
-            self.outDxAx(OP_SIZE_BYTE)
-        elif (opcode == 0xef):
-            self.outDxAx(operSize)
-        elif (opcode == 0xf1):
-            self.undefNoUD()
-        elif (opcode == 0xf4):
-            self.hlt()
-        elif (opcode == 0xf5):
-            self.cmc()
-        elif (opcode == 0xf6):
-            self.opcodeGroup2_RM(OP_SIZE_BYTE)
-        elif (opcode == 0xf7):
-            self.opcodeGroup2_RM(operSize)
-        elif (opcode == 0xf8):
-            self.clc()
-        elif (opcode == 0xf9):
-            self.stc()
-        elif (opcode == 0xfa):
-            self.cli()
-        elif (opcode == 0xfb):
-            self.sti()
-        elif (opcode == 0xfc):
-            self.cld()
-        elif (opcode == 0xfd):
-            self.std()
-        elif (opcode == 0xfe):
-            self.opcodeGroupFE()
-        elif (opcode == 0xff):
-            self.opcodeGroupFF()
-        else:
-            return False # if opcode wasn't found.
-        return True  # if opcode was found.
+            elif (opcode == 0x9c):
+                self.pushfWD()
+            elif (opcode == 0x9d):
+                self.popfWD()
+            elif (opcode == 0x9e):
+                self.sahf()
+            elif (opcode == 0x9f):
+                self.lahf()
+            elif (opcode == 0xa0):
+                self.movAxMoffs(OP_SIZE_BYTE, addrSize)
+            elif (opcode == 0xa1):
+                self.movAxMoffs(operSize, addrSize)
+            elif (opcode == 0xa2):
+                self.movMoffsAx(OP_SIZE_BYTE, addrSize)
+            elif (opcode == 0xa3):
+                self.movMoffsAx(operSize, addrSize)
+            elif (opcode == 0xa4):
+                self.movsFunc(OP_SIZE_BYTE)
+            elif (opcode == 0xa5):
+                self.movsFunc(operSize)
+            elif (opcode == 0xa6):
+                self.cmpsFunc(OP_SIZE_BYTE)
+            elif (opcode == 0xa7):
+                self.cmpsFunc(operSize)
+            elif (opcode == 0xa8):
+                self.opcodeAxEaxImm(OPCODE_TEST, OP_SIZE_BYTE)
+            elif (opcode == 0xa9):
+                self.opcodeAxEaxImm(OPCODE_TEST, operSize)
+            elif (opcode == 0xaa):
+                self.stosFunc(OP_SIZE_BYTE)
+            elif (opcode == 0xab):
+                self.stosFunc(operSize)
+            elif (opcode == 0xac):
+                self.lodsFunc(OP_SIZE_BYTE)
+            elif (opcode == 0xad):
+                self.lodsFunc(operSize)
+            elif (opcode == 0xae):
+                self.scasFunc(OP_SIZE_BYTE)
+            elif (opcode == 0xaf):
+                self.scasFunc(operSize)
+            elif (opcode >= 0xb0 and opcode <= 0xb7):
+                self.movImmToR(OP_SIZE_BYTE)
+            elif (opcode >= 0xb8 and opcode <= 0xbf):
+                self.movImmToR(operSize)
+            elif (opcode == 0xc0):
+                self.opcodeGroup4_RM_IMM8(OP_SIZE_BYTE)
+            elif (opcode == 0xc1):
+                self.opcodeGroup4_RM_IMM8(operSize)
+            elif (opcode == 0xc2):
+                self.retNearImm()
+            elif (opcode == 0xc3):
+                self.retNear(0)
+            elif (opcode == 0xc4):
+                self.lfpFunc(CPU_SEGMENT_ES)
+            elif (opcode == 0xc5):
+                self.lfpFunc(CPU_SEGMENT_DS)
+            elif (opcode == 0xc6):
+                self.opcodeGroup3_RM_ImmFunc(OP_SIZE_BYTE)
+            elif (opcode == 0xc7):
+                self.opcodeGroup3_RM_ImmFunc(operSize)
+            elif (opcode == 0xc8):
+                self.enter()
+            elif (opcode == 0xc9):
+                self.leave()
+            elif (opcode == 0xca):
+                self.retFarImm()
+            elif (opcode == 0xcb):
+                self.retFar(0)
+            elif (opcode == 0xcc):
+                self.int3()
+            elif (opcode == 0xcd):
+                self.interrupt(-1, -1)
+            elif (opcode == 0xce):
+                self.into()
+            elif (opcode == 0xcf):
+                self.iret()
+            elif (opcode == 0xd0):
+                self.opcodeGroup4_RM_1(OP_SIZE_BYTE)
+            elif (opcode == 0xd1):
+                self.opcodeGroup4_RM_1(operSize)
+            elif (opcode == 0xd2):
+                self.opcodeGroup4_RM_CL(OP_SIZE_BYTE)
+            elif (opcode == 0xd3):
+                self.opcodeGroup4_RM_CL(operSize)
+            elif (opcode == 0xd4):
+                self.aam()
+            elif (opcode == 0xd5):
+                self.aad()
+            elif (opcode == 0xd6):
+                self.undefNoUD()
+            elif (opcode == 0xd7):
+                self.xlatb()
+            elif (opcode >= 0xd8 and opcode <= 0xdf):
+                if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR) == 0):
+                    raise misc.ChemuException(CPU_EXCEPTION_UD)
+                if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS)) != 0):
+                    raise misc.ChemuException(CPU_EXCEPTION_NM)
+                raise misc.ChemuException(CPU_EXCEPTION_UD)
+            elif (opcode == 0xe0):
+                self.loopne()
+            elif (opcode == 0xe1):
+                self.loope()
+            elif (opcode == 0xe2):
+                self.loop()
+            elif (opcode == 0xe3):
+                self.jcxzShort()
+            elif (opcode == 0xe4):
+                self.inAxImm8(OP_SIZE_BYTE)
+            elif (opcode == 0xe5):
+                self.inAxImm8(operSize)
+            elif (opcode == 0xe6):
+                self.outImm8Ax(OP_SIZE_BYTE)
+            elif (opcode == 0xe7):
+                self.outImm8Ax(operSize)
+            elif (opcode == 0xe8):
+                self.callNearRel16_32()
+            elif (opcode == 0xe9):
+                self.jumpShortRelativeWordDWord()
+            elif (opcode == 0xea):
+                self.jumpFarAbsolutePtr()
+            elif (opcode == 0xeb):
+                self.jumpShortRelativeByte()
+            elif (opcode == 0xec):
+                self.inAxDx(OP_SIZE_BYTE)
+            elif (opcode == 0xed):
+                self.inAxDx(operSize)
+            elif (opcode == 0xee):
+                self.outDxAx(OP_SIZE_BYTE)
+            elif (opcode == 0xef):
+                self.outDxAx(operSize)
+            elif (opcode == 0xf1):
+                self.undefNoUD()
+            elif (opcode == 0xf4):
+                self.hlt()
+            elif (opcode == 0xf5):
+                self.cmc()
+            elif (opcode == 0xf6):
+                self.opcodeGroup2_RM(OP_SIZE_BYTE)
+            elif (opcode == 0xf7):
+                self.opcodeGroup2_RM(operSize)
+            elif (opcode == 0xf8):
+                self.clc()
+            elif (opcode == 0xf9):
+                self.stc()
+            elif (opcode == 0xfa):
+                self.cli()
+            elif (opcode == 0xfb):
+                self.sti()
+            elif (opcode == 0xfc):
+                self.cld()
+            elif (opcode == 0xfd):
+                self.std()
+            elif (opcode == 0xfe):
+                self.opcodeGroupFE()
+            elif (opcode == 0xff):
+                self.opcodeGroupFF()
+            else:
+                return False # if opcode wasn't found.
+            return True  # if opcode was found.
+        except misc.ChemuException as exception: # exception
+            try:
+                self.main.cpu.handleException(exception) # execute exception handler
+                return True
+            except misc.ChemuException as exception: # DF double fault
+                try:
+                    raise misc.ChemuException(CPU_EXCEPTION_DF, 0) # exec DF double fault
+                except misc.ChemuException as exception:
+                    try:
+                        self.main.cpu.handleException(exception) # handle DF double fault
+                        return True
+                    except misc.ChemuException as exception: # DF double fault failed! triple fault... reset!
+                        if (self.main.exitOnTripleFault):
+                            self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.", exitNow=True)
+                        else:
+                            self.main.printMsg("CPU::doCycle: TRIPLE FAULT! reset.")
+                            self.main.cpu.reset()
+                            return True
+        except (SystemExit, KeyboardInterrupt):
+            print(sys.exc_info())
+            self.main.exitError('Opcodes::executeOpcode: (SystemExit, KeyboardInterrupt) exception while handling opcode, exiting... (opcode: {0:#04x})', opcode, exitNow=True)
+        except:
+            print(sys.exc_info())
+            self.main.exitError('Opcodes::executeOpcode: (else case) exception while handling opcode, exiting... (opcode: {0:#04x})', opcode, exitNow=True)
+        return False
     cdef undefNoUD(self):
         pass
     cdef cli(self):
@@ -1764,7 +1791,7 @@ cdef class Opcodes:
         cdef unsigned long operOp2, bitMaskHalf, bitMask
         cdef long long sop1, temp, tempmod
         cdef long sop2
-        cdef unsigned long long operOp1, doubleBitMask, doubleBitMaskHalf
+        cdef unsigned long long utemp, operOp1, doubleBitMask, doubleBitMaskHalf
         cdef tuple rmOperands
         operOpcode = (<Registers>self.main.cpu.registers).getCurrentOpcode(OP_SIZE_BYTE, False)
         operOpcodeId = (operOpcode>>3)&7
@@ -1841,14 +1868,14 @@ cdef class Opcodes:
         elif (operOpcodeId == GROUP2_OP_DIV):
             eaxReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
             edxReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DX, operSize)
-            operOp1  = (<Registers>self.main.cpu.registers).regRead(eaxReg, False)
-            operOp1 |= (<Registers>self.main.cpu.registers).regRead(edxReg, False)<<operSizeInBits
+            operOp1  = (<Registers>self.main.cpu.registers).regRead(edxReg, False)<<operSizeInBits
+            operOp1 |= (<Registers>self.main.cpu.registers).regRead(eaxReg, False)
             if (operOp2 == 0):
                 raise misc.ChemuException(CPU_EXCEPTION_DE)
-            temp, tempmod = divmod(operOp1, operOp2)
-            if (temp > <unsigned long>bitMask):
+            utemp, tempmod = divmod(operOp1, operOp2)
+            if (utemp > <unsigned long>bitMask):
                 raise misc.ChemuException(CPU_EXCEPTION_DE)
-            (<Registers>self.main.cpu.registers).regWrite(eaxReg, temp&bitMask)
+            (<Registers>self.main.cpu.registers).regWrite(eaxReg, utemp&bitMask)
             (<Registers>self.main.cpu.registers).regWrite(edxReg, tempmod&bitMask)
             (<Registers>self.main.cpu.registers).setFullFlags(operOp1, operOp2, operSize, OPCODE_DIV, False)
         elif (operOpcodeId == GROUP2_OP_IDIV):
@@ -2149,7 +2176,7 @@ cdef class Opcodes:
         newCF = (<Registers>self.main.cpu.registers).getEFLAG( FLAG_CF )!=0
         for i in range(count):
             tempCF_OF = (dest&bitMaskHalf)!=0
-            dest = (dest<<1)|newCF
+            dest = ((dest<<1)|newCF)&bitMask
             newCF = tempCF_OF
         (<Registers>self.main.cpu.registers).modRMSave(rmOperands, operSize, dest, True, OPCODE_SAVE)
         if (count == 0):

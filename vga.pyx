@@ -166,7 +166,7 @@ cdef class Vga:
         page = self.getCorrectPage(page)
         offset = ((y*80)+x)*2
         return VGA_TEXTMODE_ADDR+(page*0x1000)+offset
-    cdef unsigned short getCursorPosition(self, unsigned char page):
+    cdef unsigned short getCursorPosition(self, unsigned char page): # return x, y
         cdef unsigned short pos
         page = self.getCorrectPage(page)
         if (page > 7):

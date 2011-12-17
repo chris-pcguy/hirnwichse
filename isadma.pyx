@@ -1,5 +1,6 @@
 
 from mm cimport Mm
+from libc.string cimport memset
 
 include "globals.pxi"
 
@@ -157,7 +158,6 @@ cdef class IsaDma:
     def __init__(self, object main):
         self.main = main
         self.controller = (IsaDmaController(self, True), IsaDmaController(self, False))
-        self.extPageReg = [0]*16
         self.HLDA = self.TC = False
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char ma_sl, channelNum
@@ -189,8 +189,8 @@ cdef class IsaDma:
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
             return (<IsaDmaController>self.controller[1]).getPageByte(channelNum)
-        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
-            return self.extPageReg[ioPortAddr&0xf]
+        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
+            return self.extPageReg[ioPortAddr&0xf]&BITMASK_BYTE
         else:
             self.main.exitError("ISADma::inPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
         return 0
@@ -238,7 +238,7 @@ cdef class IsaDma:
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
             (<IsaDmaController>self.controller[1]).setPageByte(channelNum, data&BITMASK_BYTE)
-        elif (dataSize == OP_SIZE_BYTE and ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
+        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
             self.extPageReg[ioPortAddr&0xf] = data&BITMASK_BYTE
         else:
             self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
@@ -380,6 +380,7 @@ cdef class IsaDma:
         cdef IsaDmaController controller
         self.cpuObject = None
         self.setHRQ = NULL
+        memset(self.extPageReg, 0, 16)
         for controller in self.controller:
             controller.run()
         #self.main.platform.addHandlers(DMA_MASTER_CONTROLLER_PORTS, self)

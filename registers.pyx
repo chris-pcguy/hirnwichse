@@ -663,9 +663,8 @@ cdef class Registers:
     cdef unsigned long getRealAddr(self, unsigned short segId, long long offsetAddr):
         cdef long long addr = self.getBaseAddr(segId)
         if (not self.isInProtectedMode()):
-            if (self.getA20State()): # A20 Active? if True == on, else off
-                offsetAddr &= 0x1fffff
-            else:
+            offsetAddr &= 0x1fffff
+            if (not self.getA20State()): # A20 Active? if True == on, else off
                 offsetAddr &= 0xfffff
         addr += offsetAddr
         return addr&BITMASK_DWORD

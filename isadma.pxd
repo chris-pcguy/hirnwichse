@@ -9,21 +9,18 @@ cdef class IsaDmaChannel:
     cdef object dmaReadFromMemObject, dmaWriteToMemObject
     cdef DmaReadFromMem dmaReadFromMem
     cdef DmaWriteToMem  dmaWriteToMem
-    ##cdef void *dmaReadFromMem, *dmaWriteToMem
-    cdef public IsaDmaController controller
-    cdef public IsaDma isadma
-    cdef public unsigned char channelMasked, transferDirection, autoInit, addressDecrement, transferMode, page, DRQ, DACK
-    cdef public unsigned short baseAddress, baseCount, currentAddress, currentCount
-    cdef unsigned char channelNum
+    cdef IsaDmaController controller
+    cdef IsaDma isadma
+    cdef unsigned char channelNum, channelMasked, transferDirection, autoInit, addressDecrement, transferMode, page, DRQ, DACK
+    cdef unsigned short baseAddress, baseCount, currentAddress, currentCount
     cdef run(self)
     ###
 
 cdef class IsaDmaController:
     cpdef public object main
-    cdef public IsaDma isadma
-    cdef public tuple channel
-    cdef unsigned char flipFlop, firstChannel, master, ctrlDisabled, cmdReg
-    cdef public unsigned char statusReg
+    cdef IsaDma isadma
+    cdef tuple channel
+    cdef unsigned char flipFlop, firstChannel, master, ctrlDisabled, cmdReg, statusReg
     cdef reset(self)
     cdef doCommand(self, unsigned char data)
     cdef doManualRequest(self, unsigned char data)
@@ -51,8 +48,7 @@ cdef class IsaDma:
     cdef object cpuObject
     cdef SetHRQ setHRQ
     cdef public tuple controller
-    cdef list extPageReg # extPageReg is unused.
-    cdef unsigned char HLDA, TC
+    cdef unsigned char extPageReg[16], HLDA, TC # extPageReg is unused.
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
     cdef getTC(self)
