@@ -154,19 +154,16 @@ cdef class Vga:
         if (updateCursor):
             self.setCursorPosition(page, (y<<8)|x)
     cdef writeCharacter(self, unsigned long address, unsigned char c, short attr):
-        cdef bytes charData
         if (attr == -1):
-            charData = bytes( [c] )
-            (<Mm>self.main.mm).mmPhyWrite(address, charData, 1)
+            (<Mm>self.main.mm).mmPhyWriteValue(address, c, 1)
         else:
-            charData = bytes( [c, attr] )
-            (<Mm>self.main.mm).mmPhyWrite(address, charData, 2)
+            (<Mm>self.main.mm).mmPhyWriteValue(address, ((attr<<8)|c), 2)
     cdef getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
         cdef unsigned long offset
         page = self.getCorrectPage(page)
         offset = ((y*80)+x)*2
         return VGA_TEXTMODE_ADDR+(page*0x1000)+offset
-    cdef unsigned short getCursorPosition(self, unsigned char page): # return x, y
+    cdef unsigned short getCursorPosition(self, unsigned char page): # returns y, x
         cdef unsigned short pos
         page = self.getCorrectPage(page)
         if (page > 7):

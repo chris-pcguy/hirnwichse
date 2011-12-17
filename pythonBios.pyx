@@ -45,10 +45,13 @@ cdef class PythonBios:
                 return True
             elif (currMode <= 0x7 or currMode in (0x12, 0x13)):
                 if (ah in (0x09, 0x0a, 0x0e)): # AH in (0x09, 0x0A, 0x0E) / PRINT CHARACTER
-                    if (currMode in (0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x12, 0x13)):
+                    #if (currMode in (0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x12, 0x13)):
+                    if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7, 0x12, 0x13)):
                         count = 1
                         if (ah in (0x09, 0x0a)):
                             count = cx
+                        elif (ah == 0x0e):
+                            bh = 0xff # according to vgabios, AH:0x0e must print on the current page!!
                         for i in range(count):
                             # ah==0x09: bl for textmode/graphicsmode;; ah==0x0e: bl for textmode
                             if (currMode in (0x00, 0x01, 0x02, 0x03, 0x07) and ah == 0x09):
@@ -56,9 +59,9 @@ cdef class PythonBios:
                             else:
                                 (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, 0xff, ah==0x0e) # page 0xff == current page
                             cursorPos = (<Vga>self.main.platform.vga).getCursorPosition(bh)
-                            if (ax == 0x0e0a and (cursorPos>>8) > 24):
+                            if (ax == 0x0e0a and cursorPos >= 0x1900):
                                 (<Vga>self.main.platform.vga).scrollDown(bh)
-                                (<Vga>self.main.platform.vga).setCursorPosition(bh, cursorPos-0x100)
+                                (<Vga>self.main.platform.vga).setCursorPosition(bh, ((0x1800)|(cursorPos&0xff)))
                         return True
                     else:
                         self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x0e: currMode {0:d} not supported here. (ax: {1:#04x})", currMode, ax)
@@ -79,9 +82,9 @@ cdef class PythonBios:
                                 attr = data[i+1]
                             (<Vga>self.main.platform.vga).writeCharacterTeletype(c, attr, bh, True)
                             cursorPos = (<Vga>self.main.platform.vga).getCursorPosition(bh)
-                            if (c == 0x0a and (cursorPos>>8) > 24):
+                            if (c == 0x0a and cursorPos >= 0x1900):
                                 (<Vga>self.main.platform.vga).scrollDown(bh)
-                                (<Vga>self.main.platform.vga).setCursorPosition(bh, cursorPos-0x100)
+                                (<Vga>self.main.platform.vga).setCursorPosition(bh, ((0x1800)|(cursorPos&0xff)))
                         if (not updateCursor):
                             (<Vga>self.main.platform.vga).setCursorPosition(bh, dx)
                         return True
