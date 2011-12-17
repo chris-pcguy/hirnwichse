@@ -54,6 +54,7 @@ cdef class Opcodes:
     cdef stackPopRM(self, tuple rmOperands, unsigned char operSize)
     cdef stackPopSegId(self, unsigned short segId, unsigned char operSize)
     cdef stackPopRegId(self, unsigned short regId, unsigned char operSize)
+    cdef unsigned long stackGetValue(self, unsigned char operSize)
     cdef unsigned long stackPopValue(self, unsigned char operSize)
     cdef stackPushSegId(self, unsigned short segId, unsigned char operSize)
     cdef stackPushRegId(self, unsigned short regId, unsigned char operSize)
@@ -84,7 +85,7 @@ cdef class Opcodes:
     cdef lfpFunc(self, unsigned char segId) # 'load far pointer' function
     cdef xlatb(self)
     cdef opcodeGroup2_RM(self, unsigned char operSize)
-    cdef interrupt(self, short intNum, long errorCode, unsigned char hwInt) # TODO: complete this!
+    cdef interrupt(self, short intNum, long errorCode) # TODO: complete this!
     cdef into(self)
     cdef int3(self)
     cdef iret(self)

@@ -55,74 +55,74 @@ cdef class IsaDmaController:
         self.flipFlop = flipFlop
     cdef setTransferMode(self, unsigned char transferModeByte):
         cdef unsigned char channel = transferModeByte&3
-        self.channel[channel].transferDirection = (transferModeByte>>2)&3
-        self.channel[channel].autoInit = (transferModeByte&0x10)!=0
-        self.channel[channel].addressDecrement = (transferModeByte&0x20)!=0
-        self.channel[channel].transferMode = (transferModeByte>>6)&3
-        if ((self.master or (not self.master and channel != 0)) and self.channel[channel].transferMode != DMA_MODE_SINGLE):
-            self.main.exitError("ISADMA::setTransferMode: transferMode: {0:d} not supported yet.", self.channel[channel].transferMode)
+        (<IsaDmaChannel>self.channel[channel]).transferDirection = (transferModeByte>>2)&3
+        (<IsaDmaChannel>self.channel[channel]).autoInit = (transferModeByte&0x10)!=0
+        (<IsaDmaChannel>self.channel[channel]).addressDecrement = (transferModeByte&0x20)!=0
+        (<IsaDmaChannel>self.channel[channel]).transferMode = (transferModeByte>>6)&3
+        if ((self.master or (not self.master and channel != 0)) and (<IsaDmaChannel>self.channel[channel]).transferMode != DMA_MODE_SINGLE):
+            self.main.exitError("ISADMA::setTransferMode: transferMode: {0:d} not supported yet.", (<IsaDmaChannel>self.channel[channel]).transferMode)
     cdef maskChannel(self, unsigned char channel, unsigned char maskIt):
-        self.channel[channel].channelMasked = (maskIt!=False)
+        (<IsaDmaChannel>self.channel[channel]).channelMasked = (maskIt!=False)
         self.controlHRQ()
     cdef maskChannels(self, unsigned char maskByte):
-        self.channel[0].channelMasked = (maskByte&1)!=0
-        self.channel[1].channelMasked = (maskByte&2)!=0
-        self.channel[2].channelMasked = (maskByte&4)!=0
-        self.channel[3].channelMasked = (maskByte&8)!=0
+        (<IsaDmaChannel>self.channel[0]).channelMasked = (maskByte&1)!=0
+        (<IsaDmaChannel>self.channel[1]).channelMasked = (maskByte&2)!=0
+        (<IsaDmaChannel>self.channel[2]).channelMasked = (maskByte&4)!=0
+        (<IsaDmaChannel>self.channel[3]).channelMasked = (maskByte&8)!=0
         self.controlHRQ()
     cdef unsigned char getChannelMasks(self):
         cdef unsigned char retVal
-        retVal = (self.channel[0].channelMasked!=0)
-        retVal |= (self.channel[1].channelMasked!=0)<<1
-        retVal |= (self.channel[2].channelMasked!=0)<<2
-        retVal |= (self.channel[3].channelMasked!=0)<<3
+        retVal = ((<IsaDmaChannel>self.channel[0]).channelMasked!=0)
+        retVal |= ((<IsaDmaChannel>self.channel[1]).channelMasked!=0)<<1
+        retVal |= ((<IsaDmaChannel>self.channel[2]).channelMasked!=0)<<2
+        retVal |= ((<IsaDmaChannel>self.channel[3]).channelMasked!=0)<<3
         return retVal
     cdef setPageByte(self, unsigned char channel, unsigned char data):
-        self.channel[channel].page = data
+        (<IsaDmaChannel>self.channel[channel]).page = data
     cdef setAddrByte(self, unsigned char channel, unsigned char data):
         if (self.flipFlop):
-            self.channel[channel].baseAddress = (self.channel[channel].baseAddress&BITMASK_BYTE) | (data<<8)
-            self.channel[channel].currentAddress = self.channel[channel].baseAddress
+            (<IsaDmaChannel>self.channel[channel]).baseAddress = ((<IsaDmaChannel>self.channel[channel]).baseAddress&BITMASK_BYTE) | (data<<8)
+            (<IsaDmaChannel>self.channel[channel]).currentAddress = (<IsaDmaChannel>self.channel[channel]).baseAddress
         else:
-            self.channel[channel].baseAddress = (self.channel[channel].baseAddress&0xff00) | data
-            self.channel[channel].currentAddress = self.channel[channel].baseAddress
+            (<IsaDmaChannel>self.channel[channel]).baseAddress = ((<IsaDmaChannel>self.channel[channel]).baseAddress&0xff00) | data
+            (<IsaDmaChannel>self.channel[channel]).currentAddress = (<IsaDmaChannel>self.channel[channel]).baseAddress
         self.setFlipFlop(not self.flipFlop)
     cdef setCountByte(self, unsigned char channel, unsigned char data):
         if (self.flipFlop):
-            self.channel[channel].baseCount = (self.channel[channel].baseCount&BITMASK_BYTE) | (data<<8)
-            self.channel[channel].currentCount = self.channel[channel].baseCount
+            (<IsaDmaChannel>self.channel[channel]).baseCount = ((<IsaDmaChannel>self.channel[channel]).baseCount&BITMASK_BYTE) | (data<<8)
+            (<IsaDmaChannel>self.channel[channel]).currentCount = (<IsaDmaChannel>self.channel[channel]).baseCount
         else:
-            self.channel[channel].baseCount = (self.channel[channel].baseCount&0xff00) | data
-            self.channel[channel].currentCount = self.channel[channel].baseCount
+            (<IsaDmaChannel>self.channel[channel]).baseCount = ((<IsaDmaChannel>self.channel[channel]).baseCount&0xff00) | data
+            (<IsaDmaChannel>self.channel[channel]).currentCount = (<IsaDmaChannel>self.channel[channel]).baseCount
         self.setFlipFlop(not self.flipFlop)
     cdef unsigned char getPageByte(self, unsigned char channel):
-        return self.channel[channel].page&BITMASK_BYTE
+        return (<IsaDmaChannel>self.channel[channel]).page&BITMASK_BYTE
     cdef unsigned char getAddrByte(self, unsigned char channel):
         cdef unsigned char retVal
         if (self.flipFlop):
-            retVal = (self.channel[channel].currentAddress>>8)&BITMASK_BYTE
+            retVal = ((<IsaDmaChannel>self.channel[channel]).currentAddress>>8)&BITMASK_BYTE
         else:
-            retVal = self.channel[channel].currentAddress&BITMASK_BYTE
+            retVal = (<IsaDmaChannel>self.channel[channel]).currentAddress&BITMASK_BYTE
         self.setFlipFlop(not self.flipFlop)
         return retVal
     cdef unsigned char getCountByte(self, unsigned char channel):
         cdef unsigned char retVal
         if (self.flipFlop):
-            retVal = (self.channel[channel].currentCount>>8)&BITMASK_BYTE
+            retVal = ((<IsaDmaChannel>self.channel[channel]).currentCount>>8)&BITMASK_BYTE
         else:
-            retVal = self.channel[channel].currentCount&BITMASK_BYTE
+            retVal = (<IsaDmaChannel>self.channel[channel]).currentCount&BITMASK_BYTE
         self.setFlipFlop(not self.flipFlop)
         return retVal
     cdef setAddrWord(self, unsigned char channel, unsigned short data):
-        self.channel[channel].baseAddress = data
-        self.channel[channel].currentAddress = data
+        (<IsaDmaChannel>self.channel[channel]).baseAddress = data
+        (<IsaDmaChannel>self.channel[channel]).currentAddress = data
     cdef setCountWord(self, unsigned char channel, unsigned short data):
-        self.channel[channel].baseCount = data
-        self.channel[channel].currentCount = self.channel[channel].baseCount
+        (<IsaDmaChannel>self.channel[channel]).baseCount = data
+        (<IsaDmaChannel>self.channel[channel]).currentCount = (<IsaDmaChannel>self.channel[channel]).baseCount
     cdef unsigned short getAddrWord(self, unsigned char channel):
-        return self.channel[channel].currentAddress
+        return (<IsaDmaChannel>self.channel[channel]).currentAddress
     cdef unsigned short getCountWord(self, unsigned char channel):
-        return self.channel[channel].currentCount
+        return (<IsaDmaChannel>self.channel[channel]).currentCount
     cdef unsigned char getStatus(self):
         cdef unsigned char status
         status = self.statusReg
@@ -132,7 +132,6 @@ cdef class IsaDmaController:
         cdef unsigned char channel
         if (self.ctrlDisabled):
             return
-        print("1234_1")
         if ((self.statusReg & 0xf0) == 0):
             if (not self.master):
                 if (self.isadma.cpuObject is not None and self.isadma.setHRQ is not NULL):
@@ -140,9 +139,8 @@ cdef class IsaDmaController:
             else:
                 self.isadma.setDRQ(4, False)
             return
-        print("1234_2")
         for channel in range(4):
-            if ((self.statusReg & (1 << (channel+4))) and (not self.channel[channel].channelMasked)):
+            if ((self.statusReg & (1 << (channel+4))) and (not (<IsaDmaChannel>self.channel[channel]).channelMasked)):
                 if (not self.master):
                     if (self.isadma.cpuObject is not None and self.isadma.setHRQ is not NULL):
                         self.isadma.setHRQ(self.isadma.cpuObject, True)
@@ -167,30 +165,30 @@ cdef class IsaDma:
         channelNum = (ioPortAddr>>(1+ma_sl))&3
         if (ioPortAddr in (0x00, 0x02, 0x04, 0x06, 0xc0, 0xc4, 0xc8, 0xcc)):
             if (dataSize == OP_SIZE_BYTE):
-                return self.controller[ma_sl].getAddrByte(channelNum)
+                return (<IsaDmaController>self.controller[ma_sl]).getAddrByte(channelNum)
             elif (dataSize == OP_SIZE_WORD):
-                return self.controller[ma_sl].getAddrWord(channelNum)
+                return (<IsaDmaController>self.controller[ma_sl]).getAddrWord(channelNum)
             else:
                 self.main.exitError("ISADma::inPort: unknown dataSize. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
         elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07, 0xc2, 0xc6, 0xca, 0xce)):
             if (dataSize == OP_SIZE_BYTE):
-                return self.controller[ma_sl].getCountByte(channelNum)
+                return (<IsaDmaController>self.controller[ma_sl]).getCountByte(channelNum)
             elif (dataSize == OP_SIZE_WORD):
-                return self.controller[ma_sl].getCountWord(channelNum)
+                return (<IsaDmaController>self.controller[ma_sl]).getCountWord(channelNum)
             else:
                 self.main.exitError("ISADma::inPort: unknown dataSize. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x08,0xd0)):
-            return self.controller[ma_sl].getStatus()
+            return (<IsaDmaController>self.controller[ma_sl]).getStatus()
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0d,0xda)):
             return 0
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0f,0xde)):
-            return (0xf0 | self.controller[ma_sl].getChannelMasks())
+            return (0xf0 | (<IsaDmaController>self.controller[ma_sl]).getChannelMasks())
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x81, 0x82, 0x83, 0x87)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x81]
-            return self.controller[0].getPageByte(channelNum)
+            return (<IsaDmaController>self.controller[0]).getPageByte(channelNum)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
-            return self.controller[1].getPageByte(channelNum)
+            return (<IsaDmaController>self.controller[1]).getPageByte(channelNum)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
             return self.extPageReg[ioPortAddr&0xf]
         else:
@@ -206,40 +204,40 @@ cdef class IsaDma:
             return
         elif (ioPortAddr in (0x00, 0x02, 0x04, 0x06, 0xc0, 0xc4, 0xc8, 0xcc)):
             if (dataSize == OP_SIZE_BYTE):
-                self.controller[ma_sl].setAddrByte(channelNum, data&BITMASK_BYTE)
+                (<IsaDmaController>self.controller[ma_sl]).setAddrByte(channelNum, data&BITMASK_BYTE)
             elif (dataSize == OP_SIZE_WORD):
-                self.controller[ma_sl].setAddrWord(channelNum, data)
+                (<IsaDmaController>self.controller[ma_sl]).setAddrWord(channelNum, data)
             else:
                 self.main.exitError("ISADma::outPort: unknown dataSize. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
         elif (ioPortAddr in (0x01, 0x03, 0x05, 0x07, 0xc2, 0xc6, 0xca, 0xce)):
             if (dataSize == OP_SIZE_BYTE):
-                self.controller[ma_sl].setCountByte(channelNum, data&BITMASK_BYTE)
+                (<IsaDmaController>self.controller[ma_sl]).setCountByte(channelNum, data&BITMASK_BYTE)
             elif (dataSize == OP_SIZE_WORD):
-                self.controller[ma_sl].setCountWord(channelNum, data)
+                (<IsaDmaController>self.controller[ma_sl]).setCountWord(channelNum, data)
             else:
                 self.main.exitError("ISADma::outPort: unknown dataSize. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x08, 0xd0)):
-            self.controller[ma_sl].doCommand(data&BITMASK_BYTE)
+            (<IsaDmaController>self.controller[ma_sl]).doCommand(data&BITMASK_BYTE)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x09, 0xd2)):
-            self.controller[ma_sl].doManualRequest(data&BITMASK_BYTE)
+            (<IsaDmaController>self.controller[ma_sl]).doManualRequest(data&BITMASK_BYTE)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0a, 0xd4)):
-            self.controller[ma_sl].maskChannel(data&3, data&4)
+            (<IsaDmaController>self.controller[ma_sl]).maskChannel(data&3, data&4)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0b, 0xd6)):
-            self.controller[ma_sl].setTransferMode(data&BITMASK_BYTE)
+            (<IsaDmaController>self.controller[ma_sl]).setTransferMode(data&BITMASK_BYTE)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0c, 0xd8)):
-            self.controller[ma_sl].setFlipFlop(False)
+            (<IsaDmaController>self.controller[ma_sl]).setFlipFlop(False)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0d, 0xda)):
-            self.controller[ma_sl].reset()
+            (<IsaDmaController>self.controller[ma_sl]).reset()
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0e, 0xdc)): # clear all mask registers
-            self.controller[ma_sl].maskChannels(0)
+            (<IsaDmaController>self.controller[ma_sl]).maskChannels(0)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x0f, 0xde)):
-            self.controller[ma_sl].maskChannels(data&BITMASK_BYTE)
+            (<IsaDmaController>self.controller[ma_sl]).maskChannels(data&BITMASK_BYTE)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x81, 0x82, 0x83, 0x87)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x81]
-            self.controller[0].setPageByte(channelNum, data&BITMASK_BYTE)
+            (<IsaDmaController>self.controller[0]).setPageByte(channelNum, data&BITMASK_BYTE)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
-            self.controller[1].setPageByte(channelNum, data&BITMASK_BYTE)
+            (<IsaDmaController>self.controller[1]).setPageByte(channelNum, data&BITMASK_BYTE)
         elif (dataSize == OP_SIZE_BYTE and ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
             self.extPageReg[ioPortAddr&0xf] = data&BITMASK_BYTE
         else:
@@ -255,8 +253,8 @@ cdef class IsaDma:
             self.main.exitError("ISADMA::setDRQ: channel > 7")
             return
         ma_sl = (channel > 3)
-        currController = self.controller[ma_sl]
-        currChannel = currController.channel[channel&3]
+        currController = (<IsaDmaController>self.controller[ma_sl])
+        currChannel = (<IsaDmaChannel>currController.channel[channel&3])
         currChannel.DRQ = val
         channel &= 3
         if (not val):
@@ -285,26 +283,26 @@ cdef class IsaDma:
         ma_sl = channel = countExpired = 0
         self.HLDA = True
         for i in range(4):
-            if ((self.controller[1].statusReg & (1 << (channel+4))) and \
-                (not self.controller[1].channel[channel].channelMasked)):
+            if (((<IsaDmaController>self.controller[1]).statusReg & (1 << (channel+4))) and \
+                (not (<IsaDmaChannel>(<IsaDmaController>self.controller[1]).channel[channel]).channelMasked)):
                     ma_sl = True
                     break
             channel = i
         if (channel == 0):
-            self.controller[1].channel[0].DACK = True
+            (<IsaDmaChannel>(<IsaDmaController>self.controller[1]).channel[0]).DACK = True
             for i in range(4):
-                if ((self.controller[0].statusReg & (1 << (channel+4))) and \
-                    (not self.controller[0].channel[channel].channelMasked)):
+                if (((<IsaDmaController>self.controller[0]).statusReg & (1 << (channel+4))) and \
+                    (not (<IsaDmaChannel>(<IsaDmaController>self.controller[0]).channel[channel]).channelMasked)):
                         ma_sl = False
                         break
                 channel = i
         if (channel >= 4):
             return
-        currController = self.controller[ma_sl]
-        currChannel = currController.channel[channel]
+        currController = (<IsaDmaController>self.controller[ma_sl])
+        currChannel = (<IsaDmaChannel>currController.channel[channel])
         phyAddr = ((currChannel.page << 16) | \
                    (currChannel.currentAddress << ma_sl))
-        self.controller[ma_sl].channel[channel].DACK = True
+        (<IsaDmaChannel>(<IsaDmaController>self.controller[ma_sl]).channel[channel]).DACK = True
         if (currChannel.addressDecrement):
             if (currChannel.currentAddress == 0): # TODO: HACK: cython won't allow unsigned overflow
                 currChannel.currentAddress = BITMASK_WORD
@@ -360,10 +358,10 @@ cdef class IsaDma:
             self.HLDA = False
             if (self.cpuObject is not None and self.setHRQ is not NULL):
                 self.setHRQ(self.cpuObject, False)
-            self.controller[ma_sl].channel[channel].DACK = False
+            (<IsaDmaChannel>(<IsaDmaController>self.controller[ma_sl]).channel[channel]).DACK = False
             if (not ma_sl):
                 self.setDRQ(4, False)
-                self.controller[1].channel[0].DACK = False
+                (<IsaDmaChannel>(<IsaDmaController>self.controller[1]).channel[0]).DACK = False
     cdef setDmaReadFromMem(self, unsigned char controllerId, unsigned char channelId, object funcObj, DmaReadFromMem func):
         cdef IsaDmaController controller
         cdef IsaDmaChannel channel

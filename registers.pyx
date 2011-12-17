@@ -73,14 +73,14 @@ cdef class Registers:
         self.regAdd(regSizeId, numBytes)
         return opcodeData
     cdef unsigned short getRegSize(self, unsigned short regId): # return size in bits
-        if (regId in CPU_REGISTER_QWORD):
-            return OP_SIZE_QWORD
-        elif (regId in CPU_REGISTER_DWORD):
-            return OP_SIZE_DWORD
+        if (regId in CPU_REGISTER_BYTE):
+            return OP_SIZE_BYTE
         elif (regId in CPU_REGISTER_WORD):
             return OP_SIZE_WORD
-        elif (regId in CPU_REGISTER_BYTE):
-            return OP_SIZE_BYTE
+        elif (regId in CPU_REGISTER_DWORD):
+            return OP_SIZE_DWORD
+        elif (regId in CPU_REGISTER_QWORD):
+            return OP_SIZE_QWORD
         self.main.exitError("regId is unknown! ({0:d})", regId)
     cdef unsigned short segRead(self, unsigned short segId): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as a byteorder here, IT WON'T WORK!!!!
         cdef unsigned short aregId, segValue
@@ -481,10 +481,10 @@ cdef class Registers:
             return self.getEFLAG( FLAG_PF )==0
         elif (index == 0xc): # L
             return (self.getEFLAG( FLAG_SF_OF ) in ( FLAG_SF, FLAG_OF ))
-        elif (index == 0xd): # GE
+        elif (index == 0xd): # NL
             return (self.getEFLAG( FLAG_SF_OF ) in ( 0, (FLAG_SF_OF) ))
-        elif (index == 0xe): # LE
-            return (self.getEFLAG( FLAG_ZF )!=0 or (self.getEFLAG( FLAG_SF | FLAG_OF ) in ( FLAG_SF, FLAG_OF )) )
+        elif (index == 0xe): # NG
+            return (self.getEFLAG( FLAG_ZF )!=0 or (self.getEFLAG( FLAG_SF_OF ) in ( FLAG_SF, FLAG_OF )) )
         elif (index == 0xf): # G
             return (self.getEFLAG( FLAG_ZF )==0 and (self.getEFLAG( FLAG_SF_OF ) in ( 0, (FLAG_SF_OF) )) )
         else:

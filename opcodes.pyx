@@ -331,7 +331,7 @@ cdef class Opcodes:
         elif (opcode == 0xcc):
             self.int3()
         elif (opcode == 0xcd):
-            self.interrupt(-1, -1, False)
+            self.interrupt(-1, -1)
         elif (opcode == 0xce):
             self.into()
         elif (opcode == 0xcf):
@@ -935,8 +935,19 @@ cdef class Opcodes:
     cdef stackPopRegId(self, unsigned short regId, unsigned char operSize):
         cdef unsigned long value
         value = self.stackPopValue(operSize)
+        operSize = (<Registers>self.main.cpu.registers).getRegSize(regId)
+        value &= (<Misc>self.main.misc).getBitMaskFF(operSize)
         (<Registers>self.main.cpu.registers).regWrite(regId, value)
     cdef unsigned long stackPopValue(self, unsigned char operSize):
+        cdef unsigned char stackAddrSize
+        cdef unsigned short stackRegName
+        cdef unsigned long data
+        stackAddrSize = (<Registers>self.main.cpu.registers).getAddrSegSize(CPU_SEGMENT_SS)
+        stackRegName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
+        data = self.stackGetValue(operSize)
+        (<Registers>self.main.cpu.registers).regAdd(stackRegName, operSize)
+        return data
+    cdef unsigned long stackGetValue(self, unsigned char operSize):
         cdef unsigned char stackAddrSize
         cdef unsigned short stackRegName
         cdef unsigned long stackAddr, data
@@ -944,7 +955,6 @@ cdef class Opcodes:
         stackRegName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
         stackAddr = (<Registers>self.main.cpu.registers).regRead(stackRegName, False)
         data = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(stackAddr, operSize, CPU_SEGMENT_SS, False)
-        (<Registers>self.main.cpu.registers).regAdd(stackRegName, operSize)
         return data
     cdef stackPushSegId(self, unsigned short segId, unsigned char operSize):
         cdef unsigned long value
@@ -964,6 +974,7 @@ cdef class Opcodes:
         if (not (<Registers>self.main.cpu.registers).isInProtectedMode() and stackAddr == 1):
             raise misc.ChemuException(CPU_EXCEPTION_SS)
         stackAddr = (<Registers>self.main.cpu.registers).regSub(stackRegName, operSize)
+        value &= (<Misc>self.main.misc).getBitMaskFF(operSize)
         (<Registers>self.main.cpu.registers).mmWriteValue(stackAddr, value, operSize, CPU_SEGMENT_SS, False)
     cdef pushIMM(self, unsigned char immIsByte):
         cdef unsigned char operSize
@@ -1854,17 +1865,17 @@ cdef class Opcodes:
         else:
             self.main.printMsg("opcodeGroup2_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise misc.ChemuException(CPU_EXCEPTION_UD)
-    cdef interrupt(self, short intNum, long errorCode, unsigned char hwInt): # TODO: complete this!
+    cdef interrupt(self, short intNum, long errorCode): # TODO: complete this!
         cdef unsigned char operSize, inProtectedMode, pythonBiosDone, entryType, entrySize, \
                               entryNeededDPL, entryPresent
         cdef unsigned short segId, entrySegment
         cdef unsigned long entryEip, eflagsClearThis
-        entryType, entrySize, entryPresent = IDT_INTR_TYPE_INTERRUPT, OP_SIZE_WORD, True
+        entryType, entrySize, entryPresent, eflagsClearThis = IDT_INTR_TYPE_INTERRUPT, OP_SIZE_WORD, True, (FLAG_TF | FLAG_RF)
         inProtectedMode = (<Registers>self.main.cpu.registers).isInProtectedMode()
         if (inProtectedMode):
-            eflagsClearThis = FLAG_TF | FLAG_NT | FLAG_VM | FLAG_RF
+            eflagsClearThis |= (FLAG_NT | FLAG_VM)
         else:
-            eflagsClearThis = FLAG_TF | FLAG_AC | FLAG_IF
+            eflagsClearThis |= FLAG_AC
         segId = CPU_SEGMENT_DS
         if (intNum == -1):
             intNum = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
@@ -1877,46 +1888,42 @@ cdef class Opcodes:
         if (pythonBiosDone):
             return
         if (inProtectedMode):
-            if (entryType == IDT_INTR_TYPE_INTERRUPT or hwInt):
-                eflagsClearThis |= FLAG_IF
             if (((<Registers>self.main.cpu.registers).cpl != 0 and (<Registers>self.main.cpu.registers).cpl > entrySegment&3) or (<Registers>self.main.cpu.registers).segments.getSegDPL(entrySegment) != 0):
                 self.main.exitError("Interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")
                 return
             entrySegment = ((entrySegment&0xfffc)|((<Registers>self.main.cpu.registers).cpl&3))
-        if ((<Registers>self.main.cpu.registers).cpl != 0):
-            self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
-            self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
+            if ((<Registers>self.main.cpu.registers).cpl != 0):
+                self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
+                self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
+        if (entryType == IDT_INTR_TYPE_INTERRUPT):
+            eflagsClearThis |= FLAG_IF
         self.stackPushRegId(CPU_REGISTER_EFLAGS, entrySize)
         (<Registers>self.main.cpu.registers).setEFLAG(eflagsClearThis, False)
         self.stackPushSegId(CPU_SEGMENT_CS, entrySize)
         self.stackPushRegId(CPU_REGISTER_EIP, entrySize)
         (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_CS, entrySegment)
         (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_EIP, entryEip)
-        if (errorCode != -1):
+        if (inProtectedMode and errorCode != -1):
             self.stackPushValue(errorCode, entrySize)
     cdef into(self):
         if ((<Registers>self.main.cpu.registers).getEFLAG( FLAG_OF )!=0):
-            self.interrupt(CPU_EXCEPTION_OF, -1, False)
+            self.interrupt(CPU_EXCEPTION_OF, -1)
     cdef int3(self):
-        self.interrupt(CPU_EXCEPTION_BP, -1, False)
+        self.interrupt(CPU_EXCEPTION_BP, -1)
     cdef iret(self):
         cdef unsigned char operSize, inProtectedMode
-        cdef unsigned short newEFLAGSreg, SSsel
+        cdef unsigned short SSsel
         cdef unsigned long tempEFLAGS, EFLAGS, newEIP, eflagsMask, temp
         inProtectedMode = (<Registers>self.main.cpu.registers).isInProtectedMode()
         operSize = (<Registers>self.main.cpu.registers).getOpSegSize(CPU_SEGMENT_CS)
+        if ((not inProtectedMode) and operSize == OP_SIZE_DWORD):
+            newEIP = self.stackGetValue(operSize)
+            if ((newEIP>>16)!=0):
+                raise misc.ChemuException(CPU_EXCEPTION_GP)
         newEIP = self.stackPopValue(operSize)
         self.stackPopSegId(CPU_SEGMENT_CS, operSize)
         tempEFLAGS = self.stackPopValue(operSize)
-        newEFLAGSreg = CPU_REGISTER_EFLAGS
         EFLAGS = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_EFLAGS, False)
-        if (operSize == OP_SIZE_DWORD):
-            if (not inProtectedMode):
-                tempEFLAGS = ((tempEFLAGS & 0x257fd5) | (EFLAGS & 0x1a0000))
-        elif (operSize == OP_SIZE_WORD):
-            if (not inProtectedMode):
-                newEFLAGSreg = CPU_REGISTER_FLAGS
-                tempEFLAGS &= BITMASK_WORD
         if (inProtectedMode):
             if (0): # TODO
                 pass
@@ -1935,8 +1942,15 @@ cdef class Opcodes:
                 temp = tempEFLAGS&eflagsMask
                 tempEFLAGS &= ~eflagsMask
                 tempEFLAGS |= temp
+        else:
+            if (operSize == OP_SIZE_DWORD):
+                tempEFLAGS = ((tempEFLAGS & 0x257fd5) | (EFLAGS & 0x1a0000))
+        if (operSize == OP_SIZE_WORD):
+            tempEFLAGS &= BITMASK_WORD
+            if (not inProtectedMode):
+                tempEFLAGS |= (EFLAGS&0xffff0000)
         (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_EIP, newEIP )
-        (<Registers>self.main.cpu.registers).regWrite(newEFLAGSreg, tempEFLAGS )
+        (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_EFLAGS, tempEFLAGS )
     cdef aad(self):
         cdef unsigned char imm8, tempAL, tempAH
         imm8 = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False)

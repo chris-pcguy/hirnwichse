@@ -32,19 +32,19 @@ cdef class Cpu:
         self.HRQ = state
         if (state):
             self.asyncEvent = True
-    cdef unsigned char handleAsyncEvent(self): # return True if irq was handled, otherwise False
+    cdef handleAsyncEvent(self):
         cdef unsigned char irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
         oldIF = self.registers.getEFLAG(FLAG_IF)!=0
         if (self.INTR and oldIF ):
             irqVector = (<Pic>self.main.platform.pic).IAC()
-            self.opcodes.interrupt(irqVector, -1, True)
+            self.opcodes.interrupt(irqVector, -1)
             self.saveCurrentInstPointer()
         elif (self.HRQ):
             (<IsaDma>self.main.platform.isadma).raiseHLDA()
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
             self.asyncEvent = False
-        return False
+        return
     cdef exception(self, unsigned char exceptionId, long errorCode):
         self.main.printMsg("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
@@ -57,9 +57,9 @@ cdef class Cpu:
             if (errorCode == -1):
                 self.main.exitError("CPU exception: errorCode should be set, is -1.")
                 return
-            self.opcodes.interrupt(exceptionId, errorCode, True)
+            self.opcodes.interrupt(exceptionId, errorCode)
             return
-        self.opcodes.interrupt(exceptionId, -1, True)
+        self.opcodes.interrupt(exceptionId, -1)
     cdef handleException(self, object exception):
         cdef unsigned char exceptionId
         cdef long errorCode
@@ -124,6 +124,7 @@ cdef class Cpu:
             elif ((self.cpuHalted and not self.main.exitIfCpuHalted) or (self.debugHalt and not self.debugSingleStep)):
                 if (self.asyncEvent):
                     self.handleAsyncEvent()
+                    continue
                 if (self.main.platform.vga.ui):
                     self.main.platform.vga.ui.handleEvents()
                 time.sleep(1)
@@ -132,8 +133,6 @@ cdef class Cpu:
             if (self.main.platform.vga.ui and (not (self.cycles % 200))):
                 self.main.platform.vga.ui.handleEvents()
             ## handle gui events: END
-            if (self.asyncEvent and self.handleAsyncEvent()):
-                continue
             self.doCycle()
     cdef doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
@@ -143,8 +142,8 @@ cdef class Cpu:
         self.cycles += 1
         self.registers.resetPrefixes()
         self.saveCurrentInstPointer()
-        ##if (self.asyncEvent and self.handleAsyncEvent()):
-        ##    return
+        if (self.asyncEvent):
+            self.handleAsyncEvent()
         self.opcode = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)

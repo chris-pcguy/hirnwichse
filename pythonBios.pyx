@@ -2,7 +2,7 @@
 from mm cimport Mm
 from registers cimport Registers
 from vga cimport Vga
-from floppy cimport Floppy, FloppyDrive
+from floppy cimport Floppy, FloppyController, FloppyDrive
 
 include "globals.pxi"
 
@@ -17,7 +17,7 @@ cdef class PythonBios:
         cdef unsigned short ax, cx, dx, bx, bp, count, cylinder, cursorPos
         cdef unsigned char currMode, ah, al, bh, bl, dh, dl, fdcNum, updateCursor, c, attr, attrInBuf, sector, head
         cdef bytes data
-        return False
+        #return False
         ax = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_AX, False)
         cx = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_CX, False)
         dx = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_DX, False)
@@ -35,7 +35,6 @@ cdef class PythonBios:
             elif (ah == 0x0f): # get currMode; write it to AL
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, currMode)
             elif (currMode <= 0x7 or currMode in (0x12, 0x13)):
-                #self.main.printMsg("PythonBios::interrupt: int 0x10: AX: {0:#06x} (currMode: {1:d})", ax, currMode)
                 if (ah in (0x09, 0x0a, 0x0e)): # AH in (0x09, 0x0A, 0x0E) / PRINT CHARACTER
                     if (currMode in (0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x12, 0x13)):
                         count = 1
@@ -49,7 +48,6 @@ cdef class PythonBios:
                             cursorPos = (<Vga>self.main.platform.vga).getCursorPosition(bh)
                             if (ax == 0x0e0a and (cursorPos>>8) > 24):
                                 (<Vga>self.main.platform.vga).scrollDown(bh)
-                                #self.main.printMsg("PythonBios::interrupt: int 0x10: ax==0x0e0a, cursorPos=={0:#06x}", cursorPos)
                                 (<Vga>self.main.platform.vga).setCursorPosition(bh, cursorPos-0x100)
                         return True
                     else:
@@ -88,9 +86,7 @@ cdef class PythonBios:
                 return False
         elif (intNum == 0x13): # data storage; floppy
             fdcNum = 0
-            #self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) AX {0:#06x} not supported yet in PythonBIOS.", ax)
-            #return False
-            if (dl not in (0, 1) or (not (<Floppy>self.main.platform.floppy).controller[fdcNum].drive[dl].isLoaded)):
+            if (dl not in (0, 1) or (not (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).isLoaded)):
                 self.setRetError(True, 0x8000)
                 return True
             elif (ah == 0x2):
@@ -106,9 +102,8 @@ cdef class PythonBios:
                     return True
                 memAddr = (<Registers>self.main.cpu.registers).segRead(CPU_SEGMENT_ES)<<4
                 memAddr += bx
-                logicalSector = (<FloppyDrive>(<Floppy>self.main.platform.floppy).controller[fdcNum].drive[dl]).ChsToSector(cylinder, head, sector)
-                data = (<FloppyDrive>(<Floppy>self.main.platform.floppy).controller[fdcNum].drive[dl]).readSectors(logicalSector, count)
-                ##self.main.printMsg("pythonBios: 1234_1: logicalSector: {0:d}, count: {1:d}, dataLen: {2:d}", logicalSector, count, len(data))
+                logicalSector = (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).ChsToSector(cylinder, head, sector)
+                data = (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).readSectors(logicalSector, count)
                 (<Mm>self.main.mm).mmPhyWrite(memAddr, data, count*512)
                 self.setRetError(False, al)
                 return True

@@ -18,7 +18,7 @@ cdef class Cpu:
     cdef saveCurrentInstPointer(self)
     cdef setINTR(self, unsigned char state)
     cdef setHRQ(self, unsigned char state)
-    cdef unsigned char handleAsyncEvent(self) # return True if irq was handled, otherwise False
+    cdef handleAsyncEvent(self)
     cdef exception(self, unsigned char exceptionId, long errorCode)
     cdef handleException(self, object exception)
     cdef unsigned char parsePrefixes(self, unsigned char opcode)

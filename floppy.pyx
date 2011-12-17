@@ -136,8 +136,8 @@ cdef class FloppyController:
             self.dataRate = 2
         for i in range(4):
             if (hwReset):
-                self.drive[i].DIR |= 0x80
-            self.drive[i].cylinder = self.drive[i].head = self.drive[i].sector = self.drive[i].eot = 0
+                (<FloppyDrive>self.drive[i]).DIR |= 0x80
+            (<FloppyDrive>self.drive[i]).cylinder = (<FloppyDrive>self.drive[i]).head = (<FloppyDrive>self.drive[i]).sector = (<FloppyDrive>self.drive[i]).eot = 0
         self.lowerFloppyIrq()
         if (not (self.msr & FDC_MSR_NODMA) and self.fdc.isaDma is not None):
             (<IsaDma>self.fdc.isaDma).setDRQ(FDC_DMA_CHANNEL, False)
@@ -198,34 +198,34 @@ cdef class FloppyController:
     cdef resetChangeline(self):
         cdef unsigned char drive
         drive = self.DOR & 0x3
-        if (self.drive[drive].isLoaded):
-            self.drive[drive].DIR &= ~0x80
+        if ((<FloppyDrive>self.drive[drive]).isLoaded):
+            (<FloppyDrive>self.drive[drive]).DIR &= ~0x80
     cdef incrementSector(self):
         cdef unsigned char drive
         drive = self.DOR & 0x3
-        self.drive[drive].sector += 1
-        if ( (self.drive[drive].sector > self.drive[drive].eot) or \
-             (self.drive[drive].sector > self.drive[drive].media.sectorsPerTrack) ):
-            self.drive[drive].sector = 1
+        (<FloppyDrive>self.drive[drive]).sector += 1
+        if ( ((<FloppyDrive>self.drive[drive]).sector > (<FloppyDrive>self.drive[drive]).eot) or \
+             ((<FloppyDrive>self.drive[drive]).sector > (<FloppyDrive>self.drive[drive]).media.sectorsPerTrack) ):
+            (<FloppyDrive>self.drive[drive]).sector = 1
             if (self.multiTrack):
-                self.drive[drive].head += 1
-                if (self.drive[drive].head > 1):
-                    self.drive[drive].head = 0
-                    self.drive[drive].cylinder += 1
+                (<FloppyDrive>self.drive[drive]).head += 1
+                if ((<FloppyDrive>self.drive[drive]).head > 1):
+                    (<FloppyDrive>self.drive[drive]).head = 0
+                    (<FloppyDrive>self.drive[drive]).cylinder += 1
                     self.resetChangeline()
             else:
-                self.drive[drive].cylinder += 1
+                (<FloppyDrive>self.drive[drive]).cylinder += 1
                 self.resetChangeline()
-            if (self.drive[drive].cylinder >= self.drive[drive].media.tracks):
-                self.drive[drive].cylinder = self.drive[drive].media.tracks
+            if ((<FloppyDrive>self.drive[drive]).cylinder >= (<FloppyDrive>self.drive[drive]).media.tracks):
+                (<FloppyDrive>self.drive[drive]).cylinder = (<FloppyDrive>self.drive[drive]).media.tracks
     cdef getTC(self):
         cdef unsigned char drive, TC
         self.fdc.setupDMATransfer(self)
         TC = False
         if (self.msr & FDC_MSR_NODMA):
             drive = self.DOR & 0x3
-            TC = ((self.fdcBufferIndex == 512) and (self.drive[drive].sector == self.drive[drive].eot) and \
-                  (self.drive[drive].head == (self.drive[drive].media.heads-1)))
+            TC = ((self.fdcBufferIndex == 512) and ((<FloppyDrive>self.drive[drive]).sector == (<FloppyDrive>self.drive[drive]).eot) and \
+                  ((<FloppyDrive>self.drive[drive]).head == ((<FloppyDrive>self.drive[drive]).media.heads-1)))
         else:
             if (self.fdc.isaDma is not None):
                 TC = (<IsaDma>self.fdc.isaDma).getTC()
@@ -245,14 +245,14 @@ cdef class FloppyController:
                 self.addToResult(self.st3)
             elif (self.command[0] == 0x8):
                 self.addToResult(self.st0)
-                self.addToResult(self.drive[drive].cylinder)
+                self.addToResult((<FloppyDrive>self.drive[drive]).cylinder)
             elif (self.command[0] in (0x4a, 0x4d, 0x46, 0x66, 0xc6, 0xe6, 0x45, 0xc5)):
                 self.addToResult(self.st0)
                 self.addToResult(self.st1)
                 self.addToResult(self.st2)
-                self.addToResult(self.drive[drive].cylinder)
-                self.addToResult(self.drive[drive].head)
-                self.addToResult(self.drive[drive].sector)
+                self.addToResult((<FloppyDrive>self.drive[drive]).cylinder)
+                self.addToResult((<FloppyDrive>self.drive[drive]).head)
+                self.addToResult((<FloppyDrive>self.drive[drive]).sector)
                 self.addToResult(2)
                 self.raiseFloppyIrq()
             else:
@@ -280,12 +280,12 @@ cdef class FloppyController:
             return
         elif (cmd == 0x4): # check drive state
             drive = self.command[1] & 0x3
-            self.drive[drive].head = (self.command[1] >> 2) & 0x1
+            (<FloppyDrive>self.drive[drive]).head = (self.command[1] >> 2) & 0x1
             #self.st3 = FDC_ST3_RDY | FDC_ST3_DSDR | self.command[1]&7
-            self.st3 = FDC_ST3_RDY | FDC_ST3_DSDR | (self.drive[drive].head << 2) | drive
-            if (self.drive[drive].isWriteProtected):
+            self.st3 = FDC_ST3_RDY | FDC_ST3_DSDR | ((<FloppyDrive>self.drive[drive]).head << 2) | drive
+            if ((<FloppyDrive>self.drive[drive]).isWriteProtected):
                 self.st3 |= FDC_ST3_WPDR
-            if (self.drive[drive].media.mediaType != FLOPPY_DISK_TYPE_NONE and self.drive[drive].cylinder == 0):
+            if ((<FloppyDrive>self.drive[drive]).media.mediaType != FLOPPY_DISK_TYPE_NONE and (<FloppyDrive>self.drive[drive]).cylinder == 0):
                 self.st3 |= FDC_ST3_TRKO
             self.handleResult()
             return
@@ -294,25 +294,25 @@ cdef class FloppyController:
             self.DOR &= 0xfc
             self.DOR |= drive
             if (cmd == 0x7):
-                self.drive[drive].cylinder = 0
+                (<FloppyDrive>self.drive[drive]).cylinder = 0
             else:
-                self.drive[drive].head = (self.command[1] >> 2) & 0x1
-                self.drive[drive].cylinder = self.command[2]
+                (<FloppyDrive>self.drive[drive]).head = (self.command[1] >> 2) & 0x1
+                (<FloppyDrive>self.drive[drive]).cylinder = self.command[2]
             self.msr &= FDC_MSR_NODMA
             self.msr |= (1 << drive)
             if (cmd == 0x7):
                 self.st0 = FDC_ST0_SE | drive
-                if (self.drive[drive].media.mediaType == FLOPPY_DISK_TYPE_NONE or not ((self.DOR >> (drive+4)) & 0x1)):
+                if ((<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_NONE or not ((self.DOR >> (drive+4)) & 0x1)):
                     self.st0 |= 0x50
             else:
-                self.st0 = FDC_ST0_SE | (self.drive[drive].head << 2) | drive
+                self.st0 = FDC_ST0_SE | ((<FloppyDrive>self.drive[drive]).head << 2) | drive
             self.handleIdle()
             self.raiseFloppyIrq()
         elif (cmd == 0x8): # check interrupt state
             if (self.resetSensei):
                 drive = 4 - self.resetSensei
                 self.st0 &= 0xf8
-                self.st0 |= (self.drive[drive].head << 2) | drive
+                self.st0 |= ((<FloppyDrive>self.drive[drive]).head << 2) | drive
                 self.resetSensei -= 1
             elif (not self.pendingIrq):
                 self.st0 = 0x80
@@ -320,15 +320,15 @@ cdef class FloppyController:
             return
         elif (cmd == 0x4a): # read id
             drive = self.command[1] & 0x3
-            self.drive[drive].head = (self.command[1] >> 2) & 0x1
+            (<FloppyDrive>self.drive[drive]).head = (self.command[1] >> 2) & 0x1
             self.DOR &= 0xfc
             self.DOR |= drive
             motorOn = (self.DOR >> (drive+4)) & 0x1
-            if (not motorOn or self.drive[drive].media.mediaType == FLOPPY_DISK_TYPE_NONE or not self.drive[drive].isLoaded):
+            if (not motorOn or (<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_NONE or not (<FloppyDrive>self.drive[drive]).isLoaded):
                 self.msr &= FDC_MSR_NODMA
                 self.msr |= FDC_MSR_BUSY
                 return
-            self.st0 = (self.drive[drive].head << 2) | drive
+            self.st0 = ((<FloppyDrive>self.drive[drive]).head << 2) | drive
             self.msr &= FDC_MSR_NODMA
             self.msr |= FDC_MSR_BUSY
             self.handleResult()
@@ -350,52 +350,52 @@ cdef class FloppyController:
             sector = self.command[4]
             eot = self.command[6]
             sectorSize = self.command[5]
-            if (self.drive[drive].media.mediaType == FLOPPY_DISK_TYPE_NONE):
+            if ((<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_NONE):
                 self.main.exitError("FDC: read/write: bad drive #{0:d}", drive)
                 return
             if (head != ((self.command[1] >> 2) & 0x1)):
                 self.main.printMsg("FDC ERROR: head number in command[1] doesn't match head field.")
-                self.st0 = 0x40 | (self.drive[drive].head << 2) | drive
+                self.st0 = 0x40 | ((<FloppyDrive>self.drive[drive]).head << 2) | drive
                 self.st1 = 0x04
                 self.st2 = 0x00
                 self.handleResult()
                 return
 
-            if (not self.drive[drive].isLoaded):
+            if (not (<FloppyDrive>self.drive[drive]).isLoaded):
                 return
 
             if (sectorSize != 0x2):
                 self.main.exitError("FDC: read/write: sector size {0:d} isn't supported.", (128 << sectorSize))
                 return
 
-            if (cylinder >= self.drive[drive].media.tracks):
+            if (cylinder >= (<FloppyDrive>self.drive[drive]).media.tracks):
                 self.main.exitError("FDC: read/write: params out of range: sec#{0:d}, cyl#{1:d}, eot#{2:d}, head#{3:d}.", sector, cylinder, eot, head)
                 return
 
-            if (sector > self.drive[drive].media.sectorsPerTrack):
-                self.main.printMsg("FDC: attempt to read/write sector {0:d} past last sector {1:d}.", sector, self.drive[drive].media.sectorsPerTrack)
-                self.drive[drive].cylinder = cylinder
-                self.drive[drive].head = head
-                self.drive[drive].sector = sector
-                self.st0 = 0x40 | (self.drive[drive].head << 2) | drive
+            if (sector > (<FloppyDrive>self.drive[drive]).media.sectorsPerTrack):
+                self.main.printMsg("FDC: attempt to read/write sector {0:d} past last sector {1:d}.", sector, (<FloppyDrive>self.drive[drive]).media.sectorsPerTrack)
+                (<FloppyDrive>self.drive[drive]).cylinder = cylinder
+                (<FloppyDrive>self.drive[drive]).head = head
+                (<FloppyDrive>self.drive[drive]).sector = sector
+                self.st0 = 0x40 | ((<FloppyDrive>self.drive[drive]).head << 2) | drive
                 self.st1 = 0x04
                 self.st2 = 0x00
                 self.handleResult()
                 return
 
-            if (cylinder != self.drive[drive].cylinder):
+            if (cylinder != (<FloppyDrive>self.drive[drive]).cylinder):
                 self.resetChangeline()
 
             logicalSector = (<FloppyDrive>self.drive[drive]).ChsToSector(cylinder, head, sector)
 
-            if (logicalSector >= self.drive[drive].media.sectors):
+            if (logicalSector >= (<FloppyDrive>self.drive[drive]).media.sectors):
                 self.main.exitError("FDC: logical sector out of bounds")
                 return
 
-            self.drive[drive].cylinder = cylinder
-            self.drive[drive].head = head
-            self.drive[drive].sector = sector
-            self.drive[drive].eot = eot
+            (<FloppyDrive>self.drive[drive]).cylinder = cylinder
+            (<FloppyDrive>self.drive[drive]).head = head
+            (<FloppyDrive>self.drive[drive]).sector = sector
+            (<FloppyDrive>self.drive[drive]).eot = eot
 
             if ((cmd & 0xf) == 0x6): # read
                 self.fdcBuffer = self.floppyXfer(drive, logicalSector*FDC_SECTOR_SIZE, FDC_SECTOR_SIZE, False)
@@ -429,13 +429,13 @@ cdef class FloppyController:
                 self.incrementSector()
                 self.fdcBufferIndex = 0
             if (self.TC):
-                self.st0 = (self.drive[drive].head << 2) | drive
+                self.st0 = ((<FloppyDrive>self.drive[drive]).head << 2) | drive
                 self.st1 = self.st2 = 0
                 if (not (self.msr & FDC_MSR_NODMA) and self.fdc.isaDma is not None):
                     (<IsaDma>self.fdc.isaDma).setDRQ(FDC_DMA_CHANNEL, False)
                 self.handleResult()
             else:
-                logicalSector = self.drive[drive].ChsToSector(self.drive[drive].cylinder, self.drive[drive].head, self.drive[drive].sector)
+                logicalSector = (<FloppyDrive>self.drive[drive]).ChsToSector((<FloppyDrive>self.drive[drive]).cylinder, (<FloppyDrive>self.drive[drive]).head, (<FloppyDrive>self.drive[drive]).sector)
                 self.fdcBuffer = self.floppyXfer(drive, logicalSector*FDC_SECTOR_SIZE, FDC_SECTOR_SIZE, False)
                 if (self.msr & FDC_MSR_NODMA):
                     self.msr &= ~FDC_MSR_BUSY
@@ -460,17 +460,17 @@ cdef class FloppyController:
                 return self.DOR
             elif (ioPortAddr == 0x3): # tape drive register
                 drive = self.DOR & 0x3
-                if (self.drive[drive].isLoaded and self.drive[drive].media.mediaType != FLOPPY_DISK_TYPE_NONE):
-                    if (self.drive[drive].media.mediaType in (FLOPPY_DISK_TYPE_360K, FLOPPY_DISK_TYPE_1_2M)):
+                if ((<FloppyDrive>self.drive[drive]).isLoaded and (<FloppyDrive>self.drive[drive]).media.mediaType != FLOPPY_DISK_TYPE_NONE):
+                    if ((<FloppyDrive>self.drive[drive]).media.mediaType in (FLOPPY_DISK_TYPE_360K, FLOPPY_DISK_TYPE_1_2M)):
                         return 0x00
-                    elif (self.drive[drive].media.mediaType == FLOPPY_DISK_TYPE_720K):
+                    elif ((<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_720K):
                         return 0xc0
-                    elif (self.drive[drive].media.mediaType == FLOPPY_DISK_TYPE_1_44M):
+                    elif ((<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_1_44M):
                         return 0x80
-                    elif (self.drive[drive].media.mediaType == FLOPPY_DISK_TYPE_2_88M):
+                    elif ((<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_2_88M):
                         return 0x40
                     else:
-                        self.main.exitError("FDC_CTRL::inPort: mediaType {0:d} is unknown.", self.drive[drive].media.mediaType)
+                        self.main.exitError("FDC_CTRL::inPort: mediaType {0:d} is unknown.", (<FloppyDrive>self.drive[drive]).media.mediaType)
                         return 0x20
                 else:
                     return 0x20
@@ -506,7 +506,7 @@ cdef class FloppyController:
             elif (ioPortAddr == 0x7):
                 drive = self.DOR & 0x3
                 if (self.DOR & (1<<(drive+4))):
-                    return (self.drive[drive].DIR & 0x80)
+                    return ((<FloppyDrive>self.drive[drive]).DIR & 0x80)
                 return 0
             else:
                 self.main.printMsg("FDC_CTRL::inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)

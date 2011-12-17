@@ -185,15 +185,15 @@ cdef class Pic:
         elif (ioPortAddr in PIC_PIC2_PORTS):
             channel = 1
         if (dataSize == OP_SIZE_BYTE):
-            if (self.channels[channel].polled):
+            if ((<PicChannel>self.channels[channel]).polled):
                 (<PicChannel>self.channels[channel]).clearHighestInterrupt()
-                self.channels[channel].polled = False
+                (<PicChannel>self.channels[channel]).polled = False
                 (<PicChannel>self.channels[channel]).servicePicChannel()
-                return self.channels[channel].irq
+                return (<PicChannel>self.channels[channel]).irq
             elif (ioPortAddr in (PIC_PIC1_COMMAND, PIC_PIC2_COMMAND)):
                 return (<PicChannel>self.channels[channel]).getNeededRegister()
             elif (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
-                return self.channels[channel].imr
+                return (<PicChannel>self.channels[channel]).imr
             else:
                 self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
         else:
@@ -209,21 +209,21 @@ cdef class Pic:
             else: # wrong ioPortAddr
                 self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
                 return
-            oldStep = self.channels[channel].step
+            oldStep = (<PicChannel>self.channels[channel]).step
             if (ioPortAddr in (PIC_PIC1_COMMAND, PIC_PIC2_COMMAND)):
                 if (data & PIC_CMD_INITIALIZE):
-                    self.channels[channel].inInit = True
-                    self.channels[channel].imr = 0
-                    self.channels[channel].isr = 0
-                    self.channels[channel].irr = 0
-                    self.channels[channel].intr = False
-                    self.channels[channel].autoEOI = False
-                    self.channels[channel].rotateOnAutoEOI = False
-                    self.channels[channel].lowestPriority = 7
+                    (<PicChannel>self.channels[channel]).inInit = True
+                    (<PicChannel>self.channels[channel]).imr = 0
+                    (<PicChannel>self.channels[channel]).isr = 0
+                    (<PicChannel>self.channels[channel]).irr = 0
+                    (<PicChannel>self.channels[channel]).intr = False
+                    (<PicChannel>self.channels[channel]).autoEOI = False
+                    (<PicChannel>self.channels[channel]).rotateOnAutoEOI = False
+                    (<PicChannel>self.channels[channel]).lowestPriority = 7
                     (<PicChannel>self.channels[channel]).setCmdByte(data)
-                    self.channels[channel].step = PIC_DATA_STEP_ICW2
+                    (<PicChannel>self.channels[channel]).step = PIC_DATA_STEP_ICW2
                     if (channel == 1):
-                        self.channels[0].IRQ_in &= 0xfb
+                        (<PicChannel>self.channels[0]).IRQ_in &= 0xfb
                     if (data & 0x02 or data & 0x08):
                         self.main.exitError("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, dataSize == byte).", data, ioPortAddr)
                     return
@@ -232,35 +232,35 @@ cdef class Pic:
                     poll = (data & 0x04) >> 2
                     readOp = data & 0x03
                     if (poll):
-                        self.channels[channel].polled = True
+                        (<PicChannel>self.channels[channel]).polled = True
                         return
                     if (readOp == 0x02): # IRR is needed
                         (<PicChannel>self.channels[channel]).setNeededRegister(PIC_NEED_IRR)
                     elif (readOp == 0x03): # ISR is needed
                         (<PicChannel>self.channels[channel]).setNeededRegister(PIC_NEED_ISR)
                     if (specialMask == 0x02):
-                        self.channels[channel].specialMask = False
+                        (<PicChannel>self.channels[channel]).specialMask = False
                     elif (specialMask == 0x03):
-                        self.channels[channel].specialMask = True
+                        (<PicChannel>self.channels[channel]).specialMask = True
                         (<PicChannel>self.channels[channel]).servicePicChannel()
                     return
                 elif (data in (0x00, 0x80)):
-                    self.channels[channel].rotateOnAutoEOI = (data != 0)
+                    (<PicChannel>self.channels[channel]).rotateOnAutoEOI = (data != 0)
                 elif (data in (0x20, 0xa0)):
                     (<PicChannel>self.channels[channel]).clearHighestInterrupt()
                     if (data == 0xa0):
-                        self.channels[channel].lowestPriority += 1
-                        if (self.channels[channel].lowestPriority > 7):
-                            self.channels[channel].lowestPriority = 0
+                        (<PicChannel>self.channels[channel]).lowestPriority += 1
+                        if ((<PicChannel>self.channels[channel]).lowestPriority > 7):
+                            (<PicChannel>self.channels[channel]).lowestPriority = 0
                     (<PicChannel>self.channels[channel]).servicePicChannel()
                 elif (data >= 0x60 and data <= 0x67):
-                    self.channels[channel].isr &= ~(1 << (data&0x07))
+                    (<PicChannel>self.channels[channel]).isr &= ~(1 << (data&0x07))
                     (<PicChannel>self.channels[channel]).servicePicChannel()
                 elif (data >= 0xc0 and data <= 0xc7):
-                    self.channels[channel].lowestPriority = (data&0x07)
+                    (<PicChannel>self.channels[channel]).lowestPriority = (data&0x07)
                 elif (data >= 0xe0 and data <= 0xe7):
-                    self.channels[channel].isr &= ~(1 << (data&0x07))
-                    self.channels[channel].lowestPriority = (data&0x07)
+                    (<PicChannel>self.channels[channel]).isr &= ~(1 << (data&0x07))
+                    (<PicChannel>self.channels[channel]).lowestPriority = (data&0x07)
                     (<PicChannel>self.channels[channel]).servicePicChannel()
                 elif (data in (0x02, 0x40)):
                     pass
@@ -268,27 +268,27 @@ cdef class Pic:
                     self.main.printMsg("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, oldStep == {2:d}, dataSize == byte).", data, ioPortAddr, oldStep)
             elif (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
                 cmdByte = (<PicChannel>self.channels[channel]).getCmdByte()
-                if (not self.channels[channel].inInit): # set mask if self.channels[channel].inInit is False
-                    self.channels[channel].imr = data
+                if (not (<PicChannel>self.channels[channel]).inInit): # set mask if (<PicChannel>self.channels[channel]).inInit is False
+                    (<PicChannel>self.channels[channel]).imr = data
                     (<PicChannel>self.channels[channel]).servicePicChannel()
                 elif (oldStep == PIC_DATA_STEP_ICW2):
                     (<PicChannel>self.channels[channel]).setIrqBasePort(data)
                     if (cmdByte & PIC_SINGLE_MODE_NO_ICW3):
                         if (cmdByte & PIC_GET_ICW4):
-                            self.channels[channel].step = PIC_DATA_STEP_ICW4
+                            (<PicChannel>self.channels[channel]).step = PIC_DATA_STEP_ICW4
                         else:
-                            self.channels[channel].inInit = False
+                            (<PicChannel>self.channels[channel]).inInit = False
                     else:
-                        self.channels[channel].step = PIC_DATA_STEP_ICW3
+                        (<PicChannel>self.channels[channel]).step = PIC_DATA_STEP_ICW3
                 elif (oldStep == PIC_DATA_STEP_ICW3):
                     (<PicChannel>self.channels[channel]).setMasterSlaveMap(data)
                     if (cmdByte & PIC_GET_ICW4):
-                        self.channels[channel].step = PIC_DATA_STEP_ICW4
+                        (<PicChannel>self.channels[channel]).step = PIC_DATA_STEP_ICW4
                     else:
-                        self.channels[channel].inInit = False
+                        (<PicChannel>self.channels[channel]).inInit = False
                 elif (oldStep == PIC_DATA_STEP_ICW4):
                     (<PicChannel>self.channels[channel]).setFlags(data)
-                    self.channels[channel].inInit = False
+                    (<PicChannel>self.channels[channel]).inInit = False
                 else: # wrong step
                     self.main.exitError("outPort: oldStep {0:d} not supported (ioPortAddr == {1:#04x}, dataSize == byte).", oldStep, ioPortAddr)
             else: # wrong ioPortAddr
