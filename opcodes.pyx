@@ -260,6 +260,10 @@ cdef class Opcodes:
             self.cwd_cdq()
         elif (opcode == 0x9a):
             self.callPtr16_32()
+        elif (opcode == 0x9b): # WAIT/FWAIT
+            if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR0, (CR0_FLAG_MP | CR0_FLAG_TS)) == (CR0_FLAG_MP | CR0_FLAG_TS)):
+                raise misc.ChemuException(CPU_EXCEPTION_NM)
+            raise misc.ChemuException(CPU_EXCEPTION_UD)
         elif (opcode == 0x9c):
             self.pushfWD()
         elif (opcode == 0x9d):
@@ -352,6 +356,12 @@ cdef class Opcodes:
             self.undefNoUD()
         elif (opcode == 0xd7):
             self.xlatb()
+        elif (opcode >= 0xd8 and opcode <= 0xdf):
+            if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR) == 0):
+                raise misc.ChemuException(CPU_EXCEPTION_UD)
+            if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS)) != 0):
+                raise misc.ChemuException(CPU_EXCEPTION_NM)
+            raise misc.ChemuException(CPU_EXCEPTION_UD)
         elif (opcode == 0xe0):
             self.loopne()
         elif (opcode == 0xe1):
@@ -1883,10 +1893,11 @@ cdef class Opcodes:
             entrySegment, entryEip, entryType, entrySize, entryNeededDPL, entryPresent = (<Registers>self.main.cpu.registers).segments.idt.getEntry(intNum)
         else:
             entrySegment, entryEip = (<Registers>self.main.cpu.registers).segments.idt.getEntryRealMode(intNum)
+            if ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10)):
+                pythonBiosDone = (<Platform>self.main.platform).pythonBios.interrupt(intNum)
+                if (pythonBiosDone):
+                    return
         self.main.debug("Interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}", intNum, entrySegment, entryEip)
-        pythonBiosDone = (<Platform>self.main.platform).pythonBios.interrupt(intNum)
-        if (pythonBiosDone):
-            return
         if (inProtectedMode):
             if (((<Registers>self.main.cpu.registers).cpl != 0 and (<Registers>self.main.cpu.registers).cpl > entrySegment&3) or (<Registers>self.main.cpu.registers).segments.getSegDPL(entrySegment) != 0):
                 self.main.exitError("Interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")

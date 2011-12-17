@@ -126,13 +126,17 @@ cdef class ConfigSpace:
             raise MemoryError()
         tempAddr = <char*>(self.csData+offset)
         memcpy(<char*>tempAddr, <char*>data, size)
-    cdef unsigned long long csReadValue(self, unsigned long offset, unsigned long size, unsigned char signed):
-        cdef bytes data = self.csRead(offset, size)
-        cdef unsigned long retData = int.from_bytes(data, byteorder="little", signed=signed)
+    cdef long long csReadValue(self, unsigned long offset, unsigned long size, unsigned char signed):
+        cdef bytes data
+        cdef long long retData
+        data = self.csRead(offset, size)
+        retData = int.from_bytes(data, byteorder="little", signed=signed)
         return retData
-    cdef unsigned long long csReadValueBE(self, unsigned long offset, unsigned long size, unsigned char signed): # Big Endian
-        cdef bytes data = self.csRead(offset, size)
-        cdef unsigned long retData = int.from_bytes(data, byteorder="big", signed=signed)
+    cdef long long csReadValueBE(self, unsigned long offset, unsigned long size, unsigned char signed): # Big Endian
+        cdef bytes data
+        cdef long long retData
+        data = self.csRead(offset, size)
+        retData = int.from_bytes(data, byteorder="big", signed=signed)
         return retData
     cdef unsigned long long csWriteValue(self, unsigned long offset, unsigned long long data, unsigned long size):
         cdef bytes bytesData = data.to_bytes(length=size, byteorder="little")

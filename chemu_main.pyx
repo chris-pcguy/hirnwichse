@@ -56,12 +56,12 @@ cdef class ChEmu:
         print(msgStr.format(*msgStrArguments))
         sys.stdout.flush()
     cpdef run(self):
-        self.parseArgs()
-        self.misc = Misc(self)
-        self.mm = Mm(self)
-        self.platform = Platform(self)
-        self.cpu = Cpu(self)
         try:
+            self.parseArgs()
+            self.misc = Misc(self)
+            self.mm = Mm(self)
+            self.platform = Platform(self)
+            self.cpu = Cpu(self)
             self.platform.run(self.memSize)
             self.platform.pic.cpuObject = self.cpu
             self.platform.isadma.cpuObject = self.cpu
