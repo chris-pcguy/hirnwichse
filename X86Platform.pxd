@@ -25,7 +25,7 @@ cdef class PortHandler:
 
 
 cdef class Platform:
-    cpdef public object main
+    cpdef object main
     cdef public IsaDma isadma
     cdef public PS2 ps2
     cdef public Pic pic

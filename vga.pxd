@@ -1,6 +1,6 @@
 
 from mm cimport Mm, MmArea, ConfigSpace
-
+from pygameUI cimport PygameUI
 
 
 cdef class VRamArea(MmArea):
@@ -8,26 +8,24 @@ cdef class VRamArea(MmArea):
     cdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize)
 
 
-cdef class VGA_REGISTER_RAW:
+cdef class VGA_REGISTER_RAW(ConfigSpace):
     cpdef object main
     cdef Vga vga
-    cdef ConfigSpace configSpace
-    cdef unsigned short registerSize, index
+    cdef unsigned short index
     cdef reset(self)
     cdef getIndex(self)
     cdef setIndex(self, unsigned short index)
     cdef indexAdd(self, unsigned short n)
     cdef indexSub(self, unsigned short n)
     cdef getData(self, unsigned char dataSize)
-    cdef setData(self, unsigned long long data, unsigned char dataSize)
-    cdef run(self)
+    cdef setData(self, unsigned long data, unsigned char dataSize)
 
 cdef class CRT(VGA_REGISTER_RAW):
     pass
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
     cdef unsigned char mask
-    cdef setData(self, unsigned long long data, unsigned char dataSize)
+    cdef setData(self, unsigned long data, unsigned char dataSize)
     cdef getMask(self)
     cdef setMask(self, unsigned char value)
 
@@ -45,19 +43,21 @@ cdef class ExtReg(VGA_REGISTER_RAW):
 
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     cdef unsigned char flipFlop
-    cdef setIndexData(self, unsigned long long data, unsigned char dataSize)
+    cdef setIndexData(self, unsigned long data, unsigned char dataSize)
 
 
 cdef class Vga:
-    cpdef public object main, ui
-    cdef public Sequencer seq
-    cdef public CRT crt
-    cdef public GDC gdc
-    cdef public DAC dac
+    cpdef object main
+    cdef public PygameUI ui
+    cdef Sequencer seq
+    cdef CRT crt
+    cdef GDC gdc
+    cdef DAC dac
     cdef public ExtReg extreg
-    cdef public AttrCtrlReg attrctrlreg
-    cdef public unsigned char processVideoMem
+    cdef AttrCtrlReg attrctrlreg
+    cdef unsigned char processVideoMem
     cdef setProcessVideoMem(self, unsigned char processVideoMem)
+    cdef unsigned char getProcessVideoMem(self)
     cdef unsigned char getCorrectPage(self, unsigned char page)
     cdef writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor)
     cdef writeCharacter(self, unsigned long address, unsigned char c, short attr)

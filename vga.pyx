@@ -1,8 +1,6 @@
 
 import sys, threading, time
 
-from pygameUI import PygameUI
-
 include "globals.pxi"
 
 
@@ -14,35 +12,38 @@ cdef class VRamArea(MmArea):
         cdef unsigned long long mmAreaAddr
         mmAreaAddr = mmPhyAddr-self.mmBaseAddr
         MmArea.mmAreaWrite(self, mmPhyAddr, data, dataSize)
-        if (self.main.platform.vga.processVideoMem and (<ExtReg>self.main.platform.vga.extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
+        if ((<Vga>self.main.platform.vga).getProcessVideoMem() and (<ExtReg>(<Vga>self.main.platform.vga).extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
             self.handleVRamWrite(mmAreaAddr, dataSize)
     cdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
         cdef list rectList
-        cdef unsigned short x, y
+        cdef unsigned char x, y
         cdef bytes charstr
         rectList = list()
-        ##mmAreaAddr -= self.mmBaseAddr # TODO
         if (mmAreaAddr % 2): # odd
             mmAreaAddr -= 1
+            if (dataSize % 2):
+                dataSize += 1
         while (dataSize > 0):
             y, x = divmod(mmAreaAddr//2, 80)
             charstr = bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+2])
-            if (self.main.platform.vga.ui):
-                rectList.append(self.main.platform.vga.ui.putChar(x, y, chr(charstr[0]), charstr[1]))
+            if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
+                rectList.append((<PygameUI>(<Vga>self.main.platform.vga).ui).putChar(x, y, chr(charstr[0]), charstr[1]))
             mmAreaAddr += 2
-            dataSize   -= min(dataSize, 2)
-        if (self.main.platform.vga.ui):
-            self.main.platform.vga.ui.updateScreen(rectList)
+            if (dataSize <= 2):
+                break
+            dataSize   -= 2
+        if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
+            (<PygameUI>(<Vga>self.main.platform.vga).ui).updateScreen(rectList)
 
 
-cdef class VGA_REGISTER_RAW:
-    def __init__(self, unsigned short registerSize, object vga, object main):
-        self.registerSize = registerSize
+cdef class VGA_REGISTER_RAW(ConfigSpace):
+    def __init__(self, unsigned long registerSize, Vga vga, object main):
         self.vga  = vga
         self.main = main
         self.index = 0
+        ConfigSpace.__init__(self, registerSize)
     cdef reset(self):
-        self.configSpace.csResetData()
+        ConfigSpace.csResetData(self)
         self.index = 0
     cdef getIndex(self):
         return self.index
@@ -53,22 +54,19 @@ cdef class VGA_REGISTER_RAW:
     cdef indexSub(self, unsigned short n):
         self.index -= n
     cdef getData(self, unsigned char dataSize):
-        return self.configSpace.csReadValue(self.index, dataSize, False)
-    cdef setData(self, unsigned long long data, unsigned char dataSize):
-        self.configSpace.csWriteValue(self.index, data, dataSize)
-    cdef run(self):
-        self.configSpace  = ConfigSpace(self.registerSize)
-        self.configSpace.run()
+        return ConfigSpace.csReadValue(self, self.index, dataSize, False)
+    cdef setData(self, unsigned long data, unsigned char dataSize):
+        ConfigSpace.csWriteValue(self, self.index, data, dataSize)
 
 cdef class CRT(VGA_REGISTER_RAW):
-    def __init__(self, object vga, object main):
+    def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_CRT_DATA_LENGTH, vga, main)
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
-    def __init__(self, object vga, object main):
+    def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_DAC_DATA_LENGTH, vga, main)
         self.mask = 0xff
-    cdef setData(self, unsigned long long data, unsigned char dataSize):
+    cdef setData(self, unsigned long data, unsigned char dataSize):
         VGA_REGISTER_RAW.setData(self, data, dataSize)
         self.indexAdd(1)
     cdef getMask(self):
@@ -78,15 +76,15 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
 
 
 cdef class GDC(VGA_REGISTER_RAW):
-    def __init__(self, object vga, object main):
+    def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_GDC_DATA_LENGTH, vga, main)
 
 cdef class Sequencer(VGA_REGISTER_RAW):
-    def __init__(self, object vga, object main):
+    def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_SEQ_DATA_LENGTH, vga, main)
 
 cdef class ExtReg(VGA_REGISTER_RAW):
-    def __init__(self, object vga, object main):
+    def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_EXTREG_DATA_LENGTH, vga, main)
         self.miscOutReg = VGA_EXTREG_PROCESS_RAM
     cdef getMiscOutReg(self):
@@ -95,10 +93,10 @@ cdef class ExtReg(VGA_REGISTER_RAW):
         self.miscOutReg = value
 
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
-    def __init__(self, object vga, object main):
+    def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_ATTRCTRLREG_DATA_LENGTH, vga, main)
         self.flipFlop = False
-    cdef setIndexData(self, unsigned long long data, unsigned char dataSize):
+    cdef setIndexData(self, unsigned long data, unsigned char dataSize):
         if (not self.flipFlop):
             self.setIndex(data)
         else:
@@ -122,11 +120,13 @@ cdef class Vga:
             self.ui = PygameUI(self, self.main)
     cdef setProcessVideoMem(self, unsigned char processVideoMem):
         self.processVideoMem = processVideoMem
+    cdef unsigned char getProcessVideoMem(self):
+        return self.processVideoMem
     cdef unsigned char getCorrectPage(self, unsigned char page):
         if (page == 0xff):
             page = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURRENT_PAGE_ADDR, 1)
         elif (page > 7):
-            self.main.printMsg("VGA::getCorrectPage: page: {0:d}", page)
+            self.main.printMsg("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
         return page
     cdef writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor):
         cdef unsigned char x, y, i
@@ -134,7 +134,7 @@ cdef class Vga:
         cdef unsigned long address
         page = self.getCorrectPage(page)
         cursorPos = self.getCursorPosition(page)
-        y, x = cursorPos>>8, cursorPos&0xff
+        y, x = (cursorPos>>8)&0xff, cursorPos&0xff
         address = self.getAddrOfPos(page, x, y)
         if (c == 0x7): # beep
             pass
@@ -192,7 +192,7 @@ cdef class Vga:
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x3c5):
-                self.seq.getData(dataSize)
+                return self.seq.getData(dataSize)
             elif (ioPortAddr == 0x3c6):
                 return self.dac.getMask()
             elif (ioPortAddr == 0x3c8):
@@ -204,7 +204,7 @@ cdef class Vga:
             elif (ioPortAddr == 0x3da):
                 return 0
             else:
-                self.main.printMsg("inPort: port {0:#04x} not supported. (dataSize byte)", ioPortAddr)
+                self.main.exitError("inPort: port {0:#04x} not supported. (dataSize byte)", ioPortAddr)
         else:
             if (ioPortAddr == 0x3cc):
                 return self.extreg.getMiscOutReg()
@@ -248,7 +248,7 @@ cdef class Vga:
             elif (ioPortAddr == 0x3d5):
                 self.crt.setData(data, dataSize)
             else:
-                self.main.printMsg("outPort: port {0:#04x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
+                self.main.exitError("outPort: port {0:#04x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
         elif (dataSize == OP_SIZE_WORD):
             if (ioPortAddr == 0x3c4):
                 self.seq.setIndex(data)
@@ -263,7 +263,7 @@ cdef class Vga:
             elif (ioPortAddr == 0x3d5):
                 self.crt.setData(data, dataSize)
             else:
-                self.main.printMsg("outPort: port {0:#04x} not supported. (dataSize word, data {1:#04x})", ioPortAddr, data)
+                self.main.exitError("outPort: port {0:#04x} not supported. (dataSize word, data {1:#04x})", ioPortAddr, data)
         else:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return
@@ -280,7 +280,7 @@ cdef class Vga:
         ####
         self.VRamAddMemArea()
         if (self.ui):
-            self.ui.run()
+            (<PygameUI>self.ui).run()
         #self.main.platform.addReadHandlers((0x3c1, 0x3c5, 0x3cc, 0x3c8, 0x3da), self)
         #self.main.platform.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, \
         #                                     0x3cf, 0x3d4, 0x3d5, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self)

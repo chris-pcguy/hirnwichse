@@ -4,9 +4,9 @@ from mm cimport Mm, ConfigSpace
 from segments cimport Gdt, Idt, Segments
 
 cdef class Registers:
-    cpdef public object main
-    cdef public Segments segments
-    cdef public ConfigSpace regs
+    cpdef object main
+    cdef Segments segments
+    cdef ConfigSpace regs
     cdef public unsigned char lockPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, \
                               addressSizePrefix, cpl, iopl, A20Active, protectedModeOn
     cdef reset(self)

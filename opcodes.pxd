@@ -2,7 +2,7 @@
 
 
 cdef class Opcodes:
-    cpdef public object main
+    cpdef object main
     cdef unsigned char executeOpcode(self, unsigned char opcode)
     cdef undefNoUD(self)
     cdef cli(self)

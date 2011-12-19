@@ -1,10 +1,10 @@
 
 
 cdef class MmArea:
-    cpdef public object main
-    cdef public Mm mm
+    cpdef object main
+    cdef Mm mm
     cdef unsigned char mmReadOnly
-    cdef public unsigned long long mmBaseAddr, mmAreaSize, mmEndAddr
+    cdef unsigned long long mmBaseAddr, mmAreaSize, mmEndAddr
     cdef char *mmAreaData
     cpdef mmFreeAreaData(self)
     cdef mmSetReadOnly(self, unsigned char mmReadOnly)
@@ -14,7 +14,7 @@ cdef class MmArea:
 
 
 cdef class Mm:
-    cpdef public object main
+    cpdef object main
     cdef list mmAreas
     cdef mmAddArea(self, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly, MmArea mmAreaObject)
     cdef unsigned char mmDelArea(self, unsigned long long mmBaseAddr)

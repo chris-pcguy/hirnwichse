@@ -3,11 +3,11 @@ ctypedef void (*SetINTR)(self, unsigned char)
 
 
 cdef class PicChannel:
-    cpdef public object main
-    cdef public Pic pic
+    cpdef object main
+    cdef Pic pic
     cdef unsigned char master, cmdByte, irqBasePort, mappedSlavesOnMasterMask, \
                         slaveOnThisMasterIrq, needRegister
-    cdef public unsigned char step, inInit, irq, intr, imr, isr, irr, autoEOI, rotateOnAutoEOI, lowestPriority, polled, \
+    cdef unsigned char step, inInit, irq, intr, imr, isr, irr, autoEOI, rotateOnAutoEOI, lowestPriority, polled, \
                                 specialMask, IRQ_in, edgeLevel
     cdef reset(self)
     cdef clearHighestInterrupt(self)
@@ -25,10 +25,10 @@ cdef class PicChannel:
     cdef run(self)
 
 cdef class Pic:
-    cpdef public object main
+    cpdef object main
     cdef object cpuObject
     cdef SetINTR setINTR
-    cdef public tuple channels
+    cdef tuple channels
     cdef raiseIrq(self, unsigned char irq)
     cdef lowerIrq(self, unsigned char irq)
     cdef unsigned char IAC(self)

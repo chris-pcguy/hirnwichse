@@ -1,8 +1,8 @@
 
 
 cdef class Gdt:
-    cdef public Segments segments
-    cdef public unsigned char needFlush, setGdtLoadedTo, gdtLoaded
+    cdef Segments segments
+    cdef unsigned char needFlush, setGdtLoadedTo, gdtLoaded
     cdef unsigned long long tableBase
     cdef unsigned long tableLimit
     cdef loadTable(self, unsigned long long tableBase, unsigned long tableLimit)
@@ -21,9 +21,9 @@ cdef class Gdt:
     cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment, unsigned char doException)
 
 cdef class Idt:
-    cdef public Segments segments
-    cdef public unsigned long long tableBase
-    cdef public unsigned long tableLimit
+    cdef Segments segments
+    cdef unsigned long long tableBase
+    cdef unsigned long tableLimit
     cdef loadTable(self, unsigned long long tableBase, unsigned long tableLimit)
     cdef tuple getBaseLimit(self)
     cdef tuple getEntry(self, unsigned short num)
@@ -34,9 +34,9 @@ cdef class Idt:
     cdef run(self, unsigned long long tableBase, unsigned long tableLimit)
 
 cdef class Segments:
-    cpdef public object main
-    cdef public Gdt gdt, ldt
-    cdef public Idt idt
+    cpdef object main
+    cdef Gdt gdt, ldt
+    cdef Idt idt
     cdef reset(self)
     cdef tuple getEntry(self, unsigned short num)
     cdef unsigned char getSegAccess(self, unsigned short num)

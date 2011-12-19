@@ -30,13 +30,13 @@ cdef class PythonBios:
         if (intNum == 0x10): # video; TODO
             #return False
             currMode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURRENT_MODE_ADDR, 1)
-            #self.main.printMsg("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
+            self.main.debug("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
             if (ah == 0x02): # set cursor position
                 (<Vga>self.main.platform.vga).setCursorPosition(bh, dx)
                 return True
             elif (ah == 0x03): # get cursor position
                 dx = (<Vga>self.main.platform.vga).getCursorPosition(bh)
-                cx = 0x607
+                cx = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURRENT_CURSOR_TYPE_ADDR, 2)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DX, dx)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, cx)
                 return True
@@ -122,10 +122,10 @@ cdef class PythonBios:
                 return True
             elif (ah == 0x8):
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DH, \
-                (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl].media.heads))
+                (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media.heads)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, \
-                ((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl].media.tracks)<<8) | \
-                ((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl].media.sectors)))
+                ((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media.tracks<<8) | \
+                ((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media.sectors))
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, 0)
                 (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, False)
             elif (not (dl & 0x80)):

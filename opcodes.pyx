@@ -445,6 +445,7 @@ cdef class Opcodes:
                             return True
         except (SystemExit, KeyboardInterrupt):
             print(sys.exc_info())
+            self.main.quitEmu = True
             self.main.exitError('Opcodes::executeOpcode: (SystemExit, KeyboardInterrupt) exception while handling opcode, exiting... (opcode: {0:#04x})', opcode, exitNow=True)
         except:
             print(sys.exc_info())

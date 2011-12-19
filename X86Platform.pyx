@@ -126,26 +126,30 @@ cdef class Platform:
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef PortHandler port
         cdef unsigned short portNum
-        cdef unsigned long retVal
+        cdef unsigned long retVal, bitMask
         try:
+            bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
             for port in self.ports:
                 if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.inPort is NULL):
                     continue
                 for portNum in port.ports:
                     if (portNum == ioPortAddr):
                         self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
-                        retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&(<Misc>self.main.misc).getBitMaskFF(dataSize)
+                        retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
                         self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
                         return retVal
             self.main.printMsg("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
+            return bitMask
         except:
             traceback.print_exc()
             sys.exit(1)
-        return 0
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef PortHandler port
         cdef unsigned short portNum
+        cdef unsigned long bitMask
         try:
+            bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
+            data &= bitMask
             for port in self.ports:
                 if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.outPort is NULL):
                     continue

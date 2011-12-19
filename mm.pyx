@@ -39,9 +39,10 @@ cdef class MmArea:
         tempAddr = <char*>(self.mmAreaData+mmAddr)
         memcpy(<char*>tempAddr, <char*>data, dataSize)
     cpdef run(self):
-        self.mmAreaData = <char*>calloc(self.mmAreaSize, 1)
+        self.mmAreaData = <char*>malloc(self.mmAreaSize)
         if (not self.mmAreaData):
             raise MemoryError()
+        memset(<char*>self.mmAreaData, 0xff, self.mmAreaSize)
         atexit.register(self.mmFreeAreaData)
 
 
@@ -151,9 +152,10 @@ cdef class ConfigSpace:
     cdef unsigned long long csSubValue(self, unsigned long offset, unsigned long long data, unsigned long size):
         return self.csWriteValue(offset, self.csReadValue(offset, size, False)-data, size)
     cpdef run(self):
-        self.csData = <char*>calloc(self.csSize, 1)
+        self.csData = <char*>malloc(self.csSize)
         if (not self.csData):
             raise MemoryError()
+        memset(<char*>self.csData, 0x00, self.csSize)
         atexit.register(self.csFreeData)
 
 

@@ -5,7 +5,7 @@ ctypedef void (*SetHRQ)(self, unsigned char)
 
 
 cdef class IsaDmaChannel:
-    cpdef public object main
+    cpdef object main
     cdef object dmaReadFromMemObject, dmaWriteToMemObject
     cdef DmaReadFromMem dmaReadFromMem
     cdef DmaWriteToMem  dmaWriteToMem
@@ -17,7 +17,7 @@ cdef class IsaDmaChannel:
     ###
 
 cdef class IsaDmaController:
-    cpdef public object main
+    cpdef object main
     cdef IsaDma isadma
     cdef tuple channel
     cdef unsigned char flipFlop, firstChannel, master, ctrlDisabled, cmdReg, statusReg
@@ -44,10 +44,10 @@ cdef class IsaDmaController:
     cdef run(self)
 
 cdef class IsaDma:
-    cpdef public object main
+    cpdef object main
     cdef object cpuObject
     cdef SetHRQ setHRQ
-    cdef public tuple controller
+    cdef tuple controller
     cdef unsigned char extPageReg[16], HLDA, TC # extPageReg is unused.
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)

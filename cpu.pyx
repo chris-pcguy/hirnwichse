@@ -21,7 +21,6 @@ cdef class Cpu:
         self.HRQ = False
         self.cycles = 0
         self.registers.reset()
-        self.trace.reset()
     cdef saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(CPU_REGISTER_EIP, False)
@@ -119,7 +118,7 @@ cdef class Cpu:
     cdef doInfiniteCycles(self):
         while (not self.main.quitEmu):
             if ((self.cpuHalted and self.main.exitIfCpuHalted) or self.main.quitEmu):
-                #break
+                self.main.quitEmu = True
                 return
             elif ((self.cpuHalted and not self.main.exitIfCpuHalted) or (self.debugHalt and not self.debugSingleStep)):
                 if (self.asyncEvent):
@@ -151,8 +150,6 @@ cdef class Cpu:
         try:
             if (self.registers.lockPrefix and self.opcode in OPCODES_LOCK_PREFIX_INVALID):
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
-            #elif (self.trace.isInTrace(self.opcode, self.savedEip)):
-            #    self.trace.executeTraceStep(self.savedEip)
             elif (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
@@ -173,6 +170,7 @@ cdef class Cpu:
                             self.cpu.reset()
         except (SystemExit, KeyboardInterrupt):
             print(sys.exc_info())
+            self.main.quitEmu = True
             self.main.exitError('doCycle: (SystemExit, KeyboardInterrupt) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
         except:
             print(sys.exc_info())
@@ -180,7 +178,6 @@ cdef class Cpu:
     cdef run(self):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
-        self.trace = Trace(self.main)
         self.registers.run()
         self.reset()
         self.doInfiniteCycles()

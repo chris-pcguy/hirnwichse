@@ -3,17 +3,16 @@ from mm cimport Mm
 from segments cimport Segments
 from registers cimport Registers
 from opcodes cimport Opcodes
-from cputrace cimport Trace
 
 
 cdef class Cpu:
-    cpdef public object main
+    cpdef object main
     cdef public Registers registers
-    cdef public Opcodes opcodes
-    cdef public Trace trace
+    cdef Opcodes opcodes
     cdef public unsigned long long cycles
-    cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ
     cdef unsigned long savedCs, savedEip
+    cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep
+    cdef unsigned char INTR, HRQ
     cdef reset(self)
     cdef saveCurrentInstPointer(self)
     cdef setINTR(self, unsigned char state)

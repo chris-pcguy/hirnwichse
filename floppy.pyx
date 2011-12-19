@@ -102,7 +102,7 @@ cdef class FloppyDrive:
         self.fp.seek(offset)
         data = self.fp.read(size)
         if (len(data) < size): # floppy image is too short.
-            data += b'\x00'*(size-len(data))
+            data += b'\x00'*(size-len(data)) # TODO: Should I fill this up with 0xff?
         self.fp.seek(oldPos)
         return data
     cdef bytes readSectors(self, unsigned long sector, unsigned long count): # count in sectors
@@ -424,7 +424,6 @@ cdef class FloppyController:
         self.fdcBufferIndex += 1
         self.TC = self.getTC()
         if (self.fdcBufferIndex >= 512 or self.TC):
-            #self.main.printMsg("FDC::readFromDrive: condition: (fdcBufferIndex >= 512 || TC) is TRUE. (fdcBufferIndex: {0:d}, TC: {1:d})", self.fdcBufferIndex, self.TC)
             if (self.fdcBufferIndex >= 512):
                 self.incrementSector()
                 self.fdcBufferIndex = 0
@@ -501,15 +500,15 @@ cdef class FloppyController:
                         self.handleIdle()
                     return retVal
             elif (ioPortAddr == 0x6):
-                return 0x00 # TODO: 0x3f6/0x376 should be shared with hard disk controller.
-                ##self.main.printMsg("FDC_CTRL::inPort: reserved read from port {0:#06x}. (dataSize byte)", ioPortAddr)
+                self.main.debug("FDC_CTRL::inPort: hdc-shared port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
+                return 0x00 # TODO: 0x3f6/0x376 should be shared with hard disk controller.; TODO: Should I return 0xff here?
             elif (ioPortAddr == 0x7):
                 drive = self.DOR & 0x3
                 if (self.DOR & (1<<(drive+4))):
                     return ((<FloppyDrive>self.drive[drive]).DIR & 0x80)
                 return 0
             else:
-                self.main.printMsg("FDC_CTRL::inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
+                self.main.exitError("FDC_CTRL::inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
         else:
             self.main.exitError("FDC_CTRL::inPort: dataSize {0:d} not supported.", dataSize)
         return 0
@@ -535,15 +534,15 @@ cdef class FloppyController:
                     self.addCommand(data)
                 return
             elif (ioPortAddr == 0x6):
+                self.main.debug("FDC_CTRL::outPort: hdc-shared port {0:#06x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
                 return # TODO: 0x3f6/0x376 should be shared with hard disk controller.
-                ##self.main.printMsg("FDC_CTRL::outPort: reserved write to port {0:#06x}. (dataSize byte, data {1:#04x})", ioPortAddr, data)
             elif (ioPortAddr == 0x7): # set data rate
                 self.dataRate = data & 0x3
                 return
             else:
-                self.main.printMsg("FDC_CTRL::outPort: port {0:#06x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
+                self.main.exitError("FDC_CTRL::outPort: port {0:#06x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
         else:
-            self.main.exitError("FDC_CTRL::outPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("FDC_CTRL::outPort: dataSize {0:d} not supported., (port: {1:#06x})", dataSize, ioPortAddr)
     cdef run(self):
         self.reset(True)
         if (self.controllerId == 0):
@@ -570,7 +569,7 @@ cdef class Floppy:
             elif (ioPortAddr >= FDC_SECOND_PORTBASE and ioPortAddr <= FDC_SECOND_PORTBASE+FDC_PORTCOUNT):
                 return (<FloppyController>self.controller[1]).inPort(ioPortAddr-FDC_SECOND_PORTBASE, dataSize)
             else:
-                self.main.printMsg("inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
+                self.main.exitError("inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
@@ -581,7 +580,7 @@ cdef class Floppy:
             elif (ioPortAddr >= FDC_SECOND_PORTBASE and ioPortAddr <= FDC_SECOND_PORTBASE+FDC_PORTCOUNT):
                 (<FloppyController>self.controller[1]).outPort(ioPortAddr-FDC_SECOND_PORTBASE, data, dataSize)
             else:
-                self.main.printMsg("inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
+                self.main.exitError("outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return

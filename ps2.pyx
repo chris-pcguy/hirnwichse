@@ -86,10 +86,10 @@ cdef class PS2:
         cdef unsigned char escaped, sc
         cdef bytes scancode
         escaped = 0x00
-        self.main.printMsg("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        self.main.debug("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         if ((not self.kbdClockEnabled) or (not self.scanningEnabled) or (keyId == 0xff)):
             return
-        self.main.printMsg("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        self.main.debug("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         scancode = SCANCODES[keyId][self.currentScancodesSet][keyUp]
         if (self.translateScancodes):
             for sc in scancode:
@@ -143,7 +143,7 @@ cdef class PS2:
             elif (ioPortAddr == 0x92):
                 return ((<Registers>self.main.cpu.registers).getA20State() << 1)
             else:
-                self.main.printMsg("inPort: port {0:#04x} is not supported.", ioPortAddr)
+                self.main.exitError("inPort: port {0:#04x} is not supported.", ioPortAddr)
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
@@ -230,9 +230,6 @@ cdef class PS2:
                     else:
                         self.main.printMsg("outPort: data {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastKbcCmdByte=={3:#04x}, lastKbCmdByte=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastKbcCmdByte, self.lastKbCmdByte)
                     self.needWriteBytes -= 1
-                    ##(<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
-                    ##if (len(self.outBuffer) and self.irq1Requested and self.kbdClockEnabled and self.allowIrq1):
-                    ##    self.doKbcIrq()
             elif (ioPortAddr == 0x64):
                 self.lastKbcCmdByte, self.lastKbCmdByte = data, 0
                 if (data == 0x20): # read keyboard mode
@@ -287,7 +284,7 @@ cdef class PS2:
             elif (ioPortAddr == 0x92):
                 (<Registers>self.main.cpu.registers).setA20State( (data & PS2_A20) != 0 )
             else:
-                self.main.printMsg("outPort: port {0:#04x} is not supported. (data {1:#04x})", ioPortAddr, data)
+                self.main.exitError("outPort: port {0:#04x} is not supported. (data {1:#04x})", ioPortAddr, data)
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return

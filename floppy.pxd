@@ -5,18 +5,18 @@ from pic cimport Pic
 
 
 cdef class FloppyMedia:
-    cdef public FloppyDrive floppyDrive
-    cdef public unsigned char tracks, heads, sectorsPerTrack, mediaType
-    cdef public unsigned long sectors
+    cdef FloppyDrive floppyDrive
+    cdef unsigned long sectors
+    cdef unsigned char tracks, heads, sectorsPerTrack, mediaType
     cdef setDataForMedia(self, unsigned char mediaType)
 
 
 cdef class FloppyDrive:
-    cpdef public object main, fp
-    cdef public FloppyController controller
-    cdef public FloppyMedia media
-    cdef public bytes filename
-    cdef public unsigned char driveId, isLoaded, isWriteProtected, DIR, cylinder, head, sector, eot
+    cpdef object main, fp
+    cdef FloppyController controller
+    cdef FloppyMedia media
+    cdef bytes filename
+    cdef unsigned char driveId, isLoaded, isWriteProtected, DIR, cylinder, head, sector, eot
     cdef unsigned long ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector)
     cdef unsigned char getDiskType(self, unsigned long size)
     cdef loadDrive(self, bytes filename)
@@ -26,12 +26,12 @@ cdef class FloppyDrive:
 
 
 cdef class FloppyController:
-    cpdef public object main
-    cdef public Floppy fdc
+    cpdef object main
+    cdef Floppy fdc
+    cdef tuple drive
     cdef bytes command, result, fdcBuffer
-    cdef public tuple drive
-    cdef unsigned char controllerId, msr, DOR, st0, st1, st2, st3, TC, resetSensei, pendingIrq, dataRate, multiTrack
     cdef unsigned long fdcBufferIndex
+    cdef unsigned char controllerId, msr, DOR, st0, st1, st2, st3, TC, resetSensei, pendingIrq, dataRate, multiTrack
     cdef reset(self, unsigned char hwReset)
     cdef bytes floppyXfer(self, unsigned char drive, unsigned long offset, unsigned long size, unsigned char toFloppy)
     cdef addCommand(self, unsigned char command)
@@ -57,11 +57,11 @@ cdef class FloppyController:
     cdef run(self)
 
 cdef class Floppy:
-    cpdef public object main
+    cpdef object main
     cdef Cmos cmos
     cdef Pic pic
     cdef IsaDma isaDma
-    cdef public tuple controller
+    cdef tuple controller
     cdef initObjsToNull(self)
     cdef setupDMATransfer(self, FloppyController ctrl)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)

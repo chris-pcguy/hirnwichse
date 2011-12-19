@@ -294,6 +294,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 #(<GDBStubHandler>self.gdbHandler).main.printMsg("handle::read.")
                 (<GDBStubHandler>self.gdbHandler).handleRead()
         except (SystemExit, KeyboardInterrupt):
+            (<GDBStubHandler>self.gdbHandler).main.quitEmu = True
             (<GDBStubHandler>self.gdbHandler).gdbStub.server.shutdown()
 
 
@@ -321,6 +322,12 @@ cdef class GDBStub:
             self.main.printMsg("GDBStub::__init__: socket exception.")
             self.server = None
             self.gdbHandler = None
+        except (SystemExit, KeyboardInterrupt):
+            print(sys.exc_info())
+            self.main.quitEmu = True
+            self.main.printMsg("GDBStub::__init__: (SystemExit, KeyboardInterrupt) exception.")
+            self.server = None
+            self.gdbHandler = None
         except:
             print(sys.exc_info())
             self.main.printMsg("GDBStub::__init__: else exception.")
@@ -331,15 +338,19 @@ cdef class GDBStub:
             self.server.shutdown()
     cpdef serveGDBStub(self):
         try:
-            self.server.serve_forever()
+            if (self.server):
+                self.server.serve_forever()
         except (SystemExit, KeyboardInterrupt):
-            self.server.shutdown()
+            self.main.quitEmu = True
+            if (self.server):
+                self.server.shutdown()
         except:
             print(sys.exc_info())
     cpdef run(self):
         try:
             (<Misc>self.main.misc).createThread(self.serveGDBStub, True)
         except (SystemExit, KeyboardInterrupt):
+            self.main.quitEmu = True
             sys.exit(self.main.exitCode)
 
 

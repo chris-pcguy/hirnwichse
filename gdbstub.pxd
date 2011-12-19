@@ -3,7 +3,7 @@ from mm cimport Mm, ConfigSpace
 
 
 cdef class GDBStubHandler:
-    cpdef public object main, connHandler
+    cpdef object main, connHandler
     cdef GDBStub gdbStub
     cdef bytes lastReadData, lastWrittenData, cmdStr
     cdef unsigned char cmdStrChecksum, cmdStrChecksumProof, readState, initSent
@@ -22,7 +22,7 @@ cdef class GDBStubHandler:
 
 
 cdef class GDBStub:
-    cpdef public object main, server
+    cpdef object main, server
     cdef GDBStubHandler gdbHandler
     cpdef quitFunc(self)
     cpdef serveGDBStub(self)
