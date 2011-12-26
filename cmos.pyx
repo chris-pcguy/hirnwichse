@@ -14,24 +14,32 @@ cdef class Cmos:
     cdef writeValue(self, unsigned char index, unsigned long value, unsigned char size):
         self.configSpace.csWriteValue(index, value, size)
     cdef reset(self):
-        cdef unsigned long long extMemSizeInK
+        cdef unsigned long long memSizeInK, extMemSizeInK, extMemSizeIn64K
+        memSizeInK = extMemSizeInK = extMemSizeIn64K = 0
         self.configSpace.csResetData()
         self.writeValue(CMOS_STATUS_REGISTER_B, 0x06, OP_SIZE_BYTE)
         self.writeValue(CMOS_STATUS_REGISTER_D, 0x80, OP_SIZE_BYTE)
         self.writeValue(CMOS_EQUIPMENT_BYTE, 0x21, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE) # boot from floppy first.
         self.writeValue(CMOS_BASE_MEMORY_L, 0x80, OP_SIZE_BYTE)
         self.writeValue(CMOS_BASE_MEMORY_H, 0x02, OP_SIZE_BYTE)
-        extMemSizeInK = (self.main.memSize//1024)-640
-        if (extMemSizeInK > 16384): # 16M
-            extMemSizeInK = 16384   # 16M
+        memSizeInK = (self.main.memSize//1024)
+        if (memSizeInK > 1024): # if we have over 1MB physical memory ...
+            extMemSizeInK = (memSizeInK - 1024) # ... extMemSizeInK is all physical memory over 1MB as KB ...
+        if (extMemSizeInK > 0xfc00): # ... with an maximal value of 0xfc00 == 63MB extended memory == 64MB physical memory.
+            extMemSizeInK = 0xfc00
         self.writeValue(CMOS_EXT_MEMORY_L, extMemSizeInK&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY_L2, extMemSizeInK&0xff, OP_SIZE_BYTE)
         self.writeValue(CMOS_EXT_MEMORY_H, (extMemSizeInK>>8)&0xff, OP_SIZE_BYTE)
-        self.writeValue(CMOS_EXT_MEMORY_L2, self.readValue(CMOS_EXT_MEMORY_L, OP_SIZE_BYTE), OP_SIZE_BYTE)
-        self.writeValue(CMOS_EXT_MEMORY_H2, self.readValue(CMOS_EXT_MEMORY_H, OP_SIZE_BYTE), OP_SIZE_BYTE)
-        extMemSizeInK //= 64 # next two lines will need the memSize in 64K-blocks
-        self.writeValue(CMOS_EXT_MEMORY2_L, extMemSizeInK&0xff, OP_SIZE_BYTE)
-        self.writeValue(CMOS_EXT_MEMORY2_H, (extMemSizeInK>>8)&0xff, OP_SIZE_BYTE)
-        self.writeValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE) # boot from floppy first.
+        self.writeValue(CMOS_EXT_MEMORY_H2, (extMemSizeInK>>8)&0xff, OP_SIZE_BYTE)
+        if (memSizeInK > 16384):
+            extMemSizeIn64K = ((memSizeInK - 16384) // 64)
+        if (extMemSizeIn64K > 0xbf00):
+            extMemSizeIn64K = 0xbf00
+        self.writeValue(CMOS_EXT_MEMORY2_L, extMemSizeIn64K&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY2_H, (extMemSizeIn64K>>8)&0xff, OP_SIZE_BYTE)
+        # TODO: set here the physical memory over 4GB if we need it...
+        # ... or if we're able to handle it anywhere in the future... oO
         ##self.updateTime()
     cdef updateTime(self):
         cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century
