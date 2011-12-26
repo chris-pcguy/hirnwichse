@@ -9,6 +9,7 @@ include "globals.pxi"
 cdef class Gdt:
     def __init__(self, Segments segments):
         self.segments = segments
+    cdef reset(self):
         self.setGdtLoadedTo = False # used only if needFlush == True
         self.gdtLoaded = False
         self.needFlush = False # flush with farJMP (opcode 0xEA)
@@ -175,9 +176,8 @@ cdef class Segments:
     def __init__(self, object main):
         self.main = main
     cdef reset(self):
-        self.gdt = Gdt(self)
-        self.ldt = Gdt(self)
-        self.idt = Idt(self)
+        self.gdt.reset()
+        self.ldt.reset()
         self.idt.run(0, 0x3ff)
     cdef tuple getEntry(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
@@ -220,6 +220,9 @@ cdef class Segments:
             return self.ldt.checkSegmentLoadAllowed(num, loadStackSegment, doException)
         return self.gdt.checkSegmentLoadAllowed(num, loadStackSegment, doException)
     cdef run(self):
+        self.gdt = Gdt(self)
+        self.ldt = Gdt(self)
+        self.idt = Idt(self)
         self.reset()
 
 

@@ -12,7 +12,7 @@ DEF DISKETTE_RET_STATUS_ADDR = 0x441 # byte
 cdef class PythonBios:
     def __init__(self, object main):
         self.main = main
-    cdef interrupt(self, unsigned char intNum):
+    cpdef interrupt(self, unsigned char intNum):
         cdef unsigned long memAddr, logicalSector
         cdef unsigned short ax, cx, dx, bx, bp, i, count, cylinder, cursorPos
         cdef unsigned char currMode, ah, al, bh, bl, dh, dl, fdcNum, updateCursor, c, attr, attrInBuf, sector, head

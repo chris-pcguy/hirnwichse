@@ -5,6 +5,7 @@ cdef class Gdt:
     cdef unsigned char needFlush, setGdtLoadedTo, gdtLoaded
     cdef unsigned long long tableBase
     cdef unsigned long tableLimit
+    cdef reset(self)
     cdef loadTable(self, unsigned long long tableBase, unsigned long tableLimit)
     cdef tuple getBaseLimit(self)
     cdef tuple getEntry(self, unsigned short num)

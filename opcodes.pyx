@@ -4,8 +4,6 @@ import sys, misc
 from misc cimport Misc
 from registers cimport Registers
 from mm cimport Mm
-##from pythonBios cimport PythonBios
-from X86Platform cimport Platform
 
 
 include "globals.pxi"
@@ -782,19 +780,19 @@ cdef class Opcodes:
     cdef inAxImm8(self, unsigned char operSize):
         cdef unsigned short dataReg
         dataReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
-        (<Registers>self.main.cpu.registers).regWrite(dataReg, (<Platform>self.main.platform).inPort((<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False), operSize))
+        (<Registers>self.main.cpu.registers).regWrite(dataReg, self.main.platform.inPort((<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False), operSize))
     cdef inAxDx(self, unsigned char operSize):
         cdef unsigned short dataReg
         dataReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
-        (<Registers>self.main.cpu.registers).regWrite(dataReg, (<Platform>self.main.platform).inPort((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_DX, False), operSize))
+        (<Registers>self.main.cpu.registers).regWrite(dataReg, self.main.platform.inPort((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_DX, False), operSize))
     cdef outImm8Ax(self, unsigned char operSize):
         cdef unsigned short dataReg
         dataReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
-        (<Platform>self.main.platform).outPort((<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False), (<Registers>self.main.cpu.registers).regRead(dataReg, False), operSize)
+        self.main.platform.outPort((<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False), (<Registers>self.main.cpu.registers).regRead(dataReg, False), operSize)
     cdef outDxAx(self, unsigned char operSize):
         cdef unsigned short dataReg
         dataReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
-        (<Platform>self.main.platform).outPort((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_DX, False), (<Registers>self.main.cpu.registers).regRead(dataReg, False), operSize)
+        self.main.platform.outPort((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_DX, False), (<Registers>self.main.cpu.registers).regRead(dataReg, False), operSize)
     cdef outsFunc(self, unsigned char operSize):
         cdef unsigned char addrSize, df
         cdef unsigned short dxReg, esiReg, countReg, ioPort
@@ -813,7 +811,7 @@ cdef class Opcodes:
             esiVal = (<Registers>self.main.cpu.registers).regRead(esiReg, False)
             ioPort = (<Registers>self.main.cpu.registers).regRead(dxReg, False)
             value = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(esiVal, operSize, CPU_SEGMENT_DS, True)
-            (<Platform>self.main.platform).outPort(ioPort, value, operSize)
+            self.main.platform.outPort(ioPort, value, operSize)
             if (not df):
                 (<Registers>self.main.cpu.registers).regAdd(esiReg, operSize)
             else:
@@ -838,7 +836,7 @@ cdef class Opcodes:
         for i in range(countVal):
             ediVal = (<Registers>self.main.cpu.registers).regRead(ediReg, False)
             ioPort = (<Registers>self.main.cpu.registers).regRead(dxReg, False)
-            value = (<Platform>self.main.platform).inPort(ioPort, operSize)
+            value = self.main.platform.inPort(ioPort, operSize)
             (<Registers>self.main.cpu.registers).mmWriteValue(ediVal, value, operSize, CPU_SEGMENT_ES, False)
             if (not df):
                 (<Registers>self.main.cpu.registers).regAdd(ediReg, operSize)
@@ -1922,7 +1920,7 @@ cdef class Opcodes:
         else:
             entrySegment, entryEip = (<Registers>self.main.cpu.registers).segments.idt.getEntryRealMode(intNum)
             if ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10)):
-                pythonBiosDone = (<Platform>self.main.platform).pythonBios.interrupt(intNum)
+                pythonBiosDone = self.main.platform.pythonBios.interrupt(intNum)
                 if (pythonBiosDone):
                     return
         self.main.debug("Interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}", intNum, entrySegment, entryEip)

@@ -123,7 +123,7 @@ cdef class Platform:
             elif (set(port.ports).issuperset(portNums)):
                 self.main.printMsg("delWriteHandlers: Don't know what todo here.")
                 return
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef PortHandler port
         cdef unsigned short portNum
         cdef unsigned long retVal, bitMask
@@ -143,7 +143,7 @@ cdef class Platform:
         except:
             traceback.print_exc()
             sys.exit(1)
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cpdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef PortHandler port
         cdef unsigned short portNum
         cdef unsigned long bitMask

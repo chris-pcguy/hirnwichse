@@ -226,10 +226,12 @@ cdef class Registers:
         return (self.regRead(regId, False)&flags)
     cdef unsigned short getWordAsDword(self, unsigned short regWord, unsigned char wantRegSize):
         if (regWord in CPU_REGISTER_BYTE):
-            # regWord should be LBYTE...
+            # regWord should be lbyte...
             if (regWord in CPU_REGISTER_HBYTE):
                 regWord += 1
-            if (wantRegSize == OP_SIZE_WORD):
+            if (wantRegSize == OP_SIZE_BYTE):
+                return regWord
+            elif (wantRegSize == OP_SIZE_WORD):
                 return regWord-2
             elif (wantRegSize == OP_SIZE_DWORD):
                 return regWord-3
@@ -237,19 +239,34 @@ cdef class Registers:
                 return regWord-4
         elif (regWord in CPU_REGISTER_WORD):
             if (wantRegSize == OP_SIZE_BYTE):
-                return regWord+2
+                return regWord+2 # return lbyte
+            elif (wantRegSize == OP_SIZE_WORD):
+                return regWord
             elif (wantRegSize == OP_SIZE_DWORD):
                 return regWord-1
             elif (wantRegSize == OP_SIZE_QWORD):
                 return regWord-2
         elif (regWord in CPU_REGISTER_DWORD):
             if (wantRegSize == OP_SIZE_BYTE):
-                return regWord+3
+                return regWord+3 # return lbyte
             elif (wantRegSize == OP_SIZE_WORD):
                 return regWord+1
+            elif (wantRegSize == OP_SIZE_DWORD):
+                return regWord
             elif (wantRegSize == OP_SIZE_QWORD):
                 return regWord-1
-        return regWord
+        elif (regWord in CPU_REGISTER_QWORD):
+            if (wantRegSize == OP_SIZE_BYTE):
+                return regWord+4 # return lbyte
+            elif (wantRegSize == OP_SIZE_WORD):
+                return regWord+2
+            elif (wantRegSize == OP_SIZE_DWORD):
+                return regWord+1
+            elif (wantRegSize == OP_SIZE_QWORD):
+                return regWord
+        else:
+            self.main.exitError("unknown case. (regWord: {0:d}, wantRegSize: {1:d})", regWord, wantRegSize)
+        return 0
     cdef setSZP(self, unsigned long value, unsigned char regSize):
         self.setEFLAG(FLAG_SF, (value&(<Misc>self.main.misc).getBitMask80(regSize))!=0)
         self.setEFLAG(FLAG_ZF, value==0)
@@ -691,8 +708,8 @@ cdef class Registers:
         return opSize, addrSize
     cdef run(self):
         self.regs = ConfigSpace(CPU_REGISTER_LENGTH)
-        self.regs.run()
         self.segments = Segments(self.main)
+        self.regs.run()
         self.segments.run()
 
 
