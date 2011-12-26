@@ -365,84 +365,59 @@ cdef class Registers:
     cdef tuple modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # imm == unsigned ; disp == signed ; regSize in bytes
         cdef unsigned char modRMByte, rm, reg, mod, addrSegSize
         cdef unsigned short rmNameSegId, rmName0, rmName1, regName
+        cdef long long rmName2
         rmNameSegId = CPU_SEGMENT_DS
         rmName0 = rmName1 = regName = CPU_REGISTER_NONE
-        cdef long long rmName2
+        rmName2 = 0
         addrSegSize = self.getAddrSegSize(CPU_SEGMENT_CS)
         modRMByte = self.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         rm  = modRMByte&0x7
         reg = (modRMByte>>3)&0x7
         mod = (modRMByte>>6)&0x3
 
-        rmName0 = rmName1 = rmName2 = 0
         regName  = self.getRegValueWithFlags(modRMflags, reg, regSize) # source
-        if (addrSegSize == OP_SIZE_WORD):
-            if (mod in (0, 1, 2)): # rm: source ; reg: dest
-                if (rm in (0, 1, 7)):
-                    rmName0 = CPU_REGISTER_BX
-                elif (rm in (2, 3) or (rm == 6 and mod in (1,2))):
-                    rmName0 = CPU_REGISTER_BP
-                elif (rm == 4):
-                    rmName0 = CPU_REGISTER_SI
-                elif (rm == 5):
-                    rmName0 = CPU_REGISTER_DI
-                if (rm in (0, 2)):
-                    rmName1 = CPU_REGISTER_SI
-                elif (rm in (1, 3)):
-                    rmName1 = CPU_REGISTER_DI
-                if (mod == 0 and rm == 6):
-                    rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
-                elif (mod == 2):
-                    rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_WORD, True)
-                elif (mod == 1):
-                    rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
-            elif (mod == 3): # reg: source ; rm: dest
-                if (regSize == OP_SIZE_BYTE):
-                    rmName0  = CPU_REGISTER_BYTE[rm] # dest
-                elif (regSize == OP_SIZE_WORD):
-                    rmName0  = CPU_REGISTER_WORD[rm] # dest
-                elif (regSize == OP_SIZE_DWORD):
-                    rmName0  = CPU_REGISTER_DWORD[rm] # dest
-                else:
-                    self.main.exitError("modRMOperands: mod==3; regSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)", regSize)
+        if (mod == 3): # reg: source ; rm: dest
+            if (regSize == OP_SIZE_BYTE):
+                rmName0  = CPU_REGISTER_BYTE[rm] # dest
+            elif (regSize == OP_SIZE_WORD):
+                rmName0  = CPU_REGISTER_WORD[rm] # dest
+            elif (regSize == OP_SIZE_DWORD):
+                rmName0  = CPU_REGISTER_DWORD[rm] # dest
             else:
-                self.main.exitError("modRMOperands: mod not in (0,1,2)")
+                self.main.exitError("modRMOperands: mod==3; regSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)", regSize)
+        elif (addrSegSize == OP_SIZE_WORD):
+            if (rm in (0, 1, 7)):
+                rmName0 = CPU_REGISTER_BX
+            elif (rm in (2, 3) or (rm == 6 and mod in (1,2))):
+                rmName0 = CPU_REGISTER_BP
+            elif (rm == 4):
+                rmName0 = CPU_REGISTER_SI
+            elif (rm == 5):
+                rmName0 = CPU_REGISTER_DI
+            if (rm in (0, 2)):
+                rmName1 = CPU_REGISTER_SI
+            elif (rm in (1, 3)):
+                rmName1 = CPU_REGISTER_DI
+            if (mod == 0 and rm == 6):
+                rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
+            elif (mod == 2):
+                rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_WORD, True)
+            elif (mod == 1):
+                rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
         elif (addrSegSize == OP_SIZE_DWORD):
-            if (mod in (0, 1, 2)): # rm: source ; reg: dest
-                if (rm == 0):
-                    rmName0 = CPU_REGISTER_EAX
-                elif (rm == 1):
-                    rmName0 = CPU_REGISTER_ECX
-                elif (rm == 2):
-                    rmName0 = CPU_REGISTER_EDX
-                elif (rm == 3):
-                    rmName0 = CPU_REGISTER_EBX
-                elif (rm == 4): # SIB
-                    rmName0, rmName2 = self.sibOperands(mod)
-                elif (rm == 5):
-                    if (mod == 0):
-                        rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
-                    else:
-                        rmName0 = CPU_REGISTER_EBP
-                elif (rm == 6):
-                    rmName0 = CPU_REGISTER_ESI
-                elif (rm == 7):
-                    rmName0 = CPU_REGISTER_EDI
-                if (mod == 1):
-                    rmName2 += self.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
-                elif (mod == 2):
-                    rmName2 += self.getCurrentOpcodeAdd(OP_SIZE_DWORD, True)
-            elif (mod == 3): # reg: source ; rm: dest
-                if (regSize == OP_SIZE_BYTE):
-                    rmName0  = CPU_REGISTER_BYTE[rm] # dest
-                elif (regSize == OP_SIZE_WORD):
-                    rmName0  = CPU_REGISTER_WORD[rm] # dest
-                elif (regSize == OP_SIZE_DWORD):
-                    rmName0  = CPU_REGISTER_DWORD[rm] # dest
+            if (rm in (0, 1, 2, 3, 6, 7)):
+                rmName0 = CPU_REGISTER_DWORD[rm]
+            elif (rm == 4): # SIB
+                rmName0, rmName2 = self.sibOperands(mod)
+            elif (rm == 5):
+                if (mod == 0):
+                    rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
                 else:
-                    self.main.exitError("modRMOperands: mod==3; regSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)", regSize)
-            else:
-                self.main.exitError("modRMOperands: mod not in (0,1,2)")
+                    rmName0 = CPU_REGISTER_EBP
+            if (mod == 1):
+                rmName2 += self.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
+            elif (mod == 2):
+                rmName2 += self.getCurrentOpcodeAdd(OP_SIZE_DWORD, True)
         else:
             self.main.exitError("modRMOperands: AddrSegSize(CS) not in (OP_SIZE_WORD, OP_SIZE_DWORD)")
         if (rmName0 in (CPU_REGISTER_BP, CPU_REGISTER_SP, CPU_REGISTER_EBP, CPU_REGISTER_ESP)):

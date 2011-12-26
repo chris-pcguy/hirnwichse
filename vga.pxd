@@ -64,7 +64,7 @@ cdef class Vga:
     cdef getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y)
     cdef unsigned short getCursorPosition(self, unsigned char page)
     cdef setCursorPosition(self, unsigned char page, unsigned short pos)
-    cdef scrollDown(self, unsigned char page)
+    cdef scrollDown(self, unsigned char page, short attr)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
     cdef VRamAddMemArea(self)

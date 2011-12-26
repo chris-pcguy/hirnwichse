@@ -17,20 +17,23 @@ cdef class MmArea:
         self.mmAreaSize = mmAreaSize
         self.mmEndAddr  = self.mmBaseAddr+self.mmAreaSize
         self.mmReadOnly = mmReadOnly
+    cdef mmResetAreaData(self):
+        if (self.mmAreaData is not None):
+            memset(self.mmAreaData, 0xff, self.mmAreaSize)
     cpdef mmFreeAreaData(self):
-        if (self.mmAreaData):
+        if (self.mmAreaData is not None):
             free(self.mmAreaData)
         self.mmAreaData = None
     cdef mmSetReadOnly(self, unsigned char mmReadOnly):
         self.mmReadOnly = mmReadOnly
     cdef bytes mmAreaRead(self, unsigned long long mmAddr, unsigned long long dataSize):
-        if (not self.mmAreaData):
+        if (self.mmAreaData is None):
             raise MemoryError()
         mmAddr -= self.mmBaseAddr
         return bytes(self.mmAreaData[mmAddr:mmAddr+dataSize])
     cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize):
         cdef char *tempAddr
-        if (not self.mmAreaData):
+        if (self.mmAreaData is None):
             raise MemoryError()
         if (self.mmReadOnly):
             self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
@@ -40,9 +43,9 @@ cdef class MmArea:
         memcpy(<char*>tempAddr, <char*>data, dataSize)
     cpdef run(self):
         self.mmAreaData = <char*>malloc(self.mmAreaSize)
-        if (not self.mmAreaData):
+        if (self.mmAreaData is None):
             raise MemoryError()
-        memset(<char*>self.mmAreaData, 0xff, self.mmAreaSize)
+        self.mmResetAreaData()
         atexit.register(self.mmFreeAreaData)
 
 
@@ -59,6 +62,7 @@ cdef class Mm:
         cdef unsigned short i
         for i in range(len(self.mmAreas)):
             if (mmBaseAddr == self.mmAreas[i].mmBaseAddr):
+                self.mmAreas[i] = None
                 del self.mmAreas[i]
                 return True
         return False
@@ -78,7 +82,7 @@ cdef class Mm:
     cdef bytes mmPhyRead(self, long long mmAddr, unsigned long long dataSize): # dataSize in bytes
         cdef MmArea mmArea
         mmArea = self.mmGetSingleArea(mmAddr, dataSize)
-        if (not mmArea):
+        if (mmArea is None):
             self.main.exitError("mmPhyRead: mmAreas not found! (mmAddr: {0:#10x}, dataSize: {1:d})", mmAddr, dataSize)
             return
         return mmArea.mmAreaRead(mmAddr, dataSize)
@@ -111,19 +115,19 @@ cdef class ConfigSpace:
     def __init__(self, unsigned long csSize):
         self.csSize = csSize
     cdef csResetData(self):
-        if (self.csData):
-            memset(self.csData, 0, self.csSize)
+        if (self.csData is not None):
+            memset(self.csData, 0x00, self.csSize)
     cpdef csFreeData(self):
-        if (self.csData):
+        if (self.csData is not None):
             free(self.csData)
         self.csData = None
     cdef bytes csRead(self, unsigned long offset, unsigned long size):
-        if (not self.csData):
+        if (self.csData is None):
             raise MemoryError()
         return bytes(self.csData[offset:offset+size])
     cdef csWrite(self, unsigned long offset, bytes data, unsigned long size):
         cdef char *tempAddr
-        if (not self.csData):
+        if (self.csData is None):
             raise MemoryError()
         tempAddr = <char*>(self.csData+offset)
         memcpy(<char*>tempAddr, <char*>data, size)
@@ -153,9 +157,9 @@ cdef class ConfigSpace:
         return self.csWriteValue(offset, self.csReadValue(offset, size, False)-data, size)
     cpdef run(self):
         self.csData = <char*>malloc(self.csSize)
-        if (not self.csData):
+        if (self.csData is None):
             raise MemoryError()
-        memset(<char*>self.csData, 0x00, self.csSize)
+        self.csResetData()
         atexit.register(self.csFreeData)
 
 

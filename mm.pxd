@@ -6,6 +6,7 @@ cdef class MmArea:
     cdef unsigned char mmReadOnly
     cdef unsigned long long mmBaseAddr, mmAreaSize, mmEndAddr
     cdef char *mmAreaData
+    cdef mmResetAreaData(self)
     cpdef mmFreeAreaData(self)
     cdef mmSetReadOnly(self, unsigned char mmReadOnly)
     cdef bytes mmAreaRead(self, unsigned long long mmAddr, unsigned long long dataSize)

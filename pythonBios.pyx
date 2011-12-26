@@ -13,8 +13,8 @@ cdef class PythonBios:
     def __init__(self, object main):
         self.main = main
     cdef interrupt(self, unsigned char intNum):
-        cdef unsigned long memAddr, logicalSector, i
-        cdef unsigned short ax, cx, dx, bx, bp, count, cylinder, cursorPos
+        cdef unsigned long memAddr, logicalSector
+        cdef unsigned short ax, cx, dx, bx, bp, i, count, cylinder, cursorPos
         cdef unsigned char currMode, ah, al, bh, bl, dh, dl, fdcNum, updateCursor, c, attr, attrInBuf, sector, head
         cdef bytes data
         #return False
@@ -27,7 +27,7 @@ cdef class PythonBios:
         ch, cl = cx>>8, cx&0xff
         dh, dl = dx>>8, dx&0xff
         bh, bl = bx>>8, bx&0xff
-        if (intNum == 0x10): # video; TODO
+        if (intNum == 0x10): # video; TODO: REWORK THIS AND THE VGA MODULE TOO!!!
             #return False
             currMode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURRENT_MODE_ADDR, 1)
             self.main.debug("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
@@ -51,17 +51,13 @@ cdef class PythonBios:
                         if (ah in (0x09, 0x0a)):
                             count = cx
                         elif (ah == 0x0e):
-                            bh = 0xff # according to vgabios, AH:0x0e must print on the current page!!
+                            bh = 0xff # according to vgabios, AH:0x0e must print on the current page (0xff)!!
                         for i in range(count):
                             # ah==0x09: bl for textmode/graphicsmode;; ah==0x0e: bl for textmode
                             if (currMode in (0x00, 0x01, 0x02, 0x03, 0x07) and ah == 0x09):
-                                (<Vga>self.main.platform.vga).writeCharacterTeletype(al, bl, 0xff, ah==0x0e) # page 0xff == current page
+                                (<Vga>self.main.platform.vga).writeCharacterTeletype(al, bl, bh, ah==0x0e)
                             else:
-                                (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, 0xff, ah==0x0e) # page 0xff == current page
-                            cursorPos = (<Vga>self.main.platform.vga).getCursorPosition(bh)
-                            if (ax == 0x0e0a and cursorPos >= 0x1900):
-                                (<Vga>self.main.platform.vga).scrollDown(bh)
-                                (<Vga>self.main.platform.vga).setCursorPosition(bh, ((0x1800)|(cursorPos&0xff)))
+                                (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, bh, ah==0x0e)
                         return True
                     else:
                         self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x0e: currMode {0:d} not supported here. (ax: {1:#04x})", currMode, ax)
@@ -81,10 +77,6 @@ cdef class PythonBios:
                             if (attrInBuf):
                                 attr = data[i+1]
                             (<Vga>self.main.platform.vga).writeCharacterTeletype(c, attr, bh, True)
-                            cursorPos = (<Vga>self.main.platform.vga).getCursorPosition(bh)
-                            if (c == 0x0a and cursorPos >= 0x1900):
-                                (<Vga>self.main.platform.vga).scrollDown(bh)
-                                (<Vga>self.main.platform.vga).setCursorPosition(bh, ((0x1800)|(cursorPos&0xff)))
                         if (not updateCursor):
                             (<Vga>self.main.platform.vga).setCursorPosition(bh, dx)
                         return True

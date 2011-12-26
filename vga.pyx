@@ -144,6 +144,7 @@ cdef class Vga:
         elif (c == 0x9): # TAB == horizontal tabulator
             for i in range( 8-(x%8) ):
                 self.writeCharacter(address, 0x20, attr) # space
+                x += 1
         elif (c == 0xa): # LF == Newline/Linefeed
             y += 1
         elif (c == 0xd): # CR == carriage return
@@ -151,18 +152,24 @@ cdef class Vga:
         else:
             self.writeCharacter(address, c, attr)
             x += 1
+        if (x == 80):
+            x = 0
+            y += 1
+        if (y == 25):
+            self.scrollDown(page, attr)
+            y -= 1
+        cursorPos = ((y<<8)|x)
         if (updateCursor):
-            self.setCursorPosition(page, (y<<8)|x)
+            self.setCursorPosition(page, cursorPos)
     cdef writeCharacter(self, unsigned long address, unsigned char c, short attr):
         if (attr == -1):
-            (<Mm>self.main.mm).mmPhyWriteValue(address, c, 1)
-        else:
-            (<Mm>self.main.mm).mmPhyWriteValue(address, ((attr<<8)|c), 2)
+            attr = 0x07
+        (<Mm>self.main.mm).mmPhyWriteValue(address, ((attr<<8)|c), 2)
     cdef getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
         cdef unsigned long offset
         page = self.getCorrectPage(page)
         offset = ((y*80)+x)*2
-        return VGA_TEXTMODE_ADDR+(page*0x1000)+offset
+        return ((VGA_TEXTMODE_ADDR+(0x1000*page))+offset)
     cdef unsigned short getCursorPosition(self, unsigned char page): # returns y, x
         cdef unsigned short pos
         page = self.getCorrectPage(page)
@@ -177,7 +184,7 @@ cdef class Vga:
             self.main.printMsg("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
         (<Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page*2), pos, 2)
-    cdef scrollDown(self, unsigned char page):
+    cdef scrollDown(self, unsigned char page, short attr):
         cdef bytes oldData
         cdef unsigned long oldAddr
         self.setProcessVideoMem(False)
@@ -185,7 +192,10 @@ cdef class Vga:
         oldAddr = self.getAddrOfPos(page, 0, 0)
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr+160, 3840) # 3840==24*80*2
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 3840)
-        (<Mm>self.main.mm).mmPhyWrite(oldAddr+3840, b'\x00'*160, 160)
+        if (attr == -1):
+            attr = (<Mm>self.main.mm).mmPhyReadValueUnsigned(self.getAddrOfPos(page, 79, 24)+1, 1)
+        oldData = bytes([ 0x20, attr ])*80
+        (<Mm>self.main.mm).mmPhyWrite(oldAddr+3840, oldData, 160)
         self.setProcessVideoMem(True)
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, 4000)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
