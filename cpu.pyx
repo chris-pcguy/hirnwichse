@@ -179,6 +179,7 @@ cdef class Cpu:
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
         self.registers.run()
+        self.opcodes.run()
         self.reset()
         self.doInfiniteCycles()
     ###

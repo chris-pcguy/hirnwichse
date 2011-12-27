@@ -3,6 +3,27 @@
 from mm cimport Mm, ConfigSpace
 from segments cimport Gdt, Idt, Segments
 
+cdef class ModRMClass:
+    cdef object main
+    cdef Registers registers
+    cdef unsigned char rm, reg, mod
+    cdef unsigned short rmName0, rmName1, rmNameSegId, regName
+    cdef long long rmName2
+    cdef resetVars(self, unsigned char modRMByte)
+    cdef copyRMVars(self, ModRMClass otherInstance)
+    cdef sibOperands(self)
+    cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags)
+    cdef modRMOperandsResetEip(self, unsigned char regSize, unsigned char modRMflags)
+    cdef unsigned long long getRMValueFull(self, unsigned char rmSize)
+    cdef long long modRMLoad(self, unsigned char regSize, unsigned char signed, unsigned char allowOverride)
+    cdef unsigned long long modRMSave(self, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp) # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
+    cdef unsigned short modSegLoad(self, unsigned char regSize)
+    cdef unsigned short modSegSave(self, unsigned char regSize, unsigned long long value)
+    cdef long long modRLoad(self, unsigned char regSize, unsigned char signed)
+    cdef unsigned long long modRSave(self, unsigned char regSize, unsigned long long value, unsigned char valueOp)
+
+
+
 cdef class Registers:
     cpdef object main
     cdef Segments segments
@@ -43,19 +64,9 @@ cdef class Registers:
     cdef setSZP(self, unsigned long value, unsigned char regSize)
     cdef setSZP_O0(self, unsigned long value, unsigned char regSize)
     cdef setSZP_C0_O0_A0(self, unsigned long value, unsigned char regSize)
-    cdef unsigned long long getRMValueFull(self, tuple rmNames, unsigned char rmSize)
-    cdef long long modRMLoad(self, tuple rmOperands, unsigned char regSize, unsigned char signed, unsigned char allowOverride) # imm == unsigned ; disp == signed; regSize in bits
-    cdef unsigned long long modRMSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp) # imm == unsigned ; disp == signed; stdAllowOverride==True, stdValueOp==OPCODE_SAVE
-    cdef unsigned short modSegLoad(self, tuple rmOperands, unsigned char regSize) # imm == unsigned ; disp == signed
-    cdef unsigned short modSegSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value) # imm == unsigned ; disp == signed
-    cdef long long modRLoad(self, tuple rmOperands, unsigned char regSize, unsigned char signed) # imm == unsigned ; disp == signed
-    cdef unsigned long long modRSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value, unsigned char valueOp) # imm == unsigned ; disp == signed
-    cdef unsigned short getRegValueWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize)
-    cdef tuple sibOperands(self, unsigned char mod)
-    cdef tuple modRMOperands(self, unsigned char regSize, unsigned char modRMflags) # imm == unsigned ; disp == signed ; regSize in bytes
-    cdef tuple modRMOperandsResetEip(self, unsigned char regSize, unsigned char modRMflags)
+    cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize)
     cdef unsigned char getCond(self, unsigned char index)
-    cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method, unsigned char signed) # regSize in bits
+    cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method, unsigned char signed)
     #cdef checkMemAccessRights(self, unsigned short segId, unsigned char write)
     cdef unsigned long long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride)
     cdef bytes mmRead(self, long long mmAddr, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)

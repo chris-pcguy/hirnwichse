@@ -4,6 +4,144 @@ from misc cimport Misc
 
 include "globals.pxi"
 
+cdef class ModRMClass:
+    def __init__(self, object main, Registers registers):
+        self.main = main
+        self.registers = registers
+    cdef resetVars(self, unsigned char modRMByte):
+        self.rmNameSegId = CPU_SEGMENT_DS
+        self.rmName1 = CPU_REGISTER_NONE
+        self.rmName2 = 0
+        self.rm  = modRMByte&0x7
+        self.reg = (modRMByte>>3)&0x7
+        self.mod = (modRMByte>>6)&0x3
+    cdef copyRMVars(self, ModRMClass otherInstance):
+        self.rmName0 = otherInstance.rmName0
+        self.rmName1 = otherInstance.rmName1
+        self.rmName2 = otherInstance.rmName2
+        self.rmNameSegId = otherInstance.rmNameSegId
+    cdef sibOperands(self):
+        cdef unsigned char sibByte, base, index, ss
+        cdef unsigned short indexReg
+        sibByte = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
+        base    = (sibByte)&7
+        index   = (sibByte>>3)&7
+        ss      = (sibByte>>6)&3
+        indexReg = MODRM_SIB_INDEX_REGS[index]
+        self.rmName0 = self.registers.getRegNameWithFlags(0, base, OP_SIZE_DWORD)
+        self.rmName2 = ((self.registers.regRead( indexReg, False ) * (1 << ss))&BITMASK_DWORD)
+        if (self.mod == 0 and base == 5):
+            self.rmName0 = CPU_REGISTER_NONE
+            self.rmName2 += self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+    cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
+        cdef unsigned char addrSegSize
+        addrSegSize = self.registers.getAddrSegSize(CPU_SEGMENT_CS)
+        self.resetVars(self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False))
+        self.regName = self.registers.getRegNameWithFlags(modRMflags, self.reg, regSize) # source
+        if (self.mod == 3): # reg: source ; rm: dest
+            if (regSize == OP_SIZE_BYTE):
+                self.rmName0  = CPU_REGISTER_BYTE[self.rm] # dest
+            elif (regSize == OP_SIZE_WORD):
+                self.rmName0  = CPU_REGISTER_WORD[self.rm] # dest
+            elif (regSize == OP_SIZE_DWORD):
+                self.rmName0  = CPU_REGISTER_DWORD[self.rm] # dest
+            else:
+                self.main.exitError("modRMOperands: mod==3; regSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)", regSize)
+        elif (addrSegSize == OP_SIZE_WORD):
+            if (self.rm in (0, 1, 7)):
+                self.rmName0 = CPU_REGISTER_BX
+            elif (self.rm in (2, 3)):
+                self.rmName0 = CPU_REGISTER_BP
+            elif (self.rm == 4):
+                self.rmName0 = CPU_REGISTER_SI
+            elif (self.rm == 5):
+                self.rmName0 = CPU_REGISTER_DI
+            elif (self.rm == 6):
+                self.rmName0 = CPU_REGISTER_NONE
+                if (self.mod == 0):
+                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
+                else:
+                    self.rmName0 = CPU_REGISTER_BP
+            if (self.rm in (0, 2)):
+                self.rmName1 = CPU_REGISTER_SI
+            elif (self.rm in (1, 3)):
+                self.rmName1 = CPU_REGISTER_DI
+            if (self.mod == 1):
+                self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
+            elif (self.mod == 2):
+                self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, True)
+        elif (addrSegSize == OP_SIZE_DWORD):
+            if (self.rm in (0, 1, 2, 3, 6, 7)):
+                self.rmName0 = CPU_REGISTER_DWORD[self.rm]
+            elif (self.rm == 4): # SIB
+                self.sibOperands()
+            elif (self.rm == 5):
+                if (self.mod == 0):
+                    self.rmName0 = CPU_REGISTER_NONE
+                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+                else:
+                    self.rmName0 = CPU_REGISTER_EBP
+            if (self.mod == 1):
+                self.rmName2 += self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
+            elif (self.mod == 2):
+                self.rmName2 += self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, True)
+        else:
+            self.main.exitError("modRMOperands: AddrSegSize(CS) not in (OP_SIZE_WORD, OP_SIZE_DWORD)")
+        if (self.rmName0 in (CPU_REGISTER_BP, CPU_REGISTER_SP, CPU_REGISTER_EBP, CPU_REGISTER_ESP)):
+            self.rmNameSegId = CPU_SEGMENT_SS
+        if (self.registers.segmentOverridePrefix):
+            self.rmNameSegId = self.registers.segmentOverridePrefix
+    cdef modRMOperandsResetEip(self, unsigned char regSize, unsigned char modRMflags):
+        oldEip = self.registers.regRead( CPU_REGISTER_EIP, False )
+        self.modRMOperands(regSize, modRMflags)
+        self.registers.regWrite( CPU_REGISTER_EIP, oldEip )
+    cdef unsigned long long getRMValueFull(self, unsigned char rmSize):
+        cdef unsigned long rmMask
+        cdef unsigned long long rmValueFull
+        rmMask = (<Misc>self.main.misc).getBitMaskFF(rmSize)
+        rmValueFull = (self.registers.regRead(self.rmName0, False)+self.registers.regRead(self.rmName1, False)+self.rmName2)&rmMask
+        return rmValueFull
+    cdef long long modRMLoad(self, unsigned char regSize, unsigned char signed, unsigned char allowOverride):
+        # NOTE: imm == unsigned ; disp == signed
+        cdef unsigned char addrSize
+        cdef long long returnInt
+        addrSize = self.registers.getAddrSegSize(CPU_SEGMENT_CS)
+        returnInt = self.getRMValueFull(addrSize)
+        if (self.mod in (0, 1, 2)):
+            if (signed):
+                returnInt = self.registers.mmReadValueSigned(returnInt, regSize, self.rmNameSegId, allowOverride)
+            else:
+                returnInt = self.registers.mmReadValueUnsigned(returnInt, regSize, self.rmNameSegId, allowOverride)
+        else:
+            returnInt = self.registers.regRead(self.rmName0, signed)
+        return returnInt
+    cdef unsigned long long modRMSave(self, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp):
+        # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
+        cdef unsigned char addrSize
+        cdef long long rmValueFull
+        addrSize = self.registers.getAddrSegSize(CPU_SEGMENT_CS)
+        rmValueFull = self.getRMValueFull(addrSize)
+        if (self.mod in (0, 1, 2)):
+            return self.registers.mmWriteValueWithOp(rmValueFull, value, regSize, self.rmNameSegId, allowOverride, valueOp)
+        else:
+            return self.registers.regWriteWithOp(self.rmName0, value, valueOp)
+    cdef unsigned short modSegLoad(self, unsigned char regSize):
+        cdef unsigned long returnInt
+        returnInt  = self.registers.segRead(self.regName)
+        return returnInt
+    cdef unsigned short modSegSave(self, unsigned char regSize, unsigned long long value):
+        if (self.regName == CPU_SEGMENT_CS):
+            raise misc.ChemuException(CPU_EXCEPTION_UD)
+        if (self.registers.isInProtectedMode()):
+            self.registers.segments.checkSegmentLoadAllowed(value, self.regName == CPU_SEGMENT_SS, True)
+        return self.registers.segWrite(self.regName, value)
+    cdef long long modRLoad(self, unsigned char regSize, unsigned char signed):
+        cdef long long returnInt
+        returnInt  = self.registers.regRead(self.regName, signed)
+        return returnInt
+    cdef unsigned long long modRSave(self, unsigned char regSize, unsigned long long value, unsigned char valueOp):
+        return self.registers.regWriteWithOp(self.regName, value, valueOp)
+
 
 
 cdef class Registers:
@@ -82,23 +220,25 @@ cdef class Registers:
         elif (regId in CPU_REGISTER_QWORD):
             return OP_SIZE_QWORD
         self.main.exitError("regId is unknown! ({0:d})", regId)
-    cdef unsigned short segRead(self, unsigned short segId): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as a byteorder here, IT WON'T WORK!!!!
+    cdef unsigned short segRead(self, unsigned short segId):
         cdef unsigned short aregId, segValue
         if (not segId and not (segId in CPU_REGISTER_SREG)):
             self.main.exitError("segRead: segId is not a segment! ({0:d})", segId)
             return 0
         aregId = (segId//5)*8
+        # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         segValue = self.regs.csReadValueBE(aregId+6, OP_SIZE_WORD, False)
         return segValue
-    cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as a byteorder here, IT WON'T WORK!!!!
+    cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue):
         cdef unsigned short aregId
         if (not segId and not (segId in CPU_REGISTER_SREG)):
             self.main.exitError("segWrite: segId is not a segment! ({0:d})", segId)
             return 0
         aregId = (segId//5)*8
-        self.regs.csWriteValueBE(aregId+6, segValue, OP_SIZE_WORD)
+        # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
+        segValue = self.regs.csWriteValueBE(aregId+6, segValue, OP_SIZE_WORD)
         return segValue
-    cdef long long regRead(self, unsigned short regId, unsigned char signed): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
+    cdef long long regRead(self, unsigned short regId, unsigned char signed):
         cdef unsigned char opSize
         cdef unsigned short aregId
         cdef long long regValue
@@ -124,9 +264,10 @@ cdef class Registers:
                 aregId += 7
         else:
             self.main.exitError("regRead: regId is unknown! ({0:d})", regId)
+        # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         regValue = self.regs.csReadValueBE(aregId, opSize, signed)
         return regValue
-    cdef unsigned long regWrite(self, unsigned short regId, unsigned long value): # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
+    cdef unsigned long regWrite(self, unsigned short regId, unsigned long value):
         cdef unsigned char opSize
         cdef unsigned short aregId
         if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
@@ -149,8 +290,9 @@ cdef class Registers:
                 aregId += 7
         else:
             self.main.exitError("regWrite: regId is unknown! ({0:d})", regId)
-        self.regs.csWriteValueBE(aregId, value, opSize)
-        return value # return value is unsigned!!
+        # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
+        value = self.regs.csWriteValueBE(aregId, value, opSize)
+        return value # returned value is unsigned!!
     cdef unsigned long regAdd(self, unsigned short regId, long long value):
         cdef unsigned long newVal = self.regRead(regId, False)
         newVal = (newVal+value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))
@@ -277,65 +419,9 @@ cdef class Registers:
     cdef setSZP_C0_O0_A0(self, unsigned long value, unsigned char regSize):
         self.setSZP_O0(value, regSize)
         self.setEFLAG(FLAG_CF | FLAG_AF, False)
-    cdef unsigned long long getRMValueFull(self, tuple rmNames, unsigned char rmSize):
-        cdef unsigned long rmMask
-        cdef unsigned long long rmValueFull
-        rmMask = (<Misc>self.main.misc).getBitMaskFF(rmSize)
-        rmValueFull = (self.regRead(rmNames[0], False)+self.regRead(rmNames[1], False)+rmNames[2])&rmMask
-        return rmValueFull
-    cdef long long modRMLoad(self, tuple rmOperands, unsigned char regSize, unsigned char signed, unsigned char allowOverride): # imm == unsigned ; disp == signed; regSize in bits
-        cdef unsigned char addrSize, mod
-        cdef long long returnInt
-        cdef tuple rmNames
-        mod, rmNames = rmOperands[0:2]
-        addrSize = self.getAddrSegSize(CPU_SEGMENT_CS)
-        returnInt = self.getRMValueFull(rmNames[0], addrSize)
-        if (mod in (0, 1, 2)):
-            if (signed):
-                returnInt = self.mmReadValueSigned(returnInt, regSize, rmNames[1], allowOverride)
-            else:
-                returnInt = self.mmReadValueUnsigned(returnInt, regSize, rmNames[1], allowOverride)
-        else:
-            returnInt = self.regRead(rmNames[0][0], signed)
-        return returnInt
-    cdef unsigned long long modRMSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp): # imm == unsigned ; disp == signed; stdAllowOverride==True, stdValueOp==OPCODE_SAVE
-        cdef unsigned char addrSize, mod
+    cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize):
         cdef unsigned short regName
-        cdef long long rmValueFull
-        cdef tuple rmNames
-        mod, rmNames, regName = rmOperands
-        addrSize = self.getAddrSegSize(CPU_SEGMENT_CS)
-        rmValueFull = self.getRMValueFull(rmNames[0], addrSize)
-        if (mod in (0, 1, 2)):
-            return self.mmWriteValueWithOp(rmValueFull, value, regSize, rmNames[1], allowOverride, valueOp)
-        else:
-            return self.regWriteWithOp(rmNames[0][0], value, valueOp)
-    cdef unsigned short modSegLoad(self, tuple rmOperands, unsigned char regSize): # imm == unsigned ; disp == signed
-        cdef unsigned short regName
-        cdef unsigned long returnInt
-        regName = rmOperands[2]
-        returnInt  = self.segRead(regName)
-        return returnInt
-    cdef unsigned short modSegSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value): # imm == unsigned ; disp == signed
-        cdef unsigned short regName
-        regName = rmOperands[2]
-        if (regName == CPU_SEGMENT_CS):
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
-        if (self.isInProtectedMode()):
-            self.segments.checkSegmentLoadAllowed(value, regName == CPU_SEGMENT_SS, True)
-        return self.segWrite(regName, value)
-    cdef long long modRLoad(self, tuple rmOperands, unsigned char regSize, unsigned char signed): # imm == unsigned ; disp == signed
-        cdef unsigned short regName
-        cdef long long returnInt
-        regName = rmOperands[2]
-        returnInt  = self.regRead(regName, signed)
-        return returnInt
-    cdef unsigned long long modRSave(self, tuple rmOperands, unsigned char regSize, unsigned long long value, unsigned char valueOp): # imm == unsigned ; disp == signed
-        cdef unsigned short regName
-        regName = rmOperands[2]
-        return self.regWriteWithOp(regName, value, valueOp)
-    cdef unsigned short getRegValueWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize):
-        cdef unsigned short regName = CPU_REGISTER_NONE
+        regName = CPU_REGISTER_NONE
         if (modRMflags & MODRM_FLAGS_SREG):
             regName = CPU_REGISTER_SREG[reg]
         elif (modRMflags & MODRM_FLAGS_CREG):
@@ -358,94 +444,10 @@ cdef class Registers:
             elif (operSize == OP_SIZE_DWORD):
                 regName = CPU_REGISTER_DWORD[reg]
             else:
-                self.main.exitError("getRegValueWithFlags: operSize not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)")
+                self.main.exitError("getRegNameWithFlags: operSize not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)")
         if (not regName):
             raise misc.ChemuException(CPU_EXCEPTION_UD)
         return regName
-    cdef tuple sibOperands(self, unsigned char mod):
-        cdef unsigned char sibByte, base, index, ss
-        cdef unsigned short rmBase, indexReg
-        cdef unsigned long long rmIndex
-        sibByte = self.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
-        base    = (sibByte)&7
-        index   = (sibByte>>3)&7
-        ss      = (sibByte>>6)&3
-        rmBase  = CPU_REGISTER_NONE
-        indexReg = MODRM_SIB_INDEX_REGS[index]
-        rmIndex = (self.regRead( indexReg, False ) * (1 << ss))&BITMASK_DWORD
-
-        if (mod == 0 and base == 5):
-            rmIndex += self.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
-        else:
-            rmBase = self.getRegValueWithFlags(0, base, OP_SIZE_DWORD)
-        return rmBase, rmIndex
-    cdef tuple modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # imm == unsigned ; disp == signed ; regSize in bytes
-        cdef unsigned char modRMByte, rm, reg, mod, addrSegSize
-        cdef unsigned short rmNameSegId, rmName0, rmName1, regName
-        cdef long long rmName2
-        rmNameSegId = CPU_SEGMENT_DS
-        rmName0 = rmName1 = regName = CPU_REGISTER_NONE
-        rmName2 = 0
-        addrSegSize = self.getAddrSegSize(CPU_SEGMENT_CS)
-        modRMByte = self.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
-        rm  = modRMByte&0x7
-        reg = (modRMByte>>3)&0x7
-        mod = (modRMByte>>6)&0x3
-
-        regName  = self.getRegValueWithFlags(modRMflags, reg, regSize) # source
-        if (mod == 3): # reg: source ; rm: dest
-            if (regSize == OP_SIZE_BYTE):
-                rmName0  = CPU_REGISTER_BYTE[rm] # dest
-            elif (regSize == OP_SIZE_WORD):
-                rmName0  = CPU_REGISTER_WORD[rm] # dest
-            elif (regSize == OP_SIZE_DWORD):
-                rmName0  = CPU_REGISTER_DWORD[rm] # dest
-            else:
-                self.main.exitError("modRMOperands: mod==3; regSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)", regSize)
-        elif (addrSegSize == OP_SIZE_WORD):
-            if (rm in (0, 1, 7)):
-                rmName0 = CPU_REGISTER_BX
-            elif (rm in (2, 3) or (rm == 6 and mod in (1,2))):
-                rmName0 = CPU_REGISTER_BP
-            elif (rm == 4):
-                rmName0 = CPU_REGISTER_SI
-            elif (rm == 5):
-                rmName0 = CPU_REGISTER_DI
-            if (rm in (0, 2)):
-                rmName1 = CPU_REGISTER_SI
-            elif (rm in (1, 3)):
-                rmName1 = CPU_REGISTER_DI
-            if (mod == 0 and rm == 6):
-                rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
-            elif (mod == 2):
-                rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_WORD, True)
-            elif (mod == 1):
-                rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
-        elif (addrSegSize == OP_SIZE_DWORD):
-            if (rm in (0, 1, 2, 3, 6, 7)):
-                rmName0 = CPU_REGISTER_DWORD[rm]
-            elif (rm == 4): # SIB
-                rmName0, rmName2 = self.sibOperands(mod)
-            elif (rm == 5):
-                if (mod == 0):
-                    rmName2 = self.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
-                else:
-                    rmName0 = CPU_REGISTER_EBP
-            if (mod == 1):
-                rmName2 += self.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
-            elif (mod == 2):
-                rmName2 += self.getCurrentOpcodeAdd(OP_SIZE_DWORD, True)
-        else:
-            self.main.exitError("modRMOperands: AddrSegSize(CS) not in (OP_SIZE_WORD, OP_SIZE_DWORD)")
-        if (rmName0 in (CPU_REGISTER_BP, CPU_REGISTER_SP, CPU_REGISTER_EBP, CPU_REGISTER_ESP)):
-            rmNameSegId = CPU_SEGMENT_SS
-        rmNameSegId = self.segmentOverridePrefix or rmNameSegId
-        return mod, ((rmName0, rmName1, rmName2), rmNameSegId), regName
-    cdef tuple modRMOperandsResetEip(self, unsigned char regSize, unsigned char modRMflags):
-        oldEip = self.regRead( CPU_REGISTER_EIP, False )
-        rmOperands = self.modRMOperands(regSize, modRMflags)
-        self.regWrite( CPU_REGISTER_EIP, oldEip )
-        return rmOperands
     cdef unsigned char getCond(self, unsigned char index):
         if (index == 0x0): # O
             return self.getEFLAG( FLAG_OF )!=0
@@ -643,9 +645,8 @@ cdef class Registers:
             elif (valueOp == OPCODE_XOR):
                 data = (oldData^data)&bitMask
                 return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
-            else:
-                self.main.exitError("Mm::mmWriteValueWithOp: unknown valueOp. ({0:d})", valueOp)
-            return 0
+        self.main.exitError("Mm::mmWriteValueWithOp: unknown valueOp {0:d}.", valueOp)
+        return 0
     cdef unsigned long getBaseAddr(self, unsigned short segId):
         cdef unsigned short segValue = self.segRead(segId)
         if (self.isInProtectedMode()): # protected mode enabled

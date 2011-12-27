@@ -1,8 +1,11 @@
 
+from registers cimport ModRMClass
+
 
 
 cdef class Opcodes:
     cpdef object main
+    cdef ModRMClass modRMInstance, modRMInstanceOther
     cdef unsigned char executeOpcode(self, unsigned char opcode)
     cdef undefNoUD(self)
     cdef cli(self)
@@ -51,7 +54,7 @@ cdef class Opcodes:
     cdef popaWD(self)
     cdef pushfWD(self)
     cdef popfWD(self)
-    cdef stackPopRM(self, tuple rmOperands, unsigned char operSize)
+    cdef stackPopRM(self, unsigned char operSize)
     cdef stackPopSegId(self, unsigned short segId, unsigned char operSize)
     cdef stackPopRegId(self, unsigned short regId, unsigned char operSize)
     cdef unsigned long stackGetValue(self, unsigned char operSize)
@@ -68,8 +71,8 @@ cdef class Opcodes:
     cdef opcodeGroupFF(self)
     cdef incFuncReg(self, unsigned char regId)
     cdef decFuncReg(self, unsigned char regId)
-    cdef incFuncRM(self, tuple rmOperands, unsigned char rmSize) # rmSize in bits
-    cdef decFuncRM(self, tuple rmOperands, unsigned char rmSize) # rmSize in bits
+    cdef incFuncRM(self, unsigned char rmSize)
+    cdef decFuncRM(self, unsigned char rmSize)
     cdef incReg(self)
     cdef decReg(self)
     cdef pushReg(self)
@@ -97,13 +100,13 @@ cdef class Opcodes:
     cdef das(self)
     cdef cbw_cwde(self)
     cdef cwd_cdq(self)
-    cdef shlFunc(self, tuple rmOperands, unsigned char operSize, unsigned char count)
-    cdef sarFunc(self, tuple rmOperands, unsigned char operSize, unsigned char count)
-    cdef shrFunc(self, tuple rmOperands, unsigned char operSize, unsigned char count)
-    cdef rclFunc(self, tuple rmOperands, unsigned char operSize, unsigned char count)
-    cdef rcrFunc(self, tuple rmOperands, unsigned char operSize, unsigned char count)
-    cdef rolFunc(self, tuple rmOperands, unsigned char operSize, unsigned char count)
-    cdef rorFunc(self, tuple rmOperands, unsigned char operSize, unsigned char count)
+    cdef shlFunc(self, unsigned char operSize, unsigned char count)
+    cdef sarFunc(self, unsigned char operSize, unsigned char count)
+    cdef shrFunc(self, unsigned char operSize, unsigned char count)
+    cdef rclFunc(self, unsigned char operSize, unsigned char count)
+    cdef rcrFunc(self, unsigned char operSize, unsigned char count)
+    cdef rolFunc(self, unsigned char operSize, unsigned char count)
+    cdef rorFunc(self, unsigned char operSize, unsigned char count)
     cdef opcodeGroup4_RM_1(self, unsigned char operSize)
     cdef opcodeGroup4_RM_CL(self, unsigned char operSize)
     cdef opcodeGroup4_RM_IMM8(self, unsigned char operSize)
@@ -118,10 +121,11 @@ cdef class Opcodes:
     cdef setWithCondFunc(self, unsigned char cond) # if cond==True set 1, else 0
     cdef arpl(self)
     cdef bound(self)
-    cdef btFunc(self, tuple rmOperands, unsigned long offset, unsigned char newValType)
-    cdef btcFunc(self, tuple rmOperands, unsigned long offset)
-    cdef btrFunc(self, tuple rmOperands, unsigned long offset)
-    cdef btsFunc(self, tuple rmOperands, unsigned long offset)
+    cdef btFunc(self, unsigned long offset, unsigned char newValType)
+    cdef btcFunc(self, unsigned long offset)
+    cdef btrFunc(self, unsigned long offset)
+    cdef btsFunc(self, unsigned long offset)
+    cdef run(self)
     # end of opcodes
 
 
