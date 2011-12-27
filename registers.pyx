@@ -118,10 +118,10 @@ cdef class ModRMClass:
         # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
         cdef unsigned char addrSize
         cdef long long rmValueFull
-        addrSize = self.registers.getAddrSegSize(CPU_SEGMENT_CS)
-        rmValueFull = self.getRMValueFull(addrSize)
         if (self.mod == 3):
             return self.registers.regWriteWithOp(self.rmName0, value, valueOp)
+        addrSize = self.registers.getAddrSegSize(CPU_SEGMENT_CS)
+        rmValueFull = self.getRMValueFull(addrSize)
         return self.registers.mmWriteValueWithOp(rmValueFull, value, regSize, self.rmNameSegId, allowOverride, valueOp)
     cdef unsigned short modSegLoad(self, unsigned char regSize):
         cdef unsigned long returnInt
