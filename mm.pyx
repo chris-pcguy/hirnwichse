@@ -87,13 +87,9 @@ cdef class Mm:
             return
         return mmArea.mmAreaRead(mmAddr, dataSize)
     cdef long long mmPhyReadValueSigned(self, long long mmAddr, unsigned char dataSize):
-        cdef bytes data
-        data = self.mmPhyRead(mmAddr, dataSize)
-        return int.from_bytes(data, byteorder="little", signed=True)
+        return int.from_bytes((<bytes>self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=True)
     cdef unsigned long long mmPhyReadValueUnsigned(self, long long mmAddr, unsigned char dataSize):
-        cdef bytes data
-        data = self.mmPhyRead(mmAddr, dataSize)
-        return int.from_bytes(data, byteorder="little", signed=False)
+        return int.from_bytes((<bytes>self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=False)
     cdef mmPhyWrite(self, long long mmAddr, bytes data, unsigned long long dataSize): # dataSize in bytes
         cdef MmArea mmArea
         cdef list mmAreas
@@ -104,10 +100,8 @@ cdef class Mm:
         for mmArea in mmAreas:
             mmArea.mmAreaWrite(mmAddr, data, dataSize)
     cdef unsigned long long mmPhyWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize):
-        cdef bytes bytesData
         data &= (<Misc>self.main.misc).getBitMaskFF(dataSize)
-        bytesData = data.to_bytes(length=dataSize, byteorder="little")
-        self.mmPhyWrite(mmAddr, bytesData, dataSize)
+        self.mmPhyWrite(mmAddr, (<bytes>data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
         return data
 
 
@@ -131,30 +125,24 @@ cdef class ConfigSpace:
             raise MemoryError()
         tempAddr = <char*>(self.csData+offset)
         memcpy(<char*>tempAddr, <char*>data, size)
-    cdef long long csReadValue(self, unsigned long offset, unsigned long size, unsigned char signed):
-        cdef bytes data
-        cdef long long retData
-        data = self.csRead(offset, size)
-        retData = int.from_bytes(data, byteorder="little", signed=signed)
-        return retData
-    cdef long long csReadValueBE(self, unsigned long offset, unsigned long size, unsigned char signed): # Big Endian
-        cdef bytes data
-        cdef long long retData
-        data = self.csRead(offset, size)
-        retData = int.from_bytes(data, byteorder="big", signed=signed)
-        return retData
+    cdef unsigned long long csReadValueUnsigned(self, unsigned long offset, unsigned long size):
+        return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)
+    cdef unsigned long long csReadValueUnsignedBE(self, unsigned long offset, unsigned long size): # Big Endian
+        return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=False)
+    cdef long long csReadValueSigned(self, unsigned long offset, unsigned long size):
+        return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=True)
+    cdef long long csReadValueSignedBE(self, unsigned long offset, unsigned long size): # Big Endian
+        return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=True)
     cdef unsigned long long csWriteValue(self, unsigned long offset, unsigned long long data, unsigned long size):
-        cdef bytes bytesData = data.to_bytes(length=size, byteorder="little")
-        self.csWrite(offset, bytesData, size)
+        self.csWrite(offset, (<bytes>data.to_bytes(length=size, byteorder="little", signed=False)), size)
         return data
     cdef unsigned long long csWriteValueBE(self, unsigned long offset, unsigned long long data, unsigned long size): # Big Endian
-        cdef bytes bytesData = data.to_bytes(length=size, byteorder="big")
-        self.csWrite(offset, bytesData, size)
+        self.csWrite(offset, (<bytes>data.to_bytes(length=size, byteorder="big", signed=False)), size)
         return data
     cdef unsigned long long csAddValue(self, unsigned long offset, unsigned long long data, unsigned long size):
-        return self.csWriteValue(offset, self.csReadValue(offset, size, False)+data, size)
+        return self.csWriteValue(offset, self.csReadValueUnsigned(offset, size)+data, size)
     cdef unsigned long long csSubValue(self, unsigned long offset, unsigned long long data, unsigned long size):
-        return self.csWriteValue(offset, self.csReadValue(offset, size, False)-data, size)
+        return self.csWriteValue(offset, self.csReadValueUnsigned(offset, size)-data, size)
     cpdef run(self):
         self.csData = <char*>malloc(self.csSize)
         if (self.csData is None):

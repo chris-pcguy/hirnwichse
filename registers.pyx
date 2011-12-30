@@ -225,7 +225,7 @@ cdef class Registers:
             return 0
         aregId = (segId//5)*8
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
-        segValue = self.regs.csReadValueBE(aregId+6, OP_SIZE_WORD, False)
+        segValue = self.regs.csReadValueUnsignedBE(aregId+6, OP_SIZE_WORD)
         return segValue
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue):
         cdef unsigned short aregId
@@ -236,10 +236,9 @@ cdef class Registers:
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         segValue = self.regs.csWriteValueBE(aregId+6, segValue, OP_SIZE_WORD)
         return segValue
-    cdef long long regRead(self, unsigned short regId, unsigned char signed):
+    cdef long long regRead(self, unsigned short regId, unsigned char signed): # FIXME
         cdef unsigned char opSize
         cdef unsigned short aregId
-        cdef long long regValue
         if (regId == CPU_REGISTER_NONE):
             return 0
         if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
@@ -263,8 +262,9 @@ cdef class Registers:
         else:
             self.main.exitError("regRead: regId is unknown! ({0:d})", regId)
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
-        regValue = self.regs.csReadValueBE(aregId, opSize, signed)
-        return regValue
+        if (signed):
+            return self.regs.csReadValueSignedBE(aregId, opSize)
+        return self.regs.csReadValueUnsignedBE(aregId, opSize)
     cdef unsigned long regWrite(self, unsigned short regId, unsigned long value):
         cdef unsigned char opSize
         cdef unsigned short aregId

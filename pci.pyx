@@ -19,7 +19,7 @@ cdef class PciDevice:
         if (function != 0):
             self.main.printMsg("PciDevice::getData: function {0:d} != 0.", function)
             return bitMask
-        return self.configSpace.csReadValue(register, dataSize, False)
+        return self.configSpace.csReadValueUnsigned(register, dataSize)
     cdef setData(self, unsigned char function, unsigned char register, unsigned long data, unsigned char dataSize):
         if (function != 0):
             self.main.printMsg("PciDevice::getData: function {0:d} != 0.", function)
