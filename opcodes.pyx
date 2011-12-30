@@ -596,7 +596,7 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(operSize, self.modRMInstance.modRMLoad(operSize, False, True), OPCODE_SAVE)
     cdef movRM16_SREG(self):
         self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_SREG)
-        self.modRMInstance.modRMSave(OP_SIZE_WORD, self.modRMInstance.modSegLoad(OP_SIZE_WORD), True, OPCODE_SAVE)
+        self.modRMInstance.modRMSave(OP_SIZE_WORD, self.modRMInstance.modSegLoad(), True, OPCODE_SAVE)
     cdef movSREG_RM16(self):
         self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_SREG)
         if (self.modRMInstance.regName == CPU_SEGMENT_CS):

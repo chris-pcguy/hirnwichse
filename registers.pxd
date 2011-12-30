@@ -17,7 +17,7 @@ cdef class ModRMClass:
     cdef unsigned long long getRMValueFull(self, unsigned char rmSize)
     cdef long long modRMLoad(self, unsigned char regSize, unsigned char signed, unsigned char allowOverride)
     cdef unsigned long long modRMSave(self, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp) # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
-    cdef unsigned short modSegLoad(self, unsigned char regSize)
+    cdef unsigned short modSegLoad(self)
     cdef unsigned short modSegSave(self, unsigned char regSize, unsigned long long value)
     cdef long long modRLoad(self, unsigned char regSize, unsigned char signed)
     cdef unsigned long long modRSave(self, unsigned char regSize, unsigned long long value, unsigned char valueOp)
