@@ -127,7 +127,7 @@ cdef class Idt:
         cdef unsigned long entryEip
         cdef unsigned short entrySegment
         cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent
-        entryData = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned((num*8), 8)
+        entryData = self.table.csReadValueUnsigned((num*8), 8)
         entryEip = ((entryData>>48)&BITMASK_WORD) # interrupt eip: upper word
         entryEip <<= 16
         entryEip |= entryData&BITMASK_WORD # interrupt eip: lower word
