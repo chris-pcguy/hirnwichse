@@ -603,19 +603,11 @@ cdef class Opcodes:
             raise misc.ChemuException(CPU_EXCEPTION_UD)
         self.modRMInstance.modSegSave(OP_SIZE_WORD, self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True))
     cdef movAxMoffs(self, unsigned char operSize, unsigned char addrSize):
-        cdef unsigned short regName
-        cdef unsigned long mmAddr
-        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
-        mmAddr = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(addrSize, False)
-        (<Registers>self.main.cpu.registers).regWrite(regName, (<Registers>self.main.cpu.registers).mmReadValueUnsigned(mmAddr, operSize, CPU_SEGMENT_DS, True))
+        (<Registers>self.main.cpu.registers).regWrite((<unsigned short>(<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)), (<Registers>self.main.cpu.registers).mmReadValueUnsigned((<unsigned long>(<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(addrSize, False)), operSize, CPU_SEGMENT_DS, True))
     cdef movMoffsAx(self, unsigned char operSize, unsigned char addrSize):
-        cdef unsigned short regName
-        cdef unsigned long mmAddr
-        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
-        mmAddr = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(addrSize, False)
-        (<Registers>self.main.cpu.registers).mmWriteValue(mmAddr, (<Registers>self.main.cpu.registers).regRead(regName, False), operSize, CPU_SEGMENT_DS, True)
+        (<Registers>self.main.cpu.registers).mmWriteValue((<unsigned long>(<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(addrSize, False)), (<Registers>self.main.cpu.registers).regRead((<unsigned short>(<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)), False), operSize, CPU_SEGMENT_DS, True)
     cdef stosFunc(self, unsigned char operSize):
-        cdef unsigned char addrSize, df
+        cdef unsigned char addrSize
         cdef unsigned short dataReg, srcReg, countReg
         cdef unsigned long data, countVal
         cdef unsigned long long dataLength
@@ -631,14 +623,14 @@ cdef class Opcodes:
             countVal = (<Registers>self.main.cpu.registers).regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
+        addrSize = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
         dataLength = operSize*countVal
         destAddr = (<Registers>self.main.cpu.registers).regRead(dataReg, False)
-        if (df):
+        if (addrSize):
             destAddr -= dataLength-operSize
         memData = data.to_bytes(length=operSize, byteorder="little")*countVal
         (<Registers>self.main.cpu.registers).mmWrite(destAddr, memData, dataLength, CPU_SEGMENT_ES, False)
-        if (not df):
+        if (not addrSize):
             (<Registers>self.main.cpu.registers).regAdd(dataReg, dataLength)
         else:
             (<Registers>self.main.cpu.registers).regSub(dataReg, dataLength)
@@ -646,7 +638,7 @@ cdef class Opcodes:
         if ((<Registers>self.main.cpu.registers).repPrefix):
             (<Registers>self.main.cpu.registers).regWrite( countReg, 0 )
     cdef movsFunc(self, unsigned char operSize):
-        cdef unsigned char addrSize, df
+        cdef unsigned char addrSize
         cdef unsigned short esiReg, ediReg, countReg
         cdef unsigned long countVal
         cdef unsigned long long dataLength
@@ -661,16 +653,16 @@ cdef class Opcodes:
             countVal = (<Registers>self.main.cpu.registers).regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
+        addrSize = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
         dataLength = operSize*countVal
         esiVal = (<Registers>self.main.cpu.registers).regRead(esiReg, False)
         ediVal = (<Registers>self.main.cpu.registers).regRead(ediReg, False)
-        if (df):
+        if (addrSize):
             esiVal -= dataLength-operSize
             ediVal -= dataLength-operSize
         data = (<Registers>self.main.cpu.registers).mmRead(esiVal, dataLength, CPU_SEGMENT_DS, True)
         (<Registers>self.main.cpu.registers).mmWrite(ediVal, data, dataLength, CPU_SEGMENT_ES, False)
-        if (not df):
+        if (not addrSize):
             (<Registers>self.main.cpu.registers).regAdd(esiReg, dataLength)
             (<Registers>self.main.cpu.registers).regAdd(ediReg, dataLength)
         else:
@@ -680,7 +672,7 @@ cdef class Opcodes:
         if ((<Registers>self.main.cpu.registers).repPrefix):
             (<Registers>self.main.cpu.registers).regWrite( countReg, 0 )
     cdef lodsFunc(self, unsigned char operSize):
-        cdef unsigned char addrSize, df
+        cdef unsigned char addrSize
         cdef unsigned short eaxReg, esiReg, countReg
         cdef unsigned long data, countVal
         cdef unsigned long long dataLength
@@ -694,9 +686,9 @@ cdef class Opcodes:
             countVal = (<Registers>self.main.cpu.registers).regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
+        addrSize = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
         dataLength = operSize*countVal
-        if (not df):
+        if (not addrSize):
             esiVal = (<Registers>self.main.cpu.registers).regAdd(esiReg, dataLength)-operSize
         else:
             esiVal = (<Registers>self.main.cpu.registers).regSub(esiReg, dataLength)+operSize
@@ -706,7 +698,7 @@ cdef class Opcodes:
         if ((<Registers>self.main.cpu.registers).repPrefix):
             (<Registers>self.main.cpu.registers).regWrite( countReg, 0 )
     cdef cmpsFunc(self, unsigned char operSize):
-        cdef unsigned char addrSize, df, zf
+        cdef unsigned char addrSize, zf
         cdef unsigned short esiReg, ediReg, countReg
         cdef unsigned long esiVal, ediVal, countVal, newCount, src1, src2, i
         addrSize = (<Registers>self.main.cpu.registers).getAddrSegSize(CPU_SEGMENT_CS)
@@ -718,14 +710,14 @@ cdef class Opcodes:
             countVal = (<Registers>self.main.cpu.registers).regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
+        addrSize = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
         esiVal = (<Registers>self.main.cpu.registers).regRead(esiReg, False)
         ediVal = (<Registers>self.main.cpu.registers).regRead(ediReg, False)
         for i in range(countVal):
             src1 = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(esiVal, operSize, CPU_SEGMENT_DS, True)
             src2 = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(ediVal, operSize, CPU_SEGMENT_ES, False)
             (<Registers>self.main.cpu.registers).setFullFlags(src1, src2, operSize, OPCODE_SUB, False)
-            if (not df):
+            if (not addrSize):
                 esiVal = (<Registers>self.main.cpu.registers).regAdd(esiReg, operSize)
                 ediVal = (<Registers>self.main.cpu.registers).regAdd(ediReg, operSize)
             else:
@@ -740,7 +732,7 @@ cdef class Opcodes:
         if ((<Registers>self.main.cpu.registers).repPrefix):
             (<Registers>self.main.cpu.registers).regWrite( countReg, newCount )
     cdef scasFunc(self, unsigned char operSize):
-        cdef unsigned char addrSize, df, zf
+        cdef unsigned char addrSize, zf
         cdef unsigned short eaxReg, ediReg, countReg
         cdef unsigned long src1, src2, ediVal, countVal, newCount, i
         addrSize = (<Registers>self.main.cpu.registers).getAddrSegSize(CPU_SEGMENT_CS)
@@ -752,13 +744,13 @@ cdef class Opcodes:
             countVal = (<Registers>self.main.cpu.registers).regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
+        addrSize = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
             ediVal = (<Registers>self.main.cpu.registers).regRead(ediReg, False)
             src1 = (<Registers>self.main.cpu.registers).regRead(eaxReg, False)
             src2 = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(ediVal, operSize, CPU_SEGMENT_ES, False)
             (<Registers>self.main.cpu.registers).setFullFlags(src1, src2, operSize, OPCODE_SUB, False)
-            if (not df):
+            if (not addrSize):
                 (<Registers>self.main.cpu.registers).regAdd(ediReg, operSize)
             else:
                 (<Registers>self.main.cpu.registers).regSub(ediReg, operSize)
@@ -787,7 +779,7 @@ cdef class Opcodes:
         dataReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
         self.main.platform.outPort((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_DX, False), (<Registers>self.main.cpu.registers).regRead(dataReg, False), operSize)
     cdef outsFunc(self, unsigned char operSize):
-        cdef unsigned char addrSize, df
+        cdef unsigned char addrSize
         cdef unsigned short dxReg, esiReg, countReg, ioPort
         cdef unsigned long value, esiVal, countVal, i
         addrSize = (<Registers>self.main.cpu.registers).getAddrSegSize(CPU_SEGMENT_CS)
@@ -799,13 +791,13 @@ cdef class Opcodes:
             countVal = (<Registers>self.main.cpu.registers).regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
+        addrSize = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
             esiVal = (<Registers>self.main.cpu.registers).regRead(esiReg, False)
             ioPort = (<Registers>self.main.cpu.registers).regRead(dxReg, False)
             value = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(esiVal, operSize, CPU_SEGMENT_DS, True)
             self.main.platform.outPort(ioPort, value, operSize)
-            if (not df):
+            if (not addrSize):
                 (<Registers>self.main.cpu.registers).regAdd(esiReg, operSize)
             else:
                 (<Registers>self.main.cpu.registers).regSub(esiReg, operSize)
@@ -813,7 +805,7 @@ cdef class Opcodes:
         if ((<Registers>self.main.cpu.registers).repPrefix):
             (<Registers>self.main.cpu.registers).regWrite( countReg, 0 )
     cdef insFunc(self, unsigned char operSize):
-        cdef unsigned char addrSize, df
+        cdef unsigned char addrSize
         cdef unsigned short dxReg, ediReg, countReg, ioPort
         cdef unsigned long value, ediVal, countVal, i
         addrSize = (<Registers>self.main.cpu.registers).getAddrSegSize(CPU_SEGMENT_CS)
@@ -825,13 +817,13 @@ cdef class Opcodes:
             countVal = (<Registers>self.main.cpu.registers).regRead(countReg, False)
             if (countVal == 0):
                 return
-        df = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
+        addrSize = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
             ediVal = (<Registers>self.main.cpu.registers).regRead(ediReg, False)
             ioPort = (<Registers>self.main.cpu.registers).regRead(dxReg, False)
             value = self.main.platform.inPort(ioPort, operSize)
             (<Registers>self.main.cpu.registers).mmWriteValue(ediVal, value, operSize, CPU_SEGMENT_ES, False)
-            if (not df):
+            if (not addrSize):
                 (<Registers>self.main.cpu.registers).regAdd(ediReg, operSize)
             else:
                 (<Registers>self.main.cpu.registers).regSub(ediReg, operSize)
@@ -882,48 +874,48 @@ cdef class Opcodes:
         self.syncProtectedModeState()
     cdef pushaWD(self):
         cdef unsigned char operSize
-        cdef unsigned short eaxName, ecxName, edxName, ebxName, espName, ebpName, esiName, ediName
+        cdef unsigned short regName
         cdef unsigned long temp
         operSize = (<Registers>self.main.cpu.registers).getOpSegSize(CPU_SEGMENT_CS)
-        espName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SP, operSize)
-        temp = (<Registers>self.main.cpu.registers).regRead( espName, False )
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SP, operSize)
+        temp = (<Registers>self.main.cpu.registers).regRead( regName, False )
         if (not (<Registers>self.main.cpu.registers).isInProtectedMode() and temp in (7, 9, 11, 13, 15)):
             raise misc.ChemuException(CPU_EXCEPTION_GP)
-        eaxName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
-        ecxName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_CX, operSize)
-        edxName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DX, operSize)
-        ebxName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_BX, operSize)
-        ebpName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_BP, operSize)
-        esiName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SI, operSize)
-        ediName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DI, operSize)
-        self.stackPushRegId(eaxName, operSize)
-        self.stackPushRegId(ecxName, operSize)
-        self.stackPushRegId(edxName, operSize)
-        self.stackPushRegId(ebxName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
+        self.stackPushRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_CX, operSize)
+        self.stackPushRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DX, operSize)
+        self.stackPushRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_BX, operSize)
+        self.stackPushRegId(regName, operSize)
         self.stackPushValue(temp, operSize)
-        self.stackPushRegId(ebpName, operSize)
-        self.stackPushRegId(esiName, operSize)
-        self.stackPushRegId(ediName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_BP, operSize)
+        self.stackPushRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SI, operSize)
+        self.stackPushRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DI, operSize)
+        self.stackPushRegId(regName, operSize)
     cdef popaWD(self):
         cdef unsigned char operSize
-        cdef unsigned short eaxName, ecxName, edxName, ebxName, espName, ebpName, esiName, ediName
+        cdef unsigned short regName
         operSize = (<Registers>self.main.cpu.registers).getOpSegSize(CPU_SEGMENT_CS)
-        eaxName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
-        ecxName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_CX, operSize)
-        edxName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DX, operSize)
-        ebxName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_BX, operSize)
-        espName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SP, operSize)
-        ebpName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_BP, operSize)
-        esiName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SI, operSize)
-        ediName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DI, operSize)
-        self.stackPopRegId(ediName, operSize)
-        self.stackPopRegId(esiName, operSize)
-        self.stackPopRegId(ebpName, operSize)
-        (<Registers>self.main.cpu.registers).regAdd(espName, operSize)
-        self.stackPopRegId(ebxName, operSize)
-        self.stackPopRegId(edxName, operSize)
-        self.stackPopRegId(ecxName, operSize)
-        self.stackPopRegId(eaxName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DI, operSize)
+        self.stackPopRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SI, operSize)
+        self.stackPopRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_BP, operSize)
+        self.stackPopRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SP, operSize)
+        (<Registers>self.main.cpu.registers).regAdd(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_BX, operSize)
+        self.stackPopRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DX, operSize)
+        self.stackPopRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_CX, operSize)
+        self.stackPopRegId(regName, operSize)
+        regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
+        self.stackPopRegId(regName, operSize)
     cdef pushfWD(self):
         cdef unsigned char operSize
         cdef unsigned short regNameId
@@ -958,9 +950,7 @@ cdef class Opcodes:
         value = self.stackPopValue(operSize)
         self.modRMInstance.modRMSave(operSize, value, True, OPCODE_SAVE)
     cdef stackPopSegId(self, unsigned short segId, unsigned char operSize):
-        cdef unsigned short value
-        value = self.stackPopValue(operSize)&BITMASK_WORD
-        (<Registers>self.main.cpu.registers).segWrite(segId, value)
+        (<Registers>self.main.cpu.registers).segWrite(segId, <unsigned short>(self.stackPopValue(operSize)&BITMASK_WORD))
     cdef stackPopRegId(self, unsigned short regId, unsigned char operSize):
         cdef unsigned long value
         value = self.stackPopValue(operSize)
@@ -986,9 +976,7 @@ cdef class Opcodes:
         data = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(stackAddr, operSize, CPU_SEGMENT_SS, False)
         return data
     cdef stackPushSegId(self, unsigned short segId, unsigned char operSize):
-        cdef unsigned long value
-        value = (<Registers>self.main.cpu.registers).segRead(segId)&BITMASK_WORD
-        self.stackPushValue(value, operSize)
+        self.stackPushValue(<unsigned short>((<Registers>self.main.cpu.registers).segRead(segId)&BITMASK_WORD), operSize)
     cdef stackPushRegId(self, unsigned short regId, unsigned char operSize):
         cdef unsigned long value
         value = (<Registers>self.main.cpu.registers).regRead(regId, False)
