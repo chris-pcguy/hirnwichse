@@ -5,9 +5,9 @@ cdef class Gdt:
     cdef Segments segments
     cdef ConfigSpace table
     cdef unsigned long long tableBase
-    cdef unsigned short tableLimit
+    cdef unsigned long tableLimit
     cdef reset(self)
-    cdef loadTablePosition(self, unsigned long long tableBase, unsigned short tableLimit)
+    cdef loadTablePosition(self, unsigned long long tableBase, unsigned long tableLimit)
     cdef loadTableData(self)
     cdef tuple getBaseLimit(self)
     cdef tuple getEntry(self, unsigned short num)
@@ -28,9 +28,9 @@ cdef class Idt:
     cdef Segments segments
     cdef ConfigSpace table
     cdef unsigned long long tableBase
-    cdef unsigned short tableLimit
+    cdef unsigned long tableLimit
     cdef reset(self)
-    cdef loadTable(self, unsigned long long tableBase, unsigned short tableLimit)
+    cdef loadTable(self, unsigned long long tableBase, unsigned long tableLimit)
     cdef tuple getBaseLimit(self)
     cdef tuple getEntry(self, unsigned char num)
     cdef unsigned char isEntryPresent(self, unsigned char num)

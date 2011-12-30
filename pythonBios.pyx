@@ -42,6 +42,8 @@ cdef class PythonBios:
                 return True
             elif (ah == 0x0f): # get currMode; write it to AL
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, currMode)
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, 80)
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BH, (<Vga>self.main.platform.vga).getCorrectPage(0xff))
                 return True
             elif (currMode <= 0x7 or currMode in (0x12, 0x13)):
                 if (ah in (0x09, 0x0a, 0x0e)): # AH in (0x09, 0x0A, 0x0E) / PRINT CHARACTER

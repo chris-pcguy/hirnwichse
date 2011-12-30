@@ -9,7 +9,7 @@ cdef class Gdt:
         self.segments = segments
     cdef reset(self):
         self.table.csResetData()
-    cdef loadTablePosition(self, unsigned long long tableBase, unsigned short tableLimit):
+    cdef loadTablePosition(self, unsigned long long tableBase, unsigned long tableLimit):
         self.tableBase, self.tableLimit = tableBase, tableLimit
         if (self.tableLimit >= GDT_HARD_LIMIT):
             self.segments.main.exitError("GDT::loadTablePosition: tableLimit {0:#06x} >= GDT_HARD_LIMIT {1:#06x}.",\
@@ -112,7 +112,7 @@ cdef class Idt:
         self.segments = segments
     cdef reset(self):
         self.table.csResetData()
-    cdef loadTable(self, unsigned long long tableBase, unsigned short tableLimit):
+    cdef loadTable(self, unsigned long long tableBase, unsigned long tableLimit):
         self.tableBase, self.tableLimit = tableBase, tableLimit
         if (self.tableLimit >= IDT_HARD_LIMIT):
             self.segments.main.exitError("IDT::loadTablePosition: tableLimit {0:#06x} >= IDT_HARD_LIMIT {1:#06x}.",\

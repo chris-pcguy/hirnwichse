@@ -33,16 +33,13 @@ cdef class MmArea:
         mmAddr -= self.mmBaseAddr
         return bytes(self.mmAreaData[mmAddr:mmAddr+dataSize])
     cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize):
-        cdef char *tempAddr
         if (self.mmAreaData is None or dataSize > self.mmAreaSize):
             self.main.printMsg("MmArea::mmAreaWrite: self.mmAreaData is None || dataSize > self.mmAreaSize.")
             raise MemoryError()
         if (self.mmReadOnly):
             self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
             return
-        mmAddr -= self.mmBaseAddr
-        tempAddr = <char*>(self.mmAreaData+mmAddr)
-        memcpy(<char*>tempAddr, <char*>data, dataSize)
+        memcpy(<char*>(self.mmAreaData+mmAddr-self.mmBaseAddr), <char*>data, dataSize)
     cpdef run(self):
         self.mmAreaData = <char*>malloc(self.mmAreaSize)
         if (self.mmAreaData is None):
@@ -123,12 +120,10 @@ cdef class ConfigSpace:
             raise MemoryError()
         return bytes(self.csData[offset:offset+size])
     cdef csWrite(self, unsigned long offset, bytes data, unsigned long size):
-        cdef char *tempAddr
         if (self.csData is None or size > self.csSize):
             self.main.printMsg("ConfigSpace::csWrite: self.csData is None || size > self.csSize.")
             raise MemoryError()
-        tempAddr = <char*>(self.csData+offset)
-        memcpy(<char*>tempAddr, <char*>data, size)
+        memcpy(<char*>(self.csData+offset), <char*>data, size)
     cdef unsigned long long csReadValueUnsigned(self, unsigned long offset, unsigned long size):
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)
     cdef unsigned long long csReadValueUnsignedBE(self, unsigned long offset, unsigned long size): # Big Endian

@@ -239,57 +239,49 @@ cdef class Registers:
         segValue = self.regs.csWriteValueBE(aregId+6, segValue, OP_SIZE_WORD)
         return segValue
     cdef long long regRead(self, unsigned short regId, unsigned char signed): # FIXME
-        cdef unsigned char opSize
+        cdef unsigned char opSize, regOffset
         cdef unsigned short aregId
         if (regId == CPU_REGISTER_NONE):
             return 0
-        if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
-            self.main.exitError("regRead: regId is reserved! ({0:d})", regId)
-            return 0
-        aregId = (regId//5)*8
-        if (regId in CPU_REGISTER_QWORD):
+        #if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
+        #    self.main.exitError("regRead: regId is reserved! ({0:d})", regId)
+        #    return 0
+        aregId, regOffset = divmod(regId, 5)
+        aregId <<= 3
+        if (regOffset == 0):
             opSize = OP_SIZE_QWORD
-        elif (regId in CPU_REGISTER_DWORD):
-            opSize = OP_SIZE_DWORD
-            aregId += 4
-        elif (regId in CPU_REGISTER_WORD):
+        elif (regOffset == 2):
             opSize = OP_SIZE_WORD
             aregId += 6
-        elif (regId in CPU_REGISTER_BYTE):
-            opSize = OP_SIZE_BYTE
-            if (regId in CPU_REGISTER_HBYTE):
-                aregId += 6
-            else:
-                aregId += 7
         else:
-            self.main.exitError("regRead: regId is unknown! ({0:d})", regId)
+            aregId += regOffset+3
+            if (regOffset == 1):
+                opSize = OP_SIZE_DWORD
+            else:
+                opSize = OP_SIZE_BYTE
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         if (signed):
             return self.regs.csReadValueSignedBE(aregId, opSize)
         return self.regs.csReadValueUnsignedBE(aregId, opSize)
     cdef unsigned long regWrite(self, unsigned short regId, unsigned long value):
-        cdef unsigned char opSize
+        cdef unsigned char opSize, regOffset
         cdef unsigned short aregId
-        if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
-            self.main.exitError("regWrite: regId is reserved! ({0:d})", regId)
-            return 0
-        aregId = (regId//5)*8
-        if (regId in CPU_REGISTER_QWORD):
+        #if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
+        #    self.main.exitError("regWrite: regId is reserved! ({0:d})", regId)
+        #    return 0
+        aregId, regOffset = divmod(regId, 5)
+        aregId <<= 3
+        if (regOffset == 0):
             opSize = OP_SIZE_QWORD
-        elif (regId in CPU_REGISTER_DWORD):
-            opSize = OP_SIZE_DWORD
-            aregId += 4
-        elif (regId in CPU_REGISTER_WORD):
+        elif (regOffset == 2):
             opSize = OP_SIZE_WORD
             aregId += 6
-        elif (regId in CPU_REGISTER_BYTE):
-            opSize = OP_SIZE_BYTE
-            if (regId in CPU_REGISTER_HBYTE):
-                aregId += 6
-            else:
-                aregId += 7
         else:
-            self.main.exitError("regWrite: regId is unknown! ({0:d})", regId)
+            aregId += regOffset+3
+            if (regOffset == 1):
+                opSize = OP_SIZE_DWORD
+            else:
+                opSize = OP_SIZE_BYTE
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         value = self.regs.csWriteValueBE(aregId, value, opSize)
         return value # returned value is unsigned!!
