@@ -49,7 +49,7 @@ cdef class MmArea:
 
 
 cdef class Mm:
-    def __init__(self, object main, ):
+    def __init__(self, object main):
         self.main = main
         self.mmAreas = []
     cdef mmAddArea(self, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly, MmArea mmAreaObject):
