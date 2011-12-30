@@ -17,7 +17,7 @@ cdef class Opcodes:
     cdef cmc(self)
     cdef hlt(self)
     cdef nop(self)
-    cdef switchToProtectedModeIfNeeded(self)
+    cdef syncProtectedModeState(self)
     cdef jumpFarAbsolutePtr(self)
     cdef jumpShortRelativeByte(self)
     cdef jumpShortRelativeWordDWord(self)

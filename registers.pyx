@@ -16,10 +16,7 @@ cdef class ModRMClass:
         self.reg = (modRMByte>>3)&0x7
         self.mod = (modRMByte>>6)&0x3
     cdef copyRMVars(self, ModRMClass otherInstance):
-        self.rmName0 = otherInstance.rmName0
-        self.rmName1 = otherInstance.rmName1
-        self.rmName2 = otherInstance.rmName2
-        self.rmNameSegId = otherInstance.rmNameSegId
+        self.regName = otherInstance.regName
     cdef sibOperands(self):
         cdef unsigned char sibByte, base, index, ss
         cdef unsigned short indexReg
@@ -27,12 +24,16 @@ cdef class ModRMClass:
         base    = (sibByte)&7
         index   = (sibByte>>3)&7
         ss      = (sibByte>>6)&3
-        indexReg = MODRM_SIB_INDEX_REGS[index]
-        self.rmName0 = self.registers.getRegNameWithFlags(0, base, OP_SIZE_DWORD)
-        self.rmName2 = ((self.registers.regRead( indexReg, False ) * (1 << ss))&BITMASK_DWORD)
+        if (index == 4):
+            self.rmName2 = 0
+        else:
+            indexReg = CPU_REGISTER_DWORD[index]
+            self.rmName2 = ((self.registers.regRead( indexReg, False ) * (1 << ss))&BITMASK_DWORD)
         if (self.mod == 0 and base == 5):
             self.rmName0 = CPU_REGISTER_NONE
             self.rmName2 += self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+        else:
+            self.rmName0 = CPU_REGISTER_DWORD[base]
     cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
         cdef unsigned char addrSegSize
         addrSegSize = self.registers.getAddrSegSize(CPU_SEGMENT_CS)
@@ -57,8 +58,8 @@ cdef class ModRMClass:
             elif (self.rm == 5):
                 self.rmName0 = CPU_REGISTER_DI
             elif (self.rm == 6):
-                self.rmName0 = CPU_REGISTER_NONE
                 if (self.mod == 0):
+                    self.rmName0 = CPU_REGISTER_NONE
                     self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
                 else:
                     self.rmName0 = CPU_REGISTER_BP
