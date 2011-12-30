@@ -36,43 +36,24 @@ cdef class Gdt:
         base  |= ( (entryData>>56)&BITMASK_BYTE)<<24
         return base, limit, accessByte, flags
     cdef unsigned char getSegSize(self, unsigned short num):
-        cdef tuple entryRet
-        cdef unsigned long base, limit
-        cdef unsigned char accessByte, flags
-        entryRet = self.getEntry(num)
-        base, limit, accessByte, flags = entryRet
-        if (flags & GDT_FLAG_SIZE):
+        if ((<unsigned char>(<tuple>self.getEntry(num))[3]) & GDT_FLAG_SIZE):
             return OP_SIZE_DWORD
         return OP_SIZE_WORD
     cdef unsigned char getSegAccess(self, unsigned short num):
-        cdef tuple entryRet
-        cdef unsigned char accessByte
-        entryRet = self.getEntry(num)
-        accessByte = entryRet[2]
-        return accessByte
+        return (<unsigned char>(<tuple>self.getEntry(num))[2])
     cdef unsigned char isSegPresent(self, unsigned short num):
-        cdef unsigned char accessByte
-        accessByte = self.getSegAccess(num)
-        return (accessByte & GDT_ACCESS_PRESENT)!=0
+        return (self.getSegAccess(num) & GDT_ACCESS_PRESENT)!=0
     cdef unsigned char isCodeSeg(self, unsigned short num):
-        cdef unsigned char accessByte
-        accessByte = self.getSegAccess(num)
-        return (accessByte & GDT_ACCESS_EXECUTABLE)!=0
+        return (self.getSegAccess(num) & GDT_ACCESS_EXECUTABLE)!=0
     ### isSegReadableWritable:
     ### if codeseg, return True if readable, else False
     ### if dataseg, return True if writable, else False
     cdef unsigned char isSegReadableWritable(self, unsigned short num):
-        cdef unsigned char accessByte
-        accessByte = self.getSegAccess(num)
-        return (accessByte & GDT_ACCESS_READABLE_WRITABLE)!=0
+        return (self.getSegAccess(num) & GDT_ACCESS_READABLE_WRITABLE)!=0
     cdef unsigned char isSegConforming(self, unsigned short num):
-        cdef unsigned char accessByte
-        accessByte = self.getSegAccess(num)
-        return (accessByte & GDT_ACCESS_CONFORMING)!=0
+        return (self.getSegAccess(num) & GDT_ACCESS_CONFORMING)!=0
     cdef unsigned char getSegDPL(self, unsigned short num):
-        cdef unsigned char accessByte
-        accessByte = self.getSegAccess(num)
-        return (accessByte & GDT_ACCESS_DPL)&3
+        return (self.getSegAccess(num) & GDT_ACCESS_DPL)>>5
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment):
         if (num == 0 or \
             (isStackSegment and ( num&3 != self.segments.main.cpu.registers.cpl or self.getSegDPL(num) != self.segments.main.cpu.registers.cpl)) or \
@@ -159,25 +140,14 @@ cdef class Idt:
         else: entrySize = OP_SIZE_WORD
         return entrySegment, entryEip, entryType, entrySize, entryNeededDPL, entryPresent
     cdef unsigned char isEntryPresent(self, unsigned char num):
-        cdef unsigned long long entryData
-        cdef unsigned char entryPresent
-        entryData = self.table.csReadValueUnsigned((num*8), 8)
-        entryPresent = (entryData>>47)&1 # is interrupt present
-        return entryPresent
+        return (<unsigned char>self.table.csReadValueUnsigned((num*8)+2, 1)>>7)&1 # is interrupt present
     cdef unsigned char getEntryNeededDPL(self, unsigned char num):
-        cdef unsigned long long entryData
-        cdef unsigned char entryPresent
-        entryData = self.table.csReadValueUnsigned((num*8), 8)
-        entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
-        return entryNeededDPL
+        return (<unsigned char>self.table.csReadValueUnsigned((num*8)+2, 1)>>5)&0x3 # interrupt: Need this DPL
     cdef unsigned char getEntrySize(self, unsigned char num):
-        cdef unsigned long long entryData
-        cdef unsigned char entrySize
-        entryData = self.table.csReadValueUnsigned((num*8), 8)
-        entrySize = (entryData>>43)&1 # interrupt size: 1==32bit; 0==16bit; return 4 for 32bit, 2 for 16bit
-        if (entrySize!=0): entrySize = OP_SIZE_DWORD
-        else: entrySize = OP_SIZE_WORD
-        return entrySize
+        # interrupt size: 1==32bit; 0==16bit; return 4 for 32bit, 2 for 16bit
+        if ((<unsigned char>self.table.csReadValueUnsigned((num*8)+2, 1)>>3)&1):
+            return OP_SIZE_DWORD
+        return OP_SIZE_WORD
     cdef tuple getEntryRealMode(self, unsigned char num):
         cdef unsigned short offset, entrySegment, entryEip
         offset = num*4 # Don't use ConfigSpace here.

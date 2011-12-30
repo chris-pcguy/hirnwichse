@@ -2,6 +2,7 @@
 import sys, misc
 
 from misc cimport Misc
+from segments cimport Segments, Gdt, Idt
 from registers cimport Registers
 from mm cimport Mm
 
@@ -473,7 +474,7 @@ cdef class Opcodes:
         pass
     cdef syncProtectedModeState(self):
         (<Registers>self.main.cpu.registers).protectedModeOn = (<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR0, CR0_FLAG_PE)!=0
-        (<Registers>self.main.cpu.registers).segments.gdt.loadTableData()
+        (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).loadTableData()
     cdef jumpFarAbsolutePtr(self):
         cdef unsigned char operSize
         cdef unsigned short cs
@@ -1086,8 +1087,8 @@ cdef class Opcodes:
     cdef opcodeGroup0F(self):
         cdef unsigned char operSize, addrSize, operOpcode, bitSize, operOpcodeMod, operOpcodeModId, \
             newCF, newOF, oldOF, count, eaxIsInvalid
-        cdef unsigned short eaxReg
-        cdef unsigned long eaxId, bitMask, bitMaskHalf, base, limit, mmAddr, op1, op2
+        cdef unsigned short eaxReg, segSelector, limit
+        cdef unsigned long eaxId, bitMask, bitMaskHalf, base, mmAddr, op1, op2
         cdef unsigned long long qop1, qop2
         cdef short i
         operSize, addrSize = (<Registers>self.main.cpu.registers).getOpAddrSegSize(CPU_SEGMENT_CS)
@@ -1103,25 +1104,23 @@ cdef class Opcodes:
             self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             mmAddr = self.modRMInstance.getRMValueFull(addrSize)
             if (operOpcodeModId in (0, 1)): # SLDT/STR
-                if (operOpcodeModId == 1): # STR
+                if (operOpcodeModId == 0): # SLDT
+                    self.modRMInstance.modRMSave(OP_SIZE_WORD, (<Segments>(<Registers>self.main.cpu.registers).segments).intr, True, OPCODE_SAVE)
+                elif (operOpcodeModId == 1): # STR
                     op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                     if ((<Registers>self.main.cpu.registers).lockPrefix or not (<Registers>self.main.cpu.registers).isInProtectedMode()):
                         raise misc.ChemuException(CPU_EXCEPTION_UD)
                     self.main.exitError("opcodeGroup0F_00: STR not supported yet.")
-                elif (operOpcodeModId == 0): # SLDT
-                    base, limit = (<Registers>self.main.cpu.registers).segments.ldt.getBaseLimit()
-                    limit &= BITMASK_WORD
-                    if (operSize == OP_SIZE_WORD):
-                        base &= 0xffffff
-                    (<Registers>self.main.cpu.registers).mmWriteValue(mmAddr, limit, OP_SIZE_WORD, CPU_SEGMENT_DS, True)
-                    (<Registers>self.main.cpu.registers).mmWriteValue(mmAddr+OP_SIZE_WORD, base, OP_SIZE_DWORD, CPU_SEGMENT_DS, True)
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
                 if (operOpcodeModId == 2): # LLDT
-                    limit = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(mmAddr, OP_SIZE_WORD, CPU_SEGMENT_DS, True)
-                    base = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(mmAddr+OP_SIZE_WORD, OP_SIZE_DWORD, CPU_SEGMENT_DS, True)
-                    if (operSize == OP_SIZE_WORD):
-                        base &= 0xffffff
-                    (<Registers>self.main.cpu.registers).segments.ldt.loadTable(base, limit)
+                    segSelector = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(mmAddr, OP_SIZE_WORD, CPU_SEGMENT_DS, True)
+                    if ((segSelector>>2) == 0):
+                        self.main.printMsg("Opcode0F_01::LLDT: (segSelector>>2) == 0.")
+                        return
+                    (<Segments>(<Registers>self.main.cpu.registers).segments).intr = segSelector
+                    base, limit = (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getEntry(segSelector)[0:2]
+                    (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTablePosition(base, limit)
+                    (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTableData()
                 elif (operOpcodeModId == 3): # LTR
                     op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                     if ((<Registers>self.main.cpu.registers).lockPrefix or not (<Registers>self.main.cpu.registers).isInProtectedMode()):
@@ -1133,10 +1132,10 @@ cdef class Opcodes:
                     self.main.exitError("opcodeGroup0F_00: LTR not supported yet.")
             elif (operOpcodeModId == 4): # VERR
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, (<Registers>self.main.cpu.registers).segments.checkReadAllowed(op1, False) )
+                (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkReadAllowed(op1, False) )
             elif (operOpcodeModId == 5): # VERW
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, (<Registers>self.main.cpu.registers).segments.checkWriteAllowed(op1, False) )
+                (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkWriteAllowed(op1, False) )
             else:
                 self.main.printMsg("opcodeGroup0F_00: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
@@ -1145,10 +1144,13 @@ cdef class Opcodes:
                 raise misc.ChemuException(CPU_EXCEPTION_GP, 0)
             operOpcodeMod = (<Registers>self.main.cpu.registers).getCurrentOpcode(OP_SIZE_BYTE, False)
             operOpcodeModId = (operOpcodeMod>>3)&7
-            if (operOpcodeModId in (0, 1, 2, 3)): # LGDT/LIDT SGDT/SIDT
+            if (operOpcodeModId in (0, 1, 2, 3)): # SGDT/SIDT LGDT/LIDT
                 self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            else: # SMSW/LMSW
+            elif (operOpcodeModId in (4, 6)): # SMSW/LMSW
+                self.main.printMsg("Group0F::SMSW/LMSW: TODO!")
                 self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
+            else:
+                self.main.printMsg("Group0F_01: operOpcodeModId not in (0, 1, 2, 3, 4, 6)")
             mmAddr = self.modRMInstance.getRMValueFull(addrSize)
             if (operOpcodeMod == 0xc1): # VMCALL
                 self.main.printMsg("opcodeGroup0F_01: VMCALL isn't supported yet.")
@@ -1179,9 +1181,9 @@ cdef class Opcodes:
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeModId in (0, 1)): # SGDT/SIDT
                 if (operOpcodeModId == 0): # SGDT
-                    base, limit = (<Registers>self.main.cpu.registers).segments.gdt.getBaseLimit()
+                    base, limit = (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getBaseLimit()
                 elif (operOpcodeModId == 1): # SIDT
-                    base, limit = (<Registers>self.main.cpu.registers).segments.idt.getBaseLimit()
+                    base, limit = (<Idt>(<Registers>self.main.cpu.registers).segments.idt).getBaseLimit()
                 limit &= BITMASK_WORD
                 if (operSize == OP_SIZE_WORD):
                     base &= 0xffffff
@@ -1193,9 +1195,9 @@ cdef class Opcodes:
                 if (operSize == OP_SIZE_WORD):
                     base &= 0xffffff
                 if (operOpcodeModId == 2): # LGDT
-                    (<Registers>self.main.cpu.registers).segments.gdt.loadTablePosition(base, limit)
+                    (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).loadTablePosition(base, limit)
                 elif (operOpcodeModId == 3): # LIDT
-                    (<Registers>self.main.cpu.registers).segments.idt.loadTable(base, limit)
+                    (<Idt>(<Registers>self.main.cpu.registers).segments.idt).loadTable(base, limit)
             elif (operOpcodeModId == 4): # SMSW; TODO; FIXME
                 op2 = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_CR0, False)&BITMASK_WORD
                 self.modRMInstance.modRMSave(OP_SIZE_WORD, op2, True, OPCODE_SAVE)
@@ -1886,20 +1888,20 @@ cdef class Opcodes:
         if (intNum == -1):
             intNum = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         if (inProtectedMode):
-            entrySegment, entryEip, entryType, entrySize, entryNeededDPL, entryPresent = (<Registers>self.main.cpu.registers).segments.idt.getEntry(intNum)
+            entrySegment, entryEip, entryType, entrySize, entryNeededDPL, entryPresent = (<Idt>(<Registers>self.main.cpu.registers).segments.idt).getEntry(intNum)
         else:
-            entrySegment, entryEip = (<Registers>self.main.cpu.registers).segments.idt.getEntryRealMode(intNum)
+            entrySegment, entryEip = (<Idt>(<Registers>self.main.cpu.registers).segments.idt).getEntryRealMode(intNum)
             if ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10)):
                 pythonBiosDone = self.main.platform.pythonBios.interrupt(intNum)
                 if (pythonBiosDone):
                     return
         self.main.debug("Interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}", intNum, entrySegment, entryEip)
         if (inProtectedMode):
-            if (((<Registers>self.main.cpu.registers).cpl != 0 and (<Registers>self.main.cpu.registers).cpl > entrySegment&3) or (<Registers>self.main.cpu.registers).segments.getSegDPL(entrySegment) != 0):
+            if (((<Registers>self.main.cpu.registers).cpl != 0 and (<Registers>self.main.cpu.registers).cpl > entrySegment&3) or (<Segments>(<Registers>self.main.cpu.registers).segments).getSegDPL(entrySegment) != 0):
                 self.main.exitError("Interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")
                 return
             entrySegment = ((entrySegment&0xfffc)|((<Registers>self.main.cpu.registers).cpl&3))
-            if ((<Registers>self.main.cpu.registers).cpl != 0):
+            if ((<Registers>self.main.cpu.registers).cpl != 0): # FIXME
                 self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
                 self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
         if (entryType == IDT_INTR_TYPE_INTERRUPT):
@@ -1927,7 +1929,7 @@ cdef class Opcodes:
             newEIP = self.stackGetValue(operSize)
             if ((newEIP>>16)!=0):
                 raise misc.ChemuException(CPU_EXCEPTION_GP)
-        newEIP = self.stackPopValue(operSize)
+        self.stackPopRegId(CPU_REGISTER_EIP, operSize)
         self.stackPopSegId(CPU_SEGMENT_CS, operSize)
         tempEFLAGS = self.stackPopValue(operSize)
         EFLAGS = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_EFLAGS, False)
@@ -1956,7 +1958,6 @@ cdef class Opcodes:
             tempEFLAGS &= BITMASK_WORD
             if (not inProtectedMode):
                 tempEFLAGS |= (EFLAGS&0xffff0000)
-        (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_EIP, newEIP )
         (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_EFLAGS, tempEFLAGS )
     cdef aad(self):
         cdef unsigned char imm8, tempAL, tempAH

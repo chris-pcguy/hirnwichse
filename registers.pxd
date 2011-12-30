@@ -75,7 +75,6 @@ cdef class Registers:
     cdef mmWrite(self, long long mmAddr, bytes data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
-    cdef unsigned long getBaseAddr(self, unsigned short segId)
     cdef unsigned long getRealAddr(self, unsigned short segId, long long offsetAddr)
     cdef unsigned char getSegSize(self, unsigned short segId)
     cdef unsigned char isSegPresent(self, unsigned short segId)
