@@ -406,8 +406,7 @@ cdef class Registers:
                 return regWord+1
             elif (wantRegSize == OP_SIZE_QWORD):
                 return regWord
-        else:
-            self.main.exitError("unknown case. (regWord: {0:d}, wantRegSize: {1:d})", regWord, wantRegSize)
+        self.main.exitError("unknown case. (regWord: {0:d}, wantRegSize: {1:d})", regWord, wantRegSize)
         return 0
     cdef setSZP(self, unsigned long value, unsigned char regSize):
         self.setEFLAG(FLAG_SF, (value&(<Misc>self.main.misc).getBitMask80(regSize))!=0)

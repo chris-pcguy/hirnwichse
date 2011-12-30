@@ -1405,7 +1405,7 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(operSize, op1, OPCODE_SAVE)
         elif (operOpcode in (0xb0, 0xb1)): # 0xb0: CMPXCHG RM8, R8 ;; 0xb1: CMPXCHG RM16_32, R16_32
             if (operOpcode == 0xb0): # 0xb0: CMPXCHG RM8, R8
-                operSize = 8
+                operSize = OP_SIZE_BYTE
             eaxReg  = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
             self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
             op1 = self.modRMInstance.modRMLoad(operSize, False, True)
@@ -1499,7 +1499,7 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
         elif (operOpcode in (0xc0, 0xc1)): # 0xc0: XADD RM8, R8 ;; 0xc1: XADD RM16_32, R16_32
             if (operOpcode == 0xc0): # 0xc0: XADD RM8, R8
-                operSize = 8
+                operSize = OP_SIZE_BYTE
             self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
             op1 = self.modRMInstance.modRMLoad(operSize, False, True)
             op2 = self.modRMInstance.modRLoad(operSize, False)
