@@ -2,7 +2,7 @@
 from mm cimport Mm
 from registers cimport Registers
 from vga cimport Vga
-from floppy cimport Floppy, FloppyController, FloppyDrive
+from floppy cimport Floppy, FloppyController, FloppyDrive, FloppyMedia
 
 include "globals.pxi"
 
@@ -41,7 +41,7 @@ cdef class PythonBios:
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, cx)
                 return True
             elif (ah == 0x0f): # get currMode; write it to AL
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, currMode)
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, (currMode|(al&0x80)))
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, 80)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BH, (<Vga>self.main.platform.vga).getCorrectPage(0xff))
                 return True
@@ -50,14 +50,20 @@ cdef class PythonBios:
                     #if (currMode in (0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x12, 0x13)):
                     if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7, 0x12, 0x13)):
                         count = 1
-                        if (ah in (0x09, 0x0a)):
-                            count = cx
-                        elif (ah == 0x0e):
+                        if (ah == 0x0e):
                             bh = 0xff # according to vgabios, AH:0x0e must print on the current page (0xff)!!
+                        else:
+                            count = cx
                         for i in range(count):
                             # ah==0x09: bl for textmode/graphicsmode;; ah==0x0e: bl for textmode
-                            if (currMode in (0x00, 0x01, 0x02, 0x03, 0x07) and ah == 0x09):
-                                (<Vga>self.main.platform.vga).writeCharacterTeletype(al, bl, bh, ah==0x0e)
+                            if (ah != 0x0e):
+                                cursorPos = (<Vga>self.main.platform.vga).getCursorPosition(bh)
+                                memAddr = (<Vga>self.main.platform.vga).getAddrOfPos(bh, cursorPos&0xff, (cursorPos>>8)&0xff)
+                                #if (currMode in (0x00, 0x01, 0x02, 0x03, 0x07) and ah == 0x09):
+                                if (ah == 0x09):
+                                    (<Vga>self.main.platform.vga).writeCharacterTeletype(al, bl, bh, True)
+                                else:
+                                    (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, bh, True)
                             else:
                                 (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, bh, ah==0x0e)
                         return True
@@ -66,13 +72,13 @@ cdef class PythonBios:
                         return False
                 elif (ah == 0x13): # AH == 0x13
                     if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7)):
-                        updateCursor = al in (0x1, 0x3)
-                        attrInBuf = al in (0x2, 0x3)
+                        updateCursor = al&1
+                        attrInBuf = (al&2)!=0
                         count = cx
                         attr = bl
                         (<Vga>self.main.platform.vga).setCursorPosition(bh, dx)
-                        if (attrInBuf):
-                            count *= 2
+                        #if (attrInBuf): # TODO
+                        #    count *= 2
                         data = (<Registers>self.main.cpu.registers).mmRead(bp, count, CPU_SEGMENT_ES, False)
                         for i in range(0, count, attrInBuf+1):
                             c = data[i]
@@ -116,10 +122,10 @@ cdef class PythonBios:
                 return True
             elif (ah == 0x8):
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DH, \
-                (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media.heads)
+                (<FloppyMedia>(<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).heads)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, \
-                ((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media.tracks<<8) | \
-                ((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media.sectors))
+                ((<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).tracks<<8) | \
+                (<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).sectors)))
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, 0)
                 (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, False)
             elif (not (dl & 0x80)):

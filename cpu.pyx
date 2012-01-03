@@ -140,10 +140,10 @@ cdef class Cpu:
             self.debugSingleStep = False
         self.cycles += 1
         self.registers.resetPrefixes()
-        self.saveCurrentInstPointer()
+        #self.saveCurrentInstPointer()
         if (self.asyncEvent):
             self.handleAsyncEvent()
-        self.opcode = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
+        self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)

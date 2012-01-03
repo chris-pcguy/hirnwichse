@@ -29,6 +29,7 @@ cdef class Mm:
 
 
 cdef class ConfigSpace:
+    cpdef object main
     cdef char *csData
     cdef unsigned long csSize
     cdef csResetData(self)

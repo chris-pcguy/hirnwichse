@@ -128,7 +128,7 @@ cdef class Cmos:
                 self.main.exitError("outPort: dataSize {0:d} not supported. (port: {1:#06x})", dataSize, ioPortAddr)
         return
     cdef run(self):
-        self.configSpace = ConfigSpace(128)
+        self.configSpace = ConfigSpace(128, self.main)
         self.configSpace.run()
         self.reset()
         ##self.updateTime()

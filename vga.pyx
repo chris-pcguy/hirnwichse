@@ -39,13 +39,12 @@ cdef class VRamArea(MmArea):
 cdef class VGA_REGISTER_RAW(ConfigSpace):
     def __init__(self, unsigned long registerSize, Vga vga, object main):
         self.vga  = vga
-        self.main = main
         self.index = 0
-        ConfigSpace.__init__(self, registerSize)
+        ConfigSpace.__init__(self, registerSize, main)
     cdef reset(self):
-        ConfigSpace.csResetData(self)
+        self.csResetData()
         self.index = 0
-    cdef getIndex(self):
+    cdef unsigned short getIndex(self):
         return self.index
     cdef setIndex(self, unsigned short index):
         self.index = index
@@ -53,10 +52,10 @@ cdef class VGA_REGISTER_RAW(ConfigSpace):
         self.index += n
     cdef indexSub(self, unsigned short n):
         self.index -= n
-    cdef getData(self, unsigned char dataSize):
-        return ConfigSpace.csReadValueUnsigned(self, self.index, dataSize)
+    cdef unsigned long getData(self, unsigned char dataSize):
+        return self.csReadValueUnsigned(self.index, dataSize)
     cdef setData(self, unsigned long data, unsigned char dataSize):
-        ConfigSpace.csWriteValue(self, self.index, data, dataSize)
+        self.csWriteValue(self.index, data, dataSize)
 
 cdef class CRT(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
@@ -65,11 +64,17 @@ cdef class CRT(VGA_REGISTER_RAW):
 cdef class DAC(VGA_REGISTER_RAW): # PEL
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_DAC_DATA_LENGTH, vga, main)
+        self.readIndex = self.writeIndex = 0
         self.mask = 0xff
+    cdef unsigned long getData(self, unsigned char dataSize):
+        cdef unsigned long retData
+        retData = self.csReadValueUnsigned(self.readIndex, dataSize)
+        self.readIndex += dataSize
+        return retData
     cdef setData(self, unsigned long data, unsigned char dataSize):
-        VGA_REGISTER_RAW.setData(self, data, dataSize)
-        self.indexAdd(1)
-    cdef getMask(self):
+        self.csWriteValue(self.writeIndex, data, dataSize)
+        self.writeIndex += dataSize
+    cdef unsigned char getMask(self):
         return self.mask
     cdef setMask(self, unsigned char value):
         self.mask = value
@@ -87,7 +92,7 @@ cdef class ExtReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_EXTREG_DATA_LENGTH, vga, main)
         self.miscOutReg = VGA_EXTREG_PROCESS_RAM
-    cdef getMiscOutReg(self):
+    cdef unsigned char getMiscOutReg(self):
         return self.miscOutReg
     cdef setMiscOutReg(self, unsigned char value):
         self.miscOutReg = value
@@ -164,8 +169,8 @@ cdef class Vga:
     cdef writeCharacter(self, unsigned long address, unsigned char c, short attr):
         if (attr == -1):
             attr = 0x07
-        (<Mm>self.main.mm).mmPhyWriteValue(address, ((attr<<8)|c), 2)
-    cdef getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
+        (<Mm>self.main.mm).mmPhyWriteValue(address, ((<unsigned short>attr<<8)|c), 2)
+    cdef unsigned long getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
         cdef unsigned long offset
         page = self.getCorrectPage(page)
         offset = ((y*80)+x)*2
@@ -245,8 +250,10 @@ cdef class Vga:
                 self.seq.setData(data, dataSize)
             elif (ioPortAddr == 0x3c6):
                 self.dac.setMask(data)
+            elif (ioPortAddr == 0x3c7):
+                self.dac.setReadIndex(data)
             elif (ioPortAddr == 0x3c8):
-                self.dac.setIndex(data)
+                self.dac.setWriteIndex(data)
             elif (ioPortAddr == 0x3c9):
                 self.dac.setData(data, dataSize)
             elif (ioPortAddr == 0x3ce):
@@ -281,6 +288,7 @@ cdef class Vga:
         (<Mm>self.main.mm).mmAddArea(VGA_TEXTMODE_ADDR, 4000, False, <MmArea>VRamArea)
         ##(<Mm>self.main.mm).mmAddArea(VGA_MEMAREA_ADDR, 0x4000, False, VRamArea)
     cdef run(self):
+        self.VRamAddMemArea()
         self.seq.run()
         self.crt.run()
         self.gdc.run()
@@ -288,7 +296,6 @@ cdef class Vga:
         self.extreg.run()
         self.attrctrlreg.run()
         ####
-        self.VRamAddMemArea()
         if (self.ui):
             (<PygameUI>self.ui).run()
         #self.main.platform.addReadHandlers((0x3c1, 0x3c5, 0x3cc, 0x3c8, 0x3da), self)

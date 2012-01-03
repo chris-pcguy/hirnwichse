@@ -9,10 +9,11 @@ cdef class Cpu:
     cpdef object main
     cdef public Registers registers
     cdef Opcodes opcodes
-    cdef public unsigned long long cycles
-    cdef unsigned long savedCs, savedEip
     cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep
+    cdef public unsigned long long cycles
     cdef unsigned char INTR, HRQ
+    cdef unsigned short savedCs
+    cdef unsigned long savedEip
     cdef reset(self)
     cdef saveCurrentInstPointer(self)
     cdef setINTR(self, unsigned char state)

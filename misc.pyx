@@ -10,20 +10,18 @@ class ChemuException(Exception):
 cdef class Misc:
     def __init__(self, object main):
         self.main = main
-    cdef unsigned long long getBitMask7F(self, unsigned char maskSize):
-        if (maskSize == OP_SIZE_BYTE):
-            return 0x7f
-        elif (maskSize == OP_SIZE_WORD):
-            return 0x7fff
-        elif (maskSize == OP_SIZE_DWORD):
-            return 0x7fffffff
-        elif (maskSize == OP_SIZE_QWORD):
-            return 0x7fffffffffffffff
-        else:
-            self.main.exitError("Misc::getBitMask: maskSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)", maskSize)
-        return 0
     cdef unsigned long long getBitMask80(self, unsigned char maskSize):
-        return self.getBitMask7F(maskSize)+1
+        if (maskSize == OP_SIZE_BYTE):
+            return 0x80
+        elif (maskSize == OP_SIZE_WORD):
+            return 0x8000
+        elif (maskSize == OP_SIZE_DWORD):
+            return 0x80000000
+        elif (maskSize == OP_SIZE_QWORD):
+            return 0x8000000000000000
+        else:
+            self.main.exitError("Misc::getBitMask80: maskSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)", maskSize)
+        return 0
     cdef unsigned long long getBitMaskFF(self, unsigned char maskSize):
         if (maskSize == OP_SIZE_BYTE):
             return 0xffUL
@@ -34,7 +32,7 @@ cdef class Misc:
         elif (maskSize == OP_SIZE_QWORD):
             return 0xffffffffffffffffULL
         else:
-            self.main.exitError("Misc::getBitMask: maskSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)", maskSize)
+            self.main.exitError("Misc::getBitMaskFF: maskSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)", maskSize)
         return 0
     cdef unsigned long checksum(self, bytes data): # data is bytes
         cdef unsigned char c

@@ -4,7 +4,7 @@ from mm cimport Mm, ConfigSpace
 from segments cimport Gdt, Idt, Segments
 
 cdef class ModRMClass:
-    cdef object main
+    cpdef object main
     cdef Registers registers
     cdef unsigned char rm, reg, mod
     cdef unsigned short rmName0, rmName1, rmNameSegId, regName
@@ -29,18 +29,18 @@ cdef class Registers:
     cdef Segments segments
     cdef ConfigSpace regs
     cdef public unsigned char lockPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, \
-                              addressSizePrefix, cpl, iopl, A20Active, protectedModeOn
+                                addressSizePrefix, cpl, iopl, A20Active, protectedModeOn, \
+                                codeSegSize
+    cdef public unsigned short eipSizeRegId
     cdef reset(self)
     cdef resetPrefixes(self)
     cdef unsigned short getRegSize(self, unsigned short regId) # return size in bits
     cdef unsigned char isInProtectedMode(self)
     cdef unsigned char getA20State(self)
     cdef setA20State(self, unsigned char state)
-    cdef unsigned long long getCurrentOpcodeAddr(self)
     cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed)
     cdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed)
-    cdef tuple getCurrentOpcodeWithAddr(self, unsigned char getAddr, unsigned char numBytes, unsigned char signed)
-    cdef tuple getCurrentOpcodeAddWithAddr(self, unsigned char getAddr, unsigned char numBytes, unsigned char signed)
+    cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned long *retAddr)
     cdef unsigned short segRead(self, unsigned short segId)
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue)
     cdef long long regRead(self, unsigned short regId, unsigned char signed)
@@ -80,7 +80,10 @@ cdef class Registers:
     cdef unsigned char isSegPresent(self, unsigned short segId)
     cdef unsigned char getOpSegSize(self, unsigned short segId)
     cdef unsigned char getAddrSegSize(self, unsigned short segId)
-    cdef tuple getOpAddrSegSize(self, unsigned short segId)
+    cdef unsigned char getOpCodeSegSize(self)
+    cdef unsigned char getAddrCodeSegSize(self)
+    cdef getOpAddrSegSize(self, unsigned short segId, unsigned char *opSize, unsigned char *addrSize)
+    cdef getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize)
     cdef run(self)
 
 

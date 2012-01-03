@@ -9,15 +9,14 @@ cdef class VRamArea(MmArea):
 
 
 cdef class VGA_REGISTER_RAW(ConfigSpace):
-    cpdef object main
     cdef Vga vga
     cdef unsigned short index
     cdef reset(self)
-    cdef getIndex(self)
+    cdef unsigned short getIndex(self)
     cdef setIndex(self, unsigned short index)
     cdef indexAdd(self, unsigned short n)
     cdef indexSub(self, unsigned short n)
-    cdef getData(self, unsigned char dataSize)
+    cdef unsigned long getData(self, unsigned char dataSize)
     cdef setData(self, unsigned long data, unsigned char dataSize)
 
 cdef class CRT(VGA_REGISTER_RAW):
@@ -25,8 +24,10 @@ cdef class CRT(VGA_REGISTER_RAW):
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
     cdef unsigned char mask
+    cdef unsigned short readIndex, writeIndex
+    cdef unsigned long getData(self, unsigned char dataSize)
     cdef setData(self, unsigned long data, unsigned char dataSize)
-    cdef getMask(self)
+    cdef unsigned char getMask(self)
     cdef setMask(self, unsigned char value)
 
 
@@ -38,7 +39,7 @@ cdef class Sequencer(VGA_REGISTER_RAW):
 
 cdef class ExtReg(VGA_REGISTER_RAW):
     cdef unsigned char miscOutReg
-    cdef getMiscOutReg(self)
+    cdef unsigned char getMiscOutReg(self)
     cdef setMiscOutReg(self, unsigned char value)
 
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
@@ -61,7 +62,7 @@ cdef class Vga:
     cdef unsigned char getCorrectPage(self, unsigned char page)
     cdef writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor)
     cdef writeCharacter(self, unsigned long address, unsigned char c, short attr)
-    cdef getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y)
+    cdef unsigned long getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y)
     cdef unsigned short getCursorPosition(self, unsigned char page)
     cdef setCursorPosition(self, unsigned char page, unsigned short pos)
     cdef scrollDown(self, unsigned char page, short attr)

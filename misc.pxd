@@ -1,7 +1,6 @@
 
 cdef class Misc:
     cpdef object main
-    cdef unsigned long long getBitMask7F(self, unsigned char maskSize)
     cdef unsigned long long getBitMask80(self, unsigned char maskSize)
     cdef unsigned long long getBitMaskFF(self, unsigned char maskSize)
     cdef unsigned long checksum(self, bytes data) # data is bytes

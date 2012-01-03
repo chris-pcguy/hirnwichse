@@ -122,9 +122,6 @@ cdef class Opcodes:
     cdef arpl(self)
     cdef bound(self)
     cdef btFunc(self, unsigned long offset, unsigned char newValType)
-    cdef btcFunc(self, unsigned long offset)
-    cdef btrFunc(self, unsigned long offset)
-    cdef btsFunc(self, unsigned long offset)
     cdef run(self)
     # end of opcodes
 

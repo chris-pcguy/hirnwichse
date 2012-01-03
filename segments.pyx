@@ -103,7 +103,7 @@ cdef class Gdt:
                 return False
         return True
     cdef run(self):
-        self.table = ConfigSpace(GDT_HARD_LIMIT)
+        self.table = ConfigSpace(GDT_HARD_LIMIT, self.segments.main)
         self.table.run()
 
 
@@ -155,7 +155,7 @@ cdef class Idt:
         entrySegment = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset+2, 2)
         return entrySegment, entryEip
     cdef run(self):
-        self.table = ConfigSpace(IDT_HARD_LIMIT)
+        self.table = ConfigSpace(IDT_HARD_LIMIT, self.segments.main)
         self.table.run()
 
 cdef class Segments:

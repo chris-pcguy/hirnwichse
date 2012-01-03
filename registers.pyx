@@ -48,7 +48,7 @@ cdef class ModRMClass:
             else:
                 self.main.exitError("modRMOperands: mod==3; regSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)", regSize)
         else:
-            regSize = self.registers.getAddrSegSize(CPU_SEGMENT_CS)
+            regSize = self.registers.getAddrCodeSegSize()
             if (regSize == OP_SIZE_WORD):
                 if (self.rm in (0, 1, 7)):
                     self.rmName0 = CPU_REGISTER_BX
@@ -108,7 +108,7 @@ cdef class ModRMClass:
         if (self.mod == 3):
             returnInt = self.registers.regRead(self.rmName0, signed)
         else:
-            addrSize = self.registers.getAddrSegSize(CPU_SEGMENT_CS)
+            addrSize = self.registers.getAddrCodeSegSize()
             returnInt = self.getRMValueFull(addrSize)
             if (signed):
                 returnInt = self.registers.mmReadValueSigned(returnInt, regSize, self.rmNameSegId, allowOverride)
@@ -121,7 +121,7 @@ cdef class ModRMClass:
         cdef long long rmValueFull
         if (self.mod == 3):
             return self.registers.regWriteWithOp(self.rmName0, value, valueOp)
-        addrSize = self.registers.getAddrSegSize(CPU_SEGMENT_CS)
+        addrSize = self.registers.getAddrCodeSegSize()
         rmValueFull = self.getRMValueFull(addrSize)
         return self.registers.mmWriteValueWithOp(rmValueFull, value, regSize, self.rmNameSegId, allowOverride, valueOp)
     cdef unsigned short modSegLoad(self):
@@ -156,54 +156,31 @@ cdef class Registers:
     cdef resetPrefixes(self):
         self.lockPrefix = self.repPrefix = self.operandSizePrefix = self.addressSizePrefix = False
         self.segmentOverridePrefix = 0
+        self.codeSegSize = self.getSegSize(CPU_SEGMENT_CS)
+        self.eipSizeRegId = (self.codeSegSize == OP_SIZE_DWORD and CPU_REGISTER_EIP) or CPU_REGISTER_IP
     cdef unsigned char isInProtectedMode(self):
         return self.protectedModeOn
     cdef unsigned char getA20State(self):
         return self.A20Active
     cdef setA20State(self, unsigned char state):
         self.A20Active = state
-    cdef unsigned long long getCurrentOpcodeAddr(self):
-        cdef unsigned short eipSizeRegId
-        cdef unsigned long long opcodeAddr
-        eipSizeRegId = self.getWordAsDword(CPU_REGISTER_IP, self.getSegSize(CPU_SEGMENT_CS))
-        opcodeAddr = self.getRealAddr(CPU_SEGMENT_CS, self.regRead(eipSizeRegId, False))
-        return opcodeAddr
     cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed):
         cdef unsigned long opcodeAddr
-        cdef long long currentOpcode
-        opcodeAddr = self.getCurrentOpcodeAddr()
+        opcodeAddr = self.regRead(self.eipSizeRegId, False)
         if (signed):
-            currentOpcode = (<Mm>self.main.mm).mmPhyReadValueSigned(opcodeAddr, numBytes)
-        else:
-            currentOpcode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(opcodeAddr, numBytes)
-        return currentOpcode
+            return self.mmReadValueSigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
+        return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed):
-        cdef long long currentOpcode
-        cdef unsigned short regSizeId
-        currentOpcode = self.getCurrentOpcode(numBytes, signed)
-        signed   = self.getOpSegSize(CPU_SEGMENT_CS)
-        regSizeId  = self.getWordAsDword(CPU_REGISTER_IP, signed)
-        self.regAdd(regSizeId, numBytes)
-        return currentOpcode
-    cdef tuple getCurrentOpcodeWithAddr(self, unsigned char getAddr, unsigned char numBytes, unsigned char signed):
         cdef unsigned long opcodeAddr
-        cdef long long currentOpcode
-        opcodeAddr = self.getCurrentOpcodeAddr()
+        opcodeAddr = self.regAdd(self.eipSizeRegId, numBytes)-numBytes
         if (signed):
-            currentOpcode = (<Mm>self.main.mm).mmPhyReadValueSigned(opcodeAddr, numBytes)
-        else:
-            currentOpcode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(opcodeAddr, numBytes)
-        if (getAddr == GETADDR_OPCODE):
-            return currentOpcode, opcodeAddr
-        elif (getAddr == GETADDR_NEXT_OPCODE):
-            return currentOpcode, opcodeAddr+numBytes
-        else:
-            self.main.exitError("CPU::getCurrentOpcodeWithAddr: getAddr {0:d} unknown.", getAddr)
-    cdef tuple getCurrentOpcodeAddWithAddr(self, unsigned char getAddr, unsigned char numBytes, unsigned char signed):
-        cdef tuple opcodeData
-        opcodeData = self.getCurrentOpcodeWithAddr(getAddr, numBytes, signed)
-        self.regAdd(self.getWordAsDword(CPU_REGISTER_IP, self.getOpSegSize(CPU_SEGMENT_CS)), numBytes)
-        return opcodeData
+            return self.mmReadValueSigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
+        return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
+    cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned long *retAddr):
+        retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
+        retAddr[0] = self.regRead(self.eipSizeRegId, False)
+        self.regAdd(self.eipSizeRegId, 1)
+        return self.mmReadValueUnsigned(retAddr[0], OP_SIZE_BYTE, CPU_SEGMENT_CS, False)
     cdef unsigned short getRegSize(self, unsigned short regId):
         if (regId in CPU_REGISTER_BYTE):
             return OP_SIZE_BYTE
@@ -632,35 +609,28 @@ cdef class Registers:
         #else: # real mode
         return True
     cdef unsigned char getOpSegSize(self, unsigned short segId):
-        segId = self.getSegSize(segId)
-        if (segId == OP_SIZE_WORD):
-            return ((self.operandSizePrefix and OP_SIZE_DWORD) or OP_SIZE_WORD)
-        elif (segId == OP_SIZE_DWORD):
-            return ((self.operandSizePrefix and OP_SIZE_WORD) or OP_SIZE_DWORD)
-        else:
-            self.main.exitError("getOpSegSize: segSize is not valid. ({0:d})", segId)
+        segId  = self.getSegSize(segId)
+        opSize = (((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
+        return opSize
     cdef unsigned char getAddrSegSize(self, unsigned short segId):
-        segId = self.getSegSize(segId)
-        if (segId == OP_SIZE_WORD):
-            return ((self.addressSizePrefix and OP_SIZE_DWORD) or OP_SIZE_WORD)
-        elif (segId == OP_SIZE_DWORD):
-            return ((self.addressSizePrefix and OP_SIZE_WORD) or OP_SIZE_DWORD)
-        else:
-            self.main.exitError("getAddrSegSize: segSize is not valid. ({0:d})", segId)
-    cdef tuple getOpAddrSegSize(self, unsigned short segId):
-        cdef unsigned char opSize, addrSize
-        segId = self.getSegSize(segId)
-        if (segId == OP_SIZE_WORD):
-            opSize   = ((self.operandSizePrefix and OP_SIZE_DWORD) or OP_SIZE_WORD)
-            addrSize = ((self.addressSizePrefix and OP_SIZE_DWORD) or OP_SIZE_WORD)
-        elif (segId == OP_SIZE_DWORD):
-            opSize   = ((self.operandSizePrefix and OP_SIZE_WORD) or OP_SIZE_DWORD)
-            addrSize = ((self.addressSizePrefix and OP_SIZE_WORD) or OP_SIZE_DWORD)
-        else:
-            self.main.exitError("getOpAddrSegSize: segSize is not valid. ({0:d})", segId)
-        return opSize, addrSize
+        segId    = self.getSegSize(segId)
+        addrSize = (((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
+        return addrSize
+    cdef getOpAddrSegSize(self, unsigned short segId, unsigned char *opSize, unsigned char *addrSize):
+        segId    = self.getSegSize(segId)
+        opSize[0]   = (((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
+        addrSize[0] = (((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
+    cdef unsigned char getOpCodeSegSize(self):
+        opSize = (((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
+        return opSize
+    cdef unsigned char getAddrCodeSegSize(self):
+        addrSize = (((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
+        return addrSize
+    cdef getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
+        opSize[0]   = (((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
+        addrSize[0] = (((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
     cdef run(self):
-        self.regs = ConfigSpace(CPU_REGISTER_LENGTH)
+        self.regs = ConfigSpace(CPU_REGISTER_LENGTH, self.main)
         self.segments = Segments(self.main)
         self.regs.run()
         self.segments.run()

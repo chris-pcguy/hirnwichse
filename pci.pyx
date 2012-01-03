@@ -35,7 +35,7 @@ cdef class PciDevice:
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
     cdef run(self):
-        self.configSpace = ConfigSpace(PCI_DEVICE_CONFIG_SIZE)
+        self.configSpace = ConfigSpace(PCI_DEVICE_CONFIG_SIZE, self.main)
         if (self.configSpace is not None):
             self.configSpace.run()
 
