@@ -2,6 +2,11 @@
 from mm cimport ConfigSpace
 
 
+cdef class PciAddress:
+    cdef unsigned char enableBit, bus, device, function, register
+    cdef calculateAddress(self, unsigned long address)
+
+
 cdef class PciDevice:
     cpdef object main
     cdef Pci pci
@@ -30,8 +35,7 @@ cdef class Pci:
     cpdef object main
     cdef dict busList
     cdef unsigned long address
-    cdef tuple parseAddress(self, unsigned long address)
-    cdef PciDevice getDevice(self, unsigned long address)
+    cdef PciDevice getDevice(self, unsigned char bus, unsigned char device)
     cdef unsigned long readRegister(self, unsigned long address, unsigned char dataSize)
     cdef writeRegister(self, unsigned long address, unsigned long data, unsigned char dataSize)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)

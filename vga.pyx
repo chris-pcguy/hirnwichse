@@ -59,13 +59,21 @@ cdef class VGA_REGISTER_RAW(ConfigSpace):
 
 cdef class CRT(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
-        VGA_REGISTER_RAW.__init__(self, VGA_CRT_DATA_LENGTH, vga, main)
+        VGA_REGISTER_RAW.__init__(self, VGA_CRT_AREA_SIZE, vga, main)
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
     def __init__(self, Vga vga, object main):
-        VGA_REGISTER_RAW.__init__(self, VGA_DAC_DATA_LENGTH, vga, main)
+        VGA_REGISTER_RAW.__init__(self, VGA_DAC_AREA_SIZE, vga, main)
         self.readIndex = self.writeIndex = 0
         self.mask = 0xff
+    cdef unsigned short getReadIndex(self):
+        return self.readIndex
+    cdef unsigned short getWriteIndex(self):
+        return self.writeIndex
+    cdef setReadIndex(self, unsigned short index):
+        self.readIndex = index
+    cdef setWriteIndex(self, unsigned short index):
+        self.writeIndex = index
     cdef unsigned long getData(self, unsigned char dataSize):
         cdef unsigned long retData
         retData = self.csReadValueUnsigned(self.readIndex, dataSize)
@@ -82,15 +90,15 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
 
 cdef class GDC(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
-        VGA_REGISTER_RAW.__init__(self, VGA_GDC_DATA_LENGTH, vga, main)
+        VGA_REGISTER_RAW.__init__(self, VGA_GDC_AREA_SIZE, vga, main)
 
 cdef class Sequencer(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
-        VGA_REGISTER_RAW.__init__(self, VGA_SEQ_DATA_LENGTH, vga, main)
+        VGA_REGISTER_RAW.__init__(self, VGA_SEQ_AREA_SIZE, vga, main)
 
 cdef class ExtReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
-        VGA_REGISTER_RAW.__init__(self, VGA_EXTREG_DATA_LENGTH, vga, main)
+        VGA_REGISTER_RAW.__init__(self, VGA_EXTREG_AREA_SIZE, vga, main)
         self.miscOutReg = VGA_EXTREG_PROCESS_RAM
     cdef unsigned char getMiscOutReg(self):
         return self.miscOutReg
@@ -99,7 +107,7 @@ cdef class ExtReg(VGA_REGISTER_RAW):
 
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
-        VGA_REGISTER_RAW.__init__(self, VGA_ATTRCTRLREG_DATA_LENGTH, vga, main)
+        VGA_REGISTER_RAW.__init__(self, VGA_ATTRCTRLREG_AREA_SIZE, vga, main)
         self.flipFlop = False
     cdef setIndexData(self, unsigned long data, unsigned char dataSize):
         if (not self.flipFlop):
@@ -210,8 +218,12 @@ cdef class Vga:
                 return self.seq.getData(dataSize)
             elif (ioPortAddr == 0x3c6):
                 return self.dac.getMask()
+            elif (ioPortAddr == 0x3c7):
+                return self.dac.getReadIndex()
             elif (ioPortAddr == 0x3c8):
-                return self.dac.getIndex()
+                return self.dac.getWriteIndex()
+            elif (ioPortAddr == 0x3c9):
+                return self.dac.getData(dataSize)
             elif (ioPortAddr == 0x3cc):
                 return self.extreg.getMiscOutReg()
             elif (ioPortAddr == 0x3c1):

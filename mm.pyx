@@ -29,13 +29,13 @@ cdef class MmArea:
     cdef bytes mmAreaRead(self, unsigned long long mmAddr, unsigned long long dataSize):
         mmAddr -= self.mmBaseAddr
         if (self.mmAreaData is None or not dataSize or mmAddr+dataSize > self.mmAreaSize):
-            self.main.printMsg("MmArea::mmAreaRead: self.mmAreaData is None || not dataSize || dataSize > self.mmAreaSize.")
+            self.main.printMsg("MmArea::mmAreaRead: self.mmAreaData is None || not dataSize || dataSize > self.mmAreaSize. (mmAddrOffset: {0:#06x}, dataSize: {1:d})", mmAddr, dataSize)
             raise MemoryError()
         return bytes(self.mmAreaData[mmAddr:mmAddr+dataSize])
     cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize):
         mmAddr -= self.mmBaseAddr
         if (self.mmAreaData is None or not dataSize or mmAddr+dataSize > self.mmAreaSize):
-            self.main.printMsg("MmArea::mmAreaWrite: self.mmAreaData is None || not dataSize || dataSize > self.mmAreaSize.")
+            self.main.printMsg("MmArea::mmAreaWrite: self.mmAreaData is None || not dataSize || dataSize > self.mmAreaSize. (mmAddrOffset: {0:#06x}, dataSize: {1:d})", mmAddr, dataSize)
             raise MemoryError()
         if (self.mmReadOnly):
             self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
@@ -118,12 +118,12 @@ cdef class ConfigSpace:
         self.csData = None
     cdef bytes csRead(self, unsigned long offset, unsigned long size):
         if (self.csData is None or not size or offset+size > self.csSize):
-            self.main.printMsg("ConfigSpace::csRead: self.csData is None || not size || offset+size > self.csSize.")
+            self.main.printMsg("ConfigSpace::csRead: self.csData is None || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             raise MemoryError()
         return bytes(self.csData[offset:offset+size])
     cdef csWrite(self, unsigned long offset, bytes data, unsigned long size):
         if (self.csData is None or not size or offset+size > self.csSize):
-            self.main.printMsg("ConfigSpace::csWrite: self.csData is None || not size || offset+size > self.csSize.")
+            self.main.printMsg("ConfigSpace::csWrite: self.csData is None || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             raise MemoryError()
         memcpy(<char*>(self.csData+offset), <char*>data, size)
     cdef unsigned long long csReadValueUnsigned(self, unsigned long offset, unsigned long size):

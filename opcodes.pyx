@@ -41,8 +41,6 @@ DEF OPCODE_LOOP = 1
 DEF OPCODE_LOOPE = 2
 DEF OPCODE_LOOPNE = 3
 
-cdef tuple OPCODE_LOOPTYPES = (OPCODE_LOOP, OPCODE_LOOPE, OPCODE_LOOPNE)
-
 
 DEF PUSH_CS = 0x0e
 DEF PUSH_DS = 0x1e
@@ -1171,9 +1169,9 @@ cdef class Opcodes:
                 raise misc.ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeModId in (0, 1)): # SGDT/SIDT
                 if (operOpcodeModId == 0): # SGDT
-                    base, limit = (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getBaseLimit()
+                    (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getBaseLimit(&base, &limit)
                 elif (operOpcodeModId == 1): # SIDT
-                    base, limit = (<Idt>(<Registers>self.main.cpu.registers).segments.idt).getBaseLimit()
+                    (<Idt>(<Registers>self.main.cpu.registers).segments.idt).getBaseLimit(&base, &limit)
                 limit &= BITMASK_WORD
                 if (operSize == OP_SIZE_WORD):
                     base &= 0xffffff

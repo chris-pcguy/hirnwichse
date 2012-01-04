@@ -5,6 +5,16 @@ from misc cimport Misc
 include "globals.pxi"
 
 
+cdef class PciAddress:
+    def __init__(self, unsigned long address):
+        self.calculateAddress(address)
+    cdef calculateAddress(self, unsigned long address):
+        self.enableBit = (address&0x80000000)!=0
+        self.bus = (address>>16)&0xff
+        self.device = (address>>11)&0x1f
+        self.function = (address>>8)&0x7
+        self.register = address&0xff
+
 cdef class PciDevice:
     def __init__(self, PciBus bus, Pci pci, object main):
         self.bus = bus
@@ -75,43 +85,37 @@ cdef class Pci:
         self.main = main
         self.address = 0
         self.busList = {0x00: PciBus(self, self.main)}
-    cdef tuple parseAddress(self, unsigned long address):
-        cdef unsigned char enableBit, bus, device, function, register
-        enableBit = (address&0x80000000)!=0
-        bus = (address>>16)&0xff
-        device = (address>>11)&0x1f
-        function = (address>>8)&0x7
-        register = address&0xff ####&0xfc
-        return enableBit, bus, device, function, register
-    cdef PciDevice getDevice(self, unsigned long address):
+    cdef PciDevice getDevice(self, unsigned char busIndex, unsigned char deviceIndex):
         cdef PciBus busHandle
         cdef PciDevice deviceHandle
-        cdef unsigned char enableBit, bus, device, function, register
-        enableBit, bus, device, function, register = self.parseAddress(address)
-        busHandle = self.busList.get(bus)
+        busHandle = self.busList.get(busIndex)
         if (busHandle is not None):
             if (hasattr(busHandle, 'getDeviceByIndex')):
-                deviceHandle = busHandle.getDeviceByIndex(device)
+                deviceHandle = busHandle.getDeviceByIndex(deviceIndex)
                 if (deviceHandle is not None):
                     return deviceHandle
         return None
     cdef unsigned long readRegister(self, unsigned long address, unsigned char dataSize):
         cdef PciDevice deviceHandle
-        cdef unsigned char enableBit, bus, device, function, register
+        cdef PciAddress pciAddressHandle
         cdef unsigned long bitMask
         bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
-        deviceHandle = self.getDevice(address)
+        pciAddressHandle = PciAddress(address)
+        deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
         if (deviceHandle is not None):
-            enableBit, bus, device, function, register = self.parseAddress(address)
-            return deviceHandle.getData(function, register, dataSize)
+            if (not pciAddressHandle.enableBit):
+                self.main.printMsg("Pci::readRegister: Warning: tried to read from configSpace without enableBit set.")
+            return deviceHandle.getData(pciAddressHandle.function, pciAddressHandle.register, pciAddressHandle.dataSize)
         return bitMask
     cdef writeRegister(self, unsigned long address, unsigned long data, unsigned char dataSize):
         cdef PciDevice deviceHandle
-        cdef unsigned char enableBit, bus, device, function, register
-        deviceHandle = self.getDevice(address)
+        cdef PciAddress pciAddressHandle
+        pciAddressHandle = PciAddress(address)
+        deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
         if (deviceHandle is not None):
-            enableBit, bus, device, function, register = self.parseAddress(address)
-            deviceHandle.setData(function, register, data, dataSize)
+            if (not pciAddressHandle.enableBit):
+                self.main.printMsg("Pci::writeRegister: Warning: tried to write to configSpace without enableBit set.")
+            deviceHandle.setData(pciAddressHandle.function, pciAddressHandle.register, data, dataSize)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):

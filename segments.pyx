@@ -9,17 +9,14 @@ cdef class Gdt:
         self.segments = segments
     cdef reset(self):
         self.table.csResetData()
-    cdef loadTablePosition(self, unsigned long long tableBase, unsigned long tableLimit):
+    cdef loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit):
         self.tableBase, self.tableLimit = tableBase, tableLimit
-        if (self.tableLimit >= GDT_HARD_LIMIT):
-            self.segments.main.exitError("GDT::loadTablePosition: tableLimit {0:#06x} >= GDT_HARD_LIMIT {1:#06x}.",\
-               self.tableLimit, GDT_HARD_LIMIT)
-            return
-        self.tableLimit += 1 # move the increment up could cause an overflow
     cdef loadTableData(self):
-        self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, self.tableLimit), self.tableLimit)
-    cdef tuple getBaseLimit(self):
-        return self.tableBase, self.tableLimit
+        self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
+                            (<unsigned long>self.tableLimit+1)), (<unsigned long>self.tableLimit+1))
+    cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
+        retTableBase[0] = self.tableBase
+        retTableLimit[0] = self.tableLimit
     cdef tuple getEntry(self, unsigned short num):
         cdef unsigned long long entryData
         cdef unsigned long base, limit
@@ -112,16 +109,17 @@ cdef class Idt:
         self.segments = segments
     cdef reset(self):
         self.table.csResetData()
-    cdef loadTable(self, unsigned long long tableBase, unsigned long tableLimit):
+    cdef loadTable(self, unsigned long tableBase, unsigned short tableLimit):
         self.tableBase, self.tableLimit = tableBase, tableLimit
-        if (self.tableLimit >= IDT_HARD_LIMIT):
-            self.segments.main.exitError("IDT::loadTablePosition: tableLimit {0:#06x} >= IDT_HARD_LIMIT {1:#06x}.",\
+        if (self.tableLimit > IDT_HARD_LIMIT):
+            self.segments.main.exitError("IDT::loadTablePosition: tableLimit {0:#06x} > IDT_HARD_LIMIT {1:#06x}.",\
                self.tableLimit, IDT_HARD_LIMIT)
             return
-        self.tableLimit += 1 # move the increment up could cause an overflow
-        self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, self.tableLimit), self.tableLimit)
-    cdef tuple getBaseLimit(self):
-        return self.tableBase, self.tableLimit
+        self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
+                            (<unsigned long>self.tableLimit+1)), (<unsigned long>self.tableLimit+1))
+    cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
+        retTableBase[0] = self.tableBase
+        retTableLimit[0] = self.tableLimit
     cdef tuple getEntry(self, unsigned char num):
         cdef unsigned long long entryData
         cdef unsigned long entryEip

@@ -4,12 +4,12 @@ from mm cimport Mm, ConfigSpace
 cdef class Gdt:
     cdef Segments segments
     cdef ConfigSpace table
-    cdef unsigned long long tableBase
-    cdef unsigned long tableLimit
+    cdef unsigned short tableLimit
+    cdef unsigned long tableBase
     cdef reset(self)
-    cdef loadTablePosition(self, unsigned long long tableBase, unsigned long tableLimit)
+    cdef loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit)
     cdef loadTableData(self)
-    cdef tuple getBaseLimit(self)
+    cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit)
     cdef tuple getEntry(self, unsigned short num)
     cdef unsigned char getSegSize(self, unsigned short num)
     cdef unsigned char getSegAccess(self, unsigned short num)
@@ -27,11 +27,11 @@ cdef class Gdt:
 cdef class Idt:
     cdef Segments segments
     cdef ConfigSpace table
-    cdef unsigned long long tableBase
-    cdef unsigned long tableLimit
+    cdef unsigned short tableLimit
+    cdef unsigned long tableBase
     cdef reset(self)
-    cdef loadTable(self, unsigned long long tableBase, unsigned long tableLimit)
-    cdef tuple getBaseLimit(self)
+    cdef loadTable(self, unsigned long tableBase, unsigned short tableLimit)
+    cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit)
     cdef tuple getEntry(self, unsigned char num)
     cdef unsigned char isEntryPresent(self, unsigned char num)
     cdef unsigned char getEntryNeededDPL(self, unsigned char num)

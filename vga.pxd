@@ -25,6 +25,10 @@ cdef class CRT(VGA_REGISTER_RAW):
 cdef class DAC(VGA_REGISTER_RAW): # PEL
     cdef unsigned char mask
     cdef unsigned short readIndex, writeIndex
+    cdef unsigned short getReadIndex(self)
+    cdef unsigned short getWriteIndex(self)
+    cdef setReadIndex(self, unsigned short index)
+    cdef setWriteIndex(self, unsigned short index)
     cdef unsigned long getData(self, unsigned char dataSize)
     cdef setData(self, unsigned long data, unsigned char dataSize)
     cdef unsigned char getMask(self)
