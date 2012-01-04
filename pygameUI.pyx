@@ -16,7 +16,7 @@ cdef class PygameUI:
     cpdef initPygame(self):
         pygame.display.init()
         pygame.font.init()
-        pygame.display.set_caption("ChEmu - THE x86 Emulator written in Python. (c) 2011 by Christian Inci")
+        pygame.display.set_caption("ChEmu - THE x86 Emulator written in Python. (c) 2011-2012 by Christian Inci")
         self.display = pygame.display.set_mode(self.screenSize)
         self.screen = pygame.Surface(self.screenSize)
         self.font = pygame.font.SysFont( 'VeraMono',  self.fontHeight)
@@ -36,6 +36,7 @@ cdef class PygameUI:
             self.main.exitError('quitFunc: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
             print(sys.exc_info())
+        self.main.quitEmu = True
         self.main.quitFunc()
     cpdef object getCharRect(self, unsigned char x, unsigned char y):
         try:
@@ -362,11 +363,11 @@ cdef class PygameUI:
             print(sys.exc_info())
     cpdef handleEvents(self):
         cpdef object event
-        for event in pygame.event.get():
-            ##self.main.printMsg("pygameUI::eventLoop: event: {0:s}", repr(event))
+        while (not self.main.quitEmu):
+            event = pygame.event.wait()
             self.handleEvent(event)
-        ##self.main.printMsg("pygameUI::eventLoop: while done.")
     cpdef run(self):
         self.initPygame()
+        self.main.misc.createThread(self.handleEvents, True)
 
 

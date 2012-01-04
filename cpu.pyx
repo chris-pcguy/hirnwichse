@@ -124,14 +124,8 @@ cdef class Cpu:
                 if (self.asyncEvent):
                     self.handleAsyncEvent()
                     continue
-                if (self.main.platform.vga.ui):
-                    self.main.platform.vga.ui.handleEvents()
                 time.sleep(1)
                 continue
-            ## handle gui events: BEGIN
-            if (self.main.platform.vga.ui and (not (self.cycles % 200))):
-                self.main.platform.vga.ui.handleEvents()
-            ## handle gui events: END
             self.doCycle()
     cdef doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
