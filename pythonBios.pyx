@@ -151,11 +151,10 @@ cdef class PythonBios:
                 elif (dl == 1):
                     fdCount &= 0x0f
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BX, fdCount)
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AX, 0)
                 (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_ES, 0xf000)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DI, \
                     (<Mm>self.main.mm).mmPhyReadValueUnsigned((0x78), OP_SIZE_WORD)) # INT 0x1E OFFSET
-                (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, False)
+                self.setRetError(False, 0)
                 return True
             elif (not (dl & 0x80)):
                 self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) ax {0:#06x} not supported yet in PythonBIOS.", ax)
