@@ -1,9 +1,9 @@
 
-import pygame, threading, atexit, sys, time
+from sys import exc_info
+from atexit import register
+import pygame
 
 include "globals.pxi"
-
-from ps2 cimport PS2
 
 
 cdef class PygameUI:
@@ -20,7 +20,7 @@ cdef class PygameUI:
         self.display = pygame.display.set_mode(self.screenSize)
         self.screen = pygame.Surface(self.screenSize)
         self.font = pygame.font.SysFont( 'VeraMono',  self.fontHeight)
-        atexit.register(self.quitFunc)
+        register(self.quitFunc)
         pygame.event.set_blocked([ pygame.ACTIVEEVENT, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP, pygame.MOUSEBUTTONDOWN,\
                                    pygame.JOYAXISMOTION, pygame.JOYBALLMOTION, pygame.JOYHATMOTION, pygame.JOYBUTTONUP,\
                                    pygame.JOYBUTTONDOWN, pygame.VIDEORESIZE, pygame.USEREVENT ])
@@ -29,26 +29,26 @@ cdef class PygameUI:
             pygame.font.quit()
             pygame.display.quit()
         except pygame.error:
-            print(sys.exc_info())
+            print(exc_info())
         except (SystemExit, KeyboardInterrupt):
-            print(sys.exc_info())
+            print(exc_info())
             self.main.quitEmu = True
             self.main.exitError('quitFunc: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(sys.exc_info())
+            print(exc_info())
         self.main.quitEmu = True
         self.main.quitFunc()
     cpdef object getCharRect(self, unsigned char x, unsigned char y):
         try:
             return pygame.Rect((self.fontWidth*x, self.fontHeight*y), self.fontSize)
         except pygame.error:
-            print(sys.exc_info())
+            print(exc_info())
         except (SystemExit, KeyboardInterrupt):
-            print(sys.exc_info())
+            print(exc_info())
             self.main.quitEmu = True
             self.main.exitError('getCharRect: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(sys.exc_info())
+            print(exc_info())
         return None
     cdef tuple getColor(self, unsigned char color):
         if (color == 0x0): # black
@@ -104,13 +104,13 @@ cdef class PygameUI:
             self.screen.blit(newBack, newRect)
             return newRect
         except pygame.error:
-            print(sys.exc_info())
+            print(exc_info())
         except (SystemExit, KeyboardInterrupt):
-            print(sys.exc_info())
+            print(exc_info())
             self.main.quitEmu = True
             self.main.exitError('putChar: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(sys.exc_info())
+            print(exc_info())
     cpdef setRepeatRate(self, unsigned short delay, unsigned short interval):
         pygame.key.set_repeat(delay, interval)
     cdef unsigned char keyToScancode(self, unsigned short key):
@@ -341,26 +341,26 @@ cdef class PygameUI:
             elif (event.type == pygame.KEYUP):
                 (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), True)
         except pygame.error:
-            print(sys.exc_info())
+            print(exc_info())
         except (SystemExit, KeyboardInterrupt):
-            print(sys.exc_info())
+            print(exc_info())
             self.main.quitEmu = True
             self.main.exitError('handleEvent: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(sys.exc_info())
+            print(exc_info())
     cpdef updateScreen(self, list rectList):
         try:
             if (self.display and self.screen and not self.main.quitEmu):
                 self.display.blit(self.screen, ((0, 0), self.screenSize))
             pygame.display.update(rectList)
         except pygame.error:
-            print(sys.exc_info())
+            print(exc_info())
         except (SystemExit, KeyboardInterrupt):
-            print(sys.exc_info())
+            print(exc_info())
             self.main.quitEmu = True
             self.main.exitError('updateScreen: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(sys.exc_info())
+            print(exc_info())
     cpdef handleEvents(self):
         cpdef object event
         while (not self.main.quitEmu):

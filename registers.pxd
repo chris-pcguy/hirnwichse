@@ -1,7 +1,7 @@
 
 
 from mm cimport Mm, ConfigSpace
-from segments cimport Gdt, Idt, Segments
+from segments cimport GdtEntry, Gdt, Idt, Segments
 
 cdef class ModRMClass:
     cpdef object main

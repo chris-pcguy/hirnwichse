@@ -1,5 +1,4 @@
 
-import misc
 from misc cimport Misc
 
 include "globals.pxi"

@@ -1,6 +1,8 @@
 
-from registers cimport ModRMClass
-
+from misc cimport Misc
+from segments cimport Segments, Gdt, Idt, IdtEntry, GdtEntry
+from registers cimport Registers, ModRMClass
+from mm cimport Mm
 
 
 cdef class Opcodes:

@@ -1,6 +1,8 @@
 
-import struct, time, sys, threading
-import misc
+from time import sleep
+from sys import exc_info
+from misc import ChemuException
+from misc cimport Misc
 from pic cimport Pic
 from isadma cimport IsaDma
 
@@ -85,7 +87,7 @@ cdef class Cpu:
         while (opcode in OPCODE_PREFIXES):
             count += 1
             if (count >= 16):
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             if (opcode == OPCODE_PREFIX_LOCK):
                 self.registers.lockPrefix = True
             elif (opcode in OPCODE_PREFIX_REPS):
@@ -115,7 +117,7 @@ cdef class Cpu:
             opcode = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
 
         return opcode
-    cdef doInfiniteCycles(self):
+    cpdef doInfiniteCycles(self):
         while (not self.main.quitEmu):
             if ((self.cpuHalted and self.main.exitIfCpuHalted) or self.main.quitEmu):
                 self.main.quitEmu = True
@@ -124,7 +126,7 @@ cdef class Cpu:
                 if (self.asyncEvent):
                     self.handleAsyncEvent()
                     continue
-                time.sleep(1)
+                sleep(1)
                 continue
             self.doCycle()
     cdef doCycle(self):
@@ -143,38 +145,39 @@ cdef class Cpu:
         self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
         try:
             if (self.registers.lockPrefix and self.opcode in OPCODES_LOCK_PREFIX_INVALID):
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
-        except misc.ChemuException as exception: # exception
+                raise ChemuException(CPU_EXCEPTION_UD)
+        except ChemuException as exception: # exception
             try:
                 self.handleException(exception) # execute exception handler
-            except misc.ChemuException as exception: # DF double fault
+            except ChemuException as exception: # DF double fault
                 try:
-                    raise misc.ChemuException(CPU_EXCEPTION_DF, 0) # exec DF double fault
-                except misc.ChemuException as exception:
+                    raise ChemuException(CPU_EXCEPTION_DF, 0) # exec DF double fault
+                except ChemuException as exception:
                     try:
                         self.handleException(exception) # handle DF double fault
-                    except misc.ChemuException as exception: # DF double fault failed! triple fault... reset!
+                    except ChemuException as exception: # DF double fault failed! triple fault... reset!
                         if (self.main.exitOnTripleFault):
                             self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.", exitNow=True)
                         else:
                             self.main.printMsg("CPU::doCycle: TRIPLE FAULT! reset.")
                             self.cpu.reset()
         except (SystemExit, KeyboardInterrupt):
-            print(sys.exc_info())
+            print(exc_info())
             self.main.quitEmu = True
             self.main.exitError('doCycle: (SystemExit, KeyboardInterrupt) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
         except:
-            print(sys.exc_info())
+            print(exc_info())
             self.main.exitError('doCycle: (else case) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
-    cdef run(self):
+    cpdef run(self):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
         self.registers.run()
         self.opcodes.run()
         self.reset()
-        self.doInfiniteCycles()
+        ##self.doInfiniteCycles()
+        (<Misc>self.main.misc).createThread(self.doInfiniteCycles, True)
     ###
 

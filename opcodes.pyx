@@ -1,10 +1,6 @@
 
-import sys, misc
-
-from misc cimport Misc
-from segments cimport Segments, Gdt, Idt
-from registers cimport Registers
-from mm cimport Mm
+from misc import ChemuException
+from sys import exc_info
 
 
 include "globals.pxi"
@@ -261,8 +257,8 @@ cdef class Opcodes:
             elif (opcode == 0x9b): # WAIT/FWAIT
                 if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR0, (CR0_FLAG_MP | CR0_FLAG_TS)) == \
                                                                                    (CR0_FLAG_MP | CR0_FLAG_TS)):
-                    raise misc.ChemuException(CPU_EXCEPTION_NM)
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                    raise ChemuException(CPU_EXCEPTION_NM)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (opcode == 0x9c):
                 self.pushfWD()
             elif (opcode == 0x9d):
@@ -357,10 +353,10 @@ cdef class Opcodes:
                 self.xlatb()
             elif (opcode >= 0xd8 and opcode <= 0xdf):
                 if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR) == 0):
-                    raise misc.ChemuException(CPU_EXCEPTION_UD)
+                    raise ChemuException(CPU_EXCEPTION_UD)
                 if ((<Registers>self.main.cpu.registers).getFlag(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS)) != 0):
-                    raise misc.ChemuException(CPU_EXCEPTION_NM)
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                    raise ChemuException(CPU_EXCEPTION_NM)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (opcode == 0xe0):
                 self.loopne()
             elif (opcode == 0xe1):
@@ -423,18 +419,18 @@ cdef class Opcodes:
                 self.main.printMsg("handler for opcode {0:#06x} wasn't found.", opcode)
                 return False # if opcode wasn't found.
             return True  # if opcode was found.
-        except misc.ChemuException as exception: # exception
+        except ChemuException as exception: # exception
             try:
                 self.main.cpu.handleException(exception) # execute exception handler
                 return True
-            except misc.ChemuException as exception: # DF double fault
+            except ChemuException as exception: # DF double fault
                 try:
-                    raise misc.ChemuException(CPU_EXCEPTION_DF, 0) # exec DF double fault
-                except misc.ChemuException as exception:
+                    raise ChemuException(CPU_EXCEPTION_DF, 0) # exec DF double fault
+                except ChemuException as exception:
                     try:
                         self.main.cpu.handleException(exception) # handle DF double fault
                         return True
-                    except misc.ChemuException as exception: # DF double fault failed! triple fault... reset!
+                    except ChemuException as exception: # DF double fault failed! triple fault... reset!
                         if (self.main.exitOnTripleFault):
                             self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.", exitNow=True)
                         else:
@@ -442,11 +438,11 @@ cdef class Opcodes:
                             self.main.cpu.reset()
                             return True
         except (SystemExit, KeyboardInterrupt):
-            print(sys.exc_info())
+            print(exc_info())
             self.main.quitEmu = True
             self.main.exitError('Opcodes::executeOpcode: (SystemExit, KeyboardInterrupt) exception while handling opcode, exiting... (opcode: {0:#04x})', opcode, exitNow=True)
         except:
-            print(sys.exc_info())
+            print(exc_info())
             self.main.exitError('Opcodes::executeOpcode: (else case) exception while handling opcode, exiting... (opcode: {0:#04x})', opcode, exitNow=True)
         return False
     cdef undefNoUD(self):
@@ -600,7 +596,7 @@ cdef class Opcodes:
     cdef movSREG_RM16(self):
         self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_SREG)
         if (self.modRMInstance.regName == CPU_SEGMENT_CS):
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
         self.modRMInstance.modSegSave(OP_SIZE_WORD, self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True))
     cdef movAxMoffs(self, unsigned char operSize, unsigned char addrSize):
         (<Registers>self.main.cpu.registers).regWrite((<unsigned short>(<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)), (<Registers>self.main.cpu.registers).mmReadValueUnsigned((<unsigned long>(<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(addrSize, False)), operSize, CPU_SEGMENT_DS, True))
@@ -880,7 +876,7 @@ cdef class Opcodes:
         regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SP, operSize)
         temp = (<Registers>self.main.cpu.registers).regRead( regName, False )
         if (not (<Registers>self.main.cpu.registers).isInProtectedMode() and temp in (7, 9, 11, 13, 15)):
-            raise misc.ChemuException(CPU_EXCEPTION_GP)
+            raise ChemuException(CPU_EXCEPTION_GP)
         regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
         self.stackPushRegId(regName, operSize)
         regName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_CX, operSize)
@@ -989,7 +985,7 @@ cdef class Opcodes:
         stackRegName = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
         stackAddr = (<Registers>self.main.cpu.registers).regRead(stackRegName, False)
         if (not (<Registers>self.main.cpu.registers).isInProtectedMode() and stackAddr == 1):
-            raise misc.ChemuException(CPU_EXCEPTION_SS)
+            raise ChemuException(CPU_EXCEPTION_SS)
         stackAddr = (<Registers>self.main.cpu.registers).regSub(stackRegName, operSize)
         value &= (<Misc>self.main.misc).getBitMaskFF(operSize)
         (<Registers>self.main.cpu.registers).mmWriteValue(stackAddr, value, operSize, CPU_SEGMENT_SS, False)
@@ -1059,7 +1055,7 @@ cdef class Opcodes:
             (<Registers>self.main.cpu.registers).setFullFlags(operOp1, operOp2, operSize, OPCODE_SUB, False)
         else:
             self.main.printMsg("opcodeGroup1_RM16_32_IMM8: invalid operOpcodeId. {0:d}", operOpcodeId)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef opcodeGroup3_RM_ImmFunc(self, unsigned char operSize):
         cdef unsigned char operOpcode, operOpcodeId
         cdef unsigned long operOp2
@@ -1071,7 +1067,7 @@ cdef class Opcodes:
             self.modRMInstance.modRMSave(operSize, operOp2, True, OPCODE_SAVE)
         else:
             self.main.printMsg("opcodeGroup3_RM16_32_IMM16_32: invalid operOpcodeId. {0:d}", operOpcodeId)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef opcodeGroup0F(self):
         cdef unsigned char operSize, addrSize, operOpcode, bitSize, operOpcodeMod, operOpcodeModId, \
             newCF, newOF, oldOF, count, eaxIsInvalid
@@ -1079,14 +1075,15 @@ cdef class Opcodes:
         cdef unsigned long eaxId, bitMask, bitMaskHalf, base, mmAddr, op1, op2
         cdef unsigned long long qop1, qop2
         cdef short i
+        cdef GdtEntry gdtEntry
         (<Registers>self.main.cpu.registers).getOpAddrCodeSegSize(&operSize, &addrSize)
         operOpcode = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         self.main.debug("Group0F: Opcode=={0:#04x}", operOpcode)
         if (operOpcode == 0x00): # LLDT/SLDT LTR/STR VERR/VERW
             if ((<Registers>self.main.cpu.registers).cpl != 0):
-                raise misc.ChemuException(CPU_EXCEPTION_GP, 0)
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             if (not (<Registers>self.main.cpu.registers).isInProtectedMode()):
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             operOpcodeMod = (<Registers>self.main.cpu.registers).getCurrentOpcode(OP_SIZE_BYTE, False)
             operOpcodeModId = (operOpcodeMod>>3)&7
             self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
@@ -1097,7 +1094,7 @@ cdef class Opcodes:
                 elif (operOpcodeModId == 1): # STR
                     op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                     if ((<Registers>self.main.cpu.registers).lockPrefix or not (<Registers>self.main.cpu.registers).isInProtectedMode()):
-                        raise misc.ChemuException(CPU_EXCEPTION_UD)
+                        raise ChemuException(CPU_EXCEPTION_UD)
                     self.main.exitError("opcodeGroup0F_00: STR not supported yet.")
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
                 if (operOpcodeModId == 2): # LLDT
@@ -1106,17 +1103,17 @@ cdef class Opcodes:
                         self.main.printMsg("Opcode0F_01::LLDT: (segSelector>>2) == 0.")
                         return
                     (<Segments>(<Registers>self.main.cpu.registers).segments).intr = segSelector
-                    base, limit = (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getEntry(segSelector)[0:2]
-                    (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTablePosition(base, limit)
+                    gdtEntry = (<GdtEntry>(<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getEntry(segSelector))
+                    (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
                     (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTableData()
                 elif (operOpcodeModId == 3): # LTR
                     op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                     if ((<Registers>self.main.cpu.registers).lockPrefix or not (<Registers>self.main.cpu.registers).isInProtectedMode()):
-                        raise misc.ChemuException(CPU_EXCEPTION_UD)
+                        raise ChemuException(CPU_EXCEPTION_UD)
                     elif ((<Registers>self.main.cpu.registers).cpl != 0 or op1&0xfff8 == 0):
-                        raise misc.ChemuException( CPU_EXCEPTION_GP, 0)
+                        raise ChemuException( CPU_EXCEPTION_GP, 0)
                     elif (not (<Registers>self.main.cpu.registers).isSegPresent(op1)):
-                        raise misc.ChemuException( CPU_EXCEPTION_NP, op1)
+                        raise ChemuException( CPU_EXCEPTION_NP, op1)
                     self.main.exitError("opcodeGroup0F_00: LTR not supported yet.")
             elif (operOpcodeModId == 4): # VERR
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
@@ -1126,10 +1123,10 @@ cdef class Opcodes:
                 (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkWriteAllowed(op1, False) )
             else:
                 self.main.printMsg("opcodeGroup0F_00: invalid operOpcodeModId: {0:d}", operOpcodeModId)
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x01): # LGDT/LIDT SGDT/SIDT SMSW/LMSW
             if ((<Registers>self.main.cpu.registers).cpl != 0):
-                raise misc.ChemuException(CPU_EXCEPTION_GP, 0)
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             operOpcodeMod = (<Registers>self.main.cpu.registers).getCurrentOpcode(OP_SIZE_BYTE, False)
             operOpcodeModId = (operOpcodeMod>>3)&7
             if (operOpcodeModId in (0, 1, 2, 3)): # SGDT/SIDT LGDT/LIDT
@@ -1142,31 +1139,31 @@ cdef class Opcodes:
             mmAddr = self.modRMInstance.getRMValueFull(addrSize)
             if (operOpcodeMod == 0xc1): # VMCALL
                 self.main.printMsg("opcodeGroup0F_01: VMCALL isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc2): # VMLAUNCH
                 self.main.printMsg("opcodeGroup0F_01: VMLAUNCH isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc3): # VMRESUME
                 self.main.printMsg("opcodeGroup0F_01: VMRESUME isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc4): # VMXOFF
                 self.main.printMsg("opcodeGroup0F_01: VMXOFF isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc8): # MONITOR
                 self.main.printMsg("opcodeGroup0F_01: MONITOR isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc9): # MWAIT
                 self.main.printMsg("opcodeGroup0F_01: MWAIT isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xd0): # XGETBV
                 self.main.printMsg("opcodeGroup0F_01: XGETBV isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xd1): # XSETBV
                 self.main.printMsg("opcodeGroup0F_01: XSETBV isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xf9): # RDTSCP
                 self.main.printMsg("opcodeGroup0F_01: RDTSCP isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeModId in (0, 1)): # SGDT/SIDT
                 if (operOpcodeModId == 0): # SGDT
                     (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getBaseLimit(&base, &limit)
@@ -1191,7 +1188,7 @@ cdef class Opcodes:
                 self.modRMInstance.modRMSave(OP_SIZE_WORD, op2, True, OPCODE_SAVE)
             elif (operOpcodeModId == 6): # LMSW; TODO; FIXME
                 if ((<Registers>self.main.cpu.registers).cpl != 0):
-                    raise misc.ChemuException( CPU_EXCEPTION_GP, 0 )
+                    raise ChemuException( CPU_EXCEPTION_GP, 0 )
                 op1 = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_CR0, False)
                 op2 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                 if ((op1&1 != 0) and (op2&1 == 0)): # if is already in protected mode, but try to switch to real mode...
@@ -1200,25 +1197,25 @@ cdef class Opcodes:
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CR0, ((op1&0xfffffff0)|(op2&0xf)))
             elif (operOpcodeModId == 7): # INVLPG
                 self.main.printMsg("opcodeGroup0F_01: INVLPG isn't supported yet.")
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             else:
                 self.main.printMsg("opcodeGroup0F_01: invalid operOpcodeModId: {0:d}", operOpcodeModId)
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x05): # LOADALL (286, undocumented)
             self.main.printMsg("opcodeGroup0F_05: LOADALL 286 opcode isn't supported yet.")
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x07): # LOADALL (386, undocumented)
             self.main.printMsg("opcodeGroup0F_07: LOADALL 386 opcode isn't supported yet.")
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode in (0x06, 0x08, 0x09)): # 0x06: CLTS, 0x08: INVD, 0x09: WBINVD
             if ((<Registers>self.main.cpu.registers).lockPrefix):
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             if ((<Registers>self.main.cpu.registers).cpl != 0):
-                raise misc.ChemuException( CPU_EXCEPTION_GP, 0 )
+                raise ChemuException( CPU_EXCEPTION_GP, 0 )
             if (operOpcode == 0x06): # CLTS
                 (<Registers>self.main.cpu.registers).regAnd( CPU_REGISTER_CR0, ~CR0_FLAG_TS )
         elif (operOpcode == 0x0b): # UD2
-            raise misc.ChemuException( CPU_EXCEPTION_UD )
+            raise ChemuException( CPU_EXCEPTION_UD )
         elif (operOpcode == 0x20): # MOV R32, CRn
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_CREG)
             self.modRMInstance.modRMSave(OP_SIZE_DWORD, self.modRMInstance.modRLoad(OP_SIZE_DWORD, False), True, OPCODE_SAVE)
@@ -1241,7 +1238,7 @@ cdef class Opcodes:
                 (<Registers>self.main.cpu.registers).regWrite( CPU_REGISTER_EAX, self.main.cpu.cycles&BITMASK_DWORD )
                 (<Registers>self.main.cpu.registers).regWrite( CPU_REGISTER_EDX, (self.main.cpu.cycles>>32)&BITMASK_DWORD )
             else:
-                raise misc.ChemuException( CPU_EXCEPTION_GP, 0 )
+                raise ChemuException( CPU_EXCEPTION_GP, 0 )
         elif (operOpcode == 0x38): # MOVBE
             operOpcodeMod = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
             self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
@@ -1259,7 +1256,7 @@ cdef class Opcodes:
             self.cmovFunc(operSize, (<Registers>self.main.cpu.registers).getCond( operOpcode&0xf ) )
         elif (operOpcode >= 0x80 and operOpcode <= 0x8f):
             if ((<Registers>self.main.cpu.registers).lockPrefix):
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             self.jumpShort(operSize, (<Registers>self.main.cpu.registers).getCond( operOpcode&0xf ))
         elif (operOpcode >= 0x90 and operOpcode <= 0x9f): # SETcc
             self.setWithCondFunc((<Registers>self.main.cpu.registers).getCond( operOpcode&0xf ) )
@@ -1431,7 +1428,7 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
         elif (operOpcode == 0xb8): # POPCNT R16/32 RM16/32
             if ((<Registers>self.main.cpu.registers).lockPrefix or (<Registers>self.main.cpu.registers).repPrefix):
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoad(operSize, False, True)
             op2 = bin(op2).count('1')
@@ -1453,7 +1450,7 @@ cdef class Opcodes:
                 self.btFunc(op2, BT_COMPLEMENT)
             else:
                 self.main.printMsg("opcodeGroup0F_BA: invalid operOpcodeModId: {0:d}", operOpcodeModId)
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0xbb): # BTC RM16/32, R16
             self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRLoad(operSize, False)
@@ -1514,7 +1511,7 @@ cdef class Opcodes:
                     (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_EAX, qop1&BITMASK_DWORD)
             else:
                 self.main.printMsg("opcodeGroup0F_C7: operOpcodeModId {0:d} isn't supported yet.", operOpcodeModId)
-                raise misc.ChemuException(CPU_EXCEPTION_UD)
+                raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode >= 0xc8 and operOpcode <= 0xcf): # BSWAP R32
             regName  = CPU_REGISTER_DWORD[operOpcode&7]
             op1 = (<Registers>self.main.cpu.registers).regRead(regName, False)
@@ -1522,7 +1519,7 @@ cdef class Opcodes:
             (<Registers>self.main.cpu.registers).regWrite(regName, op1)
         else:
             self.main.printMsg("opcodeGroup0F: invalid operOpcode. {0:#04x}", operOpcode)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef opcodeGroupFE(self):
         cdef unsigned char operSize, operOpcode, operOpcodeId
         operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
@@ -1535,7 +1532,7 @@ cdef class Opcodes:
             self.decFuncRM(OP_SIZE_BYTE)
         else:
             self.main.printMsg("opcodeGroupFE: invalid operOpcodeId. {0:d}", operOpcodeId)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef opcodeGroupFF(self):
         cdef unsigned char operSize, operOpcode, operOpcodeId
         cdef unsigned short segVal
@@ -1576,7 +1573,7 @@ cdef class Opcodes:
             self.stackPushValue(op1, operSize)
         else:
             self.main.printMsg("opcodeGroupFF: invalid operOpcodeId. {0:d}", operOpcodeId)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef incFuncReg(self, unsigned char regId):
         cdef unsigned char origCF, regSize
         cdef unsigned long retValue
@@ -1686,7 +1683,7 @@ cdef class Opcodes:
             self.stackPopRM(operSize)
         else:
             self.main.printMsg("popRM16_32: unknown operOpcodeId: {0:d}", operOpcodeId)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef lea(self):
         cdef unsigned char operSize, addrSize
         cdef unsigned long mmAddr
@@ -1782,10 +1779,10 @@ cdef class Opcodes:
         elif (operSize == OP_SIZE_BYTE and operOpcodeId == GROUP2_OP_DIV):
             op1Word = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_AX, False)
             if (operOp2 == 0):
-                raise misc.ChemuException(CPU_EXCEPTION_DE)
+                raise ChemuException(CPU_EXCEPTION_DE)
             temp, tempmod = divmod(op1Word, operOp2)
             if (temp > <unsigned char>bitMask):
-                raise misc.ChemuException(CPU_EXCEPTION_DE)
+                raise ChemuException(CPU_EXCEPTION_DE)
             (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, temp&BITMASK_BYTE)
             (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, tempmod&BITMASK_BYTE)
             (<Registers>self.main.cpu.registers).setFullFlags(op1Word, operOp2, operSize, OPCODE_DIV, False)
@@ -1794,7 +1791,7 @@ cdef class Opcodes:
             sop2  = self.modRMInstance.modRMLoad(operSize, True, True)
             operOp2 = abs(sop2)
             if (operOp2 == 0):
-                raise misc.ChemuException(CPU_EXCEPTION_DE)
+                raise ChemuException(CPU_EXCEPTION_DE)
             elif (sop1 >= 0):
                 temp, tempmod = divmod(sop1, operOp2)
                 if (sop2 != operOp2):
@@ -1802,7 +1799,7 @@ cdef class Opcodes:
             else:
                 temp, tempmod = divmod(sop1, sop2)
             if ( ((temp >= <unsigned char>bitMaskHalf) or (temp < -(<signed short>bitMaskHalf)))):
-                raise misc.ChemuException(CPU_EXCEPTION_DE)
+                raise ChemuException(CPU_EXCEPTION_DE)
             (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, temp&BITMASK_BYTE)
             (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, tempmod&BITMASK_BYTE)
             (<Registers>self.main.cpu.registers).setFullFlags(sop1, operOp2, operSize, OPCODE_DIV, False)
@@ -1829,10 +1826,10 @@ cdef class Opcodes:
             operOp1  = (<Registers>self.main.cpu.registers).regRead(edxReg, False)<<operSizeInBits
             operOp1 |= (<Registers>self.main.cpu.registers).regRead(eaxReg, False)
             if (operOp2 == 0):
-                raise misc.ChemuException(CPU_EXCEPTION_DE)
+                raise ChemuException(CPU_EXCEPTION_DE)
             utemp, tempmod = divmod(operOp1, operOp2)
             if (utemp > <unsigned long>bitMask):
-                raise misc.ChemuException(CPU_EXCEPTION_DE)
+                raise ChemuException(CPU_EXCEPTION_DE)
             (<Registers>self.main.cpu.registers).regWrite(eaxReg, utemp&bitMask)
             (<Registers>self.main.cpu.registers).regWrite(edxReg, tempmod&bitMask)
             (<Registers>self.main.cpu.registers).setFullFlags(operOp1, operOp2, operSize, OPCODE_DIV, False)
@@ -1850,21 +1847,22 @@ cdef class Opcodes:
             sop2 = self.modRMInstance.modRMLoad(operSize, True, True)
             operOp2 = abs(sop2)
             if (operOp2 == 0):
-                raise misc.ChemuException(CPU_EXCEPTION_DE)
+                raise ChemuException(CPU_EXCEPTION_DE)
             temp, tempmod = divmod(sop1, sop2)
             if ( ((temp >= <unsigned long>bitMaskHalf) or (temp < -(<signed long long>bitMaskHalf))) ):
-                raise misc.ChemuException(CPU_EXCEPTION_DE)
+                raise ChemuException(CPU_EXCEPTION_DE)
             (<Registers>self.main.cpu.registers).regWrite(eaxReg, temp&bitMask)
             (<Registers>self.main.cpu.registers).regWrite(edxReg, tempmod&bitMask)
             (<Registers>self.main.cpu.registers).setFullFlags(sop1, operOp2, operSize, OPCODE_DIV, False)
         else:
             self.main.printMsg("opcodeGroup2_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef interrupt(self, short intNum, long errorCode): # TODO: complete this!
         cdef unsigned char operSize, inProtectedMode, pythonBiosDone, entryType, entrySize, \
                               entryNeededDPL, entryPresent
         cdef unsigned short segId, entrySegment
         cdef unsigned long entryEip, eflagsClearThis
+        cdef IdtEntry idtEntry
         entryType, entrySize, entryPresent, eflagsClearThis = IDT_INTR_TYPE_INTERRUPT, OP_SIZE_WORD, True, (FLAG_TF | FLAG_RF)
         inProtectedMode = (<Registers>self.main.cpu.registers).isInProtectedMode()
         if (inProtectedMode):
@@ -1875,9 +1873,15 @@ cdef class Opcodes:
         if (intNum == -1):
             intNum = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         if (inProtectedMode):
-            entrySegment, entryEip, entryType, entrySize, entryNeededDPL, entryPresent = (<Idt>(<Registers>self.main.cpu.registers).segments.idt).getEntry(intNum)
+            idtEntry = (<IdtEntry>(<Idt>(<Segments>(<Registers>self.main.cpu.registers).segments).idt).getEntry(intNum))
+            entrySegment = idtEntry.entrySegment
+            entryEip = idtEntry.entryEip
+            entryType = idtEntry.entryType
+            entrySize = idtEntry.entrySize
+            entryNeededDPL = idtEntry.entryNeededDPL
+            entryPresent = idtEntry.entryPresent
         else:
-            entrySegment, entryEip = (<Idt>(<Registers>self.main.cpu.registers).segments.idt).getEntryRealMode(intNum)
+            (<Idt>(<Segments>(<Registers>self.main.cpu.registers).segments).idt).getEntryRealMode(intNum, &entrySegment, <unsigned short*>&entryEip)
             if ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10)):
                 pythonBiosDone = self.main.platform.pythonBios.interrupt(intNum)
                 if (pythonBiosDone):
@@ -1915,7 +1919,7 @@ cdef class Opcodes:
         if ((not inProtectedMode) and operSize == OP_SIZE_DWORD):
             newEIP = self.stackGetValue(operSize)
             if ((newEIP>>16)!=0):
-                raise misc.ChemuException(CPU_EXCEPTION_GP)
+                raise ChemuException(CPU_EXCEPTION_GP)
         self.stackPopRegId(CPU_REGISTER_EIP, operSize)
         self.stackPopSegId(CPU_SEGMENT_CS, operSize)
         tempEFLAGS = self.stackPopValue(operSize)
@@ -1957,7 +1961,7 @@ cdef class Opcodes:
         cdef unsigned char imm8, tempAL, ALdiv, ALmod
         imm8 = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         if (imm8 == 0):
-            raise misc.ChemuException(CPU_EXCEPTION_DE)
+            raise ChemuException(CPU_EXCEPTION_DE)
         tempAL = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_AL, False)
         ALdiv, ALmod = divmod(tempAL, imm8)
         (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, ALdiv)
@@ -2236,7 +2240,7 @@ cdef class Opcodes:
             self.rorFunc(operSize, 1)
         else:
             self.main.printMsg("opcodeGroup4_RM_1: invalid operOpcodeId. {0:d}", operOpcodeId)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef opcodeGroup4_RM_CL(self, unsigned char operSize):
         cdef unsigned char operOpcode, operOpcodeId, count
         operOpcode = (<Registers>self.main.cpu.registers).getCurrentOpcode(OP_SIZE_BYTE, False)
@@ -2259,7 +2263,7 @@ cdef class Opcodes:
             self.rorFunc(operSize, count )
         else:
             self.main.printMsg("opcodeGroup4_RM_CL: invalid operOpcodeId. {0:d}", operOpcodeId)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef opcodeGroup4_RM_IMM8(self, unsigned char operSize):
         cdef unsigned char operOpcode, operOpcodeId, count
         operOpcode = (<Registers>self.main.cpu.registers).getCurrentOpcode(OP_SIZE_BYTE, False)
@@ -2282,7 +2286,7 @@ cdef class Opcodes:
             self.rorFunc(operSize, count )
         else:
             self.main.printMsg("opcodeGroup4_RM_IMM8: invalid operOpcodeId. {0:d}", operOpcodeId)
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
     cdef sahf(self):
         cdef unsigned char ahVal, orThis
         ahVal = (<Registers>self.main.cpu.registers).regRead( CPU_REGISTER_AH, False )
@@ -2356,7 +2360,7 @@ cdef class Opcodes:
         cdef unsigned char operSize
         cdef unsigned short op1, op2
         if (not (<Registers>self.main.cpu.registers).isInProtectedMode()):
-            raise misc.ChemuException(CPU_EXCEPTION_UD)
+            raise ChemuException(CPU_EXCEPTION_UD)
         operSize = OP_SIZE_WORD
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         op1 = self.modRMInstance.modRMLoad(operSize, False, True)
@@ -2377,7 +2381,7 @@ cdef class Opcodes:
         lowerBound = (<Registers>self.main.cpu.registers).mmReadValueSigned(returnInt, operSize, self.modRMInstance.rmNameSegId, True)
         upperBound = (<Registers>self.main.cpu.registers).mmReadValueSigned(returnInt+operSize, operSize, self.modRMInstance.rmNameSegId, True)
         if (index < lowerBound or index > upperBound+operSize):
-            raise misc.ChemuException(CPU_EXCEPTION_BR)
+            raise ChemuException(CPU_EXCEPTION_BR)
     cdef btFunc(self, unsigned long offset, unsigned char newValType):
         cdef unsigned char operSize, addrSize, operSizeInBits, state
         cdef unsigned long value, address

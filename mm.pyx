@@ -1,5 +1,5 @@
 
-import misc, atexit
+from atexit import register
 from misc cimport Misc
 from libc.stdlib cimport calloc, malloc, free
 from libc.string cimport strncpy, memcpy, memset
@@ -46,7 +46,7 @@ cdef class MmArea:
         if (self.mmAreaData is None):
             raise MemoryError()
         self.mmResetAreaData()
-        atexit.register(self.mmFreeAreaData)
+        register(self.mmFreeAreaData)
 
 
 cdef class Mm:
@@ -149,7 +149,7 @@ cdef class ConfigSpace:
         if (self.csData is None):
             raise MemoryError()
         self.csResetData()
-        atexit.register(self.csFreeData)
+        register(self.csFreeData)
 
 
 

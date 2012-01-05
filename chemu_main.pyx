@@ -3,7 +3,11 @@
 #cython: wraparound=False
 
 
-import sys, argparse, threading, time, atexit
+from sys import argv, exc_info, exit, stdout
+from argparse import ArgumentParser
+from threading import active_count
+from time import sleep
+from atexit import register
 
 include "globals.pxi"
 
@@ -16,9 +20,9 @@ cdef class ChEmu:
         self.quitEmu = False
         self.exitOnTripleFault = True
         self.exitCode = 0
-        atexit.register(self.quitFunc)
+        register(self.quitFunc)
     cpdef parseArgs(self):
-        self.parser = argparse.ArgumentParser(description='ChEmu: a x86 emulator in python.')
+        self.parser = ArgumentParser(description='ChEmu: a x86 emulator in python.')
         self.parser.add_argument('--biosFilename', dest='biosFilename', action='store', type=str, default='bios.bin', help='bios filename')
         self.parser.add_argument('--vgaBiosFilename', dest='vgaBiosFilename', action='store', type=str, default='vgabios.bin', help='vgabios filename')
         self.parser.add_argument('-m', dest='memSize', action='store', type=int, default=32, help='memSize in MB')
@@ -29,7 +33,7 @@ cdef class ChEmu:
         self.parser.add_argument('--fdbFilename', dest='fdbFilename', action='store', type=str, default='floppy1.img', help='fdbFilename')
         self.parser.add_argument('--noUI', dest='noUI', action='store_true', default=False, help='Disable UI.')
         self.parser.add_argument('--forceFloppyDiskType', dest='forceFloppyDiskType', action='store', type=int, default=0, help='Force FloppyDiskType: 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
-        self.cmdArgs = self.parser.parse_args(sys.argv[1:])
+        self.cmdArgs = self.parser.parse_args(argv[1:])
 
         self.exitIfCpuHalted = self.cmdArgs.exitIfCpuHalted
         self.debugEnabled    = self.cmdArgs.debugEnabled
@@ -48,13 +52,13 @@ cdef class ChEmu:
         self.quitFunc()
         self.printMsg("ERROR: {0:s}".format(errorStr), *errorStrArguments)
         if (exitNow):
-            sys.exit(errorExitCode)
+            exit(errorExitCode)
     def debug(self, str debugStr, *debugStrArguments): # this needs to be 'def'
         if (self.debugEnabled):
             self.printMsg(debugStr, *debugStrArguments)
     def printMsg(self, str msgStr, *msgStrArguments): # this needs to be 'def'
         print(msgStr.format(*msgStrArguments))
-        sys.stdout.flush()
+        stdout.flush()
     cpdef run(self):
         try:
             self.parseArgs()
@@ -68,12 +72,11 @@ cdef class ChEmu:
             self.platform.pic.setINTR = <SetINTR>self.cpu.setINTR
             self.platform.isadma.setHRQ = <SetHRQ>self.cpu.setHRQ
             self.cpu.run()
-            #self.misc.createThread(self.cpu.run, True)
-            #while (threading.active_count() > 1 and not self.quitEmu):
-            #    time.sleep(2)
+            while (active_count() > 1 and not self.quitEmu):
+                sleep(5)
         except:
-            print(sys.exc_info())
-            sys.exit(1)
+            print(exc_info())
+            exit(1)
         ###
 
 

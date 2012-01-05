@@ -1,8 +1,33 @@
 
-import misc
+from misc import ChemuException
 
 include "globals.pxi"
 
+cdef class GdtEntry:
+    def __init__(self, unsigned long long entryData):
+        self.parseEntryData(entryData)
+    cdef parseEntryData(self, unsigned long long entryData):
+        self.accessByte = (entryData>>40)&BITMASK_BYTE
+        self.flags  = (entryData>>52)&0xf
+        self.base  = ( (entryData>>56)&BITMASK_BYTE)<<24
+        self.limit = (( entryData>>48)&0xf)<<16
+        self.base  |= (entryData>>16)&0xffffff
+        self.limit |= entryData&BITMASK_WORD
+
+cdef class IdtEntry:
+    def __init__(self, unsigned long long entryData):
+        self.parseEntryData(entryData)
+    cdef parseEntryData(self, unsigned long long entryData):
+        self.entryEip = ((entryData>>48)&BITMASK_WORD)<<16 # interrupt eip: upper word
+        self.entryEip |= entryData&BITMASK_WORD # interrupt eip: lower word
+        self.entrySegment = (entryData>>16)&BITMASK_WORD # interrupt segment
+        self.entryType = (entryData>>40)&0x7 # interrupt type
+        self.entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
+        self.entryPresent = (entryData>>47)&1 # is interrupt present
+        if ((entryData>>43)&1): # interrupt size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
+            self.entrySize = OP_SIZE_DWORD
+        else:
+            self.entrySize = OP_SIZE_WORD
 
 cdef class Gdt:
     def __init__(self, Segments segments):
@@ -17,27 +42,19 @@ cdef class Gdt:
     cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
-    cdef tuple getEntry(self, unsigned short num):
+    cdef GdtEntry getEntry(self, unsigned short num):
         cdef unsigned long long entryData
-        cdef unsigned long base, limit
-        cdef unsigned char accessByte, flags
         if (not num):
             self.segments.main.exitError("GDT::getEntry: num == 0!")
             return None
         entryData = self.table.csReadValueUnsigned((num&0xfff8), 8)
-        limit = entryData&BITMASK_WORD
-        base  = (entryData>>16)&0xffffff
-        accessByte = (entryData>>40)&BITMASK_BYTE
-        flags  = (entryData>>52)&0xf
-        limit |= (( entryData>>48)&0xf)<<16
-        base  |= ( (entryData>>56)&BITMASK_BYTE)<<24
-        return base, limit, accessByte, flags
+        return GdtEntry(entryData)
     cdef unsigned char getSegSize(self, unsigned short num):
-        if ((<unsigned char>(<tuple>self.getEntry(num))[3]) & GDT_FLAG_SIZE):
+        if (self.getEntry(num).flags & GDT_FLAG_SIZE):
             return OP_SIZE_DWORD
         return OP_SIZE_WORD
     cdef unsigned char getSegAccess(self, unsigned short num):
-        return (<unsigned char>(<tuple>self.getEntry(num))[2])
+        return self.getEntry(num).accessByte
     cdef unsigned char isSegPresent(self, unsigned short num):
         return (self.getSegAccess(num) & GDT_ACCESS_PRESENT)!=0
     cdef unsigned char isCodeSeg(self, unsigned short num):
@@ -55,48 +72,48 @@ cdef class Gdt:
         if (num == 0 or \
             (isStackSegment and ( num&3 != self.segments.main.cpu.registers.cpl or self.getSegDPL(num) != self.segments.main.cpu.registers.cpl)) or \
             0):
-            raise misc.ChemuException(CPU_EXCEPTION_GP, num)
+            raise ChemuException(CPU_EXCEPTION_GP, num)
         elif (not self.isSegPresent(num)):
             if (isStackSegment):
-                raise misc.ChemuException(CPU_EXCEPTION_SS, num)
+                raise ChemuException(CPU_EXCEPTION_SS, num)
             else:
-                raise misc.ChemuException(CPU_EXCEPTION_NP, num)
+                raise ChemuException(CPU_EXCEPTION_NP, num)
     cdef unsigned char checkReadAllowed(self, unsigned short num, unsigned char doException):
         if (num&0xfff8 == 0 or (self.isCodeSeg(num) and not self.isSegReadableWritable(num))):
             if (doException):
-                raise misc.ChemuException(CPU_EXCEPTION_GP, 0)
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             return False
         return True
     cdef unsigned char checkWriteAllowed(self, unsigned short num, unsigned char doException):
         if (num&0xfff8 == 0 or self.isCodeSeg(num) or not self.isSegReadableWritable(num)):
             if (doException):
-                raise misc.ChemuException(CPU_EXCEPTION_GP, 0)
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             return False
         return True
     cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment, unsigned char doException):
         cdef unsigned char numSegDPL = self.getSegDPL(num)
         if (num&0xfff8 == 0 and loadStackSegment):
             if (doException):
-                raise misc.ChemuException(CPU_EXCEPTION_GP, num)
+                raise ChemuException(CPU_EXCEPTION_GP, num)
             return False
         elif (not self.isSegPresent(num)):
             if (doException):
                 if (loadStackSegment):
-                    raise misc.ChemuException(CPU_EXCEPTION_SS, num)
+                    raise ChemuException(CPU_EXCEPTION_SS, num)
                 else:
-                    raise misc.ChemuException(CPU_EXCEPTION_NP, num)
+                    raise ChemuException(CPU_EXCEPTION_NP, num)
             return False
         elif (loadStackSegment):
             if ((num&3 != self.segments.main.cpu.registers.cpl or numSegDPL != self.segments.main.cpu.registers.cpl) or \
                 (not self.isCodeSeg(num) and not self.isSegReadableWritable(num))):
                   if (doException):
-                      raise misc.ChemuException(CPU_EXCEPTION_GP, num)
+                      raise ChemuException(CPU_EXCEPTION_GP, num)
                   return False
         else: # not loadStackSegment
             if ( ((not self.isCodeSeg(num) or not self.isSegConforming(num)) and (num&3 > numSegDPL and self.segments.main.cpu.registers.cpl > numSegDPL)) or \
                  (self.isCodeSeg(num) and not self.isSegReadableWritable(num)) ):
                 if (doException):
-                    raise misc.ChemuException(CPU_EXCEPTION_GP, num)
+                    raise ChemuException(CPU_EXCEPTION_GP, num)
                 return False
         return True
     cdef run(self):
@@ -120,23 +137,10 @@ cdef class Idt:
     cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
-    cdef tuple getEntry(self, unsigned char num):
+    cdef IdtEntry getEntry(self, unsigned char num):
         cdef unsigned long long entryData
-        cdef unsigned long entryEip
-        cdef unsigned short entrySegment
-        cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent
         entryData = self.table.csReadValueUnsigned((num*8), 8)
-        entryEip = ((entryData>>48)&BITMASK_WORD) # interrupt eip: upper word
-        entryEip <<= 16
-        entryEip |= entryData&BITMASK_WORD # interrupt eip: lower word
-        entrySegment = (entryData>>16)&BITMASK_WORD # interrupt segment
-        entryType = (entryData>>40)&0x7 # interrupt type
-        entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
-        entryPresent = (entryData>>47)&1 # is interrupt present
-        entrySize = (entryData>>43)&1 # interrupt size: 1==32bit; 0==16bit; entrySize is 4 for 32bit, 2 for 16bit
-        if (entrySize!=0): entrySize = OP_SIZE_DWORD
-        else: entrySize = OP_SIZE_WORD
-        return entrySegment, entryEip, entryType, entrySize, entryNeededDPL, entryPresent
+        return IdtEntry(entryData)
     cdef unsigned char isEntryPresent(self, unsigned char num):
         return (<unsigned char>self.table.csReadValueUnsigned((num*8)+2, 1)>>7)&1 # is interrupt present
     cdef unsigned char getEntryNeededDPL(self, unsigned char num):
@@ -146,12 +150,11 @@ cdef class Idt:
         if ((<unsigned char>self.table.csReadValueUnsigned((num*8)+2, 1)>>3)&1):
             return OP_SIZE_DWORD
         return OP_SIZE_WORD
-    cdef tuple getEntryRealMode(self, unsigned char num):
-        cdef unsigned short offset, entrySegment, entryEip
+    cdef getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip):
+        cdef unsigned short offset
         offset = num*4 # Don't use ConfigSpace here.
-        entryEip = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset, 2)
-        entrySegment = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset+2, 2)
-        return entrySegment, entryEip
+        entryEip[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset, 2)
+        entrySegment[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset+2, 2)
     cdef run(self):
         self.table = ConfigSpace(IDT_HARD_LIMIT, self.segments.main)
         self.table.run()
@@ -165,10 +168,10 @@ cdef class Segments:
         self.ldt.reset()
         self.idt.reset()
         self.ldtr = 0
-    cdef tuple getEntry(self, unsigned short num):
+    cdef GdtEntry getEntry(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
-            return self.ldt.getEntry(num)
-        return self.gdt.getEntry(num)
+            return <GdtEntry>self.ldt.getEntry(num)
+        return <GdtEntry>self.gdt.getEntry(num)
     cdef unsigned char getSegAccess(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
             return self.ldt.getSegAccess(num)

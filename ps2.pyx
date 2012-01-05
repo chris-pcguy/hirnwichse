@@ -1,7 +1,7 @@
 
 # This file contains code from The Bochs Project. Thanks to them!
 
-import time
+from time import sleep
 
 from cpu cimport Cpu
 from registers cimport Registers
@@ -64,7 +64,7 @@ cdef class PS2:
         if (self.allowIrq1):
             self.irq1Requested = True
             (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
-    cdef setKeyboardRepeatRate(self, unsigned char data): # input is data from cmd 0xf3
+    cpdef setKeyboardRepeatRate(self, unsigned char data): # input is data from cmd 0xf3
         cdef unsigned short delay, interval
         interval = data&0x1f
         delay = ((data&0x60)>>5)&3
@@ -83,7 +83,7 @@ cdef class PS2:
             self.main.exitError("setKeyboardRepeatRate: interval {0:d} unknown.", interval)
         if (self.main.platform.vga.ui is not None):
             self.main.platform.vga.ui.setRepeatRate(delay, interval)
-    cdef keySend(self, unsigned char keyId, unsigned char keyUp):
+    cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
         cdef unsigned char escaped, sc
         cdef bytes scancode
         escaped = 0x00
@@ -327,7 +327,10 @@ cdef class PS2:
                 if (retVal&1):
                     (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
             else:
-                time.sleep(0.02)
+                if (len(self.outBuffer)):
+                    sleep(0.02)
+                else:
+                    sleep(1)
     cpdef initThread(self):
         self.main.misc.createThread(self.timerFunc, True)
     cdef run(self):

@@ -1,5 +1,7 @@
 
-import sys, os, traceback
+from os import stat
+from os.path import join
+from sys import exc_info, exit
 
 from misc cimport Misc
 
@@ -141,8 +143,8 @@ cdef class Platform:
             self.main.printMsg("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
             return bitMask
         except:
-            traceback.print_exc()
-            sys.exit(1)
+            print(exc_info())
+            exit(1)
     cpdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef PortHandler port
         cdef unsigned short portNum
@@ -160,8 +162,8 @@ cdef class Platform:
                         return
             self.main.printMsg("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
         except:
-            traceback.print_exc()
-            sys.exit(1)
+            print(exc_info())
+            exit(1)
     cdef loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize):
         cdef object romFp
         cdef bytes romData
@@ -175,7 +177,7 @@ cdef class Platform:
     cdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional):
         cdef unsigned long long romMemSize, romSize, size
         romMemSize = SIZE_64KB
-        romSize = os.stat(romFileName).st_size
+        romSize = stat(romFileName).st_size
         if (not isRomOptional):
             for size in ROM_SIZES:
                 if (size > romSize):
@@ -192,9 +194,9 @@ cdef class Platform:
         self.initDevices()
         (<Mm>self.main.mm).mmAddArea(0, memSize, False, <MmArea>MmArea)
         (<Mm>self.main.mm).mmAddArea(0xfffc0000, 0x40000, False, <MmArea>MmArea)
-        self.loadRom(os.path.join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
+        self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
         if (self.main.vgaBiosFilename):
-            self.loadRom(os.path.join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
+            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
         <MmArea>((<Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
         self.initDevicesPorts()
         self.runDevices()

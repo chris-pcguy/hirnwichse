@@ -1,5 +1,5 @@
 
-import sys, threading, time
+from sys import stdout
 
 include "globals.pxi"
 
@@ -241,17 +241,17 @@ cdef class Vga:
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x400): # Bochs' Panic Port
-                sys.stdout.write(chr(data))
-                sys.stdout.flush()
+                stdout.write(chr(data))
+                stdout.flush()
             elif (ioPortAddr == 0x401): # Bochs' Panic Port2
-                sys.stdout.write(chr(data))
-                sys.stdout.flush()
+                stdout.write(chr(data))
+                stdout.flush()
             elif (ioPortAddr in (0x402,0x500,0x504)): # Bochs' Info Port
-                sys.stdout.write(chr(data))
-                sys.stdout.flush()
+                stdout.write(chr(data))
+                stdout.flush()
             elif (ioPortAddr == 0x403): # Bochs' Debug Port
-                sys.stdout.write(chr(data))
-                sys.stdout.flush()
+                stdout.write(chr(data))
+                stdout.flush()
             elif (ioPortAddr == 0x3c0):
                 self.attrctrlreg.setIndexData(data, dataSize)
             elif (ioPortAddr == 0x3c2):

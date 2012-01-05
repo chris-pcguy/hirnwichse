@@ -1,6 +1,18 @@
 
 from mm cimport Mm, ConfigSpace
 
+cdef class GdtEntry:
+    cdef unsigned char accessByte, flags
+    cdef unsigned long base, limit
+    cdef parseEntryData(self, unsigned long long entryData)
+
+cdef class IdtEntry:
+    cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent
+    cdef unsigned short entrySegment
+    cdef unsigned long entryEip
+    cdef parseEntryData(self, unsigned long long entryData)
+
+
 cdef class Gdt:
     cdef Segments segments
     cdef ConfigSpace table
@@ -10,7 +22,7 @@ cdef class Gdt:
     cdef loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit)
     cdef loadTableData(self)
     cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit)
-    cdef tuple getEntry(self, unsigned short num)
+    cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char getSegSize(self, unsigned short num)
     cdef unsigned char getSegAccess(self, unsigned short num)
     cdef unsigned char isSegPresent(self, unsigned short num)
@@ -32,11 +44,11 @@ cdef class Idt:
     cdef reset(self)
     cdef loadTable(self, unsigned long tableBase, unsigned short tableLimit)
     cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit)
-    cdef tuple getEntry(self, unsigned char num)
+    cdef IdtEntry getEntry(self, unsigned char num)
     cdef unsigned char isEntryPresent(self, unsigned char num)
     cdef unsigned char getEntryNeededDPL(self, unsigned char num)
     cdef unsigned char getEntrySize(self, unsigned char num)
-    cdef tuple getEntryRealMode(self, unsigned char num)
+    cdef getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip)
     cdef run(self)
 
 cdef class Segments:
@@ -45,7 +57,7 @@ cdef class Segments:
     cdef Idt idt
     cdef unsigned short ldtr
     cdef reset(self)
-    cdef tuple getEntry(self, unsigned short num)
+    cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char getSegAccess(self, unsigned short num)
     cdef unsigned char isCodeSeg(self, unsigned short num)
     cdef unsigned char isSegReadableWritable(self, unsigned short num)

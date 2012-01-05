@@ -1,4 +1,5 @@
-import os
+
+from os.path import exists, getsize
 
 # This file contains (much) code from the Bochs Emulator (c) by it's developers
 
@@ -19,10 +20,20 @@ cdef class FloppyMedia:
         elif (mediaType in (FLOPPY_DISK_TYPE_360K, FLOPPY_DISK_TYPE_1_2M, FLOPPY_DISK_TYPE_720K, \
            FLOPPY_DISK_TYPE_1_44M, FLOPPY_DISK_TYPE_2_88M)):
             self.heads = 2
-            if (mediaType == FLOPPY_DISK_TYPE_360K):
+            if (mediaType in (FLOPPY_DISK_TYPE_160K, FLOPPY_DISK_TYPE_180K, FLOPPY_DISK_TYPE_320K, FLOPPY_DISK_TYPE_360K)):
                 self.tracks = 40
-                self.sectorsPerTrack = 9
-                self.sectors = 720
+                if (mediaType in (FLOPPY_DISK_TYPE_180K, FLOPPY_DISK_TYPE_360K)):
+                    self.sectorsPerTrack = 9
+                else:
+                    self.sectorsPerTrack = 8
+                if (mediaType == FLOPPY_DISK_TYPE_160K):
+                    self.sectors = 320
+                elif (mediaType == FLOPPY_DISK_TYPE_180K):
+                    self.sectors = 360
+                elif (mediaType == FLOPPY_DISK_TYPE_320K):
+                    self.sectors = 640
+                elif (mediaType == FLOPPY_DISK_TYPE_360K):
+                    self.sectors = 720
             else:
                 self.tracks = 80
             if (mediaType == FLOPPY_DISK_TYPE_720K):
@@ -75,11 +86,11 @@ cdef class FloppyDrive:
         return diskType
     cdef loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType, driveType
-        if (not filename or not os.path.exists(filename)):
+        if (not filename or not exists(filename)):
             self.main.printMsg("FD{0:d}: loadDrive: filename not found. (filename: {1:s})", self.driveId, filename)
             return
         self.filename = filename
-        driveType = self.getDiskType(os.path.getsize(self.filename))
+        driveType = self.getDiskType(getsize(self.filename))
         self.media.setDataForMedia(driveType)
         if (driveType == FLOPPY_DISK_TYPE_NONE):
             self.main.printMsg("FloppyDrive::loadDrive: driveType is DISK_TYPE_NONE")

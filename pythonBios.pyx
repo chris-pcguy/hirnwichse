@@ -1,5 +1,6 @@
 
 from mm cimport Mm
+from cmos cimport Cmos
 from registers cimport Registers
 from vga cimport Vga
 from floppy cimport Floppy, FloppyController, FloppyDrive, FloppyMedia
@@ -15,7 +16,8 @@ cdef class PythonBios:
     cpdef interrupt(self, unsigned char intNum):
         cdef unsigned long memAddr, logicalSector
         cdef unsigned short ax, cx, dx, bx, bp, i, count, cylinder, cursorPos
-        cdef unsigned char currMode, ah, al, bh, bl, dh, dl, fdcNum, updateCursor, c, attr, attrInBuf, sector, head
+        cdef unsigned char currMode, ah, al, bh, bl, dh, dl, fdcNum, fdCount, \
+                            updateCursor, c, attr, attrInBuf, sector, head, tempByte
         cdef bytes data
         #return False
         ax = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_AX, False)
@@ -121,13 +123,40 @@ cdef class PythonBios:
                 self.setRetError(False, al)
                 return True
             elif (ah == 0x8):
+                tempByte = (<Cmos>self.main.platform.cmos).readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
+                fdCount = 0
+                if ((fdCount & 0xf0) != 0):
+                    fdCount += 1
+                if ((fdCount & 0x0f) != 0):
+                    fdCount += 1
+                if (dl > 1):
+                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AX, 0)
+                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BX, 0)
+                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, 0)
+                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DX, fdCount)
+                    (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_ES, 0)
+                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DI, 0)
+                    (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, True)
+                    return True
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DH, \
-                (<FloppyMedia>(<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).heads)
+                    ((<FloppyMedia>(<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).heads-1))
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DL, fdCount)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, \
-                ((<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).tracks<<8) | \
-                (<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).sectors)))
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, 0)
+                    ((<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).tracks<<8) | \
+                    (<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).sectorsPerTrack)))
+                # fdCount is fdType here.
+                fdCount = (<Cmos>self.main.platform.cmos).readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
+                if (dl == 0):
+                    fdCount >>= 4
+                elif (dl == 1):
+                    fdCount &= 0x0f
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BX, fdCount)
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AX, 0)
+                (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_ES, 0xf000)
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DI, \
+                    (<Mm>self.main.mm).mmPhyReadValueUnsigned((0x78), OP_SIZE_WORD)) # INT 0x1E OFFSET
                 (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, False)
+                return True
             elif (not (dl & 0x80)):
                 self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) ax {0:#06x} not supported yet in PythonBIOS.", ax)
         return False

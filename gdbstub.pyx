@@ -1,5 +1,8 @@
 
-import misc, atexit, socket, threading, socketserver, sys
+from sys import exc_info, exit
+from atexit import register
+from socket import error as SocketError, IPPROTO_TCP, TCP_NODELAY
+from socketserver import BaseRequestHandler, ThreadingMixIn, TCPServer
 from misc cimport Misc
 
 include "globals.pxi"
@@ -278,7 +281,7 @@ cdef class GDBStubHandler:
         else:
             self.unhandledCmd(data, False)
 
-class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+class ThreadedTCPRequestHandler(BaseRequestHandler):
     def handle(self):
         self.gdbHandler = (<GDBStubHandler>self.server.gdbHandler)
         (<GDBStubHandler>self.gdbHandler).connHandler = self
@@ -298,7 +301,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             (<GDBStubHandler>self.gdbHandler).gdbStub.server.shutdown()
 
 
-class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+class ThreadedTCPServer(ThreadingMixIn, TCPServer):
     pass
 
 
@@ -313,23 +316,23 @@ cdef class GDBStub:
             self.gdbHandler = GDBStubHandler(self.main, self)
             self.server.gdbHandler = self.gdbHandler
             self.server.allow_reuse_address = True
-            self.server.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+            self.server.socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
             self.server.server_bind()
             self.server.server_activate()
-            atexit.register(self.quitFunc)
-        except socket.error:
-            print(sys.exc_info())
+            register(self.quitFunc)
+        except SocketError:
+            print(exc_info())
             self.main.printMsg("GDBStub::__init__: socket exception.")
             self.server = None
             self.gdbHandler = None
         except (SystemExit, KeyboardInterrupt):
-            print(sys.exc_info())
+            print(exc_info())
             self.main.quitEmu = True
             self.main.printMsg("GDBStub::__init__: (SystemExit, KeyboardInterrupt) exception.")
             self.server = None
             self.gdbHandler = None
         except:
-            print(sys.exc_info())
+            print(exc_info())
             self.main.printMsg("GDBStub::__init__: else exception.")
             self.server = None
             self.gdbHandler = None
@@ -345,13 +348,13 @@ cdef class GDBStub:
             if (self.server):
                 self.server.shutdown()
         except:
-            print(sys.exc_info())
+            print(exc_info())
     cpdef run(self):
         try:
             (<Misc>self.main.misc).createThread(self.serveGDBStub, True)
         except (SystemExit, KeyboardInterrupt):
             self.main.quitEmu = True
-            sys.exit(self.main.exitCode)
+            exit(self.main.exitCode)
 
 
 

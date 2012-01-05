@@ -1,5 +1,5 @@
 
-import sys, time, threading
+from time import sleep
 from pic cimport Pic
 from ps2 cimport PS2
 
@@ -24,7 +24,7 @@ cdef class PitChannel:
         if (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Both):
             (<PS2>self.main.platform.ps2).ppcbT2Out = True
         if (self.channelId != 2):
-            time.sleep(self.tempTimerValue)
+            sleep(self.tempTimerValue)
         if (self.channelId == 0): # just raise IRQ on channel0
             (<Pic>self.main.platform.pic).raiseIrq(0)
         else:
@@ -37,7 +37,7 @@ cdef class PitChannel:
         if (not self.actualCounterValue):
             self.actualCounterValue = self.counterValue
         if (self.channelId != 2):
-            time.sleep(self.tempTimerValue)
+            sleep(self.tempTimerValue)
         if (self.channelId == 0): # just raise IRQ on channel0
             (<Pic>self.main.platform.pic).raiseIrq(0)
         else:

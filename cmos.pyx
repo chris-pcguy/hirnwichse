@@ -1,5 +1,5 @@
 
-import misc, time
+from time import localtime
 from misc cimport Misc
 
 include "globals.pxi"
@@ -44,7 +44,7 @@ cdef class Cmos:
     cdef updateTime(self):
         cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century
         statusb = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
-        self.dt = time.localtime()
+        self.dt = localtime()
         second  = self.dt.tm_sec
         minute  = self.dt.tm_min
         hour    = self.dt.tm_hour
