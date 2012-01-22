@@ -83,12 +83,14 @@ cdef class Cpu:
             self.main.printMsg("CPU::handleException: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
         self.exception(exceptionId, errorCode)
     cdef unsigned char parsePrefixes(self, unsigned char opcode):
-        cdef unsigned char count = 0
+        cdef unsigned char count
+        cdef unsigned short segId
+        count = 0
         while (opcode in OPCODE_PREFIXES):
             count += 1
             if (count >= 16):
                 raise ChemuException(CPU_EXCEPTION_UD)
-            if (opcode == OPCODE_PREFIX_LOCK):
+            elif (opcode == OPCODE_PREFIX_LOCK):
                 self.registers.lockPrefix = True
             elif (opcode in OPCODE_PREFIX_REPS):
                 self.registers.repPrefix = opcode
@@ -106,7 +108,7 @@ cdef class Cpu:
                 elif (opcode == OPCODE_PREFIX_SS):
                     segId = CPU_SEGMENT_SS
                 else:
-                    self.main.exitError("parsePrefixes: {0:#04x} not a segment prefix.", opcode)
+                    self.main.exitError("parsePrefixes: {0:#04x} is not a segment prefix.", opcode)
                     return 0
                 self.registers.segmentOverridePrefix = segId
             elif (opcode == OPCODE_PREFIX_OP):

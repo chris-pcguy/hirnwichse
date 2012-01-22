@@ -1,7 +1,9 @@
 
 from sys import exc_info
 from atexit import register
+from time import sleep
 import pygame
+from misc cimport Misc
 
 include "globals.pxi"
 
@@ -336,7 +338,6 @@ cdef class PygameUI:
             elif (event.type == pygame.VIDEOEXPOSE):
                 self.updateScreen(list())
             elif (event.type == pygame.KEYDOWN):
-                ###self.main.printMsg("event.type == pygame.KEYDOWN")
                 (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), False)
             elif (event.type == pygame.KEYUP):
                 (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), True)
@@ -368,6 +369,6 @@ cdef class PygameUI:
             self.handleEvent(event)
     cpdef run(self):
         self.initPygame()
-        self.main.misc.createThread(self.handleEvents, True)
+        (<Misc>self.main.misc).createThread(self.handleEvents, True)
 
 

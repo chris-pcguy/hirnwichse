@@ -1,6 +1,13 @@
 
 from mm cimport Mm, ConfigSpace
 
+cdef class Segment:
+    cdef Segments segments
+    cdef unsigned char accessByte, flags
+    cdef unsigned short segmentId
+    cdef unsigned long base, limit
+    cdef loadSegment(self, unsigned short segmentIndex)
+
 cdef class GdtEntry:
     cdef unsigned char accessByte, flags
     cdef unsigned long base, limit
@@ -55,8 +62,14 @@ cdef class Segments:
     cpdef object main
     cdef Gdt gdt, ldt
     cdef Idt idt
+    cdef Segment cs, ds, es, fs, gs, ss
+    cdef unsigned char A20Active, protectedModeOn
     cdef unsigned short ldtr
     cdef reset(self)
+    cdef unsigned char isInProtectedMode(self)
+    cdef unsigned char getA20State(self)
+    cdef setA20State(self, unsigned char state)
+    cdef Segment getSegmentInstance(self, unsigned short segmentId)
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char getSegAccess(self, unsigned short num)
     cdef unsigned char isCodeSeg(self, unsigned short num)

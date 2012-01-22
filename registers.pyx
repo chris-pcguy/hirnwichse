@@ -130,7 +130,7 @@ cdef class ModRMClass:
     cdef unsigned short modSegSave(self, unsigned char regSize, unsigned long long value):
         if (self.regName == CPU_SEGMENT_CS):
             raise ChemuException(CPU_EXCEPTION_UD)
-        if (self.registers.isInProtectedMode()):
+        if ((<Segments>self.registers.segments).isInProtectedMode()):
             self.registers.segments.checkSegmentLoadAllowed(value, self.regName == CPU_SEGMENT_SS, True)
         return self.registers.segWrite(self.regName, value)
     cdef long long modRLoad(self, unsigned char regSize, unsigned char signed):
@@ -145,26 +145,16 @@ cdef class Registers:
         self.main = main
     cdef reset(self):
         self.regs.csResetData()
+        self.cpl = self.iopl = 0
+        self.resetPrefixes()
         self.segments.reset()
         self.regWrite(CPU_REGISTER_EFLAGS, 0x2)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
         self.regWrite(CPU_REGISTER_EIP, 0xfff0)
         self.regWrite(CPU_REGISTER_CR0, 0x60000034)
-        self.cpl = self.iopl = 0
-        self.A20Active = False
-        self.protectedModeOn = False
-        self.resetPrefixes()
     cdef resetPrefixes(self):
         self.lockPrefix = self.repPrefix = self.operandSizePrefix = self.addressSizePrefix = False
         self.segmentOverridePrefix = 0
-        self.codeSegSize = self.getSegSize(CPU_SEGMENT_CS)
-        self.eipSizeRegId = (self.codeSegSize == OP_SIZE_DWORD and CPU_REGISTER_EIP) or CPU_REGISTER_IP
-    cdef unsigned char isInProtectedMode(self):
-        return self.protectedModeOn
-    cdef unsigned char getA20State(self):
-        return self.A20Active
-    cdef setA20State(self, unsigned char state):
-        self.A20Active = state
     cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed):
         cdef unsigned long opcodeAddr
         opcodeAddr = self.regRead(self.eipSizeRegId, False)
@@ -204,6 +194,10 @@ cdef class Registers:
         if (not segId and not (segId in CPU_REGISTER_SREG)):
             self.main.exitError("segWrite: segId is not a segment! ({0:d})", segId)
             return 0
+        (<Segment>self.segments.getSegmentInstance(segId)).loadSegment(segValue)
+        if (segId == CPU_SEGMENT_CS):
+            self.codeSegSize = self.getSegSize(CPU_SEGMENT_CS)
+            self.eipSizeRegId = (self.codeSegSize == OP_SIZE_DWORD and CPU_REGISTER_EIP) or CPU_REGISTER_IP
         segId = ((segId//5)<<3)
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         segValue = self.regs.csWriteValueBE(segId+6, segValue, OP_SIZE_WORD)
@@ -213,9 +207,9 @@ cdef class Registers:
         cdef unsigned short aregId
         if (regId == CPU_REGISTER_NONE):
             return 0
-        #if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
-        #    self.main.exitError("regRead: regId is reserved! ({0:d})", regId)
-        #    return 0
+        if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
+            self.main.exitError("regRead: regId is reserved! ({0:d})", regId)
+            return 0
         aregId, regOffset = divmod(regId, 5)
         aregId <<= 3
         if (regOffset == 0):
@@ -425,7 +419,7 @@ cdef class Registers:
         elif (index == 0xe): # NG
             return (self.getEFLAG(FLAG_ZF)!=0 or (self.getEFLAG(FLAG_SF_OF) in (FLAG_SF, FLAG_OF)) )
         elif (index == 0xf): # G
-            return (self.getEFLAG(FLAG_SF_OF | FLAG_ZF) in (0, FLAG_SF_OF))
+            return (self.getEFLAG(FLAG_SF_OF_ZF) in (0, FLAG_SF_OF))
         else:
             self.main.exitError("getCond: index {0:#x} invalid.", index)
     cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method, unsigned char signed):
@@ -501,7 +495,7 @@ cdef class Registers:
             self.main.exitError("setFullFlags: method not (add, sub, mul or div). (method: {0:d})", method)
     #cdef checkMemAccessRights(self, unsigned short segId, unsigned char write):
     #    cdef unsigned short segVal
-    #    if (not self.isInProtectedMode()):
+    #    if (not self.segments.isInProtectedMode()):
     #        return
     #    segVal = self.segRead(segId)
     #    if (not self.segments.isSegPresent(segVal) ):
@@ -523,7 +517,17 @@ cdef class Registers:
     #    else:
     #        if (self.segments.isCodeSeg(segVal) and not self.segments.isSegReadableWritable(segVal) ):
     #            raise ChemuException(CPU_EXCEPTION_GP, segVal)
-    cdef unsigned long long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride):
+    cdef unsigned long getRealAddr(self, unsigned short segId, long long offsetAddr):
+        cdef unsigned long realAddr
+        realAddr = (<unsigned long>((<Segment>self.segments.getSegmentInstance(segId)).base)+offsetAddr)
+        ##self.main.debug("Registers::getRealAddr: realAddr=={0:#010x}", realAddr)
+        # TODO: check for limit asf...
+        if (not self.segments.isInProtectedMode()):
+            if (self.segments.getA20State()): # A20 Active? if True == on, else off
+                return realAddr&0x1fffff
+            return realAddr&0xfffff
+        return realAddr
+    cdef unsigned long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride):
         if (allowOverride and self.segmentOverridePrefix):
             segId = self.segmentOverridePrefix
         mmAddr = self.getRealAddr(segId, mmAddr)
@@ -585,30 +589,12 @@ cdef class Registers:
                     return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
         self.main.exitError("Registers::mmWriteValueWithOp: unknown valueOp {0:d}.", valueOp)
         return 0
-    cdef unsigned long getRealAddr(self, unsigned long segId, long long offsetAddr):
-        segId = self.segRead(segId)
-        if (not self.isInProtectedMode()):
-            segId = (((<unsigned long>segId)<<4)+offsetAddr)
-            if (self.getA20State()): # A20 Active? if True == on, else off
-                return segId&0x1fffff
-            return segId&0xfffff
-        return (((<GdtEntry>self.segments.getEntry(segId)).base)+offsetAddr)&BITMASK_DWORD
     cdef unsigned char getSegSize(self, unsigned short segId):
-        if (self.isInProtectedMode()): # protected mode enabled
-            segId = self.segRead(segId)
-            if (segId & SELECTOR_USE_LDT):
-                return self.segments.ldt.getSegSize(segId)
-            return self.segments.gdt.getSegSize(segId)
-        #else: # real mode
+        if (((<Segment>self.segments.getSegmentInstance(segId)).flags & GDT_FLAG_SIZE) != 0):
+            return OP_SIZE_DWORD
         return OP_SIZE_WORD
     cdef unsigned char isSegPresent(self, unsigned short segId):
-        if (self.isInProtectedMode()): # protected mode enabled
-            segId = self.segRead(segId)
-            if (segId & SELECTOR_USE_LDT):
-                return self.segments.ldt.isSegPresent(segId)
-            return self.segments.gdt.isSegPresent(segId)
-        #else: # real mode
-        return True
+        return (((<Segment>self.segments.getSegmentInstance(segId)).accessByte & GDT_ACCESS_PRESENT) != 0)
     cdef unsigned char getOpSegSize(self, unsigned short segId):
         segId  = self.getSegSize(segId)
         opSize = (((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD

@@ -1,7 +1,7 @@
 
 
 from mm cimport Mm, ConfigSpace
-from segments cimport GdtEntry, Gdt, Idt, Segments
+from segments cimport Segment, GdtEntry, Gdt, Idt, Segments
 
 cdef class ModRMClass:
     cpdef object main
@@ -29,15 +29,11 @@ cdef class Registers:
     cdef Segments segments
     cdef ConfigSpace regs
     cdef public unsigned char lockPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, \
-                                addressSizePrefix, cpl, iopl, A20Active, protectedModeOn, \
-                                codeSegSize
+                                addressSizePrefix, cpl, iopl, codeSegSize
     cdef public unsigned short eipSizeRegId
     cdef reset(self)
     cdef resetPrefixes(self)
     cdef unsigned short getRegSize(self, unsigned short regId) # return size in bits
-    cdef unsigned char isInProtectedMode(self)
-    cdef unsigned char getA20State(self)
-    cdef setA20State(self, unsigned char state)
     cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed)
     cdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed)
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned long *retAddr)
@@ -68,14 +64,14 @@ cdef class Registers:
     cdef unsigned char getCond(self, unsigned char index)
     cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method, unsigned char signed)
     #cdef checkMemAccessRights(self, unsigned short segId, unsigned char write)
-    cdef unsigned long long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned long getRealAddr(self, unsigned short segId, long long offsetAddr)
+    cdef unsigned long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride)
     cdef bytes mmRead(self, long long mmAddr, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
     cdef long long mmReadValueSigned(self, long long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned long long mmReadValueUnsigned(self, long long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
     cdef mmWrite(self, long long mmAddr, bytes data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
-    cdef unsigned long getRealAddr(self, unsigned long segId, long long offsetAddr)
     cdef unsigned char getSegSize(self, unsigned short segId)
     cdef unsigned char isSegPresent(self, unsigned short segId)
     cdef unsigned char getOpSegSize(self, unsigned short segId)

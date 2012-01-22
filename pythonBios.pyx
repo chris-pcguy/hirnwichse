@@ -151,9 +151,9 @@ cdef class PythonBios:
                 elif (dl == 1):
                     fdCount &= 0x0f
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BX, fdCount)
-                (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_ES, 0xf000)
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DI, \
-                    (<Mm>self.main.mm).mmPhyReadValueUnsigned((0x78), OP_SIZE_WORD)) # INT 0x1E OFFSET
+                memAddr = (<Mm>self.main.mm).mmPhyReadValueUnsigned((0x78), OP_SIZE_DWORD) # INT 0x1E: 0x78==OFFSET; 0x7A==SEGMENT
+                (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_ES, (memAddr>>16))
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DI, (memAddr&BITMASK_WORD))
                 self.setRetError(False, 0)
                 return True
             elif (not (dl & 0x80)):

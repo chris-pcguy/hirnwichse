@@ -3,6 +3,29 @@ from misc import ChemuException
 
 include "globals.pxi"
 
+cdef class Segment:
+    def __init__(self, Segments segments, unsigned short segmentId, unsigned short segmentIndex):
+        self.segments = segments
+        self.segmentId = segmentId
+        self.loadSegment(segmentIndex)
+    cdef loadSegment(self, unsigned short segmentIndex):
+        cdef GdtEntry gdtEntry
+        if (not self.segments.isInProtectedMode()):
+            self.base = segmentIndex
+            self.base <<= 4
+            self.limit = 0xfffff
+            self.accessByte = (GDT_ACCESS_PRESENT | GDT_ACCESS_SEGMENT_TYPE | GDT_ACCESS_READABLE_WRITABLE)
+            if (self.segmentId == CPU_SEGMENT_CS):
+                self.accessByte |= GDT_ACCESS_EXECUTABLE
+            self.flags = 0
+            return
+        gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segmentIndex))
+        self.base = gdtEntry.base
+        self.limit = gdtEntry.limit
+        self.accessByte = gdtEntry.accessByte
+        self.flags = gdtEntry.flags
+
+
 cdef class GdtEntry:
     def __init__(self, unsigned long long entryData):
         self.parseEntryData(entryData)
@@ -117,7 +140,7 @@ cdef class Gdt:
                 return False
         return True
     cdef run(self):
-        self.table = ConfigSpace(GDT_HARD_LIMIT, self.segments.main)
+        self.table = ConfigSpace((<unsigned long>GDT_HARD_LIMIT+1), self.segments.main)
         self.table.run()
 
 
@@ -168,6 +191,30 @@ cdef class Segments:
         self.ldt.reset()
         self.idt.reset()
         self.ldtr = 0
+        self.A20Active = False
+        self.protectedModeOn = False
+    cdef unsigned char isInProtectedMode(self):
+        return self.protectedModeOn
+    cdef unsigned char getA20State(self):
+        return self.A20Active
+    cdef setA20State(self, unsigned char state):
+        self.A20Active = state
+    cdef Segment getSegmentInstance(self, unsigned short segmentId):
+        if (segmentId == CPU_SEGMENT_CS):
+            return self.cs
+        elif (segmentId == CPU_SEGMENT_DS):
+            return self.ds
+        elif (segmentId == CPU_SEGMENT_ES):
+            return self.es
+        elif (segmentId == CPU_SEGMENT_FS):
+            return self.fs
+        elif (segmentId == CPU_SEGMENT_GS):
+            return self.gs
+        elif (segmentId == CPU_SEGMENT_SS):
+            return self.ss
+        else:
+            self.main.exitError("invalid segmentId {0:d}", segmentId)
+            raise ValueError("invalid segmentId {0:d}".format(segmentId))
     cdef GdtEntry getEntry(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
             return <GdtEntry>self.ldt.getEntry(num)
@@ -215,6 +262,12 @@ cdef class Segments:
         self.gdt.run()
         self.ldt.run()
         self.idt.run()
+        self.cs = Segment(self, CPU_SEGMENT_CS, 0)
+        self.ds = Segment(self, CPU_SEGMENT_DS, 0)
+        self.es = Segment(self, CPU_SEGMENT_ES, 0)
+        self.fs = Segment(self, CPU_SEGMENT_FS, 0)
+        self.gs = Segment(self, CPU_SEGMENT_GS, 0)
+        self.ss = Segment(self, CPU_SEGMENT_SS, 0)
 
 
 
