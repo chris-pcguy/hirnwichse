@@ -9,7 +9,9 @@ ctypedef void (*SetINTR)(self, unsigned char)
 
 
 cdef class ChEmu:
+    cpdef public object pyroDaemon, _pyroDaemon, pyroURI_Main, pyroURI_UI, pyroURI_PS2
     cpdef object parser, cmdArgs
+    cpdef public str _pyroId
     cdef public Misc misc
     cdef public Mm mm
     cdef public Platform platform
@@ -18,6 +20,7 @@ cdef class ChEmu:
     cdef public unsigned char quitEmu, exitIfCpuHalted, exitCode, noUI, exitOnTripleFault, forceFloppyDiskType
     cdef public unsigned long long memSize
     cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename
+    cpdef isRunning(self)
     cpdef parseArgs(self)
     cpdef quitFunc(self)
     cpdef run(self)

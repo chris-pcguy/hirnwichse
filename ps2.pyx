@@ -22,12 +22,15 @@ DEF PS2_CMDBYTE_IRQ1 = 0x01
 cdef class PS2:
     def __init__(self, object main):
         self.main = main
+        self._pyroId = ''
+        self._pyroDaemon = None
+        self.main.pyroURI_PS2 = self.main.pyroDaemon.register(self)
     cdef resetInternals(self, unsigned char powerUp):
         self.outBuffer  = bytes() # KBC -> CPU
         self.needWriteBytes = 0 # need to write $N bytes to 0x60
         self.currentScancodesSet = 1 # MF2
-        if (powerUp):
-            self.setKeyboardRepeatRate(0x2a)
+        ##if (powerUp):
+        ##    self.setKeyboardRepeatRate(0x2a) # do this in pygameUI.pyx instead!!
     cdef initDevice(self):
         self.resetInternals(True)
         self.lastUsedPort = True # 0==0x60; 1==(0x61 or 0x64)
@@ -299,10 +302,10 @@ cdef class PS2:
             self.kbdClockEnabled = True
             if (not prevKbdClockEnabled and not self.outb):
                 self.activateTimer()
-    cdef activateTimer(self):
+    cpdef activateTimer(self):
         if (not self.timerPending):
             self.timerPending = 1
-    cdef unsigned char periodic(self, unsigned char usecDelta):
+    cpdef unsigned char periodic(self, unsigned char usecDelta):
         cdef unsigned char retVal
         retVal = self.irq1Requested
         self.irq1Requested = False
@@ -334,7 +337,7 @@ cdef class PS2:
                     sleep(1)
     cpdef initThread(self):
         self.main.misc.createThread(self.timerFunc, True)
-    cdef run(self):
+    cpdef run(self):
         self.initDevice()
         self.initThread()
         #self.main.platform.addHandlers((0x60, 0x61, 0x64, 0x92), self)

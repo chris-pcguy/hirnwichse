@@ -1,5 +1,6 @@
 
 from sys import stdout
+import Pyro4
 
 include "globals.pxi"
 
@@ -14,26 +15,29 @@ cdef class VRamArea(MmArea):
         MmArea.mmAreaWrite(self, mmPhyAddr, data, dataSize)
         if ((<Vga>self.main.platform.vga).getProcessVideoMem() and (<ExtReg>(<Vga>self.main.platform.vga).extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
             self.handleVRamWrite(mmAreaAddr, dataSize)
-    cdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
-        cdef list rectList
-        cdef unsigned char x, y
-        cdef bytes charstr
+    cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
+        cpdef list rectList
+        cpdef unsigned char x, y
+        cpdef bytes charstr
         rectList = list()
         if (mmAreaAddr % 2): # odd
             mmAreaAddr -= 1
-            if (dataSize % 2):
-                dataSize += 1
+        if (dataSize % 2):
+            dataSize += 1
         while (dataSize > 0):
             y, x = divmod(mmAreaAddr//2, 80)
             charstr = bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+2])
-            if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
-                rectList.append((<PygameUI>(<Vga>self.main.platform.vga).ui).putChar(x, y, chr(charstr[0]), charstr[1]))
+            ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
+            rectList.append(self.pyroUI.putChar(x, y, chr(charstr[0]), charstr[1]))
             mmAreaAddr += 2
             if (dataSize <= 2):
                 break
             dataSize   -= 2
-        if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
-            (<PygameUI>(<Vga>self.main.platform.vga).ui).updateScreen(rectList)
+        ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
+        self.pyroUI.updateScreen(rectList)
+    cpdef run(self):
+        MmArea.run(self)
+        self.pyroUI = Pyro4.Proxy(self.main.pyroURI_UI)
 
 
 cdef class VGA_REGISTER_RAW(ConfigSpace):
@@ -118,7 +122,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 
 
 
-cdef class Vga:
+cdef class Vga(object):
     def __init__(self, object main):
         self.main = main
         self.seq = Sequencer(self, self.main)

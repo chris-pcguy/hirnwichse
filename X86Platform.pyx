@@ -25,8 +25,8 @@ cdef class Platform:
         self.pic      = Pic(self.main)
         self.isadma   = IsaDma(self.main)
         self.pci      = Pci(self.main)
-        self.vga      = Vga(self.main)
         self.ps2      = PS2(self.main)
+        self.vga      = Vga(self.main)
         self.pit      = Pit(self.main)
         self.floppy   = Floppy(self.main)
         self.floppy.initObjsToNull()
@@ -233,8 +233,8 @@ cdef class Platform:
         self.pic.run()
         self.isadma.run()
         self.pci.run()
-        self.vga.run()
         self.ps2.run()
+        self.vga.run()
         self.pit.run()
         self.floppy.cmos = self.cmos
         self.floppy.pic = self.pic

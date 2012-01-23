@@ -4,8 +4,9 @@ from pygameUI cimport PygameUI
 
 
 cdef class VRamArea(MmArea):
+    cpdef object pyroUI
     cdef mmAreaWrite(self, unsigned long long mmPhyAddr, bytes data, unsigned long long dataSize)
-    cdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize)
+    cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize)
 
 
 cdef class VGA_REGISTER_RAW(ConfigSpace):

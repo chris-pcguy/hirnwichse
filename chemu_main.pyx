@@ -8,19 +8,22 @@ from argparse import ArgumentParser
 from threading import active_count
 from time import sleep
 from atexit import register
+import Pyro4
 
 include "globals.pxi"
 
 
-DEF TESTCASE_ROUNDS = 0xfffff
 
-
-cdef class ChEmu:
+cdef class ChEmu(object):
     def __init__(self):
         self.quitEmu = False
         self.exitOnTripleFault = True
         self.exitCode = 0
+        self._pyroId = ''
+        self._pyroDaemon = None
         register(self.quitFunc)
+    cpdef isRunning(self):
+        return (not self.quitEmu)
     cpdef parseArgs(self):
         self.parser = ArgumentParser(description='ChEmu: a x86 emulator in python.')
         self.parser.add_argument('--biosFilename', dest='biosFilename', action='store', type=str, default='bios.bin', help='bios filename')
@@ -62,18 +65,23 @@ cdef class ChEmu:
     cpdef run(self):
         try:
             self.parseArgs()
+            Pyro4.config.reset(useenvironment=False)
+            Pyro4.config.HMAC_KEY = PYRO_HMAC_KEY
+            Pyro4.config.SOCK_REUSE = True
+            self.pyroDaemon = Pyro4.core.Daemon()
+            self.pyroURI_Main = self.pyroDaemon.register(self)
             self.misc = Misc(self)
             self.mm = Mm(self)
             self.platform = Platform(self)
             self.cpu = Cpu(self)
             self.platform.run(self.memSize)
-            self.platform.pic.cpuObject = self.cpu
-            self.platform.isadma.cpuObject = self.cpu
+            self.platform.pic.cpuObject = self.platform.isadma.cpuObject = self.cpu
             self.platform.pic.setINTR = <SetINTR>self.cpu.setINTR
             self.platform.isadma.setHRQ = <SetHRQ>self.cpu.setHRQ
             self.cpu.run()
-            while (active_count() > 1 and not self.quitEmu):
-                sleep(5)
+            ###while (active_count() > 1 and not self.quitEmu):
+            ###    sleep(5)
+            self.pyroDaemon.requestLoop(self.isRunning)
         except:
             print(exc_info())
             exit(1)

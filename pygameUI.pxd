@@ -3,8 +3,9 @@ from ps2 cimport PS2
 
 
 cdef class PygameUI:
-    cpdef object main, vga
+    cpdef public object main, vga, pyroPS2, _pyroDaemon
     cpdef object display, screen, font
+    cpdef public str _pyroId
     cdef tuple screenSize, fontSize
     cdef unsigned short screenWidth, screenHeight, fontWidth, fontHeight
     cpdef initPygame(self)

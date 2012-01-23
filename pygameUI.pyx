@@ -1,20 +1,24 @@
 
 from sys import exc_info
 from atexit import register
-from time import sleep
 import pygame
 from misc cimport Misc
+import Pyro4
 
 include "globals.pxi"
 
 
-cdef class PygameUI:
+cdef class PygameUI(object):
     def __init__(self, object vga, object main):
         self.vga  = vga
         self.main = main
         self.display, self.screen, self.font = None, None, None
         self.screenSize = self.screenWidth, self.screenHeight = 720, 400 # 640, 400
         self.fontSize = self.fontWidth, self.fontHeight = self.screenWidth//80, self.screenHeight//25
+        self._pyroId = ''
+        self._pyroDaemon = None
+        self.pyroPS2 = Pyro4.core.Proxy(self.main.pyroURI_PS2)
+        self.main.pyroURI_UI = self.main.pyroDaemon.register(self)
     cpdef initPygame(self):
         pygame.display.init()
         pygame.font.init()
@@ -26,6 +30,7 @@ cdef class PygameUI:
         pygame.event.set_blocked([ pygame.ACTIVEEVENT, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP, pygame.MOUSEBUTTONDOWN,\
                                    pygame.JOYAXISMOTION, pygame.JOYBALLMOTION, pygame.JOYHATMOTION, pygame.JOYBUTTONUP,\
                                    pygame.JOYBUTTONDOWN, pygame.VIDEORESIZE, pygame.USEREVENT ])
+        self.setRepeatRate(500, 10)
     cpdef quitFunc(self):
         try:
             pygame.font.quit()

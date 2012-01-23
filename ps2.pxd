@@ -1,7 +1,8 @@
 
 
 cdef class PS2:
-    cpdef object main
+    cpdef public object main, _pyroDaemon
+    cpdef public str _pyroId
     cdef public unsigned char ppcbT2Both, ppcbT2Out, kbdClockEnabled
     cdef unsigned char lastUsedPort, needWriteBytes, lastKbcCmdByte, lastKbCmdByte, irq1Requested, allowIrq1, sysf, \
                         translateScancodes, currentScancodesSet, scanningEnabled, outb, batInProgress, timerPending
@@ -17,10 +18,10 @@ cdef class PS2:
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
     cdef setKbdClockEnable(self, unsigned char value)
-    cdef activateTimer(self)
-    cdef unsigned char periodic(self, unsigned char usecDelta)
+    cpdef activateTimer(self)
+    cpdef unsigned char periodic(self, unsigned char usecDelta)
     cpdef timerFunc(self)
     cpdef initThread(self)
-    cdef run(self)
+    cpdef run(self)
 
 
