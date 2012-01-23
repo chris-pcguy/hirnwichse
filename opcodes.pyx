@@ -1138,7 +1138,6 @@ cdef class Opcodes:
             if (operOpcodeModId in (0, 1, 2, 3)): # SGDT/SIDT LGDT/LIDT
                 self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
             elif (operOpcodeModId in (4, 6)): # SMSW/LMSW
-                self.main.printMsg("Group0F::SMSW/LMSW: TODO!")
                 self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             else:
                 self.main.printMsg("Group0F_01: operOpcodeModId not in (0, 1, 2, 3, 4, 6)")
@@ -1189,10 +1188,10 @@ cdef class Opcodes:
                     (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).loadTablePosition(base, limit)
                 elif (operOpcodeModId == 3): # LIDT
                     (<Idt>(<Registers>self.main.cpu.registers).segments.idt).loadTable(base, limit)
-            elif (operOpcodeModId == 4): # SMSW; TODO; FIXME
+            elif (operOpcodeModId == 4): # SMSW
                 op2 = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_CR0, False)&BITMASK_WORD
                 self.modRMInstance.modRMSave(OP_SIZE_WORD, op2, True, OPCODE_SAVE)
-            elif (operOpcodeModId == 6): # LMSW; TODO; FIXME
+            elif (operOpcodeModId == 6): # LMSW
                 if ((<Registers>self.main.cpu.registers).cpl != 0):
                     raise ChemuException( CPU_EXCEPTION_GP, 0 )
                 op1 = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_CR0, False)
