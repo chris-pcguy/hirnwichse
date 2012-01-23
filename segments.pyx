@@ -179,7 +179,7 @@ cdef class Idt:
         entryEip[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset, 2)
         entrySegment[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset+2, 2)
     cdef run(self):
-        self.table = ConfigSpace(IDT_HARD_LIMIT, self.segments.main)
+        self.table = ConfigSpace((<unsigned long>IDT_HARD_LIMIT+1), self.segments.main)
         self.table.run()
 
 cdef class Segments:
