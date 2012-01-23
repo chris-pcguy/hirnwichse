@@ -1,5 +1,5 @@
 
-from time import localtime
+from time import gmtime
 from misc cimport Misc
 
 include "globals.pxi"
@@ -17,7 +17,7 @@ cdef class Cmos:
         cdef unsigned long long memSizeInK, extMemSizeInK, extMemSizeIn64K
         memSizeInK = extMemSizeInK = extMemSizeIn64K = 0
         self.configSpace.csResetData()
-        self.writeValue(CMOS_STATUS_REGISTER_B, 0x06, OP_SIZE_BYTE)
+        self.writeValue(CMOS_STATUS_REGISTER_B, 0x02, OP_SIZE_BYTE)
         self.writeValue(CMOS_STATUS_REGISTER_D, 0x80, OP_SIZE_BYTE)
         self.writeValue(CMOS_EQUIPMENT_BYTE, 0x21, OP_SIZE_BYTE)
         self.writeValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE) # boot from floppy first.
@@ -44,7 +44,7 @@ cdef class Cmos:
     cdef updateTime(self):
         cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century
         statusb = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
-        self.dt = localtime()
+        self.dt = gmtime()
         second  = self.dt.tm_sec
         minute  = self.dt.tm_min
         hour    = self.dt.tm_hour
@@ -53,13 +53,11 @@ cdef class Cmos:
         month   = self.dt.tm_mon
         century, year = divmod(self.dt.tm_year, 100)
         if (not statusb&CMOS_STATUSB_24HOUR):
-            if (hour >= 12):
-                hour %= 12
-                if (hour == 0):
-                    hour = 12
-                hour |= 80
-            elif (hour == 0):
+            if (hour == 0):
                 hour = 12
+            elif (hour > 12):
+                hour -= 12
+                hour |= 0x80
         wday += 2
         wday %= 7
         if (wday == 0):
