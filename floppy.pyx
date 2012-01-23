@@ -64,6 +64,8 @@ cdef class FloppyDrive:
         self.isWriteProtected = True
         self.DIR = 0
         self.cylinder = self.head = self.sector = self.eot = 0
+    cdef unsigned char getIsLoaded(self):
+        return self.isLoaded
     cdef unsigned long ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector):
         return (cylinder*self.media.heads*self.media.sectorsPerTrack)+(head*self.media.sectorsPerTrack)+(sector-1)
     cdef unsigned char getDiskType(self, unsigned long size):
@@ -555,10 +557,21 @@ cdef class FloppyController:
         else:
             self.main.exitError("FDC_CTRL::outPort: dataSize {0:d} not supported., (port: {1:#06x})", dataSize, ioPortAddr)
     cdef run(self):
+        cdef unsigned char fdaLoaded, fdbLoaded, cmosVal
         self.reset(True)
         if (self.controllerId == 0):
             if (self.main.fdaFilename): (<FloppyDrive>self.drive[0]).loadDrive(self.main.fdaFilename)
             if (self.main.fdbFilename): (<FloppyDrive>self.drive[1]).loadDrive(self.main.fdbFilename)
+            fdaLoaded = (<FloppyDrive>self.drive[0]).getIsLoaded()
+            fdbLoaded = (<FloppyDrive>self.drive[1]).getIsLoaded()
+            cmosVal = self.fdc.cmos.readValue(CMOS_EQUIPMENT_BYTE, OP_SIZE_BYTE)
+            if (fdaLoaded or fdbLoaded):
+                cmosVal |= 0x1
+                if (fdaLoaded and fdbLoaded):
+                    cmosVal |= 0x40
+            self.fdc.cmos.writeValue(CMOS_EQUIPMENT_BYTE, cmosVal, OP_SIZE_BYTE)
+            self.fdc.cmos.setEquipmentDefaultValue(cmosVal)
+
     #####
 
 cdef class Floppy:

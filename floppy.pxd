@@ -17,6 +17,7 @@ cdef class FloppyDrive:
     cdef FloppyMedia media
     cdef bytes filename
     cdef unsigned char driveId, isLoaded, isWriteProtected, DIR, cylinder, head, sector, eot
+    cdef unsigned char getIsLoaded(self)
     cdef unsigned long ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector)
     cdef unsigned char getDiskType(self, unsigned long size)
     cdef loadDrive(self, bytes filename)

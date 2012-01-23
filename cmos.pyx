@@ -9,6 +9,11 @@ cdef class Cmos:
     def __init__(self, object main):
         self.main = main
         self.cmosIndex = 0
+        self.equipmentDefaultValue = 0xc
+    cdef setEquipmentDefaultValue(self, unsigned char value):
+        self.equipmentDefaultValue = value
+    cdef unsigned char getEquipmentDefaultValue(self):
+        return self.equipmentDefaultValue
     cdef unsigned long readValue(self, unsigned char index, unsigned char size):
         return self.configSpace.csReadValueUnsigned(index, size)
     cdef writeValue(self, unsigned char index, unsigned long value, unsigned char size):
@@ -19,7 +24,7 @@ cdef class Cmos:
         self.configSpace.csResetData()
         self.writeValue(CMOS_STATUS_REGISTER_B, 0x02, OP_SIZE_BYTE)
         self.writeValue(CMOS_STATUS_REGISTER_D, 0x80, OP_SIZE_BYTE)
-        self.writeValue(CMOS_EQUIPMENT_BYTE, 0x21, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EQUIPMENT_BYTE, self.getEquipmentDefaultValue(), OP_SIZE_BYTE)
         self.writeValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE) # boot from floppy first.
         self.writeValue(CMOS_BASE_MEMORY_L, 0x80, OP_SIZE_BYTE)
         self.writeValue(CMOS_BASE_MEMORY_H, 0x02, OP_SIZE_BYTE)
@@ -55,8 +60,9 @@ cdef class Cmos:
         if (not statusb&CMOS_STATUSB_24HOUR):
             if (hour == 0):
                 hour = 12
-            elif (hour > 12):
-                hour -= 12
+            elif (hour >= 12):
+                if (hour > 12):
+                    hour -= 12
                 hour |= 0x80
         wday += 2
         wday %= 7
