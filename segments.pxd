@@ -64,6 +64,7 @@ cdef class Segments:
     cdef Idt idt
     cdef Segment cs, ds, es, fs, gs, ss
     cdef unsigned char A20Active, protectedModeOn
+    cdef unsigned short ldtr
     cdef reset(self)
     cdef unsigned char isInProtectedMode(self)
     cdef unsigned char getA20State(self)

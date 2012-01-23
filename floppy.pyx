@@ -355,7 +355,7 @@ cdef class FloppyController:
             self.DOR &= 0xfc
             self.DOR |= drive
             motorOn = (self.DOR >> (drive+4)) & 0x1
-            if (not motorOn):
+            if (not motorOn): # TODO: what to do here?
                 self.main.exitError("FDC: read/write: motor not on.")
                 return
             head = self.command[3] & 0x1

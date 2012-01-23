@@ -660,6 +660,7 @@ cdef class Opcodes:
             ediVal -= dataLength-operSize
         data = (<Registers>self.main.cpu.registers).mmRead(esiVal, dataLength, CPU_SEGMENT_DS, True)
         (<Registers>self.main.cpu.registers).mmWrite(ediVal, data, dataLength, CPU_SEGMENT_ES, False)
+        # addrSize is DF-FLAG
         if (not addrSize):
             (<Registers>self.main.cpu.registers).regAdd(esiReg, dataLength)
             (<Registers>self.main.cpu.registers).regAdd(ediReg, dataLength)
@@ -1076,7 +1077,7 @@ cdef class Opcodes:
     cdef opcodeGroup0F(self):
         cdef unsigned char operSize, addrSize, operOpcode, bitSize, operOpcodeMod, operOpcodeModId, \
             newCF, newOF, oldOF, count, eaxIsInvalid
-        cdef unsigned short eaxReg, segSelector, limit
+        cdef unsigned short eaxReg, limit
         cdef unsigned long eaxId, bitMask, bitMaskHalf, base, mmAddr, op1, op2
         cdef unsigned long long qop1, qop2
         cdef short i
@@ -1095,7 +1096,7 @@ cdef class Opcodes:
             mmAddr = self.modRMInstance.getRMValueFull(addrSize)
             if (operOpcodeModId in (0, 1)): # SLDT/STR
                 if (operOpcodeModId == 0): # SLDT
-                    self.modRMInstance.modRMSave(OP_SIZE_WORD, (<Segments>(<Registers>self.main.cpu.registers).segments).intr, True, OPCODE_SAVE)
+                    self.modRMInstance.modRMSave(OP_SIZE_WORD, (<Segments>(<Registers>self.main.cpu.registers).segments).ldtr, True, OPCODE_SAVE)
                 elif (operOpcodeModId == 1): # STR
                     op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                     if ((<Registers>self.main.cpu.registers).lockPrefix or not (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
@@ -1103,11 +1104,12 @@ cdef class Opcodes:
                     self.main.exitError("opcodeGroup0F_00: STR not supported yet.")
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
                 if (operOpcodeModId == 2): # LLDT
-                    segSelector = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(mmAddr, OP_SIZE_WORD, CPU_SEGMENT_DS, True)
-                    if ((segSelector>>2) == 0):
-                        self.main.printMsg("Opcode0F_01::LLDT: (segSelector>>2) == 0, mark LDTR as invalid.")
-                        segSelector = 0
-                    gdtEntry = (<GdtEntry>(<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getEntry(segSelector))
+                    op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
+                    if ((op1>>2) == 0):
+                        self.main.printMsg("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid.")
+                        op1 = 0
+                    (<Segments>(<Registers>self.main.cpu.registers).segments).ldtr = op1
+                    gdtEntry = (<GdtEntry>(<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getEntry(op1))
                     (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
                     (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTableData()
                 elif (operOpcodeModId == 3): # LTR
@@ -1199,6 +1201,7 @@ cdef class Opcodes:
                     self.main.exitError("opcodeGroup0F_01: LMSW: try to switch to real mode from protected mode.")
                     return
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CR0, ((op1&0xfffffff0)|(op2&0xf)))
+                self.syncProtectedModeState()
             elif (operOpcodeModId == 7): # INVLPG
                 self.main.printMsg("opcodeGroup0F_01: INVLPG isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)

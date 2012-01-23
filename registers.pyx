@@ -520,7 +520,6 @@ cdef class Registers:
     cdef unsigned long getRealAddr(self, unsigned short segId, long long offsetAddr):
         cdef unsigned long realAddr
         realAddr = (<unsigned long>((<Segment>self.segments.getSegmentInstance(segId)).base)+offsetAddr)
-        ##self.main.debug("Registers::getRealAddr: realAddr=={0:#010x}", realAddr)
         # TODO: check for limit asf...
         if (not self.segments.isInProtectedMode()):
             if (self.segments.getA20State()): # A20 Active? if True == on, else off
