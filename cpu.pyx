@@ -134,10 +134,10 @@ cdef class Cpu:
         except (SystemExit, KeyboardInterrupt):
             print(exc_info())
             self.main.quitEmu = True
-            self.main.exitError('doCycles: (SystemExit, KeyboardInterrupt) exception, exiting...', exitNow=True)
+            self.main.exitError('doInfiniteCycles: (SystemExit, KeyboardInterrupt) exception, exiting...', exitNow=True)
         except:
             print(exc_info())
-            self.main.exitError('doCycles: (else case) exception, exiting...', exitNow=True)
+            self.main.exitError('doInfiniteCycles: (else case) exception, exiting...', exitNow=True)
     cdef doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
             return

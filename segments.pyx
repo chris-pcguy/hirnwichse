@@ -191,7 +191,7 @@ cdef class Segments:
         self.ldt.reset()
         self.idt.reset()
         self.ldtr = 0
-        self.A20Active = False
+        self.A20Active = True # enable A20-line by default.
         self.protectedModeOn = False
     cdef unsigned char isInProtectedMode(self):
         return self.protectedModeOn

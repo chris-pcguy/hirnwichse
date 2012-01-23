@@ -91,9 +91,9 @@ cdef class ModRMClass:
             else:
                 self.main.exitError("modRMOperands: AddrSegSize(CS) not in (OP_SIZE_WORD, OP_SIZE_DWORD)")
                 return
-        if (self.rmName0 in (CPU_REGISTER_BP, CPU_REGISTER_EBP)): # TODO: only use this if mod in (0,1,2)???
-            self.rmNameSegId = CPU_SEGMENT_SS
-        self.rmNameSegId = self.registers.segmentOverridePrefix or self.rmNameSegId
+            if (self.rmName0 in (CPU_REGISTER_BP, CPU_REGISTER_EBP)): # TODO: only use this if mod in (0,1,2)???
+                self.rmNameSegId = CPU_SEGMENT_SS
+            self.rmNameSegId = self.registers.segmentOverridePrefix or self.rmNameSegId
     cdef modRMOperandsResetEip(self, unsigned char regSize, unsigned char modRMflags):
         cdef unsigned long oldEip
         oldEip = self.registers.regRead( CPU_REGISTER_EIP, False )
