@@ -185,12 +185,10 @@ cdef class Idt:
 cdef class Segments:
     def __init__(self, object main):
         self.main = main
-        self.ldtr = 0
     cdef reset(self):
         self.gdt.reset()
         self.ldt.reset()
         self.idt.reset()
-        self.ldtr = 0
         self.A20Active = False
         self.protectedModeOn = False
     cdef unsigned char isInProtectedMode(self):

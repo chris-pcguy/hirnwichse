@@ -1105,9 +1105,8 @@ cdef class Opcodes:
                 if (operOpcodeModId == 2): # LLDT
                     segSelector = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(mmAddr, OP_SIZE_WORD, CPU_SEGMENT_DS, True)
                     if ((segSelector>>2) == 0):
-                        self.main.printMsg("Opcode0F_01::LLDT: (segSelector>>2) == 0.")
+                        self.main.printMsg("Opcode0F_01::LLDT: (segSelector>>2) == 0, mark LDTR as invalid.")
                         return
-                    (<Segments>(<Registers>self.main.cpu.registers).segments).intr = segSelector
                     gdtEntry = (<GdtEntry>(<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getEntry(segSelector))
                     (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
                     (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTableData()
