@@ -17,19 +17,21 @@ cdef class PygameUI(object):
         self.fontSize = self.fontWidth, self.fontHeight = self.screenWidth//80, self.screenHeight//25
         self._pyroId = ''
         self._pyroDaemon = None
-        self.pyroPS2 = Pyro4.core.Proxy(self.main.pyroURI_PS2)
         self.main.pyroURI_UI = self.main.pyroDaemon.register(self)
+        self.pyroPS2 = Pyro4.core.Proxy(self.main.pyroURI_PS2)
+        self.pyroPS2._pyroOneway.add('keySend')
     cpdef initPygame(self):
+        ###print(pygame.init())
         pygame.display.init()
         pygame.font.init()
-        pygame.display.set_caption("ChEmu - THE x86 Emulator written in Python. (c) 2011-2012 by Christian Inci")
+        pygame.display.set_caption('ChEmu - THE x86 Emulator written in Python. (c) 2011-2012 by Christian Inci')
         self.display = pygame.display.set_mode(self.screenSize)
         self.screen = pygame.Surface(self.screenSize)
-        self.font = pygame.font.SysFont( 'VeraMono',  self.fontHeight)
+        self.font = pygame.font.SysFont('VeraMono',  self.fontHeight)
         register(self.quitFunc)
-        pygame.event.set_blocked([ pygame.ACTIVEEVENT, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP, pygame.MOUSEBUTTONDOWN,\
-                                   pygame.JOYAXISMOTION, pygame.JOYBALLMOTION, pygame.JOYHATMOTION, pygame.JOYBUTTONUP,\
-                                   pygame.JOYBUTTONDOWN, pygame.VIDEORESIZE, pygame.USEREVENT ])
+        pygame.event.set_blocked([ pygame.ACTIVEEVENT, pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP,\
+                                   pygame.JOYAXISMOTION, pygame.JOYBALLMOTION, pygame.JOYHATMOTION, pygame.JOYBUTTONDOWN,\
+                                   pygame.JOYBUTTONUP, pygame.VIDEORESIZE, pygame.USEREVENT ])
         self.setRepeatRate(500, 10)
     cpdef quitFunc(self):
         try:
@@ -343,9 +345,11 @@ cdef class PygameUI(object):
             elif (event.type == pygame.VIDEOEXPOSE):
                 self.updateScreen(list())
             elif (event.type == pygame.KEYDOWN):
-                (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), False)
+                self.pyroPS2.keySend(self.keyToScancode(event.key), False)
             elif (event.type == pygame.KEYUP):
-                (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), True)
+                self.pyroPS2.keySend(self.keyToScancode(event.key), True)
+            else:
+                self.main.printMsg("PygameUI::handleEvent: event.type == {0:d}", event.type)
         except pygame.error:
             print(exc_info())
         except (SystemExit, KeyboardInterrupt):
@@ -369,9 +373,24 @@ cdef class PygameUI(object):
             print(exc_info())
     cpdef handleEvents(self):
         cpdef object event
-        while (not self.main.quitEmu):
-            event = pygame.event.wait()
-            self.handleEvent(event)
+        cpdef list eventList
+        try:
+            while (not self.main.quitEmu):
+                ##event = pygame.event.wait()
+                eventList = pygame.event.get()
+                for event in eventList:
+                    self.handleEvent(event)
+                pygame.time.delay(200)
+        except pygame.error:
+            print(exc_info())
+        except (SystemExit, KeyboardInterrupt):
+            print(exc_info())
+            self.main.quitEmu = True
+            self.main.exitError('handleEvents: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
+        except:
+            print(exc_info())
+    cpdef pumpEvents(self):
+        pygame.event.pump()
     cpdef run(self):
         self.initPygame()
         (<Misc>self.main.misc).createThread(self.handleEvents, True)

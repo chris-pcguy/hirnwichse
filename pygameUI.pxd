@@ -19,6 +19,7 @@ cdef class PygameUI:
     cpdef handleEvent(self, object event)
     cpdef updateScreen(self, list rectList)
     cpdef handleEvents(self)
+    cpdef pumpEvents(self)
     cpdef run(self)
 
 

@@ -85,8 +85,9 @@ cdef class PS2:
         elif (interval == 0x1f): interval = 500
         else:
             self.main.exitError("setKeyboardRepeatRate: interval {0:d} unknown.", interval)
-        if (self.main.platform.vga.ui is not None):
-            self.main.platform.vga.ui.setRepeatRate(delay, interval)
+        # TODO: Set the repeat-rate properly.
+        ##if (self.main.platform.vga.ui is not None):
+        ##    self.main.platform.vga.ui.setRepeatRate(delay, interval)
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
         cdef unsigned char escaped, sc
         cdef bytes scancode

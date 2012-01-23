@@ -9,7 +9,7 @@ ctypedef void (*SetINTR)(self, unsigned char)
 
 
 cdef class ChEmu:
-    cpdef public object pyroDaemon, _pyroDaemon, pyroURI_Main, pyroURI_UI, pyroURI_PS2
+    cpdef public object pyroDaemon, _pyroDaemon, pyroURI_Main, pyroURI_UI, pyroURI_PS2, pyroUI
     cpdef object parser, cmdArgs
     cpdef public str _pyroId
     cdef public Misc misc

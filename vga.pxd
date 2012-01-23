@@ -54,7 +54,8 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 
 cdef class Vga:
     cpdef object main
-    cdef public PygameUI ui
+    ##cpdef public PygameUI ui
+    cpdef public object ui
     cdef Sequencer seq
     cdef CRT crt
     cdef GDC gdc

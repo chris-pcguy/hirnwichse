@@ -130,6 +130,8 @@ cdef class Cpu:
                     continue
                 sleep(1)
                 continue
+            if ((self.cycles % 5000) == 0):
+                self.main.pyroUI.pumpEvents()
             self.doCycle()
     cdef doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):

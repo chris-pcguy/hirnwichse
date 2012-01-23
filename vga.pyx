@@ -9,6 +9,7 @@ include "globals.pxi"
 cdef class VRamArea(MmArea):
     def __init__(self, Mm mmObj, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
         MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
+        self.pyroUI = Pyro4.Proxy(self.main.pyroURI_UI)
     cdef mmAreaWrite(self, unsigned long long mmPhyAddr, bytes data, unsigned long long dataSize): # dataSize(type int) in bytes
         cdef unsigned long long mmAreaAddr
         mmAreaAddr = mmPhyAddr-self.mmBaseAddr
@@ -35,9 +36,6 @@ cdef class VRamArea(MmArea):
             dataSize   -= 2
         ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
         self.pyroUI.updateScreen(rectList)
-    cpdef run(self):
-        MmArea.run(self)
-        self.pyroUI = Pyro4.Proxy(self.main.pyroURI_UI)
 
 
 cdef class VGA_REGISTER_RAW(ConfigSpace):
