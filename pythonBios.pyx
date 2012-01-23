@@ -157,6 +157,9 @@ cdef class PythonBios:
                 self.setRetError(False, 0)
                 return True
             elif (not (dl & 0x80)):
+                if (ah == 0x41):
+                    self.setRetError(True, 0x100)
+                    return True
                 self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) ax {0:#06x} not supported yet in PythonBIOS.", ax)
         return False
     cdef setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy

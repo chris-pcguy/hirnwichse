@@ -2,9 +2,6 @@
 from time import sleep
 from sys import exc_info
 from misc import ChemuException
-from misc cimport Misc
-from pic cimport Pic
-from isadma cimport IsaDma
 
 
 include "globals.pxi"
@@ -120,19 +117,27 @@ cdef class Cpu:
 
         return opcode
     cpdef doInfiniteCycles(self):
-        while (not self.main.quitEmu):
-            if ((self.cpuHalted and self.main.exitIfCpuHalted) or self.main.quitEmu):
-                self.main.quitEmu = True
-                return
-            elif ((self.cpuHalted and not self.main.exitIfCpuHalted) or (self.debugHalt and not self.debugSingleStep)):
-                if (self.asyncEvent):
-                    self.handleAsyncEvent()
+        try:
+            while (not self.main.quitEmu):
+                if ((self.cpuHalted and self.main.exitIfCpuHalted) or self.main.quitEmu):
+                    self.main.quitEmu = True
+                    return
+                elif ((self.cpuHalted and not self.main.exitIfCpuHalted) or (self.debugHalt and not self.debugSingleStep)):
+                    if (self.asyncEvent):
+                        self.handleAsyncEvent()
+                        continue
+                    sleep(1)
                     continue
-                sleep(1)
-                continue
-            if ((self.cycles % 5000) == 0):
-                self.main.pyroUI.pumpEvents()
-            self.doCycle()
+                if ((self.cycles % 5000) == 0):
+                    self.main.pyroUI.pumpEvents()
+                self.doCycle()
+        except (SystemExit, KeyboardInterrupt):
+            print(exc_info())
+            self.main.quitEmu = True
+            self.main.exitError('doCycles: (SystemExit, KeyboardInterrupt) exception, exiting...', exitNow=True)
+        except:
+            print(exc_info())
+            self.main.exitError('doCycles: (else case) exception, exiting...', exitNow=True)
     cdef doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
             return

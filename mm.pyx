@@ -19,7 +19,7 @@ cdef class MmArea:
         self.mmReadOnly = mmReadOnly
     cdef mmResetAreaData(self):
         if (self.mmAreaData is not None):
-            memset(self.mmAreaData, 0xff, self.mmAreaSize)
+            memset(self.mmAreaData, 0x00, self.mmAreaSize)
     cpdef mmFreeAreaData(self):
         if (self.mmAreaData is not None):
             free(self.mmAreaData)

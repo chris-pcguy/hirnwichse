@@ -1,5 +1,8 @@
 
+from misc cimport Misc
 from mm cimport Mm
+from pic cimport Pic
+from isadma cimport IsaDma
 from segments cimport Segments
 from registers cimport Registers
 from opcodes cimport Opcodes
