@@ -1096,37 +1096,50 @@ cdef class Opcodes:
             mmAddr = self.modRMInstance.getRMValueFull(addrSize)
             if (operOpcodeModId in (0, 1)): # SLDT/STR
                 if (operOpcodeModId == 0): # SLDT
-                    self.modRMInstance.modRMSave(OP_SIZE_WORD, (<Segments>(<Registers>self.main.cpu.registers).segments).ldtr, True, OPCODE_SAVE)
+                    self.modRMInstance.modRMSave(OP_SIZE_WORD, (<Segments>\
+                        (<Registers>self.main.cpu.registers).segments).ldtr, True, OPCODE_SAVE)
                 elif (operOpcodeModId == 1): # STR
                     op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                    if ((<Registers>self.main.cpu.registers).lockPrefix or not (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
-                        raise ChemuException(CPU_EXCEPTION_UD)
+                    if ((<Registers>self.main.cpu.registers).lockPrefix or not \
+                        (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
+                          raise ChemuException(CPU_EXCEPTION_UD)
                     self.main.exitError("opcodeGroup0F_00: STR not supported yet.")
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
+                if ((<Registers>self.main.cpu.registers).lockPrefix or not (\
+                    <Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
+                      raise ChemuException(CPU_EXCEPTION_UD)
+                elif ((<Registers>self.main.cpu.registers).cpl != 0):
+                    raise ChemuException( CPU_EXCEPTION_GP, 0)
+                op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                 if (operOpcodeModId == 2): # LLDT
-                    op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                     if ((op1>>2) == 0):
-                        self.main.printMsg("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid.")
+                        self.main.debug("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid.")
                         op1 = 0
-                    (<Segments>(<Registers>self.main.cpu.registers).segments).ldtr = op1
+                    else:
+                        if ((op1 & SELECTOR_USE_LDT) or (((<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getSegAccess(op1)&\
+                          GDT_ACCESS_SYSTEM_SEGMENT_TYPE) != GDT_ENTRY_SYSTEM_TYPE_LDT)):
+                            raise ChemuException(CPU_EXCEPTION_GP, op1)
+                        elif (not (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).isSegPresent(op1)):
+                            raise ChemuException( CPU_EXCEPTION_NP, op1)
+                    (<Segments>(<Registers>self.main.cpu.registers).segments).ldtr = op1&0xfff8
                     gdtEntry = (<GdtEntry>(<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getEntry(op1))
                     (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
                     (<Gdt>(<Registers>self.main.cpu.registers).segments.ldt).loadTableData()
                 elif (operOpcodeModId == 3): # LTR
-                    op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                    if ((<Registers>self.main.cpu.registers).lockPrefix or not (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
-                        raise ChemuException(CPU_EXCEPTION_UD)
-                    elif ((<Registers>self.main.cpu.registers).cpl != 0 or op1&0xfff8 == 0):
+                    if ((op1&0xfff8) == 0):
                         raise ChemuException( CPU_EXCEPTION_GP, 0)
-                    elif (not (<Registers>self.main.cpu.registers).isSegPresent(op1)):
+                    elif (((<Segments>(<Registers>self.main.cpu.registers).segments).ldtr == (op1&0xfff8)) or (((<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getSegAccess(op1)&\
+                      GDT_ACCESS_SYSTEM_SEGMENT_TYPE) != GDT_ENTRY_SYSTEM_TYPE_TSS)):
+                        raise ChemuException( CPU_EXCEPTION_GP, op1)
+                    elif (not (<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).isSegPresent(op1)):
                         raise ChemuException( CPU_EXCEPTION_NP, op1)
                     self.main.exitError("opcodeGroup0F_00: LTR not supported yet.")
             elif (operOpcodeModId == 4): # VERR
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkReadAllowed(op1, False) )
+                (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkReadAllowed(op1) )
             elif (operOpcodeModId == 5): # VERW
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkWriteAllowed(op1, False) )
+                (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkWriteAllowed(op1) )
             else:
                 self.main.printMsg("opcodeGroup0F_00: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise ChemuException(CPU_EXCEPTION_UD)

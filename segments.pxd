@@ -3,10 +3,16 @@ from mm cimport Mm, ConfigSpace
 
 cdef class Segment:
     cdef Segments segments
-    cdef unsigned char accessByte, flags
+    cdef unsigned char accessByte, flags, isValid
     cdef unsigned short segmentId
     cdef unsigned long base, limit
     cdef loadSegment(self, unsigned short segmentIndex)
+    cdef unsigned char getSegSize(self)
+    cdef unsigned char isSegPresent(self)
+    cdef unsigned char isCodeSeg(self)
+    cdef unsigned char isSegReadableWritable(self)
+    cdef unsigned char isSegConforming(self)
+    cdef unsigned char getSegDPL(self)
 
 cdef class GdtEntry:
     cdef unsigned char accessByte, flags
@@ -38,9 +44,9 @@ cdef class Gdt:
     cdef unsigned char isSegConforming(self, unsigned short num)
     cdef unsigned char getSegDPL(self, unsigned short num)
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment)
-    cdef unsigned char checkReadAllowed(self, unsigned short num, unsigned char doException)
-    cdef unsigned char checkWriteAllowed(self, unsigned short num, unsigned char doException)
-    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment, unsigned char doException)
+    cdef unsigned char checkReadAllowed(self, unsigned short num)
+    cdef unsigned char checkWriteAllowed(self, unsigned short num)
+    cdef checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment)
     cdef run(self)
 
 cdef class Idt:
@@ -77,9 +83,9 @@ cdef class Segments:
     cdef unsigned char isSegConforming(self, unsigned short num)
     cdef unsigned char getSegDPL(self, unsigned short num)
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment)
-    cdef unsigned char checkReadAllowed(self, unsigned short num, unsigned char doException)
-    cdef unsigned char checkWriteAllowed(self, unsigned short num, unsigned char doException)
-    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment, unsigned char doException)
+    cdef unsigned char checkReadAllowed(self, unsigned short num)
+    cdef unsigned char checkWriteAllowed(self, unsigned short num)
+    cdef checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment)
     cdef run(self)
 
 

@@ -7,6 +7,7 @@ cdef class Segment:
     def __init__(self, Segments segments, unsigned short segmentId, unsigned short segmentIndex):
         self.segments = segments
         self.segmentId = segmentId
+        self.isValid = False
         self.loadSegment(segmentIndex)
     cdef loadSegment(self, unsigned short segmentIndex):
         cdef GdtEntry gdtEntry
@@ -14,16 +15,43 @@ cdef class Segment:
             self.base = segmentIndex
             self.base <<= 4
             self.limit = 0xfffff
-            self.accessByte = (GDT_ACCESS_PRESENT | GDT_ACCESS_SEGMENT_TYPE | GDT_ACCESS_READABLE_WRITABLE)
+            self.accessByte = (GDT_ACCESS_PRESENT | GDT_ACCESS_NORMAL_SEGMENT | GDT_ACCESS_READABLE_WRITABLE)
             if (self.segmentId == CPU_SEGMENT_CS):
                 self.accessByte |= GDT_ACCESS_EXECUTABLE
             self.flags = 0
+            self.isValid = True
             return
         gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segmentIndex))
+        if (gdtEntry is None):
+            self.base = 0
+            self.limit = 0
+            self.accessByte = 0
+            self.flags = 0
+            self.isValid = False
+            return
         self.base = gdtEntry.base
         self.limit = gdtEntry.limit
         self.accessByte = gdtEntry.accessByte
         self.flags = gdtEntry.flags
+        self.isValid = True
+    cdef unsigned char getSegSize(self):
+        if (self.flags & GDT_FLAG_SIZE):
+            return OP_SIZE_DWORD
+        return OP_SIZE_WORD
+    cdef unsigned char isSegPresent(self):
+        return (self.accessByte & GDT_ACCESS_PRESENT)!=0
+    cdef unsigned char isCodeSeg(self):
+        return (self.accessByte & GDT_ACCESS_EXECUTABLE)!=0
+    ### isSegReadableWritable:
+    ### if codeseg, return True if readable, else False
+    ### if dataseg, return True if writable, else False
+    cdef unsigned char isSegReadableWritable(self):
+        return (self.accessByte & GDT_ACCESS_READABLE_WRITABLE)!=0
+    cdef unsigned char isSegConforming(self):
+        return (self.accessByte & GDT_ACCESS_CONFORMING)!=0
+    cdef unsigned char getSegDPL(self):
+        return (self.accessByte & GDT_ACCESS_DPL)>>5
+
 
 
 cdef class GdtEntry:
@@ -68,7 +96,7 @@ cdef class Gdt:
     cdef GdtEntry getEntry(self, unsigned short num):
         cdef unsigned long long entryData
         if (not num):
-            self.segments.main.exitError("GDT::getEntry: num == 0!")
+            self.segments.main.debug("GDT::getEntry: num == 0!")
             return None
         entryData = self.table.csReadValueUnsigned((num&0xfff8), 8)
         return GdtEntry(entryData)
@@ -101,44 +129,33 @@ cdef class Gdt:
                 raise ChemuException(CPU_EXCEPTION_SS, num)
             else:
                 raise ChemuException(CPU_EXCEPTION_NP, num)
-    cdef unsigned char checkReadAllowed(self, unsigned short num, unsigned char doException):
+    cdef unsigned char checkReadAllowed(self, unsigned short num):
         if (num&0xfff8 == 0 or (self.isCodeSeg(num) and not self.isSegReadableWritable(num))):
-            if (doException):
-                raise ChemuException(CPU_EXCEPTION_GP, 0)
             return False
         return True
-    cdef unsigned char checkWriteAllowed(self, unsigned short num, unsigned char doException):
+    cdef unsigned char checkWriteAllowed(self, unsigned short num):
         if (num&0xfff8 == 0 or self.isCodeSeg(num) or not self.isSegReadableWritable(num)):
-            if (doException):
-                raise ChemuException(CPU_EXCEPTION_GP, 0)
             return False
         return True
-    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment, unsigned char doException):
+    cdef checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment):
         cdef unsigned char numSegDPL = self.getSegDPL(num)
-        if (num&0xfff8 == 0 and loadStackSegment):
-            if (doException):
-                raise ChemuException(CPU_EXCEPTION_GP, num)
-            return False
+        if (num&0xfff8 == 0):
+            if (loadStackSegment):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
         elif (not self.isSegPresent(num)):
-            if (doException):
-                if (loadStackSegment):
-                    raise ChemuException(CPU_EXCEPTION_SS, num)
-                else:
-                    raise ChemuException(CPU_EXCEPTION_NP, num)
-            return False
+            if (loadStackSegment):
+                raise ChemuException(CPU_EXCEPTION_SS, num)
+            else:
+                raise ChemuException(CPU_EXCEPTION_NP, num)
         elif (loadStackSegment):
             if ((num&3 != self.segments.main.cpu.registers.cpl or numSegDPL != self.segments.main.cpu.registers.cpl) or \
                 (not self.isCodeSeg(num) and not self.isSegReadableWritable(num))):
-                  if (doException):
-                      raise ChemuException(CPU_EXCEPTION_GP, num)
-                  return False
+                  raise ChemuException(CPU_EXCEPTION_GP, num)
         else: # not loadStackSegment
-            if ( ((not self.isCodeSeg(num) or not self.isSegConforming(num)) and (num&3 > numSegDPL and self.segments.main.cpu.registers.cpl > numSegDPL)) or \
-                 (self.isCodeSeg(num) and not self.isSegReadableWritable(num)) ):
-                if (doException):
-                    raise ChemuException(CPU_EXCEPTION_GP, num)
-                return False
-        return True
+            if ( ((not self.isCodeSeg(num) or not self.isSegConforming(num)) and (num&3 > numSegDPL and \
+                self.segments.main.cpu.registers.cpl > numSegDPL)) or \
+                (self.isCodeSeg(num) and not self.isSegReadableWritable(num)) ):
+                  raise ChemuException(CPU_EXCEPTION_GP, num)
     cdef run(self):
         self.table = ConfigSpace((<unsigned long>GDT_HARD_LIMIT+1), self.segments.main)
         self.table.run()
@@ -201,16 +218,28 @@ cdef class Segments:
         self.A20Active = state
     cdef Segment getSegmentInstance(self, unsigned short segmentId):
         if (segmentId == CPU_SEGMENT_CS):
+            if (not (<Segment>self.cs).isValid):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             return self.cs
         elif (segmentId == CPU_SEGMENT_DS):
+            if (not (<Segment>self.ds).isValid):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             return self.ds
         elif (segmentId == CPU_SEGMENT_ES):
+            if (not (<Segment>self.es).isValid):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             return self.es
         elif (segmentId == CPU_SEGMENT_FS):
+            if (not (<Segment>self.fs).isValid):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             return self.fs
         elif (segmentId == CPU_SEGMENT_GS):
+            if (not (<Segment>self.gs).isValid):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             return self.gs
         elif (segmentId == CPU_SEGMENT_SS):
+            if (not (<Segment>self.ss).isValid):
+                raise ChemuException(CPU_EXCEPTION_SS, 0)
             return self.ss
         else:
             self.main.exitError("invalid segmentId {0:d}", segmentId)
@@ -243,18 +272,19 @@ cdef class Segments:
         if (num & SELECTOR_USE_LDT):
             return self.ldt.checkAccessAllowed(num, isStackSegment)
         return self.gdt.checkAccessAllowed(num, isStackSegment)
-    cdef unsigned char checkReadAllowed(self, unsigned short num, unsigned char doException):
+    cdef unsigned char checkReadAllowed(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
-            return self.ldt.checkReadAllowed(num, doException)
-        return self.gdt.checkReadAllowed(num, doException)
-    cdef unsigned char checkWriteAllowed(self, unsigned short num, unsigned char doException):
+            return self.ldt.checkReadAllowed(num)
+        return self.gdt.checkReadAllowed(num)
+    cdef unsigned char checkWriteAllowed(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
-            return self.ldt.checkWriteAllowed(num, doException)
-        return self.gdt.checkWriteAllowed(num, doException)
-    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment, unsigned char doException):
+            return self.ldt.checkWriteAllowed(num)
+        return self.gdt.checkWriteAllowed(num)
+    cdef checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment):
         if (num & SELECTOR_USE_LDT):
-            return self.ldt.checkSegmentLoadAllowed(num, loadStackSegment, doException)
-        return self.gdt.checkSegmentLoadAllowed(num, loadStackSegment, doException)
+            self.ldt.checkSegmentLoadAllowed(num, loadStackSegment)
+            return
+        self.gdt.checkSegmentLoadAllowed(num, loadStackSegment)
     cdef run(self):
         self.gdt = Gdt(self)
         self.ldt = Gdt(self)
