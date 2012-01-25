@@ -97,9 +97,6 @@ cdef class Cmos:
                 if (self.cmosIndex <= 0x9 or self.cmosIndex == CMOS_CENTURY):
                     self.updateTime()
                 return self.readValue(self.cmosIndex, OP_SIZE_BYTE)
-            elif (ioPortAddr == 0x510): # qemu cfg read handler
-                self.main.debug("inPort: qemu cfg port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
-                return 0
             else:
                 self.main.exitError("inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
         else:
@@ -126,10 +123,7 @@ cdef class Cmos:
             else:
                 self.main.exitError("outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)
         else:
-            if (ioPortAddr == 0x510): # qemu cfg write handler
-                self.main.debug("outPort: qemu cfg port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)
-            else:
-                self.main.exitError("outPort: dataSize {0:d} not supported. (port: {1:#06x})", dataSize, ioPortAddr)
+            self.main.exitError("outPort: dataSize {0:d} not supported. (port: {1:#06x})", dataSize, ioPortAddr)
         return
     cdef run(self):
         self.configSpace = ConfigSpace(128, self.main)
@@ -137,8 +131,6 @@ cdef class Cmos:
         self.reset()
         ##self.updateTime()
         #self.main.platform.addHandlers((0x70, 0x71), self)
-        #self.main.platform.addReadHandlers((0x511,), self)
-        #self.main.platform.addWriteHandlers((0x510,), self)
 
 
 

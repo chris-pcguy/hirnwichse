@@ -201,8 +201,8 @@ cdef class Platform:
         self.initDevicesPorts()
         self.runDevices()
     cdef initDevicesPorts(self):
-        self.addReadHandlers((0x511, 0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
-        self.addWriteHandlers((0x510, 0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)
+        self.addReadHandlers((0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
+        self.addWriteHandlers((0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)
         self.addReadHandlers((0x20, 0x21, 0xa0, 0xa1), self.pic, <InPort>self.pic.inPort)
         self.addWriteHandlers((0x20, 0x21, 0xa0, 0xa1), self.pic, <OutPort>self.pic.outPort)
         self.addReadHandlers(DMA_MASTER_CONTROLLER_PORTS, self.isadma, <InPort>self.isadma.inPort)
