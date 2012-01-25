@@ -3,7 +3,7 @@ from mm cimport Mm, ConfigSpace
 
 cdef class Segment:
     cdef Segments segments
-    cdef unsigned char accessByte, flags, isValid
+    cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, segIsRW, segIsConforming, segDPL
     cdef unsigned short segmentId
     cdef unsigned long base, limit
     cdef loadSegment(self, unsigned short segmentIndex)
@@ -13,9 +13,10 @@ cdef class Segment:
     cdef unsigned char isSegReadableWritable(self)
     cdef unsigned char isSegConforming(self)
     cdef unsigned char getSegDPL(self)
+    cdef unsigned char isAddressInLimit(self, unsigned long address, unsigned long size)
 
 cdef class GdtEntry:
-    cdef unsigned char accessByte, flags
+    cdef unsigned char accessByte, flags, segSize, segPresent, segIsCodeSeg, segIsRW, segIsConforming, segDPL
     cdef unsigned long base, limit
     cdef parseEntryData(self, unsigned long long entryData)
 

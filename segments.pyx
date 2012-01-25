@@ -18,8 +18,16 @@ cdef class Segment:
             self.accessByte = (GDT_ACCESS_PRESENT | GDT_ACCESS_NORMAL_SEGMENT | GDT_ACCESS_READABLE_WRITABLE)
             if (self.segmentId == CPU_SEGMENT_CS):
                 self.accessByte |= GDT_ACCESS_EXECUTABLE
+                self.segIsCodeSeg = True
+            else:
+                self.segIsCodeSeg = False
             self.flags = 0
             self.isValid = True
+            self.segSize = OP_SIZE_WORD
+            self.segPresent = True
+            self.segIsRW = True
+            self.segIsConforming = False
+            self.segDPL = 0
             return
         gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segmentIndex))
         if (gdtEntry is None):
@@ -28,29 +36,48 @@ cdef class Segment:
             self.accessByte = 0
             self.flags = 0
             self.isValid = False
+            self.segSize = 0
+            self.segPresent = False
+            self.segIsCodeSeg = False
+            self.segIsRW = False
+            self.segIsConforming = False
+            self.segDPL = 0
             return
         self.base = gdtEntry.base
         self.limit = gdtEntry.limit
         self.accessByte = gdtEntry.accessByte
         self.flags = gdtEntry.flags
+        self.segSize = gdtEntry.segSize
         self.isValid = True
+        self.segPresent = gdtEntry.segPresent
+        self.segIsCodeSeg = gdtEntry.segIsCodeSeg
+        self.segIsRW = gdtEntry.segIsRW
+        self.segIsConforming = gdtEntry.segIsConforming
+        self.segDPL = gdtEntry.segDPL
     cdef unsigned char getSegSize(self):
-        if (self.flags & GDT_FLAG_SIZE):
-            return OP_SIZE_DWORD
-        return OP_SIZE_WORD
+        return self.segSize
     cdef unsigned char isSegPresent(self):
-        return (self.accessByte & GDT_ACCESS_PRESENT)!=0
+        return self.segPresent
     cdef unsigned char isCodeSeg(self):
-        return (self.accessByte & GDT_ACCESS_EXECUTABLE)!=0
+        return self.segIsCodeSeg
     ### isSegReadableWritable:
     ### if codeseg, return True if readable, else False
     ### if dataseg, return True if writable, else False
     cdef unsigned char isSegReadableWritable(self):
-        return (self.accessByte & GDT_ACCESS_READABLE_WRITABLE)!=0
+        return self.segIsRW
     cdef unsigned char isSegConforming(self):
-        return (self.accessByte & GDT_ACCESS_CONFORMING)!=0
+        return self.segIsConforming
     cdef unsigned char getSegDPL(self):
-        return (self.accessByte & GDT_ACCESS_DPL)>>5
+        return self.segDPL
+    cdef unsigned char isAddressInLimit(self, unsigned long address, unsigned long size):
+        cdef unsigned long limit
+        limit = self.limit
+        if (self.flags & GDT_FLAG_USE_4K):
+            limit *= 4096
+        # TODO: handle the direction bit here.
+        if ((address < self.base) or ((address+size)>(self.base+limit))):
+            return False
+        return True
 
 
 
@@ -64,6 +91,17 @@ cdef class GdtEntry:
         self.limit = (( entryData>>48)&0xf)<<16
         self.base  |= (entryData>>16)&0xffffff
         self.limit |= entryData&BITMASK_WORD
+        if (self.flags & GDT_FLAG_SIZE): # segment size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
+            self.segSize = OP_SIZE_DWORD
+        else:
+            self.segSize = OP_SIZE_WORD
+        self.segPresent = (self.accessByte&GDT_ACCESS_PRESENT)!=0
+        self.segIsCodeSeg = (self.accessByte&GDT_ACCESS_EXECUTABLE)!=0
+        self.segIsRW = (self.accessByte&GDT_ACCESS_READABLE_WRITABLE)!=0
+        self.segIsConforming = (self.accessByte&GDT_ACCESS_CONFORMING)!=0
+        self.segDPL = (self.accessByte&GDT_ACCESS_DPL)>>5
+        if (self.flags & GDT_FLAG_LONGMODE): # TODO: long-mode isn't implemented yet...
+            self.main.exitError("Do you just tried to use long-mode?!? It will take a VERY LONG TIME until it get implemented...")
 
 cdef class IdtEntry:
     def __init__(self, unsigned long long entryData):
@@ -101,24 +139,22 @@ cdef class Gdt:
         entryData = self.table.csReadValueUnsigned((num&0xfff8), 8)
         return GdtEntry(entryData)
     cdef unsigned char getSegSize(self, unsigned short num):
-        if (self.getEntry(num).flags & GDT_FLAG_SIZE):
-            return OP_SIZE_DWORD
-        return OP_SIZE_WORD
+        return self.getEntry(num).segSize
     cdef unsigned char getSegAccess(self, unsigned short num):
         return self.getEntry(num).accessByte
     cdef unsigned char isSegPresent(self, unsigned short num):
-        return (self.getSegAccess(num) & GDT_ACCESS_PRESENT)!=0
+        return self.getEntry(num).segPresent
     cdef unsigned char isCodeSeg(self, unsigned short num):
-        return (self.getSegAccess(num) & GDT_ACCESS_EXECUTABLE)!=0
+        return self.getEntry(num).segIsCodeSeg
     ### isSegReadableWritable:
     ### if codeseg, return True if readable, else False
     ### if dataseg, return True if writable, else False
     cdef unsigned char isSegReadableWritable(self, unsigned short num):
-        return (self.getSegAccess(num) & GDT_ACCESS_READABLE_WRITABLE)!=0
+        return self.getEntry(num).segIsRW
     cdef unsigned char isSegConforming(self, unsigned short num):
-        return (self.getSegAccess(num) & GDT_ACCESS_CONFORMING)!=0
+        return self.getEntry(num).segIsConforming
     cdef unsigned char getSegDPL(self, unsigned short num):
-        return (self.getSegAccess(num) & GDT_ACCESS_DPL)>>5
+        return self.getEntry(num).segDPL
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment):
         if (num == 0 or \
             (isStackSegment and ( num&3 != self.segments.main.cpu.registers.cpl or self.getSegDPL(num) != self.segments.main.cpu.registers.cpl)) or \
