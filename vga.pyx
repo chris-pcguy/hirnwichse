@@ -9,14 +9,17 @@ include "globals.pxi"
 cdef class VRamArea(MmArea):
     def __init__(self, Mm mmObj, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
         MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
+        self.memBaseAddrTextmodeBaseDiff = VGA_TEXTMODE_ADDR-self.mmBaseAddr
         self.pyroUI = Pyro4.Proxy(self.main.pyroURI_UI)
-    cdef mmAreaWrite(self, unsigned long long mmPhyAddr, bytes data, unsigned long long dataSize): # dataSize(type int) in bytes
-        cdef unsigned long long mmAreaAddr
-        mmAreaAddr = mmPhyAddr-self.mmBaseAddr
-        MmArea.mmAreaWrite(self, mmPhyAddr, data, dataSize)
+    cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize): # dataSize(type int) is count in bytes
+        MmArea.mmAreaWrite(self, mmAddr, data, dataSize)
+        # TODO: hardcoded to 80x25
+        if (mmAddr < VGA_TEXTMODE_ADDR or mmAddr+dataSize > VGA_TEXTMODE_ADDR+4000):
+            return
         if ((<Vga>self.main.platform.vga).getProcessVideoMem() and (<ExtReg>(<Vga>self.main.platform.vga).extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
-            self.handleVRamWrite(mmAreaAddr, dataSize)
-    cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long dataSize):
+            mmAddr -= self.mmBaseAddr
+            self.handleVRamWrite(mmAddr, dataSize)
+    cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long long dataSize):
         cpdef list rectList
         cpdef unsigned char x, y
         cpdef bytes charstr
@@ -25,8 +28,10 @@ cdef class VRamArea(MmArea):
             mmAreaAddr -= 1
         if (dataSize % 2):
             dataSize += 1
+        # TODO: hardcoded to 80x25
+        dataSize = min(dataSize, 4000) # 80*25*2
         while (dataSize > 0):
-            y, x = divmod(mmAreaAddr//2, 80)
+            y, x = divmod((mmAreaAddr-self.memBaseAddrTextmodeBaseDiff)//2, 80)
             charstr = bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+2])
             ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
             rectList.append(self.pyroUI.putChar(x, y, chr(charstr[0]), charstr[1]))
@@ -300,8 +305,7 @@ cdef class Vga(object):
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return
     cdef VRamAddMemArea(self):
-        (<Mm>self.main.mm).mmAddArea(VGA_TEXTMODE_ADDR, 4000, False, <MmArea>VRamArea)
-        ##(<Mm>self.main.mm).mmAddArea(VGA_MEMAREA_ADDR, 0x4000, False, VRamArea)
+        (<Mm>self.main.mm).mmAddArea(VGA_MEMAREA_ADDR, 0x20000, False, <MmArea>VRamArea)
     cdef run(self):
         self.VRamAddMemArea()
         self.seq.run()
