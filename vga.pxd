@@ -50,6 +50,7 @@ cdef class ExtReg(VGA_REGISTER_RAW):
 
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     cdef unsigned char flipFlop
+    cdef unsigned long getIndexData(self, unsigned char dataSize)
     cdef setIndexData(self, unsigned long data, unsigned char dataSize)
 
 

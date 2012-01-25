@@ -213,7 +213,7 @@ cdef class Platform:
         self.addWriteHandlers(DMA_SLAVE_CONTROLLER_PORTS, self.isadma, <OutPort>self.isadma.outPort)
         self.addWriteHandlers(DMA_EXT_PAGE_REG_PORTS, self.isadma, <OutPort>self.isadma.outPort)
         self.addWriteHandlers(PCI_CONTROLLER_PORTS, self.pci, <OutPort>self.pci.outPort)
-        self.addReadHandlers((0x3c1, 0x3c5, 0x3cc, 0x3c7, 0x3c8, 0x3c9, 0x3da), self.vga, <InPort>self.vga.inPort)
+        self.addReadHandlers((0x3c0, 0x3c1, 0x3c5, 0x3cc, 0x3c7, 0x3c8, 0x3c9, 0x3da), self.vga, <InPort>self.vga.inPort)
         self.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, \
                                0x3cf, 0x3d4, 0x3d5, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self.vga, <OutPort>self.vga.outPort)
         self.addReadHandlers((0x60, 0x61, 0x64, 0x92), self.ps2, <InPort>self.ps2.inPort)

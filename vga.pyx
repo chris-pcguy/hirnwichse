@@ -116,6 +116,14 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_ATTRCTRLREG_AREA_SIZE, vga, main)
         self.flipFlop = False
+    cdef unsigned long getIndexData(self, unsigned char dataSize):
+        cdef unsigned long retVal
+        if (not self.flipFlop):
+            retVal = self.getIndex()
+        else:
+            retVal = self.getData(dataSize)
+        self.flipFlop = not self.flipFlop
+        return retVal
     cdef setIndexData(self, unsigned long data, unsigned char dataSize):
         if (not self.flipFlop):
             self.setIndex(data)
@@ -222,7 +230,11 @@ cdef class Vga(object):
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr == 0x3c5):
+            if (ioPortAddr == 0x3c0):
+                return self.attrctrlreg.getIndex()
+            if (ioPortAddr == 0x3c1):
+                return self.attrctrlreg.getData(dataSize)
+            elif (ioPortAddr == 0x3c5):
                 return self.seq.getData(dataSize)
             elif (ioPortAddr == 0x3c6):
                 return self.dac.getMask()
@@ -234,8 +246,6 @@ cdef class Vga(object):
                 return self.dac.getData(dataSize)
             elif (ioPortAddr == 0x3cc):
                 return self.extreg.getMiscOutReg()
-            elif (ioPortAddr == 0x3c1):
-                return self.attrctrlreg.getData(dataSize)
             elif (ioPortAddr == 0x3da):
                 return 0
             else:
@@ -317,7 +327,7 @@ cdef class Vga(object):
         ####
         if (self.ui):
             (<PygameUI>self.ui).run()
-        #self.main.platform.addReadHandlers((0x3c1, 0x3c5, 0x3cc, 0x3c8, 0x3da), self)
+        #self.main.platform.addReadHandlers((0x3c0, 0x3c1, 0x3c5, 0x3cc, 0x3c8, 0x3da), self)
         #self.main.platform.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, \
         #                                     0x3cf, 0x3d4, 0x3d5, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self)
 
