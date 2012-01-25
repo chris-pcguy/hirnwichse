@@ -139,7 +139,7 @@ cdef class Vga(object):
         return self.processVideoMem
     cdef unsigned char getCorrectPage(self, unsigned char page):
         if (page == 0xff):
-            page = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURRENT_PAGE_ADDR, 1)
+            page = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_PAGE_ADDR, 1)
         elif (page > 7):
             self.main.printMsg("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
         return page
@@ -178,7 +178,8 @@ cdef class Vga(object):
             self.setCursorPosition(page, cursorPos)
     cdef writeCharacter(self, unsigned long address, unsigned char c, short attr):
         if (attr == -1):
-            attr = 0x07
+            (<Mm>self.main.mm).mmPhyWriteValue(address, c, 1)
+            return
         (<Mm>self.main.mm).mmPhyWriteValue(address, ((<unsigned short>attr<<8)|c), 2)
     cdef unsigned long getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
         cdef unsigned long offset

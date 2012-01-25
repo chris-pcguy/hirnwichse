@@ -31,20 +31,21 @@ cdef class PythonBios:
         bh, bl = bx>>8, bx&0xff
         if (intNum == 0x10): # video; TODO: REWORK THIS AND THE VGA MODULE TOO!!!
             #return False
-            currMode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURRENT_MODE_ADDR, 1)
+            currMode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_MODE_ADDR, 1)
             self.main.debug("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
             if (ah == 0x02): # set cursor position
                 (<Vga>self.main.platform.vga).setCursorPosition(bh, dx)
                 return True
             elif (ah == 0x03): # get cursor position
                 dx = (<Vga>self.main.platform.vga).getCursorPosition(bh)
-                cx = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURRENT_CURSOR_TYPE_ADDR, 2)
+                cx = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURSOR_TYPE_ADDR, 2)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DX, dx)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, cx)
                 return True
             elif (ah == 0x0f): # get currMode; write it to AL
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, (currMode|(al&0x80)))
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, 80)
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, (currMode|\
+                    ((<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_VIDEO_CTL_ADDR, 1)&0x80)))
+                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, 80) # number of columns
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BH, (<Vga>self.main.platform.vga).getCorrectPage(0xff))
                 return True
             elif (currMode <= 0x7 or currMode in (0x12, 0x13)):
