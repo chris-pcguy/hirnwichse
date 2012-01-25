@@ -117,6 +117,8 @@ cdef class Pci:
             deviceHandle.setData(pciAddressHandle.function, pciAddressHandle.register, data, dataSize)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
+            if (ioPortAddr == 0xcf8):
+                return self.address
             if (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
                 return self.readRegister((self.address&0xfffffffc)+(ioPortAddr&3), dataSize)
             self.main.exitError("inPort: port {0:#04x} is not supported. (dataSize {1:d})", ioPortAddr, dataSize)
