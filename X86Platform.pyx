@@ -2,6 +2,7 @@
 from os import stat
 from os.path import join
 from sys import exc_info, exit
+import Pyro4
 
 from misc cimport Misc
 
@@ -16,8 +17,9 @@ cdef class PortHandler:
 
 
 cdef class Platform:
-    def __init__(self, object main):
+    def __init__(self, object main, unsigned long long memSize):
         self.main = main
+        self.memSize = memSize
         self.copyRomToLowMem = True
         self.ports  = list()
     cdef initDevices(self):
@@ -29,7 +31,6 @@ cdef class Platform:
         self.vga      = Vga(self.main)
         self.pit      = Pit(self.main)
         self.floppy   = Floppy(self.main)
-        self.floppy.initObjsToNull()
         self.parallel = Parallel(self.main)
         self.serial   = Serial(self.main)
         self.gdbstub  = GDBStub(self.main)
@@ -190,16 +191,6 @@ cdef class Platform:
                 self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
                 return
             (<Mm>self.main.mm).mmPhyWrite(mmAddr&0xfffff, (<Mm>self.main.mm).mmPhyRead(mmAddr, romSize), romSize)
-    cdef run(self, unsigned long long memSize):
-        self.initDevices()
-        (<Mm>self.main.mm).mmAddArea(0, memSize, False, <MmArea>MmArea)
-        (<Mm>self.main.mm).mmAddArea(0xfffc0000, 0x40000, False, <MmArea>MmArea)
-        self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
-        if (self.main.vgaBiosFilename):
-            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
-        <MmArea>((<Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
-        self.initDevicesPorts()
-        self.runDevices()
     cdef initDevicesPorts(self):
         self.addReadHandlers((0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
         self.addWriteHandlers((0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)
@@ -236,14 +227,31 @@ cdef class Platform:
         self.ps2.run()
         self.vga.run()
         self.pit.run()
-        self.floppy.cmos = self.cmos
-        self.floppy.pic = self.pic
-        self.floppy.isaDma = self.isadma
         self.floppy.run()
         self.parallel.run()
         self.serial.run()
         self.gdbstub.run()
         self.pythonBios.run()
-
+    cpdef initRemotes(self):
+        self.main.pyroCMOS = Pyro4.core.Proxy(self.main.pyroURI_CMOS)
+        self.main.pyroIsaDma = Pyro4.core.Proxy(self.main.pyroURI_IsaDma)
+        self.main.pyroPIC = Pyro4.core.Proxy(self.main.pyroURI_PIC)
+        self.main.pyroPS2 = Pyro4.core.Proxy(self.main.pyroURI_PS2)
+        self.main.pyroUI = Pyro4.core.Proxy(self.main.pyroURI_UI)
+        self.main.pyroUI._pyroOneway.add('pumpEvents')
+        self.main.pyroPS2._pyroOneway.add('keySend')
+    cpdef runThreadFunc(self):
+        self.initDevices()
+        self.initRemotes()
+        (<Mm>self.main.mm).mmAddArea(0, self.memSize, False, <MmArea>MmArea)
+        (<Mm>self.main.mm).mmAddArea(0xfffc0000, 0x40000, False, <MmArea>MmArea)
+        self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
+        if (self.main.vgaBiosFilename):
+            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
+        <MmArea>((<Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
+        self.initDevicesPorts()
+        self.runDevices()
+    cpdef run(self):
+        (<Misc>self.main.misc).createThread(self.runThreadFunc, True)
 
 

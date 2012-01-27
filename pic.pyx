@@ -72,8 +72,7 @@ cdef class PicChannel:
                         self.intr = True
                         self.irq = irq
                         if (self.master):
-                            if (self.pic.cpuObject is not None and self.pic.setINTR is not NULL):
-                                self.pic.setINTR(self.pic.cpuObject, True)
+                            self.main.pyroCPU.setINTR(True)
                         else:
                             self.pic.raiseIrq(2)
                         return
@@ -82,14 +81,14 @@ cdef class PicChannel:
                     irq = 0
                 if (irq == maxIrq):
                     break
-    cdef raiseIrq(self, unsigned char irq):
+    cpdef raiseIrq(self, unsigned char irq):
         cdef unsigned char mask
         mask = (1 << (irq&7))
         if ((irq >= 0 and irq < 16) and (not (self.IRQ_in & mask))):
             self.IRQ_in |= mask
             self.irr |= mask
             self.servicePicChannel()
-    cdef lowerIrq(self, unsigned char irq):
+    cpdef lowerIrq(self, unsigned char irq):
         cdef unsigned char mask
         mask = (1 << (irq&7))
         if ((irq >= 0 and irq < 16) and (self.IRQ_in & mask)):
@@ -132,14 +131,17 @@ cdef class Pic:
     def __init__(self, object main):
         self.main = main
         self.channels = (PicChannel(self, self.main, True), PicChannel(self, self.main, False))
-    cdef raiseIrq(self, unsigned char irq):
+        self._pyroId = ''
+        self._pyroDaemon = None
+        self.main.pyroURI_PIC = self.main.pyroDaemon.register(self)
+    cpdef raiseIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
         if (irq > 15):
             self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
             ma_sl = True
         (<PicChannel>self.channels[ma_sl]).raiseIrq(irq)
-    cdef lowerIrq(self, unsigned char irq):
+    cpdef lowerIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
         if (irq > 15):
             self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", irq)
@@ -150,8 +152,7 @@ cdef class Pic:
         cdef PicChannel master, slave
         cdef unsigned char vector
         master, slave = self.channels
-        if (self.cpuObject is not None and self.setINTR is not NULL):
-            self.setINTR(self.cpuObject, False)
+        self.main.pyroCPU.setINTR(False)
         master.intr = False
         if (not master.irr):
             return master.getIrqBasePort()+7
@@ -298,8 +299,6 @@ cdef class Pic:
         return
     cdef run(self):
         cdef PicChannel channel
-        self.cpuObject = None
-        self.setINTR = NULL
         for channel in self.channels:
             channel.run()
         #self.main.platform.addHandlers((0x20, 0x21, 0xa0, 0xa1), self)

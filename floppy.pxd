@@ -12,7 +12,8 @@ cdef class FloppyMedia:
 
 
 cdef class FloppyDrive:
-    cpdef object main, fp
+    cpdef public object main
+    cpdef object fp
     cdef FloppyController controller
     cdef FloppyMedia media
     cdef bytes filename
@@ -27,13 +28,13 @@ cdef class FloppyDrive:
 
 
 cdef class FloppyController:
-    cpdef object main
+    cpdef public object main
     cdef Floppy fdc
     cdef tuple drive
     cdef bytes command, result, fdcBuffer
     cdef unsigned long fdcBufferIndex
     cdef unsigned char controllerId, msr, DOR, st0, st1, st2, st3, TC, resetSensei, pendingIrq, dataRate, multiTrack
-    cdef reset(self, unsigned char hwReset)
+    cpdef reset(self, unsigned char hwReset)
     cdef bytes floppyXfer(self, unsigned char drive, unsigned long offset, unsigned long size, unsigned char toFloppy)
     cdef addCommand(self, unsigned char command)
     cdef addToCommand(self, unsigned char command)
@@ -49,25 +50,21 @@ cdef class FloppyController:
     cdef handleResult(self)
     cdef handleIdle(self)
     cdef handleCommand(self)
-    cdef writeToDrive(self, unsigned char data)
-    cdef unsigned char readFromDrive(self)
+    cpdef readFromMem(self, unsigned char data)
+    cpdef unsigned char writeToMem(self)
     cdef raiseFloppyIrq(self)
     cdef lowerFloppyIrq(self)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cdef run(self)
+    cpdef run(self)
 
 cdef class Floppy:
-    cpdef object main
-    cdef Cmos cmos
-    cdef Pic pic
-    cdef IsaDma isaDma
+    cpdef public object main
     cdef tuple controller
-    cdef initObjsToNull(self)
-    cdef setupDMATransfer(self, FloppyController ctrl)
+    cpdef setupDMATransfer(self, object classInstance)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cdef run(self)
+    cpdef run(self)
 
 
 

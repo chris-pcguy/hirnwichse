@@ -8,7 +8,7 @@ import Pyro4
 include "globals.pxi"
 
 
-cdef class PygameUI(object):
+cdef class PygameUI:
     def __init__(self, object vga, object main):
         self.vga  = vga
         self.main = main
@@ -18,8 +18,6 @@ cdef class PygameUI(object):
         self._pyroId = ''
         self._pyroDaemon = None
         self.main.pyroURI_UI = self.main.pyroDaemon.register(self)
-        self.pyroPS2 = Pyro4.core.Proxy(self.main.pyroURI_PS2)
-        self.pyroPS2._pyroOneway.add('keySend')
     cpdef initPygame(self):
         ###print(pygame.init())
         pygame.display.init()
@@ -345,9 +343,9 @@ cdef class PygameUI(object):
             elif (event.type == pygame.VIDEOEXPOSE):
                 self.updateScreen(list())
             elif (event.type == pygame.KEYDOWN):
-                self.pyroPS2.keySend(self.keyToScancode(event.key), False)
+                self.main.pyroPS2.keySend(self.keyToScancode(event.key), False)
             elif (event.type == pygame.KEYUP):
-                self.pyroPS2.keySend(self.keyToScancode(event.key), True)
+                self.main.pyroPS2.keySend(self.keyToScancode(event.key), True)
             else:
                 self.main.printMsg("PygameUI::handleEvent: event.type == {0:d}", event.type)
         except pygame.error:

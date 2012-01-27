@@ -5,10 +5,7 @@ ctypedef void (*SetHRQ)(self, unsigned char)
 
 
 cdef class IsaDmaChannel:
-    cpdef object main
-    cdef object dmaReadFromMemObject, dmaWriteToMemObject
-    cdef DmaReadFromMem dmaReadFromMem
-    cdef DmaWriteToMem  dmaWriteToMem
+    cpdef object main, dmaReadFromMem, dmaWriteToMem
     cdef IsaDmaController controller
     cdef IsaDma isadma
     cdef unsigned char channelNum, channelMasked, transferDirection, autoInit, addressDecrement, transferMode, page, DRQ, DACK
@@ -44,18 +41,16 @@ cdef class IsaDmaController:
     cdef run(self)
 
 cdef class IsaDma:
-    cpdef object main
-    cdef object cpuObject
-    cdef SetHRQ setHRQ
+    cpdef public object main, _pyroDaemon
+    cpdef public str _pyroId
     cdef tuple controller
     cdef unsigned char extPageReg[16], HLDA, TC # extPageReg is unused.
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cdef getTC(self)
-    cdef setDRQ(self, unsigned char channel, unsigned char val)
+    cpdef getTC(self)
+    cpdef setDRQ(self, unsigned char channel, unsigned char val)
     cdef raiseHLDA(self)
-    cdef setDmaReadFromMem(self, unsigned char controllerId, unsigned char channelId, object funcObj, DmaReadFromMem func)
-    cdef setDmaWriteToMem(self, unsigned char controllerId, unsigned char channelId, object funcObj, DmaWriteToMem func)
+    cpdef setDmaMemActions(self, unsigned char controllerId, unsigned char channelId, object classInstance)
     cdef run(self)
 
 

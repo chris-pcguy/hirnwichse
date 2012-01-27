@@ -40,6 +40,7 @@ cdef class Platform:
     cdef public Cmos cmos
     cdef list ports
     cdef unsigned char copyRomToLowMem
+    cdef unsigned long long memSize
     cdef initDevices(self)
     cdef addReadHandlers(self, tuple portNums, object classObject, InPort inObject)
     cdef addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject)
@@ -50,8 +51,10 @@ cdef class Platform:
     cpdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
     cdef loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize)
     cdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional)
-    cdef run(self, unsigned long long memSize)
     cdef initDevicesPorts(self)
     cdef runDevices(self)
+    cpdef initRemotes(self)
+    cpdef runThreadFunc(self)
+    cpdef run(self)
 
 

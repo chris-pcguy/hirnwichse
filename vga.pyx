@@ -133,7 +133,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 
 
 
-cdef class Vga(object):
+cdef class Vga:
     def __init__(self, object main):
         self.main = main
         self.seq = Sequencer(self, self.main)

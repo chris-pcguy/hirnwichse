@@ -13,7 +13,7 @@ DEF DISKETTE_RET_STATUS_ADDR = 0x441 # byte
 cdef class PythonBios:
     def __init__(self, object main):
         self.main = main
-    cpdef interrupt(self, unsigned char intNum):
+    cpdef unsigned char interrupt(self, unsigned char intNum):
         cdef unsigned long memAddr, logicalSector
         cdef unsigned short ax, cx, dx, bx, bp, i, count, cylinder, cursorPos
         cdef unsigned char currMode, ah, al, bh, bl, dh, dl, fdcNum, fdCount, \
@@ -101,6 +101,7 @@ cdef class PythonBios:
                 self.main.printMsg("PythonBios::interrupt: int: 0x10: currMode {0:d} not supported here. (ax: {1:#06x})", currMode, ax)
                 return False
         elif (intNum == 0x13): # data storage; floppy
+            return False
             fdcNum = 0
             if (dl in (2, 3)):
                 fdcNum = 1

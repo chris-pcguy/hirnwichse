@@ -58,7 +58,7 @@ cdef class PS2:
         self.outb = True
         if (self.allowIrq1):
             self.irq1Requested = True
-            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+            self.main.pyroPIC.raiseIrq(KBC_IRQ)
     cdef appendToOutBytesDoIrq(self, bytes data):
         if (self.outb):
             self.main.printMsg("KBC::appendToOutBytesDoIrq: self.outb!=0")
@@ -67,7 +67,7 @@ cdef class PS2:
         self.outb = True
         if (self.allowIrq1):
             self.irq1Requested = True
-            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+            self.main.pyroPIC.raiseIrq(KBC_IRQ)
     cpdef setKeyboardRepeatRate(self, unsigned char data): # input is data from cmd 0xf3
         cdef unsigned short delay, interval
         interval = data&0x1f
@@ -109,7 +109,7 @@ cdef class PS2:
         self.outb = True
         if (self.allowIrq1 and self.kbdClockEnabled):
             self.irq1Requested = True
-            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+            self.main.pyroPIC.raiseIrq(KBC_IRQ)
         ###self.activateTimer()
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char retByte = 0
@@ -119,7 +119,7 @@ cdef class PS2:
                     self.outb = True # TODO: HACK
                     #if (self.allowIrq1): # TODO: delete this again!?!
                     #    self.irq1Requested = True
-                    #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+                    #    self.main.pyroPIC.raiseIrq(KBC_IRQ)
                 return ((0x10) | \
                        (self.lastUsedPort << 3) | \
                        (self.sysf << 2) | \
@@ -128,7 +128,7 @@ cdef class PS2:
                 self.outb = False
                 self.irq1Requested = False
                 self.batInProgress = False
-                (<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
+                self.main.pyroPIC.lowerIrq(KBC_IRQ)
                 if (len(self.outBuffer)):
                     retByte = self.outBuffer[0]
                     if (len(self.outBuffer) > 1):
@@ -136,10 +136,10 @@ cdef class PS2:
                         self.outb = True
                         if (self.allowIrq1):
                             self.irq1Requested = True
-                            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+                            self.main.pyroPIC.raiseIrq(KBC_IRQ)
                     else:
                         self.outBuffer = bytes()
-                #(<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
+                #self.main.pyroPIC.lowerIrq(KBC_IRQ)
                 #if (len(self.outBuffer)):
                 #    self.activateTimer()
                 return retByte
@@ -219,7 +219,7 @@ cdef class PS2:
                         self.allowIrq1 = data&1
                         if (self.allowIrq1 and self.outb):
                             self.irq1Requested = True
-                            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+                            self.main.pyroPIC.raiseIrq(KBC_IRQ)
                     elif (self.lastKbCmdByte == 0xf0): # port 0x60
                         if (data == 0x00): # get scancodes
                             self.appendToOutBytes(b'\xfa')
@@ -330,7 +330,7 @@ cdef class PS2:
             if (self.timerPending):
                 retVal = self.periodic(1)
                 if (retVal&1):
-                    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+                    self.main.pyroPIC.raiseIrq(KBC_IRQ)
             else:
                 if (len(self.outBuffer)):
                     sleep(0.02)

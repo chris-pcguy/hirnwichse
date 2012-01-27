@@ -24,8 +24,7 @@ cdef class IsaDmaChannel:
         self.DRQ = False
         self.DACK = False
     cdef run(self):
-        self.dmaReadFromMemObject = self.dmaWriteToMemObject = None
-        self.dmaReadFromMem = self.dmaWriteToMem = NULL
+        self.dmaReadFromMem = self.dmaWriteToMem = None
 
 cdef class IsaDmaController:
     def __init__(self, IsaDma isadma, unsigned char master):
@@ -135,16 +134,14 @@ cdef class IsaDmaController:
             return
         if ((self.statusReg & 0xf0) == 0):
             if (not self.master):
-                if (self.isadma.cpuObject is not None and self.isadma.setHRQ is not NULL):
-                    self.isadma.setHRQ(self.isadma.cpuObject, False)
+                self.main.pyroCPU.setHRQ(False)
             else:
                 self.isadma.setDRQ(4, False)
             return
         for channel in range(4):
             if ((self.statusReg & (1 << (channel+4))) and (not (<IsaDmaChannel>self.channel[channel]).channelMasked)):
                 if (not self.master):
-                    if (self.isadma.cpuObject is not None and self.isadma.setHRQ is not NULL):
-                        self.isadma.setHRQ(self.isadma.cpuObject, True)
+                    self.main.pyroCPU.setHRQ(True)
                 else:
                     self.isadma.setDRQ(4, True)
                 return
@@ -159,6 +156,9 @@ cdef class IsaDma:
         self.main = main
         self.controller = (IsaDmaController(self, True), IsaDmaController(self, False))
         self.HLDA = self.TC = False
+        self._pyroId = ''
+        self._pyroDaemon = None
+        self.main.pyroURI_IsaDma = self.main.pyroDaemon.register(self)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char ma_sl, channelNum
         ma_sl = (ioPortAddr>=0xc0)
@@ -242,9 +242,9 @@ cdef class IsaDma:
             self.extPageReg[ioPortAddr&0xf] = data&BITMASK_BYTE
         else:
             self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
-    cdef getTC(self):
+    cpdef getTC(self):
         return self.TC
-    cdef setDRQ(self, unsigned char channel, unsigned char val):
+    cpdef setDRQ(self, unsigned char channel, unsigned char val):
         cdef unsigned long dmaBase, dmaRoof
         cdef unsigned char ma_sl
         cdef IsaDmaController currController
@@ -328,8 +328,8 @@ cdef class IsaDma:
                 currChannel.currentCount = currChannel.baseCount
 
         if (currChannel.transferDirection == 1): # IODEV -> MEM
-            if (currChannel.dmaWriteToMemObject is not None and currChannel.dmaWriteToMem is not NULL):
-                data = (<IsaDmaChannel>currChannel).dmaWriteToMem(currChannel.dmaWriteToMemObject)&BITMASK_WORD
+            if (currChannel.dmaWriteToMem is not None):
+                data = (<IsaDmaChannel>currChannel).dmaWriteToMem()&BITMASK_WORD
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
                 return
@@ -338,14 +338,14 @@ cdef class IsaDma:
             (<Mm>self.main.mm).mmPhyWriteValue(phyAddr, data, ma_sl+1)
         elif (currChannel.transferDirection == 2): # MEM -> IODEV
             data = (<Mm>self.main.mm).mmPhyReadValueUnsigned(phyAddr, ma_sl+1)
-            if (currChannel.dmaReadFromMemObject is not None and currChannel.dmaReadFromMem is not NULL):
-                (<IsaDmaChannel>currChannel).dmaReadFromMem(currChannel.dmaReadFromMemObject, data)
+            if (currChannel.dmaReadFromMem is not None):
+                (<IsaDmaChannel>currChannel).dmaReadFromMem(data)
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaRead handler for channel {0:d}", channel)
                 return
         elif (currChannel.transferDirection == 0): # Verify
-            if (currChannel.dmaWriteToMemObject is not None and currChannel.dmaWriteToMem is not NULL):
-                data = (<IsaDmaChannel>currChannel).dmaWriteToMem(currChannel.dmaWriteToMemObject)&BITMASK_WORD
+            if (currChannel.dmaWriteToMem is not None):
+                data = (<IsaDmaChannel>currChannel).dmaWriteToMem()&BITMASK_WORD
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
                 return
@@ -356,30 +356,20 @@ cdef class IsaDma:
         if (countExpired):
             self.TC = False
             self.HLDA = False
-            if (self.cpuObject is not None and self.setHRQ is not NULL):
-                self.setHRQ(self.cpuObject, False)
+            self.main.pyroCPU.setHRQ(False)
             (<IsaDmaChannel>(<IsaDmaController>self.controller[ma_sl]).channel[channel]).DACK = False
             if (not ma_sl):
                 self.setDRQ(4, False)
                 (<IsaDmaChannel>(<IsaDmaController>self.controller[1]).channel[0]).DACK = False
-    cdef setDmaReadFromMem(self, unsigned char controllerId, unsigned char channelId, object funcObj, DmaReadFromMem func):
+    cpdef setDmaMemActions(self, unsigned char controllerId, unsigned char channelId, object classInstance):
         cdef IsaDmaController controller
         cdef IsaDmaChannel channel
         controller = (<IsaDmaController>self.controller[controllerId])
         channel = (<IsaDmaChannel>controller.channel[channelId])
-        channel.dmaReadFromMemObject = funcObj
-        channel.dmaReadFromMem = func
-    cdef setDmaWriteToMem(self, unsigned char controllerId, unsigned char channelId, object funcObj, DmaWriteToMem func):
-        cdef IsaDmaController controller
-        cdef IsaDmaChannel channel
-        controller = (<IsaDmaController>self.controller[controllerId])
-        channel = (<IsaDmaChannel>controller.channel[channelId])
-        channel.dmaWriteToMemObject = funcObj
-        channel.dmaWriteToMem = func
+        channel.dmaReadFromMem = classInstance.readFromMem
+        channel.dmaWriteToMem = classInstance.writeToMem
     cdef run(self):
         cdef IsaDmaController controller
-        self.cpuObject = None
-        self.setHRQ = NULL
         memset(self.extPageReg, 0, 16)
         for controller in self.controller:
             controller.run()

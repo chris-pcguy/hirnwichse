@@ -9,9 +9,10 @@ from opcodes cimport Opcodes
 
 
 cdef class Cpu:
-    cpdef object main
+    cpdef public object main, _pyroDaemon
     cdef public Registers registers
     cdef Opcodes opcodes
+    cpdef public str _pyroId
     cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep
     cdef public unsigned long long cycles
     cdef unsigned char INTR, HRQ
@@ -19,8 +20,8 @@ cdef class Cpu:
     cdef unsigned long savedEip
     cdef reset(self)
     cdef saveCurrentInstPointer(self)
-    cdef setINTR(self, unsigned char state)
-    cdef setHRQ(self, unsigned char state)
+    cpdef setINTR(self, unsigned char state)
+    cpdef setHRQ(self, unsigned char state)
     cdef handleAsyncEvent(self)
     cdef exception(self, unsigned char exceptionId, long errorCode)
     cpdef handleException(self, object exception)
