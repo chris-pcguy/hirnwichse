@@ -102,11 +102,16 @@ cdef class PythonBios:
                 return False
         elif (intNum == 0x13): # data storage; floppy
             fdcNum = 0
-            if (dl not in (0, 1) or (not (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).isLoaded)):
-                self.setRetError(True, 0x8000)
+            if (dl in (2, 3)):
+                fdcNum = 1
+            if (dl not in (0, 1, 2, 3) or (not (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).isLoaded)):
+                self.main.printMsg("INT_0x13(AX=={0:#06x}): dl({1:#04x}) not in (0, 1, 2, 3) || drive is not loaded.", ax, dl)
+                # TODO: set correct error code.
+                ###self.setRetError(True, 0x8000)
+                self.setRetError(True, 0x100)
                 return True
             elif (ah == 0x2):
-                if ( ((cl >> 6)&3 != 0) and (dl in (0, 1)) ):
+                if ( ((cl >> 6)&3 != 0) and not (dl & 0x80) ):
                     self.main.printMsg("PythonBios::interrupt: cl-bits #6 and/or #7 are set, but floppy was selected.")
                     return False
                 cylinder = (((cl>>6)&3)<<8)|ch

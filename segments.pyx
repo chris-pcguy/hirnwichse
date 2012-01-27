@@ -14,7 +14,7 @@ cdef class Segment:
         if (not self.segments.isInProtectedMode()):
             self.base = segmentIndex
             self.base <<= 4
-            self.limit = 0xfffff
+            self.limit = 0xffff
             self.accessByte = (GDT_ACCESS_PRESENT | GDT_ACCESS_NORMAL_SEGMENT | GDT_ACCESS_READABLE_WRITABLE)
             if (self.segmentId == CPU_SEGMENT_CS):
                 self.accessByte |= GDT_ACCESS_EXECUTABLE

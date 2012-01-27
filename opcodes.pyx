@@ -1100,13 +1100,11 @@ cdef class Opcodes:
                         (<Registers>self.main.cpu.registers).segments).ldtr, True, OPCODE_SAVE)
                 elif (operOpcodeModId == 1): # STR
                     op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                    if ((<Registers>self.main.cpu.registers).lockPrefix or not \
-                        (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
+                    if (not (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
                           raise ChemuException(CPU_EXCEPTION_UD)
                     self.main.exitError("opcodeGroup0F_00: STR not supported yet.")
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
-                if ((<Registers>self.main.cpu.registers).lockPrefix or not (\
-                    <Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
+                if (not (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
                       raise ChemuException(CPU_EXCEPTION_UD)
                 elif ((<Registers>self.main.cpu.registers).cpl != 0):
                     raise ChemuException( CPU_EXCEPTION_GP, 0)
@@ -1227,8 +1225,6 @@ cdef class Opcodes:
             self.main.printMsg("opcodeGroup0F_07: LOADALL 386 opcode isn't supported yet.")
             raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode in (0x06, 0x08, 0x09)): # 0x06: CLTS, 0x08: INVD, 0x09: WBINVD
-            if ((<Registers>self.main.cpu.registers).lockPrefix):
-                raise ChemuException(CPU_EXCEPTION_UD)
             if ((<Registers>self.main.cpu.registers).cpl != 0):
                 raise ChemuException( CPU_EXCEPTION_GP, 0 )
             if (operOpcode == 0x06): # CLTS
@@ -1236,18 +1232,37 @@ cdef class Opcodes:
         elif (operOpcode == 0x0b): # UD2
             raise ChemuException( CPU_EXCEPTION_UD )
         elif (operOpcode == 0x20): # MOV R32, CRn
+            if ((<Registers>self.main.cpu.registers).cpl != 0):
+                raise ChemuException( CPU_EXCEPTION_GP, 0 )
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_CREG)
+            if (self.modRMInstance.regName not in (CPU_REGISTER_CR0, CPU_REGISTER_CR2, CPU_REGISTER_CR3, CPU_REGISTER_CR4)):
+                raise ChemuException(CPU_EXCEPTION_UD)
+            # We need to 'ignore' mod to read the source/dest as a register. That's the way to do it.
+            self.modRMInstance.mod = 3
             self.modRMInstance.modRMSave(OP_SIZE_DWORD, self.modRMInstance.modRLoad(OP_SIZE_DWORD, False), True, OPCODE_SAVE)
         elif (operOpcode == 0x21): # MOV R32, DRn
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_DREG)
             self.modRMInstance.modRMSave(OP_SIZE_DWORD, self.modRMInstance.modRLoad(OP_SIZE_DWORD, False), True, OPCODE_SAVE)
         elif (operOpcode == 0x22): # MOV CRn, R32
+            if ((<Registers>self.main.cpu.registers).cpl != 0):
+                raise ChemuException( CPU_EXCEPTION_GP, 0 )
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_CREG)
-            self.modRMInstance.modRSave(OP_SIZE_DWORD, self.modRMInstance.modRMLoad(OP_SIZE_DWORD, False, True), OPCODE_SAVE)
-            if (((<Registers>self.main.cpu.registers).regRead( CPU_REGISTER_CR0, False)>>31)&1): # FIXME: CR0_FLAG_PG; bit 31
-                self.main.exitError("opcodeGroup0F_22: Paging NOT SUPPORTED yet.")
-            elif ((<Registers>self.main.cpu.registers).getFlag( CPU_REGISTER_CR4, CR4_FLAG_VME )!=0):
-                self.main.exitError("opcodeGroup0F_22: VME (virtual-8086 mode extension) NOT SUPPORTED yet.")
+            if (self.modRMInstance.regName not in (CPU_REGISTER_CR0, CPU_REGISTER_CR2, CPU_REGISTER_CR3, CPU_REGISTER_CR4)):
+                raise ChemuException(CPU_EXCEPTION_UD)
+            # We need to 'ignore' mod to read the source/dest as a register. That's the way to do it.
+            self.modRMInstance.mod = 3
+            op2 = self.modRMInstance.modRMLoad(OP_SIZE_DWORD, False, True)
+            if (self.modRMInstance.regName == CPU_REGISTER_CR0):
+                op1 = (<Registers>self.main.cpu.registers).regRead( CPU_REGISTER_CR0, False) # op1 == old CR0
+                if (op2 & CR0_FLAG_PG):
+                    self.main.exitError("opcodeGroup0F_22: Paging IS NOT SUPPORTED yet.")
+                if ( ((op2 & CR0_FLAG_PG) and not (op1 & CR0_FLAG_PE)) or \
+                     (not (op2 & CR0_FLAG_CD) and (op1 & CR0_FLAG_NW)) ):
+                        raise ChemuException( CPU_EXCEPTION_GP, 0 )
+            elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
+                if (op2 & CR4_FLAG_VME):
+                    self.main.exitError("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT SUPPORTED yet.")
+            self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
         elif (operOpcode == 0x23): # MOV DRn, R32
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_DREG)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, self.modRMInstance.modRMLoad(OP_SIZE_DWORD, False, True), OPCODE_SAVE)
@@ -1274,8 +1289,6 @@ cdef class Opcodes:
         elif (operOpcode >= 0x40 and operOpcode <= 0x4f): # CMOVcc
             self.cmovFunc(operSize, (<Registers>self.main.cpu.registers).getCond( operOpcode&0xf ) )
         elif (operOpcode >= 0x80 and operOpcode <= 0x8f):
-            if ((<Registers>self.main.cpu.registers).lockPrefix):
-                raise ChemuException(CPU_EXCEPTION_UD)
             self.jumpShort(operSize, (<Registers>self.main.cpu.registers).getCond( operOpcode&0xf ))
         elif (operOpcode >= 0x90 and operOpcode <= 0x9f): # SETcc
             self.setWithCondFunc((<Registers>self.main.cpu.registers).getCond( operOpcode&0xf ) )
@@ -1446,7 +1459,7 @@ cdef class Opcodes:
             op2 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
         elif (operOpcode == 0xb8): # POPCNT R16/32 RM16/32
-            if ((<Registers>self.main.cpu.registers).lockPrefix or (<Registers>self.main.cpu.registers).repPrefix):
+            if ((<Registers>self.main.cpu.registers).repPrefix):
                 raise ChemuException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoad(operSize, False, True)

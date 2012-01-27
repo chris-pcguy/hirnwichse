@@ -28,7 +28,7 @@ cdef class Registers:
     cpdef object main
     cdef Segments segments
     cdef ConfigSpace regs
-    cdef public unsigned char lockPrefix, repPrefix, segmentOverridePrefix, operandSizePrefix, \
+    cdef public unsigned char repPrefix, segmentOverridePrefix, operandSizePrefix, \
                                 addressSizePrefix, cpl, iopl, codeSegSize
     cdef public unsigned short eipSizeRegId
     cdef reset(self)

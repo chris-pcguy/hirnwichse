@@ -151,7 +151,7 @@ cdef class Registers:
         self.regWrite(CPU_REGISTER_EIP, 0xfff0)
         self.regWrite(CPU_REGISTER_CR0, 0x60000034)
     cdef resetPrefixes(self):
-        self.lockPrefix = self.repPrefix = self.operandSizePrefix = self.addressSizePrefix = False
+        self.repPrefix = self.operandSizePrefix = self.addressSizePrefix = False
         self.segmentOverridePrefix = 0
     cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed):
         cdef unsigned long opcodeAddr

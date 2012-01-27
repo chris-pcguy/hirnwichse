@@ -83,12 +83,11 @@ cdef class Cpu:
         cdef unsigned char count
         cdef unsigned short segId
         count = 0
+        # TODO: I don't think, that we ever need lockPrefix.
         while (opcode in OPCODE_PREFIXES):
             count += 1
             if (count >= 16):
                 raise ChemuException(CPU_EXCEPTION_UD)
-            elif (opcode == OPCODE_PREFIX_LOCK):
-                self.registers.lockPrefix = True
             elif (opcode in OPCODE_PREFIX_REPS):
                 self.registers.repPrefix = opcode
             elif (opcode in OPCODE_PREFIX_SEGMENTS):
@@ -153,9 +152,7 @@ cdef class Cpu:
             self.opcode = self.parsePrefixes(self.opcode)
         self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
         try:
-            if (self.registers.lockPrefix and self.opcode in OPCODES_LOCK_PREFIX_INVALID):
-                raise ChemuException(CPU_EXCEPTION_UD)
-            elif (not self.opcodes.executeOpcode(self.opcode)):
+            if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise ChemuException(CPU_EXCEPTION_UD)
         except ChemuException as exception: # exception
