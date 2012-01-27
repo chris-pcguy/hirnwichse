@@ -81,37 +81,34 @@ cdef class Cpu:
         self.exception(exceptionId, errorCode)
     cdef unsigned char parsePrefixes(self, unsigned char opcode):
         cdef unsigned char count
-        cdef unsigned short segId
         count = 0
-        # TODO: I don't think, that we ever need lockPrefix.
         while (opcode in OPCODE_PREFIXES):
             count += 1
             if (count >= 16):
                 raise ChemuException(CPU_EXCEPTION_UD)
-            elif (opcode in OPCODE_PREFIX_REPS):
-                self.registers.repPrefix = opcode
-            elif (opcode in OPCODE_PREFIX_SEGMENTS):
-                if (opcode == OPCODE_PREFIX_CS):
-                    segId = CPU_SEGMENT_CS
-                elif (opcode == OPCODE_PREFIX_DS):
-                    segId = CPU_SEGMENT_DS
-                elif (opcode == OPCODE_PREFIX_ES):
-                    segId = CPU_SEGMENT_ES
-                elif (opcode == OPCODE_PREFIX_FS):
-                    segId = CPU_SEGMENT_FS
-                elif (opcode == OPCODE_PREFIX_GS):
-                    segId = CPU_SEGMENT_GS
-                elif (opcode == OPCODE_PREFIX_SS):
-                    segId = CPU_SEGMENT_SS
-                else:
-                    self.main.exitError("parsePrefixes: {0:#04x} is not a segment prefix.", opcode)
-                    return 0
-                self.registers.segmentOverridePrefix = segId
             elif (opcode == OPCODE_PREFIX_OP):
                 self.registers.operandSizePrefix = True
             elif (opcode == OPCODE_PREFIX_ADDR):
                 self.registers.addressSizePrefix = True
-
+            elif (opcode == OPCODE_PREFIX_CS):
+                self.registers.segmentOverridePrefix = CPU_SEGMENT_CS
+            elif (opcode == OPCODE_PREFIX_DS):
+                self.registers.segmentOverridePrefix = CPU_SEGMENT_DS
+            elif (opcode == OPCODE_PREFIX_ES):
+                self.registers.segmentOverridePrefix = CPU_SEGMENT_ES
+            elif (opcode == OPCODE_PREFIX_FS):
+                self.registers.segmentOverridePrefix = CPU_SEGMENT_FS
+            elif (opcode == OPCODE_PREFIX_GS):
+                self.registers.segmentOverridePrefix = CPU_SEGMENT_GS
+            elif (opcode == OPCODE_PREFIX_SS):
+                self.registers.segmentOverridePrefix = CPU_SEGMENT_SS
+            elif (opcode == OPCODE_PREFIX_REPE):
+                self.registers.repPrefix = opcode
+            elif (opcode == OPCODE_PREFIX_REPNE):
+                self.registers.repPrefix = opcode
+            elif (opcode == OPCODE_PREFIX_LOCK):
+                ### TODO: I don't think, that we ever need lockPrefix.
+                pass
             opcode = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
 
         return opcode
