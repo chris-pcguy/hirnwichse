@@ -25,6 +25,7 @@ cdef class ChEmu:
     cpdef isRunning(self)
     cpdef parseArgs(self)
     cpdef quitFunc(self)
+    cpdef runThreadFunc(self)
     cpdef run(self)
 
 

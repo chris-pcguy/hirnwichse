@@ -54,7 +54,6 @@ cdef class Platform:
     cdef initDevicesPorts(self)
     cdef runDevices(self)
     cpdef initRemotes(self)
-    cpdef runThreadFunc(self)
     cpdef run(self)
 
 

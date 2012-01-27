@@ -38,11 +38,11 @@ cdef class Cpu:
         # This is only for IRQs! (exceptions will use cpu.exception)
         oldIF = self.registers.getEFLAG(FLAG_IF)!=0
         if (self.INTR and oldIF ):
-            irqVector = (<Pic>self.main.platform.pic).IAC()
+            irqVector = self.main.pyroPIC.IAC()
             self.opcodes.interrupt(irqVector, -1)
             self.saveCurrentInstPointer()
         elif (self.HRQ):
-            (<IsaDma>self.main.platform.isadma).raiseHLDA()
+            self.main.pyroIsaDma.raiseHLDA()
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
             self.asyncEvent = False
         return
@@ -182,7 +182,6 @@ cdef class Cpu:
         self.registers.run()
         self.opcodes.run()
         self.reset()
-        ##self.doInfiniteCycles()
-        (<Misc>self.main.misc).createThread(self.doInfiniteCycles, True)
+        self.doInfiniteCycles()
     ###
 

@@ -2,6 +2,7 @@
 from os import stat
 from os.path import join
 from sys import exc_info, exit
+from time import sleep
 import Pyro4
 
 from misc cimport Misc
@@ -240,7 +241,7 @@ cdef class Platform:
         self.main.pyroUI = Pyro4.core.Proxy(self.main.pyroURI_UI)
         self.main.pyroUI._pyroOneway.add('pumpEvents')
         self.main.pyroPS2._pyroOneway.add('keySend')
-    cpdef runThreadFunc(self):
+    cpdef run(self):
         self.initDevices()
         self.initRemotes()
         (<Mm>self.main.mm).mmAddArea(0, self.memSize, False, <MmArea>MmArea)
@@ -251,7 +252,5 @@ cdef class Platform:
         <MmArea>((<Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
         self.initDevicesPorts()
         self.runDevices()
-    cpdef run(self):
-        (<Misc>self.main.misc).createThread(self.runThreadFunc, True)
 
 

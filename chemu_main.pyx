@@ -62,6 +62,9 @@ cdef class ChEmu:
     def printMsg(self, str msgStr, *msgStrArguments): # this needs to be 'def'
         print(msgStr.format(*msgStrArguments))
         stdout.flush()
+    cpdef runThreadFunc(self):
+        self.platform.run()
+        self.cpu.run()
     cpdef run(self):
         try:
             self.parseArgs()
@@ -75,8 +78,7 @@ cdef class ChEmu:
             self.platform = Platform(self, self.memSize)
             self.cpu = Cpu(self)
             self.pyroCPU = Pyro4.core.Proxy(self.pyroURI_CPU)
-            self.platform.run()
-            self.cpu.run()
+            self.misc.createThread(self.runThreadFunc, True)
             self.pyroDaemon.requestLoop(self.isRunning)
             while (active_count() > 1 and not self.quitEmu):
                 sleep(5)
