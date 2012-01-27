@@ -79,6 +79,7 @@ cdef class ChEmu(object):
             self.platform.pic.setINTR = <SetINTR>self.cpu.setINTR
             self.platform.isadma.setHRQ = <SetHRQ>self.cpu.setHRQ
             self.pyroUI = Pyro4.core.Proxy(self.pyroURI_UI)
+            self.pyroUI._pyroOneway.add('pumpEvents')
             self.cpu.run()
             self.pyroDaemon.requestLoop(self.isRunning)
             while (active_count() > 1 and not self.quitEmu):

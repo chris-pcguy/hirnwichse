@@ -106,9 +106,8 @@ cdef class Cpu:
                 self.registers.repPrefix = opcode
             elif (opcode == OPCODE_PREFIX_REPNE):
                 self.registers.repPrefix = opcode
-            elif (opcode == OPCODE_PREFIX_LOCK):
-                ### TODO: I don't think, that we ever need lockPrefix.
-                pass
+            ### TODO: I don't think, that we ever need lockPrefix.
+            ##elif (opcode == OPCODE_PREFIX_LOCK):
             opcode = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
 
         return opcode
