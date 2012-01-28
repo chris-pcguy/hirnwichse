@@ -10,8 +10,8 @@ cdef class PicChannel:
     cdef reset(self)
     cdef clearHighestInterrupt(self)
     cdef servicePicChannel(self)
-    cpdef raiseIrq(self, unsigned char irq)
-    cpdef lowerIrq(self, unsigned char irq)
+    cdef raiseIrq(self, unsigned char irq)
+    cdef lowerIrq(self, unsigned char irq)
     cdef getCmdByte(self)
     cdef setCmdByte(self, unsigned char cmdByte)
     cdef getIrqBasePort(self)
@@ -25,8 +25,8 @@ cdef class PicChannel:
 cdef class Pic:
     cpdef public object main
     cdef tuple channels
-    cpdef raiseIrq(self, unsigned char irq)
-    cpdef lowerIrq(self, unsigned char irq)
+    cdef raiseIrq(self, unsigned char irq)
+    cdef lowerIrq(self, unsigned char irq)
     cdef unsigned char IAC(self)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)

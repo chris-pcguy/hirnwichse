@@ -81,14 +81,14 @@ cdef class PicChannel:
                     irq = 0
                 if (irq == maxIrq):
                     break
-    cpdef raiseIrq(self, unsigned char irq):
+    cdef raiseIrq(self, unsigned char irq):
         cdef unsigned char mask
         mask = (1 << (irq&7))
         if ((irq >= 0 and irq < 16) and (not (self.IRQ_in & mask))):
             self.IRQ_in |= mask
             self.irr |= mask
             self.servicePicChannel()
-    cpdef lowerIrq(self, unsigned char irq):
+    cdef lowerIrq(self, unsigned char irq):
         cdef unsigned char mask
         mask = (1 << (irq&7))
         if ((irq >= 0 and irq < 16) and (self.IRQ_in & mask)):
@@ -131,14 +131,14 @@ cdef class Pic:
     def __init__(self, object main):
         self.main = main
         self.channels = (PicChannel(self, self.main, True), PicChannel(self, self.main, False))
-    cpdef raiseIrq(self, unsigned char irq):
+    cdef raiseIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
         if (irq > 15):
             self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
             ma_sl = True
         (<PicChannel>self.channels[ma_sl]).raiseIrq(irq)
-    cpdef lowerIrq(self, unsigned char irq):
+    cdef lowerIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
         if (irq > 15):
             self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", irq)
