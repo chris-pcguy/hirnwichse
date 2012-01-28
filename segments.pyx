@@ -222,18 +222,14 @@ cdef class Idt:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
     cdef IdtEntry getEntry(self, unsigned char num):
-        cdef unsigned long long entryData
-        entryData = self.table.csReadValueUnsigned((num*8), 8)
-        return IdtEntry(entryData)
+        return IdtEntry(<unsigned long long>self.table.csReadValueUnsigned((num*8), 8))
     cdef unsigned char isEntryPresent(self, unsigned char num):
-        return (<unsigned char>self.table.csReadValueUnsigned((num*8)+2, 1)>>7)&1 # is interrupt present
+        return self.getEntry(num).entryPresent
     cdef unsigned char getEntryNeededDPL(self, unsigned char num):
-        return (<unsigned char>self.table.csReadValueUnsigned((num*8)+2, 1)>>5)&0x3 # interrupt: Need this DPL
+        return self.getEntry(num).entryNeededDPL
     cdef unsigned char getEntrySize(self, unsigned char num):
         # interrupt size: 1==32bit; 0==16bit; return 4 for 32bit, 2 for 16bit
-        if ((<unsigned char>self.table.csReadValueUnsigned((num*8)+2, 1)>>3)&1):
-            return OP_SIZE_DWORD
-        return OP_SIZE_WORD
+        return self.getEntry(num).entrySize
     cdef getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip):
         cdef unsigned short offset
         offset = num*4 # Don't use ConfigSpace here.
