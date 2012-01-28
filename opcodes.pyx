@@ -59,7 +59,7 @@ cdef class Opcodes:
     cdef unsigned char executeOpcode(self, unsigned char opcode):
         cdef unsigned char operSize, addrSize
         try:
-            (<Registers>self.main.cpu.registers).getOpAddrCodeSegSize(&operSize, &addrSize)
+            operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
             if (opcode == 0x00):
                 self.opcodeRM_R(OPCODE_ADD, OP_SIZE_BYTE)
             elif (opcode == 0x01):
@@ -267,14 +267,16 @@ cdef class Opcodes:
                 self.sahf()
             elif (opcode == 0x9f):
                 self.lahf()
-            elif (opcode == 0xa0):
-                self.movAxMoffs(OP_SIZE_BYTE, addrSize)
-            elif (opcode == 0xa1):
-                self.movAxMoffs(operSize, addrSize)
-            elif (opcode == 0xa2):
-                self.movMoffsAx(OP_SIZE_BYTE, addrSize)
-            elif (opcode == 0xa3):
-                self.movMoffsAx(operSize, addrSize)
+            elif (opcode >= 0xa0 and opcode <= 0xa3):
+                addrSize = (<Registers>self.main.cpu.registers).getAddrCodeSegSize()
+                if (opcode == 0xa0):
+                    self.movAxMoffs(OP_SIZE_BYTE, addrSize)
+                elif (opcode == 0xa1):
+                    self.movAxMoffs(operSize, addrSize)
+                elif (opcode == 0xa2):
+                    self.movMoffsAx(OP_SIZE_BYTE, addrSize)
+                elif (opcode == 0xa3):
+                    self.movMoffsAx(operSize, addrSize)
             elif (opcode == 0xa4):
                 self.movsFunc(OP_SIZE_BYTE)
             elif (opcode == 0xa5):
@@ -799,6 +801,7 @@ cdef class Opcodes:
             ioPort = (<Registers>self.main.cpu.registers).regRead(dxReg, False)
             value = (<Registers>self.main.cpu.registers).mmReadValueUnsigned(esiVal, operSize, CPU_SEGMENT_DS, True)
             self.main.platform.outPort(ioPort, value, operSize)
+            # addrSize is DF-FLAG
             if (not addrSize):
                 (<Registers>self.main.cpu.registers).regAdd(esiReg, operSize)
             else:
@@ -825,6 +828,7 @@ cdef class Opcodes:
             ioPort = (<Registers>self.main.cpu.registers).regRead(dxReg, False)
             value = self.main.platform.inPort(ioPort, operSize)
             (<Registers>self.main.cpu.registers).mmWriteValue(ediVal, value, operSize, CPU_SEGMENT_ES, False)
+            # addrSize is DF-FLAG
             if (not addrSize):
                 (<Registers>self.main.cpu.registers).regAdd(ediReg, operSize)
             else:
@@ -847,9 +851,11 @@ cdef class Opcodes:
         operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
         offset = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(offsetSize, True)
         if (c):
-            newEip = ((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_EIP, False)+offset)&BITMASK_DWORD
+            newEip = ((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_EIP, False)+offset)
             if (operSize == OP_SIZE_WORD):
                 newEip &= BITMASK_WORD
+            else:
+                newEip &= BITMASK_DWORD
             (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_EIP, newEip)
     cdef callNearRel16_32(self):
         cdef unsigned char operSize
@@ -858,9 +864,11 @@ cdef class Opcodes:
         operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
         offset = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(operSize, True)
         self.stackPushRegId(CPU_REGISTER_EIP, operSize)
-        newEip = ((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_EIP, False)+offset)&BITMASK_DWORD
+        newEip = ((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_EIP, False)+offset)
         if (operSize == OP_SIZE_WORD):
             newEip &= BITMASK_WORD
+        else:
+            newEip &= BITMASK_DWORD
         (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_EIP, newEip)
     cdef callPtr16_32(self):
         cdef unsigned char operSize
