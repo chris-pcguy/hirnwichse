@@ -4,7 +4,6 @@ from pygameUI cimport PygameUI
 
 
 cdef class VRamArea(MmArea):
-    cpdef object pyroUI
     cdef unsigned long long memBaseAddrTextmodeBaseDiff
     cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize)
     cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long long dataSize)
@@ -56,8 +55,8 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 
 cdef class Vga:
     cpdef object main
-    ##cpdef public PygameUI ui
-    cpdef public object ui
+    cpdef public PygameUI ui
+    ##cpdef public object ui
     cdef Sequencer seq
     cdef CRT crt
     cdef GDC gdc

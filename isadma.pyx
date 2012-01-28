@@ -156,7 +156,6 @@ cdef class IsaDma:
         self.HLDA = self.TC = False
         self._pyroId = ''
         self._pyroDaemon = None
-        self.main.pyroURI_IsaDma = self.main.pyroDaemon.register(self)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char ma_sl, channelNum
         ma_sl = (ioPortAddr>=0xc0)

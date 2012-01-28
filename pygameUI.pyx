@@ -2,7 +2,6 @@
 from sys import exc_info
 from atexit import register
 import pygame
-import Pyro4
 
 include "globals.pxi"
 

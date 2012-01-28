@@ -231,7 +231,6 @@ cdef class Platform:
         self.gdbstub.run()
         self.pythonBios.run()
     cpdef initRemotes(self):
-        self.main.pyroIsaDma = Pyro4.core.Proxy(self.main.pyroURI_IsaDma)
         self.main.pyroUI = Pyro4.core.Proxy(self.main.pyroURI_UI)
         self.main.pyroUI._pyroOneway.add('pumpEvents')
     cpdef run(self):

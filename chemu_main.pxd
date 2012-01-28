@@ -7,8 +7,7 @@ from cpu cimport Cpu
 
 cdef class ChEmu:
     cpdef public object pyroDaemon, _pyroDaemon, pyroURI_Main, pyroURI_UI, \
-                        pyroURI_IsaDma, pyroURI_CPU, pyroUI, \
-                        pyroIsaDma, pyroCPU
+                        pyroURI_CPU, pyroUI, pyroCPU
     cpdef object parser, cmdArgs
     cpdef public str _pyroId
     cdef public Misc misc

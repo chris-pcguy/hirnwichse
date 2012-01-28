@@ -1,6 +1,5 @@
 
 from sys import stdout
-import Pyro4
 
 include "globals.pxi"
 
@@ -10,7 +9,6 @@ cdef class VRamArea(MmArea):
     def __init__(self, Mm mmObj, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
         MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
         self.memBaseAddrTextmodeBaseDiff = VGA_TEXTMODE_ADDR-self.mmBaseAddr
-        self.pyroUI = Pyro4.Proxy(self.main.pyroURI_UI)
     cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize): # dataSize(type int) is count in bytes
         MmArea.mmAreaWrite(self, mmAddr, data, dataSize)
         # TODO: hardcoded to 80x25
@@ -34,13 +32,13 @@ cdef class VRamArea(MmArea):
             y, x = divmod((mmAreaAddr-self.memBaseAddrTextmodeBaseDiff)//2, 80)
             charstr = bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+2])
             ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
-            rectList.append(self.pyroUI.putChar(x, y, chr(charstr[0]), charstr[1]))
+            rectList.append(self.main.pyroUI.putChar(x, y, chr(charstr[0]), charstr[1]))
             mmAreaAddr += 2
             if (dataSize <= 2):
                 break
             dataSize   -= 2
         ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
-        self.pyroUI.updateScreen(rectList)
+        self.main.pyroUI.updateScreen(rectList)
 
 
 cdef class VGA_REGISTER_RAW(ConfigSpace):
