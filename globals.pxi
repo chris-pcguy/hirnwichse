@@ -230,10 +230,10 @@ DEF GDT_HARD_LIMIT = 0xffff
 DEF IDT_HARD_LIMIT = 0x7ff
 
 
-DEF BITMASK_BYTE  = 0xffUL
-DEF BITMASK_WORD  = 0xffffUL
-DEF BITMASK_DWORD = 0xffffffffUL
-DEF BITMASK_QWORD = 0xffffffffffffffffULL
+cdef unsigned char BITMASK_BYTE  = 0xff
+cdef unsigned short BITMASK_WORD  = 0xffff
+cdef unsigned long BITMASK_DWORD = 0xffffffff
+cdef unsigned long long BITMASK_QWORD = 0xffffffffffffffffU
 
 
 DEF CPU_EXCEPTION_DE = 0 # divide-by-zero error

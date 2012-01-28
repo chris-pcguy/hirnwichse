@@ -166,8 +166,7 @@ cdef class Registers:
         return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned long *retAddr):
         retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
-        retAddr[0] = self.regRead(self.eipSizeRegId, False)
-        self.regAdd(self.eipSizeRegId, 1)
+        retAddr[0] = self.regAddReturnOrig(self.eipSizeRegId, 1)
         return self.mmReadValueUnsigned(retAddr[0], OP_SIZE_BYTE, CPU_SEGMENT_CS, False)
     cdef unsigned short getRegSize(self, unsigned short regId):
         if (regId in CPU_REGISTER_BYTE):
@@ -250,20 +249,22 @@ cdef class Registers:
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         value = self.regs.csWriteValueBE(aregId, value, opSize)
         return value # returned value is unsigned!!
+    cdef unsigned long regAddReturnOrig(self, unsigned short regId, long long value):
+        cdef long long origValue = self.regRead(regId, False)
+        self.regWrite(regId, ((origValue+value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
+        return origValue
     cdef unsigned long regAdd(self, unsigned short regId, long long value):
         return self.regWrite(regId, ((self.regRead(regId, False)+value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
     cdef unsigned long regAdc(self, unsigned short regId, unsigned long value):
-        cdef unsigned char withCarry = self.getEFLAG( FLAG_CF )!=0
-        return self.regAdd(regId, value+withCarry)
+        return self.regAdd(regId, value+self.getEFLAG( FLAG_CF ))
     cdef unsigned long regSub(self, unsigned short regId, unsigned long value):
         return self.regWrite(regId, ((self.regRead(regId, False)-value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
     cdef unsigned long regSbb(self, unsigned short regId, unsigned long value):
-        cdef unsigned char withCarry = self.getEFLAG( FLAG_CF )!=0
-        return self.regSub(regId, value+withCarry)
+        return self.regSub(regId, value+self.getEFLAG( FLAG_CF ))
     cdef unsigned long regXor(self, unsigned short regId, unsigned long value):
         return self.regWrite(regId, ((self.regRead(regId, False)^value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
     cdef unsigned long regAnd(self, unsigned short regId, unsigned long value):
-        return self.regWrite(regId, ((self.regRead(regId, False)&value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
+        return self.regWrite(regId, (self.regRead(regId, False)&value))
     cdef unsigned long regOr (self, unsigned short regId, unsigned long value):
         return self.regWrite(regId, ((self.regRead(regId, False)|value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
     cdef unsigned long regNeg(self, unsigned short regId):
@@ -288,10 +289,10 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             return self.regXor(regId, value)
         elif (valueOp == OPCODE_NEG):
-            value = (-value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))
+            value = ((-value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId)))
             return self.regWrite(regId, value)
         elif (valueOp == OPCODE_NOT):
-            value = (~value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))
+            value = ((~value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId)))
             return self.regWrite(regId, value)
         else:
             self.main.printMsg("REGISTERS::regWriteWithOp: unknown valueOp {0:d}.", valueOp)
@@ -306,7 +307,7 @@ cdef class Registers:
     cdef unsigned long setEFLAG(self, unsigned long flags, unsigned char flagState):
         if (flagState):
             return self.regOr(CPU_REGISTER_EFLAGS, flags)
-        return self.regAnd(CPU_REGISTER_EFLAGS, ~flags)
+        return self.regAnd(CPU_REGISTER_EFLAGS, (~flags)&BITMASK_DWORD)
     cdef unsigned long getFlag(self, unsigned short regId, unsigned long flags):
         return (self.regRead(regId, False)&flags)
     cdef unsigned short getWordAsDword(self, unsigned short regWord, unsigned char wantRegSize):
@@ -435,7 +436,7 @@ cdef class Registers:
         bitMask = (<Misc>self.main.misc).getBitMaskFF(regSize)
         bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
 
-        if (method in (OPCODE_ADD, OPCODE_ADC)):
+        if (method == OPCODE_ADD or method == OPCODE_ADC):
             if (method == OPCODE_ADC and self.getEFLAG(FLAG_CF)!=0):
                 reg0 += 1
             regSum = reg0+reg1
@@ -457,7 +458,7 @@ cdef class Registers:
             self.setEFLAG(FLAG_CF, unsignedOverflow)
             self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
             self.setEFLAG(FLAG_SF, regSum!=0)
-        elif (method in (OPCODE_SUB, OPCODE_SBB)):
+        elif (method == OPCODE_SUB or method == OPCODE_SBB):
             if (method == OPCODE_SBB and self.getEFLAG(FLAG_CF)!=0):
                 reg0 -= 1
             regSum = reg0-reg1
@@ -480,7 +481,7 @@ cdef class Registers:
             self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
             self.setEFLAG(FLAG_SF, regSum!=0)
         elif (method == OPCODE_MUL):
-            doubleBitMask = (<Misc>self.main.misc).getBitMaskFF(regSize*2)
+            doubleBitMask = (<Misc>self.main.misc).getBitMaskFF(regSize<<1)
             regSum = reg0*reg1
             regSumu = abs(reg0)*abs(reg1)
             isResZero = (regSum&doubleBitMask)==0
@@ -490,10 +491,6 @@ cdef class Registers:
             self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&BITMASK_BYTE])
             self.setEFLAG(FLAG_ZF, isResZero)
             self.setEFLAG(FLAG_SF, (regSum&bitMaskHalf)!=0)
-        elif (method == OPCODE_DIV):
-            pass
-        else:
-            self.main.exitError("setFullFlags: method not (add, sub, mul or div). (method: {0:d})", method)
     #cdef checkMemAccessRights(self, unsigned short segId, unsigned char write):
     #    cdef unsigned short segVal
     #    if (not self.segments.isInProtectedMode()):
@@ -579,8 +576,7 @@ cdef class Registers:
                     data = (oldData-data)&bitMask
                     return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
                 elif (valueOp == OPCODE_AND):
-                    data = (oldData&data)&bitMask
-                    return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
+                    return self.mmWriteValue(mmAddr, (oldData&data), dataSize, segId, allowOverride)
                 elif (valueOp == OPCODE_OR):
                     data = (oldData|data)&bitMask
                     return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)

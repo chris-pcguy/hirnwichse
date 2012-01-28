@@ -195,7 +195,7 @@ cdef class Vga:
     cdef unsigned long getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
         cdef unsigned long offset
         page = self.getCorrectPage(page)
-        offset = ((y*80)+x)*2
+        offset = ((y*80)+x)<<1
         return ((VGA_TEXTMODE_ADDR+(0x1000*page))+offset)
     cdef unsigned short getCursorPosition(self, unsigned char page): # returns y, x
         cdef unsigned short pos
@@ -203,14 +203,14 @@ cdef class Vga:
         if (page > 7):
             self.main.printMsg("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
             return 0
-        pos = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURSOR_BASE_ADDR+(page*2), 2)
+        pos = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURSOR_BASE_ADDR+(page<<1), 2)
         return pos
     cdef setCursorPosition(self, unsigned char page, unsigned short pos):
         page = self.getCorrectPage(page)
         if (page > 7):
             self.main.printMsg("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
-        (<Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page*2), pos, 2)
+        (<Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page<<1), pos, 2)
     cdef scrollDown(self, unsigned char page, short attr):
         cdef bytes oldData
         cdef unsigned long oldAddr

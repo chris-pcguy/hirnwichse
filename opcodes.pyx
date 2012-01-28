@@ -1012,7 +1012,7 @@ cdef class Opcodes:
         cdef unsigned long long temp, doubleBitMask
         operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
         bitMask = (<Misc>self.main.misc).getBitMaskFF(operSize)
-        doubleBitMask = (<Misc>self.main.misc).getBitMaskFF(operSize*2)
+        doubleBitMask = (<Misc>self.main.misc).getBitMaskFF(operSize<<1)
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         operOp1 = self.modRMInstance.modRMLoad(operSize, True, True)
         if (immIsByte):
@@ -1228,7 +1228,7 @@ cdef class Opcodes:
             if ((<Registers>self.main.cpu.registers).cpl != 0):
                 raise ChemuException( CPU_EXCEPTION_GP, 0 )
             if (operOpcode == 0x06): # CLTS
-                (<Registers>self.main.cpu.registers).regAnd( CPU_REGISTER_CR0, ~CR0_FLAG_TS )
+                (<Registers>self.main.cpu.registers).regAnd(CPU_REGISTER_CR0, (~CR0_FLAG_TS)&BITMASK_DWORD)
         elif (operOpcode == 0x0b): # UD2
             raise ChemuException( CPU_EXCEPTION_UD )
         elif (operOpcode == 0x20): # MOV R32, CRn
@@ -1866,7 +1866,7 @@ cdef class Opcodes:
             (<Registers>self.main.cpu.registers).regWrite(edxReg, tempmod&bitMask)
             (<Registers>self.main.cpu.registers).setFullFlags(operOp1, operOp2, operSize, OPCODE_DIV, False)
         elif (operOpcodeId == GROUP2_OP_IDIV):
-            doubleBitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize*2)
+            doubleBitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize<<1)
             eaxReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_AX, operSize)
             edxReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_DX, operSize)
             operOp1 = (<Registers>self.main.cpu.registers).regRead(edxReg, False)<<operSizeInBits

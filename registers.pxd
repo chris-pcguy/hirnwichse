@@ -41,6 +41,7 @@ cdef class Registers:
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue)
     cdef long long regRead(self, unsigned short regId, unsigned char signed)
     cdef unsigned long regWrite(self, unsigned short regId, unsigned long value)
+    cdef unsigned long regAddReturnOrig(self, unsigned short regId, long long value)
     cdef unsigned long regAdd(self, unsigned short regId, long long value)
     cdef unsigned long regAdc(self, unsigned short regId, unsigned long value)
     cdef unsigned long regSub(self, unsigned short regId, unsigned long value)
