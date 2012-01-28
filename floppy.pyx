@@ -1,4 +1,5 @@
 
+from os import access, F_OK, R_OK, W_OK
 from os.path import exists, getsize
 import Pyro4
 
@@ -89,8 +90,8 @@ cdef class FloppyDrive:
         return diskType
     cdef loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType, driveType
-        if (not filename or not exists(filename)):
-            self.main.printMsg("FD{0:d}: loadDrive: filename not found. (filename: {1:s})", self.driveId, filename)
+        if (not filename or not access(filename, F_OK | R_OK)):
+            self.main.printMsg("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", self.driveId, filename)
             return
         self.filename = filename
         driveType = self.getDiskType(getsize(self.filename))
@@ -98,8 +99,17 @@ cdef class FloppyDrive:
         if (driveType == FLOPPY_DISK_TYPE_NONE):
             self.main.printMsg("FloppyDrive::loadDrive: driveType is DISK_TYPE_NONE")
             return
-        self.fp = open(filename, "r+b")
-        self.isLoaded = True
+        elif (access(filename, F_OK | R_OK | W_OK)):
+            self.fp = open(filename, "r+b")
+            self.isLoaded = True
+            self.isWriteProtected = False
+        elif (access(filename, F_OK | R_OK)):
+            self.fp = open(filename, "rb")
+            self.isLoaded = True
+            self.isWriteProtected = True
+        else:
+            self.main.printMsg("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", self.driveId, filename)
+            return
         if (self.driveId in (0, 1)):
             cmosDiskType = (<Cmos>self.main.platform.cmos).readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
             if (self.driveId == 0):
@@ -116,20 +126,22 @@ cdef class FloppyDrive:
         self.fp.seek(offset)
         data = self.fp.read(size)
         if (len(data) < size): # floppy image is too short.
-            data += b'\x00'*(size-len(data)) # TODO: Should I fill this up with 0xff?
+            data += b'\x00'*(size-len(data))
         self.fp.seek(oldPos)
         return data
     cdef bytes readSectors(self, unsigned long sector, unsigned long count): # count in sectors
         return self.readBytes(sector*512, count*512)
-    cdef writeSectors(self, unsigned long sector, bytes data):
+    cdef writeBytes(self, unsigned long offset, unsigned long size, bytes data):
         cdef unsigned long oldPos
-        if (len(data)%512):
-            self.main.exitError("FD{0:d}: writeSectors: datalength invalid. (sector: {1:d}, datalength: {2:d})", self.driveId, sector, len(data))
-            return
+        if (len(data) < size): # data is too short.
+            data += b'\x00'*(size-len(data))
         oldPos = self.fp.tell()
-        self.fp.seek(sector*512)
+        self.fp.seek(offset)
         retData = self.fp.write(data)
         self.fp.seek(oldPos)
+        self.fp.flush()
+    cdef writeSectors(self, unsigned long sector, unsigned long count, bytes data):
+        self.writeBytes(sector*512, count*512, data)
 
 
 cdef class FloppyController:
@@ -156,11 +168,11 @@ cdef class FloppyController:
         if (not (self.msr & FDC_MSR_NODMA)):
             (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, False)
         self.handleIdle()
-    cdef bytes floppyXfer(self, unsigned char drive, unsigned long offset, unsigned long size, unsigned char toFloppy):
+    cdef bytes floppyXfer(self, unsigned char drive, unsigned long sector, unsigned long count, bytes data, unsigned char toFloppy):
         if (toFloppy):
-            self.main.exitError("FDC_CTRL::floppyXfer: write to floppy isn't supported yet.")
+            (<FloppyDrive>self.drive[drive]).writeSectors(sector, count, data)
             return
-        return (<FloppyDrive>self.drive[drive]).readBytes(offset, size)
+        return (<FloppyDrive>self.drive[drive]).readSectors(sector, count)
     cdef addCommand(self, unsigned char command):
         cdef unsigned char cmdLength, cmd
         cmdLength = 0
@@ -352,7 +364,7 @@ cdef class FloppyController:
             self.msr |= FDC_MSR_BUSY
             self.handleResult()
             return
-        elif (cmd in (0x6, 0x5)):
+        elif (cmd in (0x5, 0x6)):
             if (not (self.DOR & 0x8)):
                 self.main.exitError("FDC: read/write command with DMA and INT disabled.")
                 return
@@ -415,15 +427,19 @@ cdef class FloppyController:
             (<FloppyDrive>self.drive[drive]).sector = sector
             (<FloppyDrive>self.drive[drive]).eot = eot
 
-            if ((cmd & 0x1f) == 0x6): # read
-                self.fdcBuffer = self.floppyXfer(drive, logicalSector*FDC_SECTOR_SIZE, FDC_SECTOR_SIZE, False)
+            if ((cmd & 0x1f) == 0x5): # write
                 if (self.msr & FDC_MSR_NODMA):
                     self.msr &= ~FDC_MSR_BUSY
                     self.msr |= (FDC_MSR_RQM | FDC_MSR_DIO)
                 else:
                     (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
-            elif ((cmd & 0x1f) == 0x5): # write
-                self.main.exitError("FDC: handleCommand 0x5: write not implemented yet.")
+            elif ((cmd & 0x1f) == 0x6): # read
+                self.fdcBuffer = self.floppyXfer(drive, logicalSector, 1, b"", False)
+                if (self.msr & FDC_MSR_NODMA):
+                    self.msr &= ~FDC_MSR_BUSY
+                    self.msr |= (FDC_MSR_RQM | FDC_MSR_DIO)
+                else:
+                    (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
             else:
                 self.main.exitError("FDC: handleCommand: unknown r/w cmd {0:#04x}.", cmd)
         else:
@@ -432,7 +448,35 @@ cdef class FloppyController:
             self.st0 = 0x80
             self.handleResult()
     cdef readFromMem(self, unsigned char data):
-        self.main.exitError("FDC::readFromMem: not implemented yet!")
+        cdef unsigned char drive
+        cdef unsigned long logicalSector
+        drive = self.DOR & 0x3
+        if (self.fdcBufferIndex == 0):
+            self.fdcBuffer = bytes([data])
+        else:
+            self.fdcBuffer += bytes([data])
+        self.fdcBufferIndex += 1
+        self.TC = self.getTC()
+        if (self.fdcBufferIndex >= 512 or self.TC):
+            if ((<FloppyDrive>self.drive[drive]).isWriteProtected):
+                self.st0 = 0x40 | ((<FloppyDrive>self.drive[drive]).head << 2) | drive
+                self.st1 = 0x27
+                self.st2 = 0x31
+                self.handleResult()
+                return
+            logicalSector = (<FloppyDrive>self.drive[drive]).ChsToSector((<FloppyDrive>self.drive[drive]).\
+              cylinder, (<FloppyDrive>self.drive[drive]).head, (<FloppyDrive>self.drive[drive]).sector)
+            self.floppyXfer(drive, logicalSector, 1, self.fdcBuffer, True)
+            self.incrementSector()
+            self.fdcBufferIndex = 0
+            if (self.TC):
+                self.st0 = ((<FloppyDrive>self.drive[drive]).head << 2) | drive
+                self.st1 = self.st2 = 0
+                if (not (self.msr & FDC_MSR_NODMA)):
+                    (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, False)
+                self.handleResult()
+            elif (not (self.msr & FDC_MSR_NODMA)):
+                (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
     cdef unsigned char writeToMem(self):
         cdef unsigned char drive, data
         cdef unsigned long logicalSector
@@ -454,7 +498,7 @@ cdef class FloppyController:
                 self.handleResult()
             else:
                 logicalSector = (<FloppyDrive>self.drive[drive]).ChsToSector((<FloppyDrive>self.drive[drive]).cylinder, (<FloppyDrive>self.drive[drive]).head, (<FloppyDrive>self.drive[drive]).sector)
-                self.fdcBuffer = self.floppyXfer(drive, logicalSector*FDC_SECTOR_SIZE, FDC_SECTOR_SIZE, False)
+                self.fdcBuffer = self.floppyXfer(drive, logicalSector, 1, b"", False)
                 if (self.msr & FDC_MSR_NODMA):
                     self.msr &= ~FDC_MSR_BUSY
                     self.msr |= (FDC_MSR_RQM | FDC_MSR_DIO)
@@ -547,7 +591,8 @@ cdef class FloppyController:
                 if ((self.msr & FDC_MSR_NODMA) and (len(self.command) > 0 and (self.command[0] & 0x1f) == 0x5)):
                     self.readFromMem(data)
                     self.lowerFloppyIrq()
-                    return
+                    if (self.TC):
+                        self.handleIdle()
                 else:
                     self.addCommand(data)
                 return

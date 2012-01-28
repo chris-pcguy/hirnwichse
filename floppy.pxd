@@ -24,7 +24,8 @@ cdef class FloppyDrive:
     cdef loadDrive(self, bytes filename)
     cdef bytes readBytes(self, unsigned long offset, unsigned long size)
     cdef bytes readSectors(self, unsigned long sector, unsigned long count) # count in sectors
-    cdef writeSectors(self, unsigned long sector, bytes data)
+    cdef writeBytes(self, unsigned long offset, unsigned long size, bytes data)
+    cdef writeSectors(self, unsigned long sector, unsigned long count, bytes data)
 
 
 cdef class FloppyController:
@@ -35,7 +36,7 @@ cdef class FloppyController:
     cdef unsigned long fdcBufferIndex
     cdef unsigned char controllerId, msr, DOR, st0, st1, st2, st3, TC, resetSensei, pendingIrq, dataRate, multiTrack
     cdef reset(self, unsigned char hwReset)
-    cdef bytes floppyXfer(self, unsigned char drive, unsigned long offset, unsigned long size, unsigned char toFloppy)
+    cdef bytes floppyXfer(self, unsigned char drive, unsigned long sector, unsigned long count, bytes data, unsigned char toFloppy)
     cdef addCommand(self, unsigned char command)
     cdef addToCommand(self, unsigned char command)
     cdef addToResult(self, unsigned char result)
