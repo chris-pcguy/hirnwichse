@@ -166,7 +166,7 @@ cdef class Registers:
         return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned long *retAddr):
         retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
-        retAddr[0] = self.regAddReturnOrig(self.eipSizeRegId, 1)
+        retAddr[0] = self.regAdd(self.eipSizeRegId, 1)-1
         return self.mmReadValueUnsigned(retAddr[0], OP_SIZE_BYTE, CPU_SEGMENT_CS, False)
     cdef unsigned short getRegSize(self, unsigned short regId):
         if (regId in CPU_REGISTER_BYTE):
@@ -249,10 +249,6 @@ cdef class Registers:
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         value = self.regs.csWriteValueBE(aregId, value, opSize)
         return value # returned value is unsigned!!
-    cdef unsigned long regAddReturnOrig(self, unsigned short regId, long long value):
-        cdef long long origValue = self.regRead(regId, False)
-        self.regWrite(regId, ((origValue+value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
-        return origValue
     cdef unsigned long regAdd(self, unsigned short regId, long long value):
         return self.regWrite(regId, ((self.regRead(regId, False)+value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
     cdef unsigned long regAdc(self, unsigned short regId, unsigned long value):
@@ -395,7 +391,7 @@ cdef class Registers:
         elif (index == 0x1): # NO
             return self.getEFLAG(FLAG_OF)==0
         elif (index == 0x2): # C
-            return self.getEFLAG(FLAG_CF)!=0
+            return self.getEFLAG(FLAG_CF)
         elif (index == 0x3): # NC
             return self.getEFLAG(FLAG_CF)==0
         elif (index == 0x4): # E
@@ -437,7 +433,7 @@ cdef class Registers:
         bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
 
         if (method == OPCODE_ADD or method == OPCODE_ADC):
-            if (method == OPCODE_ADC and self.getEFLAG(FLAG_CF)!=0):
+            if (method == OPCODE_ADC and self.getEFLAG(FLAG_CF)):
                 reg0 += 1
             regSum = reg0+reg1
             regSumMasked = regSum&bitMask
@@ -459,7 +455,7 @@ cdef class Registers:
             self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
             self.setEFLAG(FLAG_SF, regSum!=0)
         elif (method == OPCODE_SUB or method == OPCODE_SBB):
-            if (method == OPCODE_SBB and self.getEFLAG(FLAG_CF)!=0):
+            if (method == OPCODE_SBB and self.getEFLAG(FLAG_CF)):
                 reg0 -= 1
             regSum = reg0-reg1
             regSumMasked = regSum&bitMask

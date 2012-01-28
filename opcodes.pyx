@@ -1606,33 +1606,31 @@ cdef class Opcodes:
         else:
             self.main.printMsg("opcodeGroupFF: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
-    cdef incFuncReg(self, unsigned char regId):
-        cdef unsigned char origCF, regSize
+    cdef incFuncReg(self, unsigned char regId, unsigned char regSize):
+        cdef unsigned char origCF
         cdef unsigned long retValue
-        origCF = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_CF)!=0
-        regSize = (<Registers>self.main.cpu.registers).getRegSize(regId)
+        origCF = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_CF)
         retValue = (<Registers>self.main.cpu.registers).regAdd(regId, 1)
         (<Registers>self.main.cpu.registers).setFullFlags(retValue-1, 1, regSize, OPCODE_ADD, False)
         (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, origCF)
-    cdef decFuncReg(self, unsigned char regId):
-        cdef unsigned char origCF, regSize
+    cdef decFuncReg(self, unsigned char regId, unsigned char regSize):
+        cdef unsigned char origCF
         cdef unsigned long retValue
-        origCF = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_CF)!=0
-        regSize = (<Registers>self.main.cpu.registers).getRegSize(regId)
+        origCF = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_CF)
         retValue = (<Registers>self.main.cpu.registers).regSub(regId, 1)
         (<Registers>self.main.cpu.registers).setFullFlags(retValue+1, 1, regSize, OPCODE_SUB, False)
         (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, origCF)
     cdef incFuncRM(self, unsigned char rmSize):
         cdef unsigned char origCF
         cdef unsigned long retValue
-        origCF = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_CF)!=0
+        origCF = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_CF)
         retValue = self.modRMInstance.modRMSave(rmSize, 1, True, OPCODE_ADD)
         (<Registers>self.main.cpu.registers).setFullFlags(retValue-1, 1, rmSize, OPCODE_ADD, False)
         (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, origCF)
     cdef decFuncRM(self, unsigned char rmSize):
         cdef unsigned char origCF
         cdef unsigned long retValue
-        origCF = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_CF)!=0
+        origCF = (<Registers>self.main.cpu.registers).getEFLAG(FLAG_CF)
         retValue = self.modRMInstance.modRMSave(rmSize, 1, True, OPCODE_SUB)
         (<Registers>self.main.cpu.registers).setFullFlags(retValue+1, 1, rmSize, OPCODE_SUB, False)
         (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, origCF)
@@ -1642,14 +1640,14 @@ cdef class Opcodes:
         operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
         regName  = CPU_REGISTER_WORD[self.main.cpu.opcode&7]
         regName  = (<Registers>self.main.cpu.registers).getWordAsDword(regName, operSize)
-        self.incFuncReg(regName)
+        self.incFuncReg(regName, operSize)
     cdef decReg(self):
         cdef unsigned char operSize
         cdef unsigned short regName
         operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
         regName  = CPU_REGISTER_WORD[self.main.cpu.opcode&7]
         regName  = (<Registers>self.main.cpu.registers).getWordAsDword(regName, operSize)
-        self.decFuncReg(regName)
+        self.decFuncReg(regName, operSize)
     cdef pushReg(self):
         cdef unsigned char operSize
         cdef unsigned short regName
