@@ -139,16 +139,12 @@ cdef class FloppyController:
         self.controllerId = controllerId
         self.fdcBufferIndex = 0 # TODO: maybe move this line...
         self.command = self.result = self.fdcBuffer = b"" # and this too, to reset?
-        self._pyroId = ''
-        self._pyroDaemon = None
-        self.pyroURI_FDC = self.main.pyroDaemon.register(self)
-        self.pyroFDC = Pyro4.Proxy(self.pyroURI_FDC)
         self.drive = (FloppyDrive(self, 0), FloppyDrive(self, 1), FloppyDrive(self, 2), FloppyDrive(self, 3))
     cdef reset(self, unsigned char hwReset):
         cdef unsigned char i
         self.resetSensei = self.msr = self.st0 = self.st1 = self.st2 = self.st3 = 0
         self.pendingIrq = False
-        self.fdc.setupDMATransfer(self.pyroFDC)
+        self.fdc.setupDMATransfer(self)
         if (hwReset):
             self.DOR = FDC_DOR_NORESET | FDC_DOR_DMA
             self.dataRate = 2
@@ -240,7 +236,7 @@ cdef class FloppyController:
                 (<FloppyDrive>self.drive[drive]).cylinder = (<FloppyDrive>self.drive[drive]).media.tracks
     cdef getTC(self):
         cdef unsigned char drive, TC
-        self.fdc.setupDMATransfer(self.pyroFDC) # TODO: do we need this here?
+        self.fdc.setupDMATransfer(self)
         TC = False
         if (self.msr & FDC_MSR_NODMA):
             drive = self.DOR & 0x3
@@ -292,7 +288,7 @@ cdef class FloppyController:
         self.multiTrack = (cmd & FDC_CMD_MT) != 0
         cmd &= 0x1f
         self.msr |= FDC_MSR_RQM | FDC_MSR_DIO | FDC_MSR_BUSY
-        self.fdc.setupDMATransfer(self.pyroFDC)
+        self.fdc.setupDMATransfer(self)
         if (cmd == 0x3): # set drive parameters
             if (self.command[2] & 0x1):
                 self.msr |= FDC_MSR_NODMA
@@ -435,9 +431,9 @@ cdef class FloppyController:
             self.clearCommand()
             self.st0 = 0x80
             self.handleResult()
-    cpdef readFromMem(self, unsigned char data):
+    cdef readFromMem(self, unsigned char data):
         self.main.exitError("FDC::readFromMem: not implemented yet!")
-    cpdef unsigned char writeToMem(self):
+    cdef unsigned char writeToMem(self):
         cdef unsigned char drive, data
         cdef unsigned long logicalSector
         drive = self.DOR & 0x3
@@ -587,8 +583,9 @@ cdef class Floppy:
     def __init__(self, object main):
         self.main = main
         self.controller = (FloppyController(self, 0), FloppyController(self, 1))
-    cpdef setupDMATransfer(self, object classInstance):
-        (<IsaDma>self.main.platform.isadma).setDmaMemActions(0, FDC_DMA_CHANNEL, classInstance)
+    cdef setupDMATransfer(self, FloppyController classInstance):
+        (<IsaDma>self.main.platform.isadma).setDmaMemActions(0, FDC_DMA_CHANNEL, classInstance, \
+            <ReadFromMem>classInstance.readFromMem, <WriteToMem>classInstance.writeToMem)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr >= FDC_FIRST_PORTBASE and ioPortAddr <= FDC_FIRST_PORTBASE+FDC_PORTCOUNT):
