@@ -1,4 +1,5 @@
 
+from misc cimport Misc
 from ps2 cimport PS2
 
 

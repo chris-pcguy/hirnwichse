@@ -1,4 +1,8 @@
 
+from misc cimport Misc
+from libc.stdlib cimport calloc, malloc, free
+from libc.string cimport strncpy, memcpy, memset
+
 
 cdef class MmArea:
     cpdef object main

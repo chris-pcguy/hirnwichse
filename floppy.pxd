@@ -1,6 +1,6 @@
 
 from cmos cimport Cmos
-from isadma cimport IsaDma, IsaDmaChannel, DmaReadFromMem, DmaWriteToMem
+from isadma cimport IsaDma, IsaDmaChannel
 from pic cimport Pic
 
 
@@ -28,13 +28,14 @@ cdef class FloppyDrive:
 
 
 cdef class FloppyController:
-    cpdef public object main
+    cpdef public object main, _pyroDaemon, pyroURI_FDC, pyroFDC
     cdef Floppy fdc
     cdef tuple drive
+    cdef public str _pyroId
     cdef bytes command, result, fdcBuffer
     cdef unsigned long fdcBufferIndex
     cdef unsigned char controllerId, msr, DOR, st0, st1, st2, st3, TC, resetSensei, pendingIrq, dataRate, multiTrack
-    cpdef reset(self, unsigned char hwReset)
+    cdef reset(self, unsigned char hwReset)
     cdef bytes floppyXfer(self, unsigned char drive, unsigned long offset, unsigned long size, unsigned char toFloppy)
     cdef addCommand(self, unsigned char command)
     cdef addToCommand(self, unsigned char command)
@@ -56,7 +57,7 @@ cdef class FloppyController:
     cdef lowerFloppyIrq(self)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cpdef run(self)
+    cdef run(self)
 
 cdef class Floppy:
     cpdef public object main
@@ -64,7 +65,7 @@ cdef class Floppy:
     cpdef setupDMATransfer(self, object classInstance)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cpdef run(self)
+    cdef run(self)
 
 
 

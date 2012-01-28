@@ -38,11 +38,11 @@ cdef class Cpu:
         # This is only for IRQs! (exceptions will use cpu.exception)
         oldIF = self.registers.getEFLAG(FLAG_IF)!=0
         if (self.INTR and oldIF ):
-            irqVector = self.main.pyroPIC.IAC()
+            irqVector = (<Pic>self.main.platform.pic).IAC()
             self.opcodes.interrupt(irqVector, -1)
             self.saveCurrentInstPointer()
         elif (self.HRQ):
-            self.main.pyroIsaDma.raiseHLDA()
+            (<IsaDma>self.main.platform.isadma).raiseHLDA()
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
             self.asyncEvent = False
         return
@@ -149,7 +149,7 @@ cdef class Cpu:
         self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
-        self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
+        ##self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
         try:
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)

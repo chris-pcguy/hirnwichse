@@ -1,9 +1,4 @@
 
-from mm cimport Mm
-from cmos cimport Cmos
-from registers cimport Registers
-from vga cimport Vga
-from floppy cimport Floppy, FloppyController, FloppyDrive, FloppyMedia
 
 include "globals.pxi"
 
@@ -32,7 +27,7 @@ cdef class PythonBios:
         if (intNum == 0x10): # video; TODO: REWORK THIS AND THE VGA MODULE TOO!!!
             #return False
             currMode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_MODE_ADDR, 1)
-            self.main.debug("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
+            ##self.main.debug("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
             if (ah == 0x02): # set cursor position
                 (<Vga>self.main.platform.vga).setCursorPosition(bh, dx)
                 return True
@@ -101,7 +96,6 @@ cdef class PythonBios:
                 self.main.printMsg("PythonBios::interrupt: int: 0x10: currMode {0:d} not supported here. (ax: {1:#06x})", currMode, ax)
                 return False
         elif (intNum == 0x13): # data storage; floppy
-            return False
             fdcNum = 0
             if (dl in (2, 3)):
                 fdcNum = 1

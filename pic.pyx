@@ -131,9 +131,6 @@ cdef class Pic:
     def __init__(self, object main):
         self.main = main
         self.channels = (PicChannel(self, self.main, True), PicChannel(self, self.main, False))
-        self._pyroId = ''
-        self._pyroDaemon = None
-        self.main.pyroURI_PIC = self.main.pyroDaemon.register(self)
     cpdef raiseIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
         if (irq > 15):

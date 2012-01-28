@@ -134,7 +134,7 @@ cdef class Gdt:
     cdef GdtEntry getEntry(self, unsigned short num):
         cdef unsigned long long entryData
         if (not num):
-            self.segments.main.debug("GDT::getEntry: num == 0!")
+            ##self.segments.main.debug("GDT::getEntry: num == 0!")
             return None
         entryData = self.table.csReadValueUnsigned((num&0xfff8), 8)
         return GdtEntry(entryData)

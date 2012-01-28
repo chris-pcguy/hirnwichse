@@ -1,6 +1,4 @@
 
-from mm cimport Mm
-from libc.string cimport memset
 
 include "globals.pxi"
 
@@ -24,7 +22,7 @@ cdef class IsaDmaChannel:
         self.DRQ = False
         self.DACK = False
     cdef run(self):
-        self.dmaReadFromMem = self.dmaWriteToMem = None
+        self.dmaMemActionInstance = None
 
 cdef class IsaDmaController:
     def __init__(self, IsaDma isadma, unsigned char master):
@@ -242,9 +240,9 @@ cdef class IsaDma:
             self.extPageReg[ioPortAddr&0xf] = data&BITMASK_BYTE
         else:
             self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
-    cpdef getTC(self):
+    cdef getTC(self):
         return self.TC
-    cpdef setDRQ(self, unsigned char channel, unsigned char val):
+    cdef setDRQ(self, unsigned char channel, unsigned char val):
         cdef unsigned long dmaBase, dmaRoof
         cdef unsigned char ma_sl
         cdef IsaDmaController currController
@@ -328,8 +326,8 @@ cdef class IsaDma:
                 currChannel.currentCount = currChannel.baseCount
 
         if (currChannel.transferDirection == 1): # IODEV -> MEM
-            if (currChannel.dmaWriteToMem is not None):
-                data = (<IsaDmaChannel>currChannel).dmaWriteToMem()&BITMASK_WORD
+            if (currChannel.dmaMemActionInstance is not None):
+                data = currChannel.dmaMemActionInstance.writeToMem()&BITMASK_WORD
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
                 return
@@ -338,14 +336,14 @@ cdef class IsaDma:
             (<Mm>self.main.mm).mmPhyWriteValue(phyAddr, data, ma_sl+1)
         elif (currChannel.transferDirection == 2): # MEM -> IODEV
             data = (<Mm>self.main.mm).mmPhyReadValueUnsigned(phyAddr, ma_sl+1)
-            if (currChannel.dmaReadFromMem is not None):
-                (<IsaDmaChannel>currChannel).dmaReadFromMem(data)
+            if (currChannel.dmaMemActionInstance is not None):
+                currChannel.dmaMemActionInstance.readFromMem(data)
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaRead handler for channel {0:d}", channel)
                 return
         elif (currChannel.transferDirection == 0): # Verify
-            if (currChannel.dmaWriteToMem is not None):
-                data = (<IsaDmaChannel>currChannel).dmaWriteToMem()&BITMASK_WORD
+            if (currChannel.dmaMemActionInstance is not None):
+                data = currChannel.dmaMemActionInstance.writeToMem()&BITMASK_WORD
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
                 return
@@ -366,8 +364,7 @@ cdef class IsaDma:
         cdef IsaDmaChannel channel
         controller = (<IsaDmaController>self.controller[controllerId])
         channel = (<IsaDmaChannel>controller.channel[channelId])
-        channel.dmaReadFromMem = classInstance.readFromMem
-        channel.dmaWriteToMem = classInstance.writeToMem
+        channel.dmaMemActionInstance = classInstance
     cdef run(self):
         cdef IsaDmaController controller
         memset(self.extPageReg, 0, 16)

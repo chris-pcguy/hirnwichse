@@ -1,4 +1,5 @@
 
+from misc cimport Misc
 from mm cimport Mm, MmArea
 from cmos cimport Cmos
 from isadma cimport IsaDma

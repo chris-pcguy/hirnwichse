@@ -5,9 +5,6 @@ from sys import exc_info, exit
 from time import sleep
 import Pyro4
 
-from misc cimport Misc
-
-
 include "globals.pxi"
 
 cdef class PortHandler:
@@ -138,9 +135,9 @@ cdef class Platform:
                     continue
                 for portNum in port.ports:
                     if (portNum == ioPortAddr):
-                        self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
+                        ##self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
                         retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
-                        self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
+                        ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
                         return retVal
             self.main.printMsg("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
             return bitMask
@@ -159,7 +156,7 @@ cdef class Platform:
                     continue
                 for portNum in port.ports:
                     if (portNum == ioPortAddr):
-                        self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
+                        ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
                         port.outPort(port.classObject, ioPortAddr, data, dataSize)
                         return
             self.main.printMsg("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
@@ -234,23 +231,23 @@ cdef class Platform:
         self.gdbstub.run()
         self.pythonBios.run()
     cpdef initRemotes(self):
-        self.main.pyroCMOS = Pyro4.core.Proxy(self.main.pyroURI_CMOS)
         self.main.pyroIsaDma = Pyro4.core.Proxy(self.main.pyroURI_IsaDma)
-        self.main.pyroPIC = Pyro4.core.Proxy(self.main.pyroURI_PIC)
-        self.main.pyroPS2 = Pyro4.core.Proxy(self.main.pyroURI_PS2)
         self.main.pyroUI = Pyro4.core.Proxy(self.main.pyroURI_UI)
         self.main.pyroUI._pyroOneway.add('pumpEvents')
-        self.main.pyroPS2._pyroOneway.add('keySend')
     cpdef run(self):
-        self.initDevices()
-        self.initRemotes()
-        (<Mm>self.main.mm).mmAddArea(0, self.memSize, False, <MmArea>MmArea)
-        (<Mm>self.main.mm).mmAddArea(0xfffc0000, 0x40000, False, <MmArea>MmArea)
-        self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
-        if (self.main.vgaBiosFilename):
-            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
-        <MmArea>((<Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
-        self.initDevicesPorts()
-        self.runDevices()
+        try:
+            self.initDevices()
+            self.initRemotes()
+            (<Mm>self.main.mm).mmAddArea(0, self.memSize, False, <MmArea>MmArea)
+            (<Mm>self.main.mm).mmAddArea(0xfffc0000, 0x40000, False, <MmArea>MmArea)
+            self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
+            if (self.main.vgaBiosFilename):
+                self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
+            <MmArea>((<Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
+            self.initDevicesPorts()
+            self.runDevices()
+        except:
+            print(exc_info())
+            exit(1)
 
 

@@ -1,6 +1,5 @@
 
 from time import gmtime
-from misc cimport Misc
 
 include "globals.pxi"
 
@@ -10,16 +9,13 @@ cdef class Cmos:
         self.main = main
         self.cmosIndex = 0
         self.equipmentDefaultValue = 0xc
-        self._pyroId = ''
-        self._pyroDaemon = None
-        self.main.pyroURI_CMOS = self.main.pyroDaemon.register(self)
-    cpdef setEquipmentDefaultValue(self, unsigned char value):
+    cdef setEquipmentDefaultValue(self, unsigned char value):
         self.equipmentDefaultValue = value
-    cpdef unsigned char getEquipmentDefaultValue(self):
+    cdef unsigned char getEquipmentDefaultValue(self):
         return self.equipmentDefaultValue
-    cpdef unsigned long readValue(self, unsigned char index, unsigned char size):
+    cdef unsigned long readValue(self, unsigned char index, unsigned char size):
         return self.configSpace.csReadValueUnsigned(index, size)
-    cpdef writeValue(self, unsigned char index, unsigned long value, unsigned char size):
+    cdef writeValue(self, unsigned char index, unsigned long value, unsigned char size):
         self.configSpace.csWriteValue(index, value, size)
     cdef reset(self):
         cdef unsigned long long memSizeInK, extMemSizeInK, extMemSizeIn64K

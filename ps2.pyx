@@ -3,12 +3,6 @@
 
 from time import sleep
 
-from pic cimport Pic
-from segments cimport Segments
-from registers cimport Registers
-from cpu cimport Cpu
-
-
 include "globals.pxi"
 include "kb_scancodes.pxi"
 
@@ -22,9 +16,6 @@ DEF PS2_CMDBYTE_IRQ1 = 0x01
 cdef class PS2:
     def __init__(self, object main):
         self.main = main
-        self._pyroId = ''
-        self._pyroDaemon = None
-        self.main.pyroURI_PS2 = self.main.pyroDaemon.register(self)
     cdef resetInternals(self, unsigned char powerUp):
         self.outBuffer  = bytes() # KBC -> CPU
         self.needWriteBytes = 0 # need to write $N bytes to 0x60
@@ -58,7 +49,7 @@ cdef class PS2:
         self.outb = True
         if (self.allowIrq1):
             self.irq1Requested = True
-            self.main.pyroPIC.raiseIrq(KBC_IRQ)
+            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
     cdef appendToOutBytesDoIrq(self, bytes data):
         if (self.outb):
             self.main.printMsg("KBC::appendToOutBytesDoIrq: self.outb!=0")
@@ -67,7 +58,7 @@ cdef class PS2:
         self.outb = True
         if (self.allowIrq1):
             self.irq1Requested = True
-            self.main.pyroPIC.raiseIrq(KBC_IRQ)
+            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
     cpdef setKeyboardRepeatRate(self, unsigned char data): # input is data from cmd 0xf3
         cdef unsigned short delay, interval
         interval = data&0x1f
@@ -86,16 +77,16 @@ cdef class PS2:
         else:
             self.main.exitError("setKeyboardRepeatRate: interval {0:d} unknown.", interval)
         # TODO: Set the repeat-rate properly.
-        ##if (self.main.platform.vga.ui is not None):
-        ##    self.main.platform.vga.ui.setRepeatRate(delay, interval)
+        if (self.main.pyroUI is not None):
+            self.main.pyroUI.setRepeatRate(delay, interval)
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
         cdef unsigned char escaped, sc
         cdef bytes scancode
         escaped = 0x00
-        self.main.debug("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        ##self.main.debug("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         if ((not self.kbdClockEnabled) or (not self.scanningEnabled) or (keyId == 0xff)):
             return
-        self.main.debug("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        ##self.main.debug("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         scancode = SCANCODES[keyId][self.currentScancodesSet][keyUp]
         if (self.translateScancodes):
             for sc in scancode:
@@ -109,7 +100,7 @@ cdef class PS2:
         self.outb = True
         if (self.allowIrq1 and self.kbdClockEnabled):
             self.irq1Requested = True
-            self.main.pyroPIC.raiseIrq(KBC_IRQ)
+            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
         ###self.activateTimer()
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char retByte = 0
@@ -119,7 +110,7 @@ cdef class PS2:
                     self.outb = True # TODO: HACK
                     #if (self.allowIrq1): # TODO: delete this again!?!
                     #    self.irq1Requested = True
-                    #    self.main.pyroPIC.raiseIrq(KBC_IRQ)
+                    #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
                 return ((0x10) | \
                        (self.lastUsedPort << 3) | \
                        (self.sysf << 2) | \
@@ -128,7 +119,7 @@ cdef class PS2:
                 self.outb = False
                 self.irq1Requested = False
                 self.batInProgress = False
-                self.main.pyroPIC.lowerIrq(KBC_IRQ)
+                (<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
                 if (len(self.outBuffer)):
                     retByte = self.outBuffer[0]
                     if (len(self.outBuffer) > 1):
@@ -136,10 +127,10 @@ cdef class PS2:
                         self.outb = True
                         if (self.allowIrq1):
                             self.irq1Requested = True
-                            self.main.pyroPIC.raiseIrq(KBC_IRQ)
+                            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
                     else:
                         self.outBuffer = bytes()
-                #self.main.pyroPIC.lowerIrq(KBC_IRQ)
+                #(<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
                 #if (len(self.outBuffer)):
                 #    self.activateTimer()
                 return retByte
@@ -219,7 +210,7 @@ cdef class PS2:
                         self.allowIrq1 = data&1
                         if (self.allowIrq1 and self.outb):
                             self.irq1Requested = True
-                            self.main.pyroPIC.raiseIrq(KBC_IRQ)
+                            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
                     elif (self.lastKbCmdByte == 0xf0): # port 0x60
                         if (data == 0x00): # get scancodes
                             self.appendToOutBytes(b'\xfa')
@@ -281,7 +272,8 @@ cdef class PS2:
                 elif (data == 0xfe): # reset cpu
                     (<Cpu>self.main.cpu).reset()
                 elif ((data >= 0xf0 and data <= 0xfd) or data == 0xff):
-                    self.main.debug("outPort: ignoring useless command {0:#04x}. (port {1:#04x})", data, ioPortAddr)
+                    pass
+                    ##self.main.debug("outPort: ignoring useless command {0:#04x}. (port {1:#04x})", data, ioPortAddr)
                 else:
                     self.main.printMsg("outPort: data {0:#04x} is not supported. (port {1:#04x})", data, ioPortAddr)
             elif (ioPortAddr == 0x61):
@@ -330,7 +322,7 @@ cdef class PS2:
             if (self.timerPending):
                 retVal = self.periodic(1)
                 if (retVal&1):
-                    self.main.pyroPIC.raiseIrq(KBC_IRQ)
+                    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
             else:
                 if (len(self.outBuffer)):
                     sleep(0.02)

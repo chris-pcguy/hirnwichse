@@ -1,6 +1,5 @@
 
 from misc import ChemuException
-from misc cimport Misc
 
 include "globals.pxi"
 

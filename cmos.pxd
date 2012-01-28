@@ -1,17 +1,16 @@
 
+from misc cimport Misc
 from mm cimport ConfigSpace
 
 
 cdef class Cmos:
     cdef ConfigSpace configSpace
-    cpdef public object main, _pyroDaemon
-    cpdef object dt
-    cpdef public str _pyroId
+    cpdef object main, dt
     cdef unsigned char cmosIndex, equipmentDefaultValue
-    cpdef setEquipmentDefaultValue(self, unsigned char value)
-    cpdef unsigned char getEquipmentDefaultValue(self)
-    cpdef unsigned long readValue(self, unsigned char index, unsigned char size)
-    cpdef writeValue(self, unsigned char index, unsigned long value, unsigned char size)
+    cdef setEquipmentDefaultValue(self, unsigned char value)
+    cdef unsigned char getEquipmentDefaultValue(self)
+    cdef unsigned long readValue(self, unsigned char index, unsigned char size)
+    cdef writeValue(self, unsigned char index, unsigned long value, unsigned char size)
     cdef reset(self)
     cdef updateTime(self)
     cdef makeCheckSum(self)

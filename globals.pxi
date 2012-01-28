@@ -371,9 +371,12 @@ DEF FDC_MSR_BUSY = 0x10 # MSR command busy
 DEF FDC_MSR_NODMA = 0x20 # MSR just use PIO. (NO DMA!)
 DEF FDC_MSR_DIO = 0x40 # MSR FIFO IO port expects an IN opcode (wiki.osdev.org)
 DEF FDC_MSR_RQM = 0x80 # MSR ok (or mandatory) to exchange bytes with the FIFO IO port (wiki.osdev.org)
+DEF FDC_CMD_SK = 0x20 # command is using skip-mode
+DEF FDC_CMD_MF = 0x40 # command is using mfm
+DEF FDC_CMD_MT = 0x80 # command is using multi-track
 DEF FDC_SECTOR_SIZE = 512
 
-cdef dict FDC_CMDLENGTH_TABLE = { 0x3: 3, 0x4: 2, 0x7: 2, 0x8: 1, 0xf: 3, 0x45: 9, 0x46: 9, 0x4a: 2, 0x66: 9, 0xc5: 9, 0xc6: 9, 0xe6: 9}
+cdef dict FDC_CMDLENGTH_TABLE = {0x3: 3, 0x4: 2, 0x5: 9, 0x6: 9, 0x7: 2, 0x8: 1, 0xa: 2, 0xf: 3}
 cdef tuple FDC_FIRST_READ_PORTS = (0x3f0, 0x3f1, 0x3f2, 0x3f3, 0x3f4, 0x3f5, 0x3f6, 0x3f7)
 cdef tuple FDC_SECOND_READ_PORTS = (0x370, 0x371, 0x372, 0x373, 0x374, 0x375, 0x376, 0x377)
 cdef tuple FDC_FIRST_WRITE_PORTS = (0x3f2, 0x3f3, 0x3f4, 0x3f5, 0x3f6, 0x3f7)

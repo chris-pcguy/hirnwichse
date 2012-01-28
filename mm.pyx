@@ -1,8 +1,5 @@
 
 from atexit import register
-from misc cimport Misc
-from libc.stdlib cimport calloc, malloc, free
-from libc.string cimport strncpy, memcpy, memset
 
 include "globals.pxi"
 

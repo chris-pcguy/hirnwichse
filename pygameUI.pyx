@@ -2,7 +2,6 @@
 from sys import exc_info
 from atexit import register
 import pygame
-from misc cimport Misc
 import Pyro4
 
 include "globals.pxi"
@@ -343,9 +342,9 @@ cdef class PygameUI:
             elif (event.type == pygame.VIDEOEXPOSE):
                 self.updateScreen(list())
             elif (event.type == pygame.KEYDOWN):
-                self.main.pyroPS2.keySend(self.keyToScancode(event.key), False)
+                (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), False)
             elif (event.type == pygame.KEYUP):
-                self.main.pyroPS2.keySend(self.keyToScancode(event.key), True)
+                (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), True)
             else:
                 self.main.printMsg("PygameUI::handleEvent: event.type == {0:d}", event.type)
         except pygame.error:

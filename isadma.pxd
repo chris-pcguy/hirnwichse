@@ -1,11 +1,10 @@
 
-ctypedef void (*DmaReadFromMem)(self, unsigned char)
-ctypedef unsigned char (*DmaWriteToMem)(self)
-ctypedef void (*SetHRQ)(self, unsigned char)
+from mm cimport Mm
+from libc.string cimport memset
 
 
 cdef class IsaDmaChannel:
-    cpdef object main, dmaReadFromMem, dmaWriteToMem
+    cpdef public object main, dmaMemActionInstance
     cdef IsaDmaController controller
     cdef IsaDma isadma
     cdef unsigned char channelNum, channelMasked, transferDirection, autoInit, addressDecrement, transferMode, page, DRQ, DACK
@@ -47,8 +46,8 @@ cdef class IsaDma:
     cdef unsigned char extPageReg[16], HLDA, TC # extPageReg is unused.
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cpdef getTC(self)
-    cpdef setDRQ(self, unsigned char channel, unsigned char val)
+    cdef getTC(self)
+    cdef setDRQ(self, unsigned char channel, unsigned char val)
     cdef raiseHLDA(self)
     cpdef setDmaMemActions(self, unsigned char controllerId, unsigned char channelId, object classInstance)
     cdef run(self)

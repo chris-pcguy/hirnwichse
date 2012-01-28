@@ -1,7 +1,5 @@
 
 from time import sleep
-from pic cimport Pic
-from ps2 cimport PS2
 
 include "globals.pxi"
 

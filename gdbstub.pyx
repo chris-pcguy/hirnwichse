@@ -3,7 +3,6 @@ from sys import exc_info, exit
 from atexit import register
 from socket import error as SocketError, IPPROTO_TCP, TCP_NODELAY
 from socketserver import BaseRequestHandler, ThreadingMixIn, TCPServer
-from misc cimport Misc
 
 include "globals.pxi"
 
@@ -88,7 +87,7 @@ cdef class GDBStubHandler:
                             self.clearData()
                             return
                         elif (tempStr.startswith(b'+')):
-                            self.main.debug("GDBStubHandler::handleRead: got ack.")
+                            ##self.main.debug("GDBStubHandler::handleRead: got ack.")
                             self.lastWrittenData = bytes()
                             if (len(tempStr) >= 2):
                                 tempStr = tempStr[1:]
@@ -118,7 +117,7 @@ cdef class GDBStubHandler:
                                 self.sendPacketType(PACKET_NACK)
                                 self.clearData()
                                 return
-                            self.main.debug("GDBStubHandler::handleRead: send ack.")
+                            ##self.main.debug("GDBStubHandler::handleRead: send ack.")
                             self.sendPacketType(PACKET_ACK)
                             self.handleCommand(self.cmdStr)
                             self.clearData()

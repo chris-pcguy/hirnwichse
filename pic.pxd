@@ -1,6 +1,4 @@
 
-ctypedef void (*SetINTR)(self, unsigned char)
-
 
 cdef class PicChannel:
     cpdef object main
@@ -25,8 +23,7 @@ cdef class PicChannel:
     cdef run(self)
 
 cdef class Pic:
-    cpdef public object main, _pyroDaemon
-    cpdef public str _pyroId
+    cpdef public object main
     cdef tuple channels
     cpdef raiseIrq(self, unsigned char irq)
     cpdef lowerIrq(self, unsigned char irq)

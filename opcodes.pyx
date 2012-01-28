@@ -1084,7 +1084,7 @@ cdef class Opcodes:
         cdef GdtEntry gdtEntry
         (<Registers>self.main.cpu.registers).getOpAddrCodeSegSize(&operSize, &addrSize)
         operOpcode = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
-        self.main.debug("Group0F: Opcode=={0:#04x}", operOpcode)
+        ##self.main.debug("Group0F: Opcode=={0:#04x}", operOpcode)
         if (operOpcode == 0x00): # LLDT/SLDT LTR/STR VERR/VERW
             if ((<Registers>self.main.cpu.registers).cpl != 0):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
@@ -1111,7 +1111,7 @@ cdef class Opcodes:
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                 if (operOpcodeModId == 2): # LLDT
                     if ((op1>>2) == 0):
-                        self.main.debug("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid.")
+                        ##self.main.debug("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid.")
                         op1 = 0
                     else:
                         if ((op1 & SELECTOR_USE_LDT) or (((<Gdt>(<Registers>self.main.cpu.registers).segments.gdt).getSegAccess(op1)&\
@@ -1918,7 +1918,7 @@ cdef class Opcodes:
                 pythonBiosDone = self.main.platform.pythonBios.interrupt(intNum)
                 if (pythonBiosDone):
                     return
-        self.main.debug("Interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}", intNum, entrySegment, entryEip)
+        ##self.main.debug("Interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}", intNum, entrySegment, entryEip)
         if (inProtectedMode):
             if (((<Registers>self.main.cpu.registers).cpl != 0 and (<Registers>self.main.cpu.registers).cpl > entrySegment&3) or (<Segments>(<Registers>self.main.cpu.registers).segments).getSegDPL(entrySegment) != 0):
                 self.main.exitError("Interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")

@@ -1,4 +1,6 @@
 
+from pic cimport Pic
+from ps2 cimport PS2
 
 cdef class PitChannel:
     cpdef object main, counterModeTimer

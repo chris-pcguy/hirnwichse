@@ -1,5 +1,5 @@
 
-
+from misc cimport Misc
 from mm cimport Mm, ConfigSpace
 from segments cimport Segment, GdtEntry, Gdt, Idt, Segments
 
