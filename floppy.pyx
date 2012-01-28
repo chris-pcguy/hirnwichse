@@ -585,7 +585,7 @@ cdef class Floppy:
         self.controller = (FloppyController(self, 0), FloppyController(self, 1))
     cdef setupDMATransfer(self, FloppyController classInstance):
         (<IsaDma>self.main.platform.isadma).setDmaMemActions(0, FDC_DMA_CHANNEL, classInstance, \
-            <ReadFromMem>classInstance.readFromMem, <WriteToMem>classInstance.writeToMem)
+          <ReadFromMem>classInstance.readFromMem, <WriteToMem>classInstance.writeToMem)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr >= FDC_FIRST_PORTBASE and ioPortAddr <= FDC_FIRST_PORTBASE+FDC_PORTCOUNT):
