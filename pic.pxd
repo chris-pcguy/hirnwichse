@@ -1,4 +1,5 @@
 
+ctypedef void (*SetINTR)(self, unsigned char)
 
 cdef class PicChannel:
     cpdef object main
@@ -24,6 +25,8 @@ cdef class PicChannel:
 
 cdef class Pic:
     cpdef public object main
+    cdef public object cpuInstance
+    cdef SetINTR setINTR
     cdef tuple channels
     cdef raiseIrq(self, unsigned char irq)
     cdef lowerIrq(self, unsigned char irq)

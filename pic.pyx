@@ -72,7 +72,8 @@ cdef class PicChannel:
                         self.intr = True
                         self.irq = irq
                         if (self.master):
-                            self.main.pyroCPU.setINTR(True)
+                            if (self.pic.cpuInstance is not None and self.pic.setINTR is not NULL):
+                                self.pic.setINTR(self.pic.cpuInstance, True)
                         else:
                             self.pic.raiseIrq(2)
                         return
@@ -149,7 +150,8 @@ cdef class Pic:
         cdef PicChannel master, slave
         cdef unsigned char vector
         master, slave = self.channels
-        self.main.pyroCPU.setINTR(False)
+        if (self.cpuInstance is not None and self.setINTR is not NULL):
+            self.setINTR(self.cpuInstance, False)
         master.intr = False
         if (not master.irr):
             return master.getIrqBasePort()+7
@@ -296,6 +298,8 @@ cdef class Pic:
         return
     cdef run(self):
         cdef PicChannel channel
+        self.cpuInstance = None
+        self.setINTR = NULL
         for channel in self.channels:
             channel.run()
         #self.main.platform.addHandlers((0x20, 0x21, 0xa0, 0xa1), self)

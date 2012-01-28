@@ -133,14 +133,16 @@ cdef class IsaDmaController:
             return
         if ((self.statusReg & 0xf0) == 0):
             if (not self.master):
-                self.main.pyroCPU.setHRQ(False)
+                if (self.isadma.cpuInstance is not None and self.isadma.setHRQ is not NULL):
+                    self.isadma.setHRQ(self.isadma.cpuInstance, False)
             else:
                 self.isadma.setDRQ(4, False)
             return
         for channel in range(4):
             if ((self.statusReg & (1 << (channel+4))) and (not (<IsaDmaChannel>self.channel[channel]).channelMasked)):
                 if (not self.master):
-                    self.main.pyroCPU.setHRQ(True)
+                    if (self.isadma.cpuInstance is not None and self.isadma.setHRQ is not NULL):
+                        self.isadma.setHRQ(self.isadma.cpuInstance, True)
                 else:
                     self.isadma.setDRQ(4, True)
                 return
@@ -352,7 +354,8 @@ cdef class IsaDma:
         if (countExpired):
             self.TC = False
             self.HLDA = False
-            self.main.pyroCPU.setHRQ(False)
+            if (self.cpuInstance is not None and self.setHRQ is not NULL):
+                self.setHRQ(self.cpuInstance, False)
             (<IsaDmaChannel>(<IsaDmaController>self.controller[ma_sl]).channel[channel]).DACK = False
             if (not ma_sl):
                 self.setDRQ(4, False)
@@ -367,6 +370,8 @@ cdef class IsaDma:
         channel.writeToMem = writeToMem
     cdef run(self):
         cdef IsaDmaController controller
+        self.cpuInstance = None
+        self.setHRQ = NULL
         memset(self.extPageReg, 0, 16)
         for controller in self.controller:
             controller.run()

@@ -10,9 +10,6 @@ include "globals.pxi"
 cdef class Cpu:
     def __init__(self, object main):
         self.main = main
-        self._pyroId = ''
-        self._pyroDaemon = None
-        self.main.pyroURI_CPU = self.main.pyroDaemon.register(self)
     cdef reset(self):
         self.savedCs  = 0xf000
         self.savedEip = 0xfff0
@@ -26,10 +23,10 @@ cdef class Cpu:
     cdef saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
         self.savedEip = self.registers.regRead(CPU_REGISTER_EIP, False)
-    cpdef setINTR(self, unsigned char state):
+    cdef setINTR(self, unsigned char state):
         self.INTR = state
         self.asyncEvent = True
-    cpdef setHRQ(self, unsigned char state):
+    cdef setHRQ(self, unsigned char state):
         self.HRQ = state
         if (state):
             self.asyncEvent = True

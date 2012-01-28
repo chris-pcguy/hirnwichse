@@ -3,13 +3,13 @@ from misc cimport Misc
 from mm cimport Mm
 from X86Platform cimport Platform
 from cpu cimport Cpu
+from pic cimport Pic, SetINTR
+from isadma cimport IsaDma, SetHRQ
 
 
 cdef class ChEmu:
-    cpdef public object pyroDaemon, _pyroDaemon, pyroURI_Main, pyroURI_UI, \
-                        pyroURI_CPU, pyroUI, pyroCPU
+    cpdef public object pyroDaemon, pyroURI_UI, pyroUI
     cpdef object parser, cmdArgs
-    cpdef public str _pyroId
     cdef public Misc misc
     cdef public Mm mm
     cdef public Platform platform

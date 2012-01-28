@@ -1,7 +1,6 @@
 
 from os import access, F_OK, R_OK, W_OK
 from os.path import exists, getsize
-import Pyro4
 
 # This file contains (much) code from the Bochs Emulator (c) by it's developers
 

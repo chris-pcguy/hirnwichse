@@ -19,8 +19,6 @@ cdef class ChEmu:
         self.quitEmu = False
         self.exitOnTripleFault = True
         self.exitCode = 0
-        self._pyroId = ''
-        self._pyroDaemon = None
         register(self.quitFunc)
     cpdef isRunning(self):
         return (not self.quitEmu)
@@ -64,6 +62,10 @@ cdef class ChEmu:
         stdout.flush()
     cpdef runThreadFunc(self):
         self.platform.run()
+        (<Pic>self.platform.pic).cpuInstance = self.cpu
+        (<Pic>self.platform.pic).setINTR = <SetINTR>self.cpu.setINTR
+        (<IsaDma>self.platform.isadma).cpuInstance = self.cpu
+        (<IsaDma>self.platform.isadma).setHRQ = <SetHRQ>self.cpu.setHRQ
         self.cpu.run()
     cpdef run(self):
         try:
@@ -72,12 +74,10 @@ cdef class ChEmu:
             Pyro4.config.HMAC_KEY = PYRO_HMAC_KEY
             Pyro4.config.SOCK_REUSE = True
             self.pyroDaemon = Pyro4.core.Daemon()
-            self.pyroURI_Main = self.pyroDaemon.register(self)
             self.misc = Misc(self)
             self.mm = Mm(self)
             self.platform = Platform(self, self.memSize)
             self.cpu = Cpu(self)
-            self.pyroCPU = Pyro4.core.Proxy(self.pyroURI_CPU)
             self.misc.createThread(self.runThreadFunc, True)
             self.pyroDaemon.requestLoop(self.isRunning)
             while (active_count() > 1 and not self.quitEmu):

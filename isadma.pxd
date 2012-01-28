@@ -4,8 +4,7 @@ from libc.string cimport memset
 
 ctypedef void (*ReadFromMem)(self, unsigned char)
 ctypedef unsigned char (*WriteToMem)(self)
-
-
+ctypedef void (*SetHRQ)(self, unsigned char)
 
 
 cdef class IsaDmaChannel:
@@ -49,6 +48,8 @@ cdef class IsaDmaController:
 
 cdef class IsaDma:
     cpdef public object main
+    cdef public object cpuInstance
+    cdef SetHRQ setHRQ
     cdef tuple controller
     cdef unsigned char extPageReg[16], HLDA, TC # extPageReg is unused.
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
