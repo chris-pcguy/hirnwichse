@@ -486,9 +486,9 @@ cdef class Opcodes:
     cdef jumpShortRelativeByte(self):
         self.jumpShort(OP_SIZE_BYTE, True)
     cdef jumpShortRelativeWordDWord(self):
-        cdef unsigned char offsetSize
-        offsetSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
-        self.jumpShort(offsetSize, True)
+        cdef unsigned char operSize
+        operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
+        self.jumpShort(operSize, True)
     cdef loop(self):
         self.loopFunc(OPCODE_LOOP)
     cdef loope(self):
@@ -1454,7 +1454,6 @@ cdef class Opcodes:
         elif (operOpcode == 0xb5): # LGS
             self.lfpFunc(CPU_SEGMENT_GS) # 'load far pointer' function
         elif (operOpcode == 0xb6): # MOVZX R16_32, R/M8
-            bitMask = (<Misc>self.main.misc).getBitMaskFF(operSize)
             self.modRMInstance.modRMOperandsResetEip(OP_SIZE_BYTE, MODRM_FLAGS_NONE)
             self.modRMInstanceOther.modRMOperands(operSize, MODRM_FLAGS_NONE)
             self.modRMInstance.copyRMVars(self.modRMInstanceOther)
@@ -1561,8 +1560,7 @@ cdef class Opcodes:
             self.main.printMsg("opcodeGroup0F: invalid operOpcode. {0:#04x}", operOpcode)
             raise ChemuException(CPU_EXCEPTION_UD)
     cdef opcodeGroupFE(self):
-        cdef unsigned char operSize, operOpcode, operOpcodeId
-        operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
+        cdef unsigned char operOpcode, operOpcodeId
         operOpcode = (<Registers>self.main.cpu.registers).getCurrentOpcode(OP_SIZE_BYTE, False)
         operOpcodeId = (operOpcode>>3)&7
         self.modRMInstance.modRMOperands(OP_SIZE_BYTE, MODRM_FLAGS_NONE)

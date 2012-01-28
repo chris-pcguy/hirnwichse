@@ -425,9 +425,6 @@ cdef class Registers:
         cdef unsigned long bitMask, bitMaskHalf
         cdef unsigned long long doubleBitMask, regSumu, regSumMasked, regSumuMasked
         cdef long long regSum
-        unsignedOverflow = False
-        signedOverflow = False
-        isResZero = False
         afFlag = False
         bitMask = (<Misc>self.main.misc).getBitMaskFF(regSize)
         bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
@@ -584,10 +581,12 @@ cdef class Registers:
     cdef unsigned char isSegPresent(self, unsigned short segId):
         return (((<Segment>self.segments.getSegmentInstance(segId)).accessByte & GDT_ACCESS_PRESENT) != 0)
     cdef unsigned char getOpSegSize(self, unsigned short segId):
+        cdef unsigned char opSize
         segId  = self.getSegSize(segId)
         opSize = (((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
         return opSize
     cdef unsigned char getAddrSegSize(self, unsigned short segId):
+        cdef unsigned char addrSize
         segId    = self.getSegSize(segId)
         addrSize = (((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
         return addrSize
@@ -596,9 +595,11 @@ cdef class Registers:
         opSize[0]   = (((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
         addrSize[0] = (((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
     cdef unsigned char getOpCodeSegSize(self):
+        cdef unsigned char opSize
         opSize = (((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
         return opSize
     cdef unsigned char getAddrCodeSegSize(self):
+        cdef unsigned char addrSize
         addrSize = (((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
         return addrSize
     cdef getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
