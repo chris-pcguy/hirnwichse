@@ -25,7 +25,7 @@ cdef class PicChannel:
 
 cdef class Pic:
     cpdef public object main
-    cdef public object cpuInstance
+    cdef object cpuInstance
     cdef SetINTR setINTR
     cdef tuple channels
     cdef raiseIrq(self, unsigned char irq)

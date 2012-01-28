@@ -48,7 +48,7 @@ cdef class IsaDmaController:
 
 cdef class IsaDma:
     cpdef public object main
-    cdef public object cpuInstance
+    cdef object cpuInstance
     cdef SetHRQ setHRQ
     cdef tuple controller
     cdef unsigned char extPageReg[16], HLDA, TC # extPageReg is unused.
