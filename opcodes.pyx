@@ -2121,7 +2121,9 @@ cdef class Opcodes:
         (<Registers>self.main.cpu.registers).setSZP(dest, operSize)
     cdef sarFunc(self, unsigned char operSize, unsigned char count):
         cdef unsigned char newCF
-        cdef long long dest
+        cdef unsigned long bitMask
+        cdef long dest
+        bitMask = (<Misc>self.main.misc).getBitMaskFF(operSize)
         dest = self.modRMInstance.modRMLoad(operSize, True, True)
         count = count&0x1f
         if (count == 0):
@@ -2129,7 +2131,7 @@ cdef class Opcodes:
         else:
             newCF = ((dest>>(count-1))&1)
         dest >>= count
-        self.modRMInstance.modRMSave(operSize, dest, True, OPCODE_SAVE)
+        self.modRMInstance.modRMSave(operSize, dest&bitMask, True, OPCODE_SAVE)
         if (count == 0):
             return
         elif (count == 1):

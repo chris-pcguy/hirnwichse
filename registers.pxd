@@ -27,7 +27,7 @@ cdef class ModRMClass:
 cdef class Registers:
     cpdef object main
     cdef Segments segments
-    cdef ConfigSpace regs
+    cdef public ConfigSpace regs
     cdef public unsigned char repPrefix, segmentOverridePrefix, operandSizePrefix, \
                                 addressSizePrefix, cpl, iopl, codeSegSize
     cdef public unsigned short eipSizeRegId
