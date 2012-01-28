@@ -2324,12 +2324,12 @@ cdef class Opcodes:
         ahVal = (<Registers>self.main.cpu.registers).regRead( CPU_REGISTER_AH, False )
         (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF | FLAG_PF | \
             FLAG_AF | FLAG_ZF | FLAG_SF, False )
-        orThis = ((ahVal & (FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF)) | 0x2)
+        orThis = ((ahVal & (FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF)) | FLAG_REQUIRED)
         (<Registers>self.main.cpu.registers).regOr( CPU_REGISTER_FLAGS, orThis )
     cdef lahf(self):
         cdef unsigned char newAH, flagsByte
         flagsByte = (<Registers>self.main.cpu.registers).regRead( CPU_REGISTER_FLAGS, False )&BITMASK_BYTE
-        newAH = ((flagsByte & (FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF)) | 0x2)
+        newAH = ((flagsByte & (FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF)) | FLAG_REQUIRED)
         (<Registers>self.main.cpu.registers).regWrite( CPU_REGISTER_AH, newAH )
     cdef xchgFuncReg(self, unsigned short regName, unsigned short regName2):
         cdef unsigned long regValue, regValue2

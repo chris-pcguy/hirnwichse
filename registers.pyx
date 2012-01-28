@@ -266,7 +266,7 @@ cdef class Registers:
     cdef unsigned long regAnd(self, unsigned short regId, unsigned long value):
         return self.regWrite(regId, (self.regRead(regId, False)&value))
     cdef unsigned long regOr (self, unsigned short regId, unsigned long value):
-        return self.regWrite(regId, ((self.regRead(regId, False)|value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
+        return self.regWrite(regId, (self.regRead(regId, False)|value))
     cdef unsigned long regNeg(self, unsigned short regId):
         return self.regWrite(regId, ((-self.regRead(regId, False))&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
     cdef unsigned long regNot(self, unsigned short regId):
@@ -578,8 +578,7 @@ cdef class Registers:
                 elif (valueOp == OPCODE_AND):
                     return self.mmWriteValue(mmAddr, (oldData&data), dataSize, segId, allowOverride)
                 elif (valueOp == OPCODE_OR):
-                    data = (oldData|data)&bitMask
-                    return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
+                    return self.mmWriteValue(mmAddr,(oldData|data), dataSize, segId, allowOverride)
                 elif (valueOp == OPCODE_XOR):
                     data = (oldData^data)&bitMask
                     return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
