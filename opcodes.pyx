@@ -1048,10 +1048,10 @@ cdef class Opcodes:
         operOpcode = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         ##self.main.debug("Group0F: Opcode=={0:#04x}", operOpcode)
         if (operOpcode == 0x00): # LLDT/SLDT LTR/STR VERR/VERW
-            if ((<Registers>self.main.cpu.registers).cpl != 0):
-                raise ChemuException(CPU_EXCEPTION_GP, 0)
             if (not (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
                 raise ChemuException(CPU_EXCEPTION_UD)
+            if ((<Registers>self.main.cpu.registers).cpl != 0):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
             operOpcodeMod = (<Registers>self.main.cpu.registers).getCurrentOpcode(OP_SIZE_BYTE, False)
             operOpcodeModId = (operOpcodeMod>>3)&7
             self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
@@ -1059,17 +1059,11 @@ cdef class Opcodes:
             if (operOpcodeModId in (0, 1)): # SLDT/STR
                 if (operOpcodeModId == 0): # SLDT
                     self.modRMInstance.modRMSave(OP_SIZE_WORD, (<Segments>\
-                        (<Registers>self.main.cpu.registers).segments).ldtr, True, OPCODE_SAVE)
+                      (<Registers>self.main.cpu.registers).segments).ldtr, True, OPCODE_SAVE)
                 elif (operOpcodeModId == 1): # STR
                     ###op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                    if (not (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
-                          raise ChemuException(CPU_EXCEPTION_UD)
                     self.main.exitError("opcodeGroup0F_00: STR not supported yet.")
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
-                if (not (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
-                      raise ChemuException(CPU_EXCEPTION_UD)
-                elif ((<Registers>self.main.cpu.registers).cpl != 0):
-                    raise ChemuException(CPU_EXCEPTION_GP, 0)
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                 if (operOpcodeModId == 2): # LLDT
                     if ((op1>>2) == 0):
