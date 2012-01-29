@@ -40,7 +40,7 @@ cdef class Misc:
         cdef unsigned long checksum
         checksum = 0
         for c in data:
-            checksum = (checksum+c)&BITMASK_DWORD
+            checksum = <unsigned long>(checksum+c)
         return checksum
     cdef unsigned long long decToBcd(self, unsigned char dec):
         cdef unsigned char bcd = int(str(dec), 16)

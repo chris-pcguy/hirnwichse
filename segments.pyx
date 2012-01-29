@@ -86,12 +86,12 @@ cdef class GdtEntry:
     def __init__(self, unsigned long long entryData):
         self.parseEntryData(entryData)
     cdef parseEntryData(self, unsigned long long entryData):
-        self.accessByte = (entryData>>40)&BITMASK_BYTE
+        self.accessByte = <unsigned char>(entryData>>40)
         self.flags  = (entryData>>52)&0xf
-        self.base  = ( (entryData>>56)&BITMASK_BYTE)<<24
+        self.base  = (<unsigned char>(entryData>>56))<<24
         self.limit = (( entryData>>48)&0xf)<<16
         self.base  |= (entryData>>16)&0xffffff
-        self.limit |= entryData&BITMASK_WORD
+        self.limit |= <unsigned short>entryData
         if (self.flags & GDT_FLAG_SIZE): # segment size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
             self.segSize = OP_SIZE_DWORD
         else:
@@ -108,9 +108,9 @@ cdef class IdtEntry:
     def __init__(self, unsigned long long entryData):
         self.parseEntryData(entryData)
     cdef parseEntryData(self, unsigned long long entryData):
-        self.entryEip = ((entryData>>48)&BITMASK_WORD)<<16 # interrupt eip: upper word
-        self.entryEip |= entryData&BITMASK_WORD # interrupt eip: lower word
-        self.entrySegment = (entryData>>16)&BITMASK_WORD # interrupt segment
+        self.entryEip = (<unsigned short>(entryData>>48))<<16 # interrupt eip: upper word
+        self.entryEip |= <unsigned short>entryData # interrupt eip: lower word
+        self.entrySegment = <unsigned short>(entryData>>16) # interrupt segment
         self.entryType = (entryData>>40)&0x7 # interrupt type
         self.entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
         self.entryPresent = (entryData>>47)&1 # is interrupt present

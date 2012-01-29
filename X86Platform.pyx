@@ -147,10 +147,15 @@ cdef class Platform:
     cpdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef PortHandler port
         cdef unsigned short portNum
-        cdef unsigned long bitMask
         try:
-            bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
-            data &= bitMask
+            if (dataSize == OP_SIZE_BYTE):
+                data = <unsigned char>data
+            elif (dataSize == OP_SIZE_WORD):
+                data = <unsigned short>data
+            elif (dataSize == OP_SIZE_DWORD):
+                data = <unsigned long>data
+            elif (dataSize == OP_SIZE_QWORD):
+                data = <unsigned long long>data
             for port in self.ports:
                 if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.outPort is NULL):
                     continue

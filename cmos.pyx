@@ -103,7 +103,7 @@ cdef class Cmos:
         return 0
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
-            data &= BITMASK_BYTE
+            data = <unsigned char>data
             if (ioPortAddr == 0x70):
                 self.cmosIndex = data&0x7f #(~0x80)
             elif (ioPortAddr == 0x71):

@@ -28,7 +28,7 @@ cdef class ModRMClass:
         else:
             ss = (sibByte>>6)&3
             indexReg = CPU_REGISTER_DWORD[index]
-            self.rmName2 = ((self.registers.regRead( indexReg, False ) * (1 << ss))&BITMASK_DWORD)
+            self.rmName2 = <unsigned long>(self.registers.regRead( indexReg, False ) * (1 << ss))
         if (self.mod == 0 and base == 5):
             self.rmName0 = CPU_REGISTER_NONE
             self.rmName2 += self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
@@ -306,7 +306,7 @@ cdef class Registers:
     cdef unsigned long setEFLAG(self, unsigned long flags, unsigned char flagState):
         if (flagState):
             return self.regOr(CPU_REGISTER_EFLAGS, flags)
-        return self.regAnd(CPU_REGISTER_EFLAGS, (~flags)&BITMASK_DWORD)
+        return self.regAnd(CPU_REGISTER_EFLAGS, <unsigned long>(~flags))
     cdef unsigned long getFlag(self, unsigned short regId, unsigned long flags):
         return (self.regRead(regId, False)&flags)
     cdef unsigned short getWordAsDword(self, unsigned short regWord, unsigned char wantRegSize):
@@ -354,7 +354,7 @@ cdef class Registers:
     cdef setSZP(self, unsigned long value, unsigned char regSize):
         self.setEFLAG(FLAG_SF, (value&(<Misc>self.main.misc).getBitMask80(regSize))!=0)
         self.setEFLAG(FLAG_ZF, value==0)
-        self.setEFLAG(FLAG_PF, PARITY_TABLE[value&BITMASK_BYTE])
+        self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>value])
     cdef setSZP_O0(self, unsigned long value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.setEFLAG(FLAG_OF, False)
@@ -426,7 +426,6 @@ cdef class Registers:
     cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method, unsigned char signed):
         cdef unsigned char unsignedOverflow, signedOverflow, isResZero, afFlag, reg0Nibble, reg1Nibble, regSumNibble
         cdef unsigned long bitMask, bitMaskHalf
-        ##cdef unsigned long long doubleBitMask, regSumu, regSumMasked, regSumuMasked
         cdef unsigned long long regSumu, regSumMasked, regSumuMasked
         cdef long long regSum
         afFlag = False
@@ -440,7 +439,7 @@ cdef class Registers:
             regSumMasked = regSum&bitMask
             isResZero = regSumMasked==0
             unsignedOverflow = (regSumMasked < reg0 or regSumMasked < reg1)
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&BITMASK_BYTE])
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSum])
             self.setEFLAG(FLAG_ZF, isResZero)
             reg0Nibble = reg0&0xf
             reg1Nibble = reg1&0xf
@@ -462,7 +461,7 @@ cdef class Registers:
             regSumMasked = regSum&bitMask
             isResZero = regSumMasked==0
             unsignedOverflow = ( regSum<0 )
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&BITMASK_BYTE])
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSum])
             self.setEFLAG(FLAG_ZF, isResZero)
             reg0Nibble = reg0&0xf
             reg1Nibble = reg1&0xf
@@ -478,7 +477,6 @@ cdef class Registers:
             self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
             self.setEFLAG(FLAG_SF, regSum!=0)
         elif (method == OPCODE_MUL):
-            ##doubleBitMask = (<Misc>self.main.misc).getBitMaskFF(regSize<<1)
             regSum = reg0*reg1
             regSumu = abs(reg0)*abs(reg1)
             if (regSize == OP_SIZE_BYTE):
@@ -490,7 +488,7 @@ cdef class Registers:
             signedOverflow = not ((signed and ((regSize != OP_SIZE_BYTE and regSumu <= bitMask) or (regSize == OP_SIZE_BYTE and regSumu <= 0x7f))) or \
                    (not signed and ((regSumu <= bitMask))))
             self.setEFLAG(FLAG_CF | FLAG_OF, signedOverflow)
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[regSum&BITMASK_BYTE])
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSum])
             self.setEFLAG(FLAG_ZF, isResZero)
             self.setEFLAG(FLAG_SF, (regSum&bitMaskHalf)!=0)
     #cdef checkMemAccessRights(self, unsigned short segId, unsigned char write):
@@ -547,7 +545,6 @@ cdef class Registers:
         (<Mm>self.main.mm).mmPhyWrite(mmAddr, data, dataSize)
     cdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride):
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        ##data &= (<Misc>self.main.misc).getBitMaskFF(dataSize)
         return (<Mm>self.main.mm).mmPhyWriteValue(mmAddr, data, dataSize)
     cdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
         cdef unsigned char carryOn
@@ -555,7 +552,6 @@ cdef class Registers:
         if (valueOp == OPCODE_SAVE):
             return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
         else:
-            ##bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
             if (valueOp == OPCODE_NEG):
                 data = <unsigned long long>(-data)
                 return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
