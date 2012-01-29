@@ -64,7 +64,7 @@ cdef class Registers:
     cdef setSZP_C0_O0_A0(self, unsigned long value, unsigned char regSize)
     cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize)
     cdef unsigned char getCond(self, unsigned char index)
-    cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method, unsigned char signed)
+    cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method)
     #cdef checkMemAccessRights(self, unsigned short segId, unsigned char write)
     cdef unsigned long getRealAddr(self, unsigned short segId, long long offsetAddr)
     cdef unsigned long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride)
