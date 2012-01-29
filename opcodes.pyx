@@ -1651,7 +1651,11 @@ cdef class Opcodes:
     cdef lea(self, unsigned char operSize, unsigned char addrSize):
         cdef unsigned long mmAddr
         self.modRMInstance.modRMOperands(addrSize, MODRM_FLAGS_NONE)
-        mmAddr = self.modRMInstance.getRMValueFull(addrSize)&(<Misc>self.main.misc).getBitMaskFF(operSize)
+        mmAddr = self.modRMInstance.getRMValueFull(addrSize)##&(<Misc>self.main.misc).getBitMaskFF(operSize)
+        if (operSize == OP_SIZE_WORD):
+            mmAddr = <unsigned short>mmAddr
+        elif (operSize == OP_SIZE_DWORD):
+            mmAddr = <unsigned long>mmAddr
         self.modRMInstance.modRSave(operSize, mmAddr, OPCODE_SAVE)
     cdef retNear(self, unsigned char operSize, unsigned char imm):
         cdef unsigned char stackAddrSize

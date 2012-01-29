@@ -302,19 +302,22 @@ cdef class IsaDma:
                    (currChannel.currentAddress << ma_sl))
         (<IsaDmaChannel>(<IsaDmaController>self.controller[ma_sl]).channel[channel]).DACK = True
         if (currChannel.addressDecrement):
-            if (currChannel.currentAddress == 0): # TODO: HACK: cython won't allow unsigned overflow
-                currChannel.currentAddress = BITMASK_WORD
-            else:
-                currChannel.currentAddress -= 1
+            ##if (currChannel.currentAddress == 0): # TODO: HACK: cython won't allow unsigned overflow
+            ##    currChannel.currentAddress = BITMASK_WORD
+            ##else:
+            ##    currChannel.currentAddress -= 1
+            currChannel.currentAddress = <unsigned short>(currChannel.currentAddress-1)
         else:
-            if (currChannel.currentAddress == BITMASK_WORD): # TODO: HACK: cython won't allow unsigned overflow
-                currChannel.currentAddress = 0
-            else:
-                currChannel.currentAddress += 1
-        if (currChannel.currentCount == 0): # TODO: HACK: cython won't allow unsigned overflow
-            currChannel.currentCount = BITMASK_WORD
-        else:
-            currChannel.currentCount -= 1
+            ##if (currChannel.currentAddress == BITMASK_WORD): # TODO: HACK: cython won't allow unsigned overflow
+            ##    currChannel.currentAddress = 0
+            ##else:
+            ##    currChannel.currentAddress += 1
+            currChannel.currentAddress = <unsigned short>(currChannel.currentAddress+1)
+        ##if (currChannel.currentCount == 0): # TODO: HACK: cython won't allow unsigned overflow
+        ##    currChannel.currentCount = BITMASK_WORD
+        ##else:
+        ##    currChannel.currentCount -= 1
+        currChannel.currentCount = <unsigned short>(currChannel.currentCount-1)
         if (currChannel.currentCount == BITMASK_WORD):
             currController.statusReg |= (1 << channel)
             self.TC = True

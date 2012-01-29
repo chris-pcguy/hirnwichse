@@ -98,8 +98,14 @@ cdef class ModRMClass:
         self.modRMOperands(regSize, modRMflags)
         self.registers.regWrite( CPU_REGISTER_EIP, oldEip )
     cdef unsigned long long getRMValueFull(self, unsigned char rmSize):
-        return ((self.registers.regRead(self.rmName0, False)+self.registers.regRead(self.rmName1, False)\
-                        +self.rmName2)&((<Misc>self.main.misc).getBitMaskFF(rmSize)))
+        cdef unsigned long long retAddr
+        retAddr = ((self.registers.regRead(self.rmName0, False)+self.registers.regRead(self.rmName1, False)\
+                        +self.rmName2))
+        if (rmSize == OP_SIZE_WORD):
+            retAddr = <unsigned short>retAddr
+        elif (rmSize == OP_SIZE_DWORD):
+            retAddr = <unsigned long>retAddr
+        return retAddr
     cdef long long modRMLoad(self, unsigned char regSize, unsigned char signed, unsigned char allowOverride):
         # NOTE: imm == unsigned ; disp == signed
         cdef long long returnInt
@@ -247,11 +253,11 @@ cdef class Registers:
         value = self.regs.csWriteValueBE(aregId, value, opSize)
         return value # returned value is unsigned!!
     cdef unsigned long regAdd(self, unsigned short regId, long long value):
-        return self.regWrite(regId, ((self.regRead(regId, False)+value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
+        return self.regWrite(regId, <unsigned long>(self.regRead(regId, False)+value))
     cdef unsigned long regAdc(self, unsigned short regId, unsigned long value):
         return self.regAdd(regId, value+self.getEFLAG( FLAG_CF ))
     cdef unsigned long regSub(self, unsigned short regId, unsigned long value):
-        return self.regWrite(regId, ((self.regRead(regId, False)-value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
+        return self.regWrite(regId, <unsigned long>(self.regRead(regId, False)-value))
     cdef unsigned long regSbb(self, unsigned short regId, unsigned long value):
         return self.regSub(regId, value+self.getEFLAG( FLAG_CF ))
     cdef unsigned long regXor(self, unsigned short regId, unsigned long value):
@@ -261,9 +267,9 @@ cdef class Registers:
     cdef unsigned long regOr (self, unsigned short regId, unsigned long value):
         return self.regWrite(regId, (self.regRead(regId, False)|value))
     cdef unsigned long regNeg(self, unsigned short regId):
-        return self.regWrite(regId, ((-self.regRead(regId, False))&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
+        return self.regWrite(regId, <unsigned long>(-self.regRead(regId, False)))
     cdef unsigned long regNot(self, unsigned short regId):
-        return self.regWrite(regId, ((~self.regRead(regId, False))&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId))))
+        return self.regWrite(regId, <unsigned long>(~self.regRead(regId, False)))
     cdef unsigned long regWriteWithOp(self, unsigned short regId, unsigned long value, unsigned char valueOp):
         if (valueOp == OPCODE_SAVE):
             return self.regWrite(regId, value)
@@ -282,10 +288,10 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             return self.regXor(regId, value)
         elif (valueOp == OPCODE_NEG):
-            value = ((-value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId)))
+            value = <unsigned long>(-value)
             return self.regWrite(regId, value)
         elif (valueOp == OPCODE_NOT):
-            value = ((~value)&(<Misc>self.main.misc).getBitMaskFF(self.getRegSize(regId)))
+            value = <unsigned long>(~value)
             return self.regWrite(regId, value)
         else:
             self.main.printMsg("REGISTERS::regWriteWithOp: unknown valueOp {0:d}.", valueOp)
@@ -420,7 +426,8 @@ cdef class Registers:
     cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method, unsigned char signed):
         cdef unsigned char unsignedOverflow, signedOverflow, isResZero, afFlag, reg0Nibble, reg1Nibble, regSumNibble
         cdef unsigned long bitMask, bitMaskHalf
-        cdef unsigned long long doubleBitMask, regSumu, regSumMasked, regSumuMasked
+        ##cdef unsigned long long doubleBitMask, regSumu, regSumMasked, regSumuMasked
+        cdef unsigned long long regSumu, regSumMasked, regSumuMasked
         cdef long long regSum
         afFlag = False
         bitMask = (<Misc>self.main.misc).getBitMaskFF(regSize)
@@ -471,10 +478,15 @@ cdef class Registers:
             self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
             self.setEFLAG(FLAG_SF, regSum!=0)
         elif (method == OPCODE_MUL):
-            doubleBitMask = (<Misc>self.main.misc).getBitMaskFF(regSize<<1)
+            ##doubleBitMask = (<Misc>self.main.misc).getBitMaskFF(regSize<<1)
             regSum = reg0*reg1
             regSumu = abs(reg0)*abs(reg1)
-            isResZero = (regSum&doubleBitMask)==0
+            if (regSize == OP_SIZE_BYTE):
+                isResZero = (<unsigned short>regSum)==0
+            elif (regSize == OP_SIZE_WORD):
+                isResZero = (<unsigned long>regSum)==0
+            elif (regSize == OP_SIZE_DWORD):
+                isResZero = (<unsigned long long>regSum)==0
             signedOverflow = not ((signed and ((regSize != OP_SIZE_BYTE and regSumu <= bitMask) or (regSize == OP_SIZE_BYTE and regSumu <= 0x7f))) or \
                    (not signed and ((regSumu <= bitMask))))
             self.setEFLAG(FLAG_CF | FLAG_OF, signedOverflow)
@@ -535,35 +547,35 @@ cdef class Registers:
         (<Mm>self.main.mm).mmPhyWrite(mmAddr, data, dataSize)
     cdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride):
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
-        data &= (<Misc>self.main.misc).getBitMaskFF(dataSize)
+        ##data &= (<Misc>self.main.misc).getBitMaskFF(dataSize)
         return (<Mm>self.main.mm).mmPhyWriteValue(mmAddr, data, dataSize)
     cdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
         cdef unsigned char carryOn
-        cdef unsigned long long oldData, bitMask
+        cdef unsigned long long oldData#, bitMask
         if (valueOp == OPCODE_SAVE):
             return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
         else:
-            bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
+            ##bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
             if (valueOp == OPCODE_NEG):
-                data = (-data)&bitMask
+                data = <unsigned long long>(-data)
                 return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
             elif (valueOp == OPCODE_NOT):
-                data = (~data)&bitMask
+                data = <unsigned long long>(~data)
                 return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
             else:
                 oldData = self.mmReadValueUnsigned(mmAddr, dataSize, segId, allowOverride)
                 if (valueOp == OPCODE_ADD):
-                    data = (oldData+data)&bitMask
+                    data = <unsigned long long>(oldData+data)
                     return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
                 elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
                     carryOn = self.getEFLAG( FLAG_CF )!=0
                     if (valueOp == OPCODE_ADC):
-                        data = (oldData+(data+carryOn))&bitMask
+                        data = <unsigned long long>(oldData+(data+carryOn))
                     else:
-                        data = (oldData-(data+carryOn))&bitMask
+                        data = <unsigned long long>(oldData-(data+carryOn))
                     return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
                 elif (valueOp == OPCODE_SUB):
-                    data = (oldData-data)&bitMask
+                    data = <unsigned long long>(oldData-data)
                     return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
                 elif (valueOp == OPCODE_AND):
                     return self.mmWriteValue(mmAddr, (oldData&data), dataSize, segId, allowOverride)

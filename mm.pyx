@@ -97,7 +97,12 @@ cdef class Mm:
         for mmArea in mmAreas:
             mmArea.mmAreaWrite(mmAddr, data, dataSize)
     cdef unsigned long long mmPhyWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize):
-        data &= (<Misc>self.main.misc).getBitMaskFF(dataSize)
+        if (dataSize == OP_SIZE_BYTE):
+            data = <unsigned char>data
+        elif (dataSize == OP_SIZE_WORD):
+            data = <unsigned short>data
+        elif (dataSize == OP_SIZE_DWORD):
+            data = <unsigned long>data
         self.mmPhyWrite(mmAddr, (<bytes>data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
         return data
 
@@ -132,9 +137,21 @@ cdef class ConfigSpace:
     cdef long long csReadValueSignedBE(self, unsigned long offset, unsigned long size): # Big Endian
         return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=True)
     cdef unsigned long long csWriteValue(self, unsigned long offset, unsigned long long data, unsigned long size):
+        if (size == OP_SIZE_BYTE):
+            data = <unsigned char>data
+        elif (size == OP_SIZE_WORD):
+            data = <unsigned short>data
+        elif (size == OP_SIZE_DWORD):
+            data = <unsigned long>data
         self.csWrite(offset, (<bytes>data.to_bytes(length=size, byteorder="little", signed=False)), size)
         return data
     cdef unsigned long long csWriteValueBE(self, unsigned long offset, unsigned long long data, unsigned long size): # Big Endian
+        if (size == OP_SIZE_BYTE):
+            data = <unsigned char>data
+        elif (size == OP_SIZE_WORD):
+            data = <unsigned short>data
+        elif (size == OP_SIZE_DWORD):
+            data = <unsigned long>data
         self.csWrite(offset, (<bytes>data.to_bytes(length=size, byteorder="big", signed=False)), size)
         return data
     cdef unsigned long long csAddValue(self, unsigned long offset, unsigned long long data, unsigned long size):
