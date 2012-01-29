@@ -401,11 +401,10 @@ cdef class Registers:
             self.main.exitError("getCond: index {0:#x} invalid.", index)
     cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method):
         cdef unsigned char unsignedOverflow, signedOverflow, isResZero, afFlag, reg0Nibble, reg1Nibble, regSumNibble, carried
-        cdef unsigned long bitMask, bitMaskHalf
+        cdef unsigned long bitMaskHalf
         cdef unsigned long long regSumu, regSumMasked, regSumuMasked
         cdef long long regSum
         afFlag = carried = False
-        bitMask = (<Misc>self.main.misc).getBitMaskFF(regSize)
         bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
 
         if (method in (OPCODE_ADD, OPCODE_ADC)):
