@@ -213,7 +213,7 @@ cdef class Opcodes:
             elif (opcode == 0x6f):
                 self.outsFunc(operSize, addrSize)
             elif (opcode >= 0x70 and opcode <= 0x7f):
-                self.jumpShort(OP_SIZE_BYTE, (<Registers>self.main.cpu.registers).getCond(opcode&0xf))
+                self.jumpShort(operSize, OP_SIZE_BYTE, (<Registers>self.main.cpu.registers).getCond(opcode&0xf))
             elif (opcode == 0x80):
                 self.opcodeGroup1_RM_ImmFunc(OP_SIZE_BYTE, True)
             elif (opcode == 0x81):
@@ -377,11 +377,11 @@ cdef class Opcodes:
             elif (opcode == 0xe8):
                 self.callNearRel16_32(operSize)
             elif (opcode == 0xe9):
-                self.jumpShortRelativeWordDWord(operSize)
+                self.jumpShort(operSize, operSize, True)
             elif (opcode == 0xea):
                 self.jumpFarAbsolutePtr(operSize)
             elif (opcode == 0xeb):
-                self.jumpShortRelativeByte()
+                self.jumpShort(operSize, OP_SIZE_BYTE, True)
             elif (opcode == 0xec):
                 self.inAxDx(OP_SIZE_BYTE)
             elif (opcode == 0xed):
@@ -477,10 +477,6 @@ cdef class Opcodes:
         self.syncProtectedModeState()
         (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_EIP, eip)
         (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_CS, cs)
-    cdef jumpShortRelativeByte(self):
-        self.jumpShort(OP_SIZE_BYTE, True)
-    cdef jumpShortRelativeWordDWord(self, unsigned char operSize):
-        self.jumpShort(operSize, True)
     cdef loop(self, unsigned char operSize, unsigned char addrSize):
         self.loopFunc(operSize, addrSize, OPCODE_LOOP)
     cdef loope(self, unsigned char operSize, unsigned char addrSize):
@@ -820,15 +816,13 @@ cdef class Opcodes:
         cdef unsigned long cxVal
         cxReg = (<Registers>self.main.cpu.registers).getWordAsDword(CPU_REGISTER_CX, operSize)
         cxVal = (<Registers>self.main.cpu.registers).regRead(cxReg, False)
-        self.jumpShort(OP_SIZE_BYTE, cxVal==0)
-    cdef jumpShort(self, unsigned char operSize, unsigned char c):
+        self.jumpShort(operSize, OP_SIZE_BYTE, cxVal==0)
+    cdef jumpShort(self, unsigned char operSize, unsigned char offsetSize, unsigned char c):
         cdef long offset
         cdef long long newEip
-        offset = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(operSize, True)
+        offset = (<Registers>self.main.cpu.registers).getCurrentOpcodeAdd(offsetSize, True)
         if (c):
             newEip = ((<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_EIP, False)+offset)
-            if (operSize == OP_SIZE_BYTE):
-                operSize = (<Registers>self.main.cpu.registers).getOpCodeSegSize()
             if (operSize == OP_SIZE_WORD):
                 newEip &= BITMASK_WORD
             else:
@@ -1067,7 +1061,7 @@ cdef class Opcodes:
                     self.modRMInstance.modRMSave(OP_SIZE_WORD, (<Segments>\
                         (<Registers>self.main.cpu.registers).segments).ldtr, True, OPCODE_SAVE)
                 elif (operOpcodeModId == 1): # STR
-                    op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
+                    ###op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
                     if (not (<Segments>(<Registers>self.main.cpu.registers).segments).isInProtectedMode()):
                           raise ChemuException(CPU_EXCEPTION_UD)
                     self.main.exitError("opcodeGroup0F_00: STR not supported yet.")
@@ -1102,10 +1096,10 @@ cdef class Opcodes:
                     self.main.exitError("opcodeGroup0F_00: LTR not supported yet.")
             elif (operOpcodeModId == 4): # VERR
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkReadAllowed(op1))
+                (<Registers>self.main.cpu.registers).setEFLAG(FLAG_ZF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkReadAllowed(op1))
             elif (operOpcodeModId == 5): # VERW
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
-                (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkWriteAllowed(op1))
+                (<Registers>self.main.cpu.registers).setEFLAG(FLAG_ZF, (<Segments>(<Registers>self.main.cpu.registers).segments).checkWriteAllowed(op1))
             else:
                 self.main.printMsg("opcodeGroup0F_00: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise ChemuException(CPU_EXCEPTION_UD)
@@ -1257,7 +1251,7 @@ cdef class Opcodes:
         elif (operOpcode >= 0x40 and operOpcode <= 0x4f): # CMOVcc
             self.cmovFunc(operSize, (<Registers>self.main.cpu.registers).getCond(operOpcode&0xf))
         elif (operOpcode >= 0x80 and operOpcode <= 0x8f):
-            self.jumpShort(operSize, (<Registers>self.main.cpu.registers).getCond(operOpcode&0xf))
+            self.jumpShort(operSize, operSize, (<Registers>self.main.cpu.registers).getCond(operOpcode&0xf))
         elif (operOpcode >= 0x90 and operOpcode <= 0x9f): # SETcc
             self.setWithCondFunc((<Registers>self.main.cpu.registers).getCond(operOpcode&0xf))
         elif (operOpcode == 0xa0): # PUSH FS
