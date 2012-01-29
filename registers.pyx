@@ -171,7 +171,7 @@ cdef class Registers:
         retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
         retAddr[0] = self.regAdd(self.eipSizeRegId, 1)-1
         return self.mmReadValueUnsigned(retAddr[0], OP_SIZE_BYTE, CPU_SEGMENT_CS, False)
-    cdef unsigned short getRegSize(self, unsigned short regId):
+    cdef unsigned char getRegSize(self, unsigned short regId):
         if (regId in CPU_REGISTER_BYTE):
             return OP_SIZE_BYTE
         elif (regId in CPU_REGISTER_WORD):
@@ -212,16 +212,8 @@ cdef class Registers:
         #if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
         #    self.main.exitError("regRead: regId is reserved! ({0:d})", regId)
         #    return 0
-        opSize = regId%5
+        opSize = self.getRegSize(regId)
         regId = CPU_REG_DATA_OFFSETS[regId]
-        if (opSize == 0):
-            opSize = OP_SIZE_QWORD
-        elif (opSize == 1):
-            opSize = OP_SIZE_DWORD
-        elif (opSize == 2):
-            opSize = OP_SIZE_WORD
-        else:
-            opSize = OP_SIZE_BYTE
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         if (signed):
             return self.regs.csReadValueSignedBE(regId, opSize)
@@ -231,16 +223,8 @@ cdef class Registers:
         #if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
         #    self.main.exitError("regWrite: regId is reserved! ({0:d})", regId)
         #    return 0
-        opSize = regId%5
+        opSize = self.getRegSize(regId)
         regId = CPU_REG_DATA_OFFSETS[regId]
-        if (opSize == 0):
-            opSize = OP_SIZE_QWORD
-        elif (opSize == 1):
-            opSize = OP_SIZE_DWORD
-        elif (opSize == 2):
-            opSize = OP_SIZE_WORD
-        else:
-            opSize = OP_SIZE_BYTE
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         value = self.regs.csWriteValueBE(regId, value, opSize)
         return value # returned value is unsigned!!
