@@ -7,6 +7,7 @@ from mm cimport Mm
 
 cdef class Opcodes:
     cpdef object main
+    cdef Registers registers
     cdef ModRMClass modRMInstance, modRMInstanceOther
     cdef unsigned char executeOpcode(self, unsigned char opcode)
     cdef undefNoUD(self)

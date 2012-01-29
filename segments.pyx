@@ -11,6 +11,7 @@ cdef class Segment:
         self.loadSegment(segmentIndex)
     cdef loadSegment(self, unsigned short segmentIndex):
         cdef GdtEntry gdtEntry
+        self.segmentIndex = segmentIndex
         if (not self.segments.isInProtectedMode()):
             self.base = segmentIndex
             self.base <<= 4
@@ -133,10 +134,11 @@ cdef class Gdt:
         retTableLimit[0] = self.tableLimit
     cdef GdtEntry getEntry(self, unsigned short num):
         cdef unsigned long long entryData
+        num &= 0xfff8
         if (not num):
             ##self.segments.main.debug("GDT::getEntry: num == 0!")
             return None
-        entryData = self.table.csReadValueUnsigned((num&0xfff8), 8)
+        entryData = self.table.csReadValueUnsigned(num, 8)
         return GdtEntry(entryData)
     cdef unsigned char getSegSize(self, unsigned short num):
         return self.getEntry(num).segSize
@@ -157,8 +159,13 @@ cdef class Gdt:
         return self.getEntry(num).segDPL
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment):
         cdef GdtEntry gdtEntry
+        if (num&0xfff8 == 0 or num > self.tableLimit):
+            if (num&0xfff8 == 0):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
+            else:
+                raise ChemuException(CPU_EXCEPTION_GP, num)
         gdtEntry = self.getEntry(num)
-        if (num == 0 or (isStackSegment and ( num&3 != self.segments.main.cpu.registers.cpl or \
+        if (not gdtEntry or (isStackSegment and ( num&3 != self.segments.main.cpu.registers.cpl or \
           gdtEntry.segDPL != self.segments.main.cpu.registers.cpl)) or 0):
             raise ChemuException(CPU_EXCEPTION_GP, num)
         elif (not gdtEntry.segPresent):
@@ -168,25 +175,37 @@ cdef class Gdt:
                 raise ChemuException(CPU_EXCEPTION_NP, num)
     cdef unsigned char checkReadAllowed(self, unsigned short num):
         cdef GdtEntry gdtEntry
+        if (num&0xfff8 == 0 or num > self.tableLimit):
+            return False
         gdtEntry = self.getEntry(num)
-        if (num&0xfff8 == 0 or (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW)):
+        if ((not gdtEntry or not gdtEntry.segPresent) or (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW)):
             return False
         return True
     cdef unsigned char checkWriteAllowed(self, unsigned short num):
         cdef GdtEntry gdtEntry
+        if (num&0xfff8 == 0 or num > self.tableLimit):
+            return False
         gdtEntry = self.getEntry(num)
-        if (num&0xfff8 == 0 or gdtEntry.segIsCodeSeg or not gdtEntry.segIsRW):
+        if (not gdtEntry or not gdtEntry.segPresent or gdtEntry.segIsCodeSeg or not gdtEntry.segIsRW):
             return False
         return True
     cdef checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment):
         cdef unsigned char numSegDPL
         cdef GdtEntry gdtEntry
-        gdtEntry = self.getEntry(num)
-        numSegDPL = gdtEntry.segDPL
-        if (num&0xfff8 == 0):
+        if (num&0xfff8 == 0 or num > self.tableLimit):
             if (loadStackSegment):
-                raise ChemuException(CPU_EXCEPTION_GP, 0)
-        elif (not gdtEntry.segPresent):
+                if (num&0xfff8 == 0):
+                    raise ChemuException(CPU_EXCEPTION_GP, 0)
+                else:
+                    raise ChemuException(CPU_EXCEPTION_GP, num)
+            return
+        gdtEntry = self.getEntry(num)
+        if (not gdtEntry):
+            if (loadStackSegment):
+                raise ChemuException(CPU_EXCEPTION_GP, num)
+            return
+        numSegDPL = gdtEntry.segDPL
+        if (not gdtEntry.segPresent):
             if (loadStackSegment):
                 raise ChemuException(CPU_EXCEPTION_SS, num)
             else:
@@ -274,7 +293,7 @@ cdef class Segments:
             self.main.exitError("invalid segmentId {0:d}", segmentId)
             raise ValueError("invalid segmentId {0:d}".format(segmentId))
         if (not segment.isValid):
-            raise ChemuException(CPU_EXCEPTION_GP, 0)
+            raise ChemuException(CPU_EXCEPTION_GP, segment.segmentIndex)
         return segment
     cdef GdtEntry getEntry(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):

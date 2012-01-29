@@ -30,9 +30,11 @@ cdef class Registers:
     cdef public ConfigSpace regs
     cdef public unsigned char repPrefix, segmentOverridePrefix, operandSizePrefix, \
                                 addressSizePrefix, cpl, iopl, codeSegSize
+    cdef unsigned char operSize, addrSize
     cdef public unsigned short eipSizeRegId
     cdef reset(self)
     cdef resetPrefixes(self)
+    cdef readCodeSegSize(self)
     cdef unsigned short getRegSize(self, unsigned short regId) # return size in bits
     cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed)
     cdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed)

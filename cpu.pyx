@@ -37,7 +37,7 @@ cdef class Cpu:
         if (self.INTR and oldIF ):
             irqVector = (<Pic>self.main.platform.pic).IAC()
             self.opcodes.interrupt(irqVector, -1)
-            self.saveCurrentInstPointer()
+            ##self.saveCurrentInstPointer() # TODO: do we need this here?
         elif (self.HRQ):
             (<IsaDma>self.main.platform.isadma).raiseHLDA()
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
@@ -102,14 +102,11 @@ cdef class Cpu:
                 self.registers.segmentOverridePrefix = CPU_SEGMENT_GS
             elif (opcode == OPCODE_PREFIX_SS):
                 self.registers.segmentOverridePrefix = CPU_SEGMENT_SS
-            elif (opcode == OPCODE_PREFIX_REPE):
-                self.registers.repPrefix = opcode
-            elif (opcode == OPCODE_PREFIX_REPNE):
+            elif (opcode == OPCODE_PREFIX_REPE or opcode == OPCODE_PREFIX_REPNE):
                 self.registers.repPrefix = opcode
             ### TODO: I don't think, that we ever need lockPrefix.
             ##elif (opcode == OPCODE_PREFIX_LOCK):
             opcode = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
-
         return opcode
     cpdef doInfiniteCycles(self):
         try:
@@ -146,6 +143,7 @@ cdef class Cpu:
         self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
+        self.registers.readCodeSegSize()
         ##self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
         try:
             if (not self.opcodes.executeOpcode(self.opcode)):
@@ -176,6 +174,7 @@ cdef class Cpu:
     cpdef run(self):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
+        self.opcodes.registers = self.registers
         self.registers.run()
         self.opcodes.run()
         self.reset()
