@@ -185,9 +185,9 @@ cdef class Registers:
         if (not segId and not (segId in CPU_REGISTER_SREG)):
             self.main.exitError("segRead: segId is not a segment! ({0:d})", segId)
             return 0
-        segId = ((segId//5)<<3)
+        segId = CPU_REG_DATA_OFFSETS[segId]
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
-        segId = self.regs.csReadValueUnsignedBE(segId+6, OP_SIZE_WORD)
+        segId = self.regs.csReadValueUnsignedBE(segId, OP_SIZE_WORD)
         return segId
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue):
         cdef Segment segmentInstance
@@ -201,56 +201,48 @@ cdef class Registers:
         if (segId == CPU_SEGMENT_CS):
             self.codeSegSize = segmentInstance.getSegSize()
             self.eipSizeRegId = (self.codeSegSize == OP_SIZE_DWORD and CPU_REGISTER_EIP) or CPU_REGISTER_IP
-        segId = ((segId//5)<<3)
+        segId = CPU_REG_DATA_OFFSETS[segId]
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
-        segValue = self.regs.csWriteValueBE(segId+6, segValue, OP_SIZE_WORD)
+        segValue = self.regs.csWriteValueBE(segId, segValue, OP_SIZE_WORD)
         return segValue
     cdef long long regRead(self, unsigned short regId, unsigned char signed): # FIXME
-        cdef unsigned char opSize, regOffset
-        cdef unsigned short aregId
+        cdef unsigned char opSize
         if (regId == CPU_REGISTER_NONE):
             return 0
-        if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
-            self.main.exitError("regRead: regId is reserved! ({0:d})", regId)
-            return 0
-        aregId, regOffset = divmod(regId, 5)
-        aregId <<= 3
-        if (regOffset == 0):
+        #if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
+        #    self.main.exitError("regRead: regId is reserved! ({0:d})", regId)
+        #    return 0
+        opSize = regId%5
+        regId = CPU_REG_DATA_OFFSETS[regId]
+        if (opSize == 0):
             opSize = OP_SIZE_QWORD
-        elif (regOffset == 2):
+        elif (opSize == 1):
+            opSize = OP_SIZE_DWORD
+        elif (opSize == 2):
             opSize = OP_SIZE_WORD
-            aregId += 6
         else:
-            aregId += regOffset+3
-            if (regOffset == 1):
-                opSize = OP_SIZE_DWORD
-            else:
-                opSize = OP_SIZE_BYTE
+            opSize = OP_SIZE_BYTE
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         if (signed):
-            return self.regs.csReadValueSignedBE(aregId, opSize)
-        return self.regs.csReadValueUnsignedBE(aregId, opSize)
+            return self.regs.csReadValueSignedBE(regId, opSize)
+        return self.regs.csReadValueUnsignedBE(regId, opSize)
     cdef unsigned long regWrite(self, unsigned short regId, unsigned long value):
-        cdef unsigned char opSize, regOffset
-        cdef unsigned short aregId
+        cdef unsigned char opSize
         #if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
         #    self.main.exitError("regWrite: regId is reserved! ({0:d})", regId)
         #    return 0
-        aregId, regOffset = divmod(regId, 5)
-        aregId <<= 3
-        if (regOffset == 0):
+        opSize = regId%5
+        regId = CPU_REG_DATA_OFFSETS[regId]
+        if (opSize == 0):
             opSize = OP_SIZE_QWORD
-        elif (regOffset == 2):
+        elif (opSize == 1):
+            opSize = OP_SIZE_DWORD
+        elif (opSize == 2):
             opSize = OP_SIZE_WORD
-            aregId += 6
         else:
-            aregId += regOffset+3
-            if (regOffset == 1):
-                opSize = OP_SIZE_DWORD
-            else:
-                opSize = OP_SIZE_BYTE
+            opSize = OP_SIZE_BYTE
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
-        value = self.regs.csWriteValueBE(aregId, value, opSize)
+        value = self.regs.csWriteValueBE(regId, value, opSize)
         return value # returned value is unsigned!!
     cdef unsigned long regAdd(self, unsigned short regId, long long value):
         return self.regWrite(regId, <unsigned long>(self.regRead(regId, False)+value))

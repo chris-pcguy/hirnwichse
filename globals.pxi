@@ -47,69 +47,96 @@ DEF CPU_REGISTER_OFFSET_LBYTE = 4
 
 
 
-DEF CPU_MIN_REGISTER = 20
+DEF CPU_MIN_REGISTER = 5
 DEF CPU_REGISTER_NONE = 0
-DEF CPU_REGISTER_RAX = 20
-DEF CPU_REGISTER_EAX = 21
-DEF CPU_REGISTER_AX  = 22
-DEF CPU_REGISTER_AH  = 23
-DEF CPU_REGISTER_AL  = 24
-DEF CPU_REGISTER_RCX = 25
-DEF CPU_REGISTER_ECX = 26
-DEF CPU_REGISTER_CX  = 27
-DEF CPU_REGISTER_CH  = 28
-DEF CPU_REGISTER_CL  = 29
-DEF CPU_REGISTER_RDX = 30
-DEF CPU_REGISTER_EDX = 31
-DEF CPU_REGISTER_DX  = 32
-DEF CPU_REGISTER_DH  = 33
-DEF CPU_REGISTER_DL  = 34
-DEF CPU_REGISTER_RBX = 35
-DEF CPU_REGISTER_EBX = 36
-DEF CPU_REGISTER_BX  = 37
-DEF CPU_REGISTER_BH  = 38
-DEF CPU_REGISTER_BL  = 39
-DEF CPU_REGISTER_RSP = 40
-DEF CPU_REGISTER_ESP = 41
-DEF CPU_REGISTER_SP  = 42
-DEF CPU_REGISTER_RBP = 45
-DEF CPU_REGISTER_EBP = 46
-DEF CPU_REGISTER_BP  = 47
-DEF CPU_REGISTER_RSI = 50
-DEF CPU_REGISTER_ESI = 51
-DEF CPU_REGISTER_SI  = 52
-DEF CPU_REGISTER_RDI = 55
-DEF CPU_REGISTER_EDI = 56
-DEF CPU_REGISTER_DI  = 57
-DEF CPU_REGISTER_RIP = 60
-DEF CPU_REGISTER_EIP = 61
-DEF CPU_REGISTER_IP  = 62
-DEF CPU_REGISTER_RFLAGS = 65
-DEF CPU_REGISTER_EFLAGS = 66
-DEF CPU_REGISTER_FLAGS  = 67
+DEF CPU_REGISTER_RAX = 5
+DEF CPU_REGISTER_EAX = 6
+DEF CPU_REGISTER_AX  = 7
+DEF CPU_REGISTER_AH  = 8
+DEF CPU_REGISTER_AL  = 9
+DEF CPU_REGISTER_RCX = 10
+DEF CPU_REGISTER_ECX = 11
+DEF CPU_REGISTER_CX  = 12
+DEF CPU_REGISTER_CH  = 13
+DEF CPU_REGISTER_CL  = 14
+DEF CPU_REGISTER_RDX = 15
+DEF CPU_REGISTER_EDX = 16
+DEF CPU_REGISTER_DX  = 17
+DEF CPU_REGISTER_DH  = 18
+DEF CPU_REGISTER_DL  = 19
+DEF CPU_REGISTER_RBX = 20
+DEF CPU_REGISTER_EBX = 21
+DEF CPU_REGISTER_BX  = 22
+DEF CPU_REGISTER_BH  = 23
+DEF CPU_REGISTER_BL  = 24
+DEF CPU_REGISTER_RSP = 25
+DEF CPU_REGISTER_ESP = 26
+DEF CPU_REGISTER_SP  = 27
+DEF CPU_REGISTER_RBP = 30
+DEF CPU_REGISTER_EBP = 31
+DEF CPU_REGISTER_BP  = 32
+DEF CPU_REGISTER_RSI = 35
+DEF CPU_REGISTER_ESI = 36
+DEF CPU_REGISTER_SI  = 37
+DEF CPU_REGISTER_RDI = 40
+DEF CPU_REGISTER_EDI = 41
+DEF CPU_REGISTER_DI  = 42
+DEF CPU_REGISTER_RIP = 45
+DEF CPU_REGISTER_EIP = 46
+DEF CPU_REGISTER_IP  = 47
+DEF CPU_REGISTER_RFLAGS = 50
+DEF CPU_REGISTER_EFLAGS = 51
+DEF CPU_REGISTER_FLAGS  = 52
 
-DEF CPU_SEGMENT_CS = 72
-DEF CPU_SEGMENT_SS = 77
-DEF CPU_SEGMENT_DS = 82
-DEF CPU_SEGMENT_ES = 87
-DEF CPU_SEGMENT_FS = 92
-DEF CPU_SEGMENT_GS = 97
+DEF CPU_SEGMENT_CS = 57
+DEF CPU_SEGMENT_SS = 62
+DEF CPU_SEGMENT_DS = 67
+DEF CPU_SEGMENT_ES = 72
+DEF CPU_SEGMENT_FS = 77
+DEF CPU_SEGMENT_GS = 82
 
-DEF CPU_REGISTER_CR0 = 101
-DEF CPU_REGISTER_CR2 = 106
-DEF CPU_REGISTER_CR3 = 111
-DEF CPU_REGISTER_CR4 = 116
+DEF CPU_REGISTER_CR0 = 86
+DEF CPU_REGISTER_CR2 = 91
+DEF CPU_REGISTER_CR3 = 96
+DEF CPU_REGISTER_CR4 = 101
 
-DEF CPU_REGISTER_DR0 = 121
-DEF CPU_REGISTER_DR1 = 126
-DEF CPU_REGISTER_DR2 = 131
-DEF CPU_REGISTER_DR3 = 136
-DEF CPU_REGISTER_DR6 = 141
-DEF CPU_REGISTER_DR7 = 146
+DEF CPU_REGISTER_DR0 = 106
+DEF CPU_REGISTER_DR1 = 111
+DEF CPU_REGISTER_DR2 = 116
+DEF CPU_REGISTER_DR3 = 121
+DEF CPU_REGISTER_DR6 = 126
+DEF CPU_REGISTER_DR7 = 131
 
+cdef tuple CPU_REG_DATA_OFFSETS = (None, None, None, None, None, \
+                                   0x08, 0x0c, 0x0e, 0x0e, 0x0f, \
+                                   0x10, 0x14, 0x16, 0x16, 0x17, \
+                                   0x18, 0x1c, 0x1e, 0x1e, 0x1f, \
+                                   0x20, 0x24, 0x26, 0x26, 0x27, \
+                                   0x28, 0x2c, 0x2e, None, None, \
+                                   0x30, 0x34, 0x36, None, None, \
+                                   0x38, 0x3c, 0x3e, None, None, \
+                                   0x40, 0x44, 0x46, None, None, \
+                                   0x48, 0x4c, 0x4e, None, None, \
+                                   0x50, 0x54, 0x56, None, None, \
+                                   None, None, 0x5e, None, None, \
+                                   None, None, 0x66, None, None, \
+                                   None, None, 0x6e, None, None, \
+                                   None, None, 0x76, None, None, \
+                                   None, None, 0x7e, None, None, \
+                                   None, None, 0x86, None, None, \
+                                   None, 0x8c, None, None, None, \
+                                   None, 0x94, None, None, None, \
+                                   None, 0x9c, None, None, None, \
+                                   None, 0xa4, None, None, None, \
+                                   None, 0xac, None, None, None, \
+                                   None, 0xb4, None, None, None, \
+                                   None, 0xbc, None, None, None, \
+                                   None, 0xc4, None, None, None, \
+                                   None, 0xcc, None, None, None, \
+                                   None, 0xd4, None, None, None)
 
 DEF CPU_MAX_REGISTER_WO_CR = 100 # without CRd
-DEF CPU_MAX_REGISTER = 150
+DEF CPU_MAX_REGISTER = 135
 DEF CPU_REGISTER_LENGTH = 200*8
 DEF CPU_NB_REGS64 = 16
 DEF CPU_NB_REGS = 8

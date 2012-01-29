@@ -35,7 +35,7 @@ cdef class Registers:
     cdef reset(self)
     cdef resetPrefixes(self)
     cdef readCodeSegSize(self)
-    cdef unsigned short getRegSize(self, unsigned short regId) # return size in bits
+    cdef unsigned short getRegSize(self, unsigned short regId)
     cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed)
     cdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed)
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned long *retAddr)
