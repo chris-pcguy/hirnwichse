@@ -1282,7 +1282,7 @@ cdef class Opcodes:
             else:
                 if (not (eaxId == 0x0 or eaxIsInvalid)):
                     self.main.printMsg("CPUID: eaxId {0:#04x} unknown.", eaxId)
-                self.registers.regWrite(CPU_REGISTER_EAX, 0x1) # 0x7)
+                self.registers.regWrite(CPU_REGISTER_EAX, 0x4) # 0x1) # 0x7)
                 self.registers.regWrite(CPU_REGISTER_EBX, 0x756e6547)
                 self.registers.regWrite(CPU_REGISTER_EDX, 0x49656e69)
                 self.registers.regWrite(CPU_REGISTER_ECX, 0x6c65746e)
