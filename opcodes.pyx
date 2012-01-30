@@ -71,9 +71,9 @@ cdef class Opcodes:
             elif (opcode == 0x05):
                 self.opcodeAxEaxImm(OPCODE_ADD, self.registers.operSize)
             elif (opcode == 0x06):
-                self.pushSeg(self.registers.operSize, PUSH_ES)
+                self.pushSeg(PUSH_ES)
             elif (opcode == 0x07):
-                self.popSeg(self.registers.operSize, POP_ES)
+                self.popSeg(POP_ES)
             elif (opcode == 0x08):
                 self.opcodeRM_R(OPCODE_OR, OP_SIZE_BYTE)
             elif (opcode == 0x09):
@@ -87,9 +87,9 @@ cdef class Opcodes:
             elif (opcode == 0x0d):
                 self.opcodeAxEaxImm(OPCODE_OR, self.registers.operSize)
             elif (opcode == 0x0e):
-                self.pushSeg(self.registers.operSize, PUSH_CS)
+                self.pushSeg(PUSH_CS)
             elif (opcode == 0x0f):
-                self.opcodeGroup0F(self.registers.operSize, self.registers.addrSize)
+                self.opcodeGroup0F()
             elif (opcode == 0x10):
                 self.opcodeRM_R(OPCODE_ADC, OP_SIZE_BYTE)
             elif (opcode == 0x11):
@@ -103,9 +103,9 @@ cdef class Opcodes:
             elif (opcode == 0x15):
                 self.opcodeAxEaxImm(OPCODE_ADC, self.registers.operSize)
             elif (opcode == 0x16):
-                self.pushSeg(self.registers.operSize, PUSH_SS)
+                self.pushSeg(PUSH_SS)
             elif (opcode == 0x17):
-                self.popSeg(self.registers.operSize, POP_SS)
+                self.popSeg(POP_SS)
             elif (opcode == 0x18):
                 self.opcodeRM_R(OPCODE_SBB, OP_SIZE_BYTE)
             elif (opcode == 0x19):
@@ -119,9 +119,9 @@ cdef class Opcodes:
             elif (opcode == 0x1d):
                 self.opcodeAxEaxImm(OPCODE_SBB, self.registers.operSize)
             elif (opcode == 0x1e):
-                self.pushSeg(self.registers.operSize, PUSH_DS)
+                self.pushSeg(PUSH_DS)
             elif (opcode == 0x1f):
-                self.popSeg(self.registers.operSize, POP_DS)
+                self.popSeg(POP_DS)
             elif (opcode == 0x20):
                 self.opcodeRM_R(OPCODE_AND, OP_SIZE_BYTE)
             elif (opcode == 0x21):
@@ -179,39 +179,39 @@ cdef class Opcodes:
             elif (opcode == 0x3f):
                 self.aas()
             elif (opcode >= 0x40 and opcode <= 0x47):
-                self.incReg(self.registers.operSize)
+                self.incReg()
             elif (opcode >= 0x48 and opcode <= 0x4f):
-                self.decReg(self.registers.operSize)
+                self.decReg()
             elif (opcode >= 0x50 and opcode <= 0x57):
-                self.pushReg(self.registers.operSize)
+                self.pushReg()
             elif (opcode >= 0x58 and opcode <= 0x5f):
-                self.popReg(self.registers.operSize)
+                self.popReg()
             elif (opcode == 0x60):
-                self.pushaWD(self.registers.operSize)
+                self.pushaWD()
             elif (opcode == 0x61):
-                self.popaWD(self.registers.operSize)
+                self.popaWD()
             elif (opcode == 0x62):
-                self.bound(self.registers.operSize, self.registers.addrSize)
+                self.bound()
             elif (opcode == 0x63):
                 self.arpl()
             elif (opcode == 0x68):
-                self.pushIMM(self.registers.operSize, False)
+                self.pushIMM(False)
             elif (opcode == 0x69):
-                self.imulR_RM_ImmFunc(self.registers.operSize, False)
+                self.imulR_RM_ImmFunc(False)
             elif (opcode == 0x6a):
-                self.pushIMM(self.registers.operSize, True)
+                self.pushIMM(True)
             elif (opcode == 0x6b):
-                self.imulR_RM_ImmFunc(self.registers.operSize, True)
+                self.imulR_RM_ImmFunc(True)
             elif (opcode == 0x6c):
-                self.insFunc(OP_SIZE_BYTE, self.registers.addrSize)
+                self.insFunc(OP_SIZE_BYTE)
             elif (opcode == 0x6d):
-                self.insFunc(self.registers.operSize, self.registers.addrSize)
+                self.insFunc(self.registers.operSize)
             elif (opcode == 0x6e):
-                self.outsFunc(OP_SIZE_BYTE, self.registers.addrSize)
+                self.outsFunc(OP_SIZE_BYTE)
             elif (opcode == 0x6f):
-                self.outsFunc(self.registers.operSize, self.registers.addrSize)
+                self.outsFunc(self.registers.operSize)
             elif (opcode >= 0x70 and opcode <= 0x7f):
-                self.jumpShort(self.registers.operSize, OP_SIZE_BYTE, self.registers.getCond(opcode&0xf))
+                self.jumpShort(OP_SIZE_BYTE, self.registers.getCond(opcode&0xf))
             elif (opcode == 0x80):
                 self.opcodeGroup1_RM_ImmFunc(OP_SIZE_BYTE, True)
             elif (opcode == 0x81):
@@ -237,67 +237,67 @@ cdef class Opcodes:
             elif (opcode == 0x8c):
                 self.movRM16_SREG()
             elif (opcode == 0x8d):
-                self.lea(self.registers.operSize, self.registers.addrSize)
+                self.lea()
             elif (opcode == 0x8e):
                 self.movSREG_RM16()
             elif (opcode == 0x8f):
-                self.popRM16_32(self.registers.operSize)
+                self.popRM16_32()
             elif (opcode == 0x90):
                 pass # TODO: maybe implement PAUSE-Opcode (F3 90 / REPE NOP)
             elif (opcode >= 0x91 and opcode <= 0x97):
-                self.xchgReg(self.registers.operSize)
+                self.xchgReg()
             elif (opcode == 0x98):
-                self.cbw_cwde(self.registers.operSize)
+                self.cbw_cwde()
             elif (opcode == 0x99):
-                self.cwd_cdq(self.registers.operSize)
+                self.cwd_cdq()
             elif (opcode == 0x9a):
-                self.callPtr16_32(self.registers.operSize)
+                self.callPtr16_32()
             elif (opcode == 0x9b): # WAIT/FWAIT
                 if (self.registers.getFlag(CPU_REGISTER_CR0, (CR0_FLAG_MP | \
                   CR0_FLAG_TS)) ==  (CR0_FLAG_MP | CR0_FLAG_TS)):
                     raise ChemuException(CPU_EXCEPTION_NM)
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (opcode == 0x9c):
-                self.pushfWD(self.registers.operSize)
+                self.pushfWD()
             elif (opcode == 0x9d):
-                self.popfWD(self.registers.operSize)
+                self.popfWD()
             elif (opcode == 0x9e):
                 self.sahf()
             elif (opcode == 0x9f):
                 self.lahf()
             elif (opcode >= 0xa0 and opcode <= 0xa3):
                 if (opcode == 0xa0):
-                    self.movAxMoffs(OP_SIZE_BYTE, self.registers.addrSize)
+                    self.movAxMoffs(OP_SIZE_BYTE)
                 elif (opcode == 0xa1):
-                    self.movAxMoffs(self.registers.operSize, self.registers.addrSize)
+                    self.movAxMoffs(self.registers.operSize)
                 elif (opcode == 0xa2):
-                    self.movMoffsAx(OP_SIZE_BYTE, self.registers.addrSize)
+                    self.movMoffsAx(OP_SIZE_BYTE)
                 elif (opcode == 0xa3):
-                    self.movMoffsAx(self.registers.operSize, self.registers.addrSize)
+                    self.movMoffsAx(self.registers.operSize)
             elif (opcode == 0xa4):
-                self.movsFunc(OP_SIZE_BYTE, self.registers.addrSize)
+                self.movsFunc(OP_SIZE_BYTE)
             elif (opcode == 0xa5):
-                self.movsFunc(self.registers.operSize, self.registers.addrSize)
+                self.movsFunc(self.registers.operSize)
             elif (opcode == 0xa6):
-                self.cmpsFunc(OP_SIZE_BYTE, self.registers.addrSize)
+                self.cmpsFunc(OP_SIZE_BYTE)
             elif (opcode == 0xa7):
-                self.cmpsFunc(self.registers.operSize, self.registers.addrSize)
+                self.cmpsFunc(self.registers.operSize)
             elif (opcode == 0xa8):
                 self.opcodeAxEaxImm(OPCODE_TEST, OP_SIZE_BYTE)
             elif (opcode == 0xa9):
                 self.opcodeAxEaxImm(OPCODE_TEST, self.registers.operSize)
             elif (opcode == 0xaa):
-                self.stosFunc(OP_SIZE_BYTE, self.registers.addrSize)
+                self.stosFunc(OP_SIZE_BYTE)
             elif (opcode == 0xab):
-                self.stosFunc(self.registers.operSize, self.registers.addrSize)
+                self.stosFunc(self.registers.operSize)
             elif (opcode == 0xac):
-                self.lodsFunc(OP_SIZE_BYTE, self.registers.addrSize)
+                self.lodsFunc(OP_SIZE_BYTE)
             elif (opcode == 0xad):
-                self.lodsFunc(self.registers.operSize, self.registers.addrSize)
+                self.lodsFunc(self.registers.operSize)
             elif (opcode == 0xae):
-                self.scasFunc(OP_SIZE_BYTE, self.registers.addrSize)
+                self.scasFunc(OP_SIZE_BYTE)
             elif (opcode == 0xaf):
-                self.scasFunc(self.registers.operSize, self.registers.addrSize)
+                self.scasFunc(self.registers.operSize)
             elif (opcode >= 0xb0 and opcode <= 0xb7):
                 self.movImmToR(OP_SIZE_BYTE)
             elif (opcode >= 0xb8 and opcode <= 0xbf):
@@ -307,25 +307,25 @@ cdef class Opcodes:
             elif (opcode == 0xc1):
                 self.opcodeGroup4_RM_IMM8(self.registers.operSize)
             elif (opcode == 0xc2):
-                self.retNearImm(self.registers.operSize)
+                self.retNearImm()
             elif (opcode == 0xc3):
-                self.retNear(self.registers.operSize, 0)
+                self.retNear(0)
             elif (opcode == 0xc4):
-                self.lfpFunc(self.registers.operSize, CPU_SEGMENT_ES)
+                self.lfpFunc(CPU_SEGMENT_ES)
             elif (opcode == 0xc5):
-                self.lfpFunc(self.registers.operSize, CPU_SEGMENT_DS)
+                self.lfpFunc(CPU_SEGMENT_DS)
             elif (opcode == 0xc6):
                 self.opcodeGroup3_RM_ImmFunc(OP_SIZE_BYTE)
             elif (opcode == 0xc7):
                 self.opcodeGroup3_RM_ImmFunc(self.registers.operSize)
             elif (opcode == 0xc8):
-                self.enter(self.registers.operSize)
+                self.enter()
             elif (opcode == 0xc9):
-                self.leave(self.registers.operSize)
+                self.leave()
             elif (opcode == 0xca):
-                self.retFarImm(self.registers.operSize)
+                self.retFarImm()
             elif (opcode == 0xcb):
-                self.retFar(self.registers.operSize, 0)
+                self.retFar(0)
             elif (opcode == 0xcc):
                 self.int3()
             elif (opcode == 0xcd):
@@ -333,7 +333,7 @@ cdef class Opcodes:
             elif (opcode == 0xce):
                 self.into()
             elif (opcode == 0xcf):
-                self.iret(self.registers.operSize)
+                self.iret()
             elif (opcode == 0xd0):
                 self.opcodeGroup4_RM_1(OP_SIZE_BYTE)
             elif (opcode == 0xd1):
@@ -349,7 +349,7 @@ cdef class Opcodes:
             elif (opcode == 0xd6):
                 self.undefNoUD()
             elif (opcode == 0xd7):
-                self.xlatb(self.registers.addrSize)
+                self.xlatb()
             elif (opcode >= 0xd8 and opcode <= 0xdf):
                 if (self.registers.getFlag(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR) == 0):
                     raise ChemuException(CPU_EXCEPTION_UD)
@@ -357,13 +357,13 @@ cdef class Opcodes:
                     raise ChemuException(CPU_EXCEPTION_NM)
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (opcode == 0xe0):
-                self.loopne(self.registers.operSize, self.registers.addrSize)
+                self.loopFunc(OPCODE_LOOPNE)
             elif (opcode == 0xe1):
-                self.loope(self.registers.operSize, self.registers.addrSize)
+                self.loopFunc(OPCODE_LOOPE)
             elif (opcode == 0xe2):
-                self.loop(self.registers.operSize, self.registers.addrSize)
+                self.loopFunc(OPCODE_LOOP)
             elif (opcode == 0xe3):
-                self.jcxzShort(self.registers.operSize)
+                self.jcxzShort()
             elif (opcode == 0xe4):
                 self.inAxImm8(OP_SIZE_BYTE)
             elif (opcode == 0xe5):
@@ -373,13 +373,13 @@ cdef class Opcodes:
             elif (opcode == 0xe7):
                 self.outImm8Ax(self.registers.operSize)
             elif (opcode == 0xe8):
-                self.callNearRel16_32(self.registers.operSize)
+                self.callNearRel16_32()
             elif (opcode == 0xe9):
-                self.jumpShort(self.registers.operSize, self.registers.operSize, True)
+                self.jumpShort(self.registers.operSize, True)
             elif (opcode == 0xea):
-                self.jumpFarAbsolutePtr(self.registers.operSize)
+                self.jumpFarAbsolutePtr()
             elif (opcode == 0xeb):
-                self.jumpShort(self.registers.operSize, OP_SIZE_BYTE, True)
+                self.jumpShort(OP_SIZE_BYTE, True)
             elif (opcode == 0xec):
                 self.inAxDx(OP_SIZE_BYTE)
             elif (opcode == 0xed):
@@ -413,7 +413,7 @@ cdef class Opcodes:
             elif (opcode == 0xfe):
                 self.opcodeGroupFE()
             elif (opcode == 0xff):
-                self.opcodeGroupFF(self.registers.operSize)
+                self.opcodeGroupFF()
             else:
                 self.main.printMsg("handler for opcode {0:#06x} wasn't found.", opcode)
                 return False # if opcode wasn't found.
@@ -467,26 +467,20 @@ cdef class Opcodes:
         (<Segments>self.registers.segments).protectedModeOn = self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PE)
         if ((<Segments>self.registers.segments).isInProtectedMode()):
             (<Gdt>self.registers.segments.gdt).loadTableData()
-    cdef jumpFarAbsolutePtr(self, unsigned char operSize):
+    cdef jumpFarAbsolutePtr(self):
         cdef unsigned short cs
         cdef unsigned long eip
-        eip = self.registers.getCurrentOpcodeAdd(operSize, False)
+        eip = self.registers.getCurrentOpcodeAdd(self.registers.operSize, False)
         cs = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
         self.syncProtectedModeState()
         self.registers.regWrite(CPU_REGISTER_EIP, eip)
         self.registers.segWrite(CPU_SEGMENT_CS, cs)
-    cdef loop(self, unsigned char operSize, unsigned char addrSize):
-        self.loopFunc(operSize, addrSize, OPCODE_LOOP)
-    cdef loope(self, unsigned char operSize, unsigned char addrSize):
-        self.loopFunc(operSize, addrSize, OPCODE_LOOPE)
-    cdef loopne(self, unsigned char operSize, unsigned char addrSize):
-        self.loopFunc(operSize, addrSize, OPCODE_LOOPNE)
-    cdef loopFunc(self, unsigned char operSize, unsigned char addrSize, unsigned char loopType):
+    cdef loopFunc(self, unsigned char loopType):
         cdef unsigned char cond, oldZF
         cdef unsigned short countReg
         cdef long long countOrNewEip
         cdef char rel8
-        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, addrSize)
+        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
         oldZF = self.registers.getEFLAG(FLAG_ZF)!=0
         rel8 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
         countOrNewEip = self.registers.regSub(countReg, 1)
@@ -499,7 +493,7 @@ cdef class Opcodes:
             cond = True
         if (cond and countOrNewEip != 0):
             countOrNewEip = <unsigned long>(self.registers.regRead(CPU_REGISTER_EIP, False)+rel8)
-            if (operSize == OP_SIZE_WORD):
+            if (self.registers.operSize == OP_SIZE_WORD):
                 countOrNewEip = <unsigned short>countOrNewEip
             self.registers.regWrite(CPU_REGISTER_EIP, countOrNewEip)
     cdef opcodeR_RM(self, unsigned char opcode, unsigned char operSize):
@@ -585,66 +579,65 @@ cdef class Opcodes:
         if (self.modRMInstance.regName == CPU_SEGMENT_CS):
             raise ChemuException(CPU_EXCEPTION_UD)
         self.modRMInstance.modSegSave(OP_SIZE_WORD, self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True))
-    cdef movAxMoffs(self, unsigned char operSize, unsigned char addrSize):
-        self.registers.regWrite((<unsigned short>self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)), self.registers.mmReadValueUnsigned((<unsigned long>self.registers.getCurrentOpcodeAdd(addrSize, False)), operSize, CPU_SEGMENT_DS, True))
-    cdef movMoffsAx(self, unsigned char operSize, unsigned char addrSize):
-        self.registers.mmWriteValue((<unsigned long>self.registers.getCurrentOpcodeAdd(addrSize, False)), self.registers.regRead((<unsigned short>self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)), False), operSize, CPU_SEGMENT_DS, True)
-    cdef stosFunc(self, unsigned char operSize, unsigned char addrSize):
+    cdef movAxMoffs(self, unsigned char operSize):
+        self.registers.regWrite((<unsigned short>self.registers.getWordAsDword(CPU_REGISTER_AX, self.registers.operSize)), self.registers.mmReadValueUnsigned((<unsigned long>self.registers.getCurrentOpcodeAdd(self.registers.addrSize, False)), self.registers.operSize, CPU_SEGMENT_DS, True))
+    cdef movMoffsAx(self, unsigned char operSize):
+        self.registers.mmWriteValue((<unsigned long>self.registers.getCurrentOpcodeAdd(self.registers.addrSize, False)), self.registers.regRead((<unsigned short>self.registers.getWordAsDword(CPU_REGISTER_AX, self.registers.operSize)), False), self.registers.operSize, CPU_SEGMENT_DS, True)
+    cdef stosFunc(self, unsigned char operSize):
+        cdef unsigned char df
         cdef unsigned short dataReg, srcReg, countReg
         cdef unsigned long data, countVal
         cdef unsigned long long dataLength
         cdef long long destAddr
         cdef bytes memData
-        dataReg = self.registers.getWordAsDword(CPU_REGISTER_DI, addrSize)
+        dataReg = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.addrSize)
         srcReg  = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
         data = self.registers.regRead(srcReg, False)
-        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, addrSize)
+        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
         countVal = 1
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        addrSize = self.registers.getEFLAG(FLAG_DF)!=0
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         dataLength = operSize*countVal
         destAddr = self.registers.regRead(dataReg, False)
-        # addrSize is DF-FLAG
-        if (addrSize):
+        if (df):
             destAddr -= dataLength-operSize
         memData = data.to_bytes(length=operSize, byteorder="little")*countVal
         self.registers.mmWrite(destAddr, memData, dataLength, CPU_SEGMENT_ES, False)
-        if (not addrSize):
+        if (not df):
             self.registers.regAdd(dataReg, dataLength)
         else:
             self.registers.regSub(dataReg, dataLength)
         self.main.cpu.cycles += countVal
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
-    cdef movsFunc(self, unsigned char operSize, unsigned char addrSize):
+    cdef movsFunc(self, unsigned char operSize):
+        cdef unsigned char df
         cdef unsigned short esiReg, ediReg, countReg
         cdef unsigned long countVal
         cdef unsigned long long dataLength
         cdef long long esiVal, ediVal
         cdef bytes data
-        esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, addrSize)
-        ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, addrSize)
-        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, addrSize)
+        esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, self.registers.addrSize)
+        ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.addrSize)
+        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
         countVal = 1
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        addrSize = self.registers.getEFLAG(FLAG_DF)!=0
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         dataLength = operSize*countVal
         esiVal = self.registers.regRead(esiReg, False)
         ediVal = self.registers.regRead(ediReg, False)
-        # addrSize is DF-FLAG
-        if (addrSize):
+        if (df):
             esiVal -= dataLength-operSize
             ediVal -= dataLength-operSize
         data = self.registers.mmRead(esiVal, dataLength, CPU_SEGMENT_DS, True)
         self.registers.mmWrite(ediVal, data, dataLength, CPU_SEGMENT_ES, False)
-        # addrSize is DF-FLAG
-        if (not addrSize):
+        if (not df):
             self.registers.regAdd(esiReg, dataLength)
             self.registers.regAdd(ediReg, dataLength)
         else:
@@ -653,23 +646,23 @@ cdef class Opcodes:
         self.main.cpu.cycles += countVal
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
-    cdef lodsFunc(self, unsigned char operSize, unsigned char addrSize):
+    cdef lodsFunc(self, unsigned char operSize):
+        cdef unsigned char df
         cdef unsigned short eaxReg, esiReg, countReg
         cdef unsigned long data, countVal
         cdef unsigned long long dataLength
         cdef long long esiVal
         eaxReg = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
-        esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, addrSize)
-        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, addrSize)
+        esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, self.registers.addrSize)
+        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
         countVal = 1
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        addrSize = self.registers.getEFLAG(FLAG_DF)!=0
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         dataLength = operSize*countVal
-        # addrSize is DF-FLAG
-        if (not addrSize):
+        if (not df):
             esiVal = self.registers.regAdd(esiReg, dataLength)-operSize
         else:
             esiVal = self.registers.regSub(esiReg, dataLength)+operSize
@@ -678,27 +671,26 @@ cdef class Opcodes:
         self.main.cpu.cycles += countVal
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
-    cdef cmpsFunc(self, unsigned char operSize, unsigned char addrSize):
-        cdef unsigned char zf
+    cdef cmpsFunc(self, unsigned char operSize):
+        cdef unsigned char zf, df
         cdef unsigned short esiReg, ediReg, countReg
         cdef unsigned long esiVal, ediVal, countVal, newCount, src1, src2, i
-        esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, addrSize)
-        ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, addrSize)
-        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, addrSize)
+        esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, self.registers.addrSize)
+        ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.addrSize)
+        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
         countVal, newCount = 1, 0
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        addrSize = self.registers.getEFLAG(FLAG_DF)!=0
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         esiVal = self.registers.regRead(esiReg, False)
         ediVal = self.registers.regRead(ediReg, False)
         for i in range(countVal):
             src1 = self.registers.mmReadValueUnsigned(esiVal, operSize, CPU_SEGMENT_DS, True)
             src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, CPU_SEGMENT_ES, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
-            # addrSize is DF-FLAG
-            if (not addrSize):
+            if (not df):
                 esiVal = self.registers.regAdd(esiReg, operSize)
                 ediVal = self.registers.regAdd(ediReg, operSize)
             else:
@@ -712,26 +704,25 @@ cdef class Opcodes:
         self.main.cpu.cycles += countVal-newCount
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, newCount)
-    cdef scasFunc(self, unsigned char operSize, unsigned char addrSize):
-        cdef unsigned char zf
+    cdef scasFunc(self, unsigned char operSize):
+        cdef unsigned char zf, df
         cdef unsigned short eaxReg, ediReg, countReg
         cdef unsigned long src1, src2, ediVal, countVal, newCount, i
         eaxReg  = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
-        ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, addrSize)
-        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, addrSize)
+        ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.addrSize)
+        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
         countVal, newCount = 1, 0
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        addrSize = self.registers.getEFLAG(FLAG_DF)!=0
+        df = self.registers.getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
             ediVal = self.registers.regRead(ediReg, False)
             src1 = self.registers.regRead(eaxReg, False)
             src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, CPU_SEGMENT_ES, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
-            # addrSize is DF-FLAG
-            if (not addrSize):
+            if (not df):
                 self.registers.regAdd(ediReg, operSize)
             else:
                 self.registers.regSub(ediReg, operSize)
@@ -759,149 +750,149 @@ cdef class Opcodes:
         cdef unsigned short dataReg
         dataReg = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
         self.main.platform.outPort(self.registers.regRead(CPU_REGISTER_DX, False), self.registers.regRead(dataReg, False), operSize)
-    cdef outsFunc(self, unsigned char operSize, unsigned char addrSize):
+    cdef outsFunc(self, unsigned char operSize):
+        cdef unsigned char dfFlag
         cdef unsigned short dxReg, esiReg, countReg, ioPort
         cdef unsigned long value, esiVal, countVal, i
         dxReg  = CPU_REGISTER_DX
-        esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, addrSize)
-        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, addrSize)
+        esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, self.registers.addrSize)
+        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
         countVal = 1
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        addrSize = self.registers.getEFLAG(FLAG_DF)!=0
+        dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
             esiVal = self.registers.regRead(esiReg, False)
             ioPort = self.registers.regRead(dxReg, False)
             value = self.registers.mmReadValueUnsigned(esiVal, operSize, CPU_SEGMENT_DS, True)
             self.main.platform.outPort(ioPort, value, operSize)
-            # addrSize is DF-FLAG
-            if (not addrSize):
+            if (not dfFlag):
                 self.registers.regAdd(esiReg, operSize)
             else:
                 self.registers.regSub(esiReg, operSize)
         self.main.cpu.cycles += countVal
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
-    cdef insFunc(self, unsigned char operSize, unsigned char addrSize):
+    cdef insFunc(self, unsigned char operSize):
+        cdef unsigned char dfFlag
         cdef unsigned short dxReg, ediReg, countReg, ioPort
         cdef unsigned long value, ediVal, countVal, i
         dxReg  = CPU_REGISTER_DX
-        ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, addrSize)
-        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, addrSize)
+        ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.addrSize)
+        countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
         countVal = 1
         if (self.registers.repPrefix):
             countVal = self.registers.regRead(countReg, False)
             if (countVal == 0):
                 return
-        addrSize = self.registers.getEFLAG(FLAG_DF)!=0
+        dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
             ediVal = self.registers.regRead(ediReg, False)
             ioPort = self.registers.regRead(dxReg, False)
             value = self.main.platform.inPort(ioPort, operSize)
             self.registers.mmWriteValue(ediVal, value, operSize, CPU_SEGMENT_ES, False)
-            # addrSize is DF-FLAG
-            if (not addrSize):
+            if (not dfFlag):
                 self.registers.regAdd(ediReg, operSize)
             else:
                 self.registers.regSub(ediReg, operSize)
         self.main.cpu.cycles += countVal
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
-    cdef jcxzShort(self, unsigned char operSize):
+    cdef jcxzShort(self):
         cdef unsigned short cxReg
         cdef unsigned long cxVal
-        cxReg = self.registers.getWordAsDword(CPU_REGISTER_CX, operSize)
+        cxReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.operSize)
         cxVal = self.registers.regRead(cxReg, False)
-        self.jumpShort(operSize, OP_SIZE_BYTE, cxVal==0)
-    cdef jumpShort(self, unsigned char operSize, unsigned char offsetSize, unsigned char c):
+        self.jumpShort(OP_SIZE_BYTE, cxVal==0)
+    cdef jumpShort(self, unsigned char offsetSize, unsigned char c):
         cdef long offset
         cdef long long newEip
         offset = self.registers.getCurrentOpcodeAdd(offsetSize, True)
         if (c):
             newEip = (self.registers.regRead(CPU_REGISTER_EIP, False)+offset)
-            if (operSize == OP_SIZE_WORD):
+            if (self.registers.operSize == OP_SIZE_WORD):
                 newEip = <unsigned short>newEip
             else:
                 newEip = <unsigned long>newEip
             self.registers.regWrite(CPU_REGISTER_EIP, newEip)
-    cdef callNearRel16_32(self, unsigned char operSize):
+    cdef callNearRel16_32(self):
         cdef long offset
         cdef long long newEip
-        offset = self.registers.getCurrentOpcodeAdd(operSize, True)
-        self.stackPushRegId(CPU_REGISTER_EIP, operSize)
+        offset = self.registers.getCurrentOpcodeAdd(self.registers.operSize, True)
+        self.stackPushRegId(CPU_REGISTER_EIP, self.registers.operSize)
         newEip = (self.registers.regRead(CPU_REGISTER_EIP, False)+offset)
-        if (operSize == OP_SIZE_WORD):
+        if (self.registers.operSize == OP_SIZE_WORD):
             newEip = <unsigned short>newEip
         else:
             newEip = <unsigned long>newEip
         self.registers.regWrite(CPU_REGISTER_EIP, newEip)
-    cdef callPtr16_32(self, unsigned char operSize):
+    cdef callPtr16_32(self):
         cdef unsigned short segVal
         cdef unsigned long eipAddr
-        eipAddr = self.registers.getCurrentOpcodeAdd(operSize, False)
+        eipAddr = self.registers.getCurrentOpcodeAdd(self.registers.operSize, False)
         segVal = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
-        self.stackPushSegId(CPU_SEGMENT_CS, operSize)
-        self.stackPushRegId(CPU_REGISTER_EIP, operSize)
+        self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
+        self.stackPushRegId(CPU_REGISTER_EIP, self.registers.operSize)
         self.syncProtectedModeState()
         self.registers.segWrite(CPU_SEGMENT_CS, segVal)
         self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
-    cdef pushaWD(self, unsigned char operSize):
+    cdef pushaWD(self):
         cdef unsigned short regName
         cdef unsigned long temp
-        regName = self.registers.getWordAsDword(CPU_REGISTER_SP, operSize)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_SP, self.registers.operSize)
         temp = self.registers.regRead(regName, False)
         if (not (<Segments>self.registers.segments).isInProtectedMode() and temp in (7, 9, 11, 13, 15)):
             raise ChemuException(CPU_EXCEPTION_GP)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
-        self.stackPushRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_CX, operSize)
-        self.stackPushRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_DX, operSize)
-        self.stackPushRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_BX, operSize)
-        self.stackPushRegId(regName, operSize)
-        self.stackPushValue(temp, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_BP, operSize)
-        self.stackPushRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_SI, operSize)
-        self.stackPushRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_DI, operSize)
-        self.stackPushRegId(regName, operSize)
-    cdef popaWD(self, unsigned char operSize):
+        regName = self.registers.getWordAsDword(CPU_REGISTER_AX, self.registers.operSize)
+        self.stackPushRegId(regName, self.registers.operSize)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.operSize)
+        self.stackPushRegId(regName, self.registers.operSize)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_DX, self.registers.operSize)
+        self.stackPushRegId(regName, self.registers.operSize)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_BX, self.registers.operSize)
+        self.stackPushRegId(regName, self.registers.operSize)
+        self.stackPushValue(temp, self.registers.operSize)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_BP, self.registers.operSize)
+        self.stackPushRegId(regName, self.registers.operSize)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_SI, self.registers.operSize)
+        self.stackPushRegId(regName, self.registers.operSize)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.operSize)
+        self.stackPushRegId(regName, self.registers.operSize)
+    cdef popaWD(self):
         cdef unsigned short regName
-        regName = self.registers.getWordAsDword(CPU_REGISTER_DI, operSize)
-        self.stackPopRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_SI, operSize)
-        self.stackPopRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_BP, operSize)
-        self.stackPopRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_SP, operSize)
-        self.registers.regAdd(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_BX, operSize)
-        self.stackPopRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_DX, operSize)
-        self.stackPopRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_CX, operSize)
-        self.stackPopRegId(regName, operSize)
-        regName = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
-        self.stackPopRegId(regName, operSize)
-    cdef pushfWD(self, unsigned char operSize):
+        regName = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.operSize)
+        self.stackPopRegId(regName)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_SI, self.registers.operSize)
+        self.stackPopRegId(regName)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_BP, self.registers.operSize)
+        self.stackPopRegId(regName)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_SP, self.registers.operSize)
+        self.registers.regAdd(regName, self.registers.operSize)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_BX, self.registers.operSize)
+        self.stackPopRegId(regName)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_DX, self.registers.operSize)
+        self.stackPopRegId(regName)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.operSize)
+        self.stackPopRegId(regName)
+        regName = self.registers.getWordAsDword(CPU_REGISTER_AX, self.registers.operSize)
+        self.stackPopRegId(regName)
+    cdef pushfWD(self):
         cdef unsigned short regNameId
         cdef unsigned long value
-        regNameId = self.registers.getWordAsDword(CPU_REGISTER_FLAGS, operSize)
+        regNameId = self.registers.getWordAsDword(CPU_REGISTER_FLAGS, self.registers.operSize)
         value = self.registers.regRead(regNameId, False)|0x2
         value &= (~FLAG_IOPL) # This is for
         value |= ((self.registers.iopl&3)<<12) # IOPL, Bits 12,13
-        if (operSize == OP_SIZE_DWORD):
+        if (self.registers.operSize == OP_SIZE_DWORD):
             value &= 0x00FCFFFF
-        self.stackPushValue(value, operSize)
-    cdef popfWD(self, unsigned char operSize):
+        self.stackPushValue(value, self.registers.operSize)
+    cdef popfWD(self):
         cdef unsigned short regNameId
         cdef unsigned long flagValue
-        regNameId = self.registers.getWordAsDword(CPU_REGISTER_FLAGS, operSize)
-        flagValue = self.stackPopValue(operSize)|0x2
+        regNameId = self.registers.getWordAsDword(CPU_REGISTER_FLAGS, self.registers.operSize)
+        flagValue = self.stackPopValue()|0x2
         flagValue &= (~0x8028)
         if (self.registers.cpl != 0):
             flagValue &= (~FLAG_IOPL)
@@ -912,36 +903,35 @@ cdef class Opcodes:
         self.registers.setEFLAG((((self.registers.iopl&3)<<12)|(FLAG_REQUIRED)), True) # This is for IOPL, Bits 12,13
         if (self.registers.getEFLAG(FLAG_VM)!=0):
             self.main.exitError("TODO: virtual 8086 mode not supported yet.")
-    cdef stackPopRM(self, unsigned char operSize):
+    cdef stackPopRM(self):
         cdef unsigned long value
-        value = self.stackPopValue(operSize)
-        self.modRMInstance.modRMSave(operSize, value, True, OPCODE_SAVE)
-    cdef stackPopSegId(self, unsigned short segId, unsigned char operSize):
-        self.registers.segWrite(segId, <unsigned short>self.stackPopValue(operSize))
-    cdef stackPopRegId(self, unsigned short regId, unsigned char operSize):
+        value = self.stackPopValue()
+        self.modRMInstance.modRMSave(self.registers.operSize, value, True, OPCODE_SAVE)
+    cdef stackPopSegId(self, unsigned short segId):
+        self.registers.segWrite(segId, <unsigned short>self.stackPopValue())
+    cdef stackPopRegId(self, unsigned short regId):
         cdef unsigned long value
-        value = self.stackPopValue(operSize)
-        operSize = self.registers.getRegSize(regId)
-        if (operSize == OP_SIZE_WORD):
+        value = self.stackPopValue()
+        if (<unsigned char>self.registers.getRegSize(regId) == OP_SIZE_WORD):
             value = <unsigned short>value
         self.registers.regWrite(regId, value)
-    cdef unsigned long stackPopValue(self, unsigned char operSize):
+    cdef unsigned long stackPopValue(self):
         cdef unsigned char stackAddrSize
         cdef unsigned short stackRegName
         cdef unsigned long data
         stackAddrSize = self.registers.getAddrSegSize(CPU_SEGMENT_SS)
         stackRegName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
-        data = self.stackGetValue(operSize)
-        self.registers.regAdd(stackRegName, operSize)
+        data = self.stackGetValue()
+        self.registers.regAdd(stackRegName, self.registers.operSize)
         return data
-    cdef unsigned long stackGetValue(self, unsigned char operSize):
+    cdef unsigned long stackGetValue(self):
         cdef unsigned char stackAddrSize
         cdef unsigned short stackRegName
         cdef unsigned long stackAddr, data
         stackAddrSize = self.registers.getAddrSegSize(CPU_SEGMENT_SS)
         stackRegName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
         stackAddr = self.registers.regRead(stackRegName, False)
-        data = self.registers.mmReadValueUnsigned(stackAddr, operSize, CPU_SEGMENT_SS, False)
+        data = self.registers.mmReadValueUnsigned(stackAddr, self.registers.operSize, CPU_SEGMENT_SS, False)
         return data
     cdef stackPushSegId(self, unsigned short segId, unsigned char operSize):
         self.stackPushValue(self.registers.segRead(segId), operSize)
@@ -962,32 +952,34 @@ cdef class Opcodes:
         if (operSize == OP_SIZE_WORD):
             value = <unsigned short>value
         self.registers.mmWriteValue(stackAddr, value, operSize, CPU_SEGMENT_SS, False)
-    cdef pushIMM(self, unsigned char operSize, unsigned char immIsByte):
+    cdef pushIMM(self, unsigned char immIsByte):
         cdef unsigned long value
         if (immIsByte):
-            value = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)&(<Misc>self.main.misc).getBitMaskFF(operSize)
+            value = <unsigned long>self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
+            if (self.registers.operSize == OP_SIZE_WORD):
+                value = <unsigned short>value
         else:
-            value = self.registers.getCurrentOpcodeAdd(operSize, False)
-        self.stackPushValue(value, operSize)
-    cdef imulR_RM_ImmFunc(self, unsigned char operSize, unsigned char immIsByte):
+            value = self.registers.getCurrentOpcodeAdd(self.registers.operSize, False)
+        self.stackPushValue(value, self.registers.operSize)
+    cdef imulR_RM_ImmFunc(self, unsigned char immIsByte):
         cdef long operOp1
         cdef long long operOp2
         cdef unsigned long operSum, bitMask
         cdef unsigned long long temp
-        bitMask = (<Misc>self.main.misc).getBitMaskFF(operSize)
-        self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-        operOp1 = self.modRMInstance.modRMLoad(operSize, True, True)
+        bitMask = (<Misc>self.main.misc).getBitMaskFF(self.registers.operSize)
+        self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+        operOp1 = self.modRMInstance.modRMLoad(self.registers.operSize, True, True)
         if (immIsByte):
             operOp2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
             operOp2 &= bitMask
         else:
-            operOp2 = self.registers.getCurrentOpcodeAdd(operSize, True)
+            operOp2 = self.registers.getCurrentOpcodeAdd(self.registers.operSize, True)
         operSum = (operOp1*operOp2)&bitMask
         temp = <unsigned long long>(operOp1*operOp2)
-        if (operSize == OP_SIZE_WORD):
+        if (self.registers.operSize == OP_SIZE_WORD):
             temp = <unsigned long>temp
-        self.modRMInstance.modRSave(operSize, operSum, OPCODE_SAVE)
-        self.registers.setFullFlags(operOp1, operOp2, operSize, OPCODE_IMUL)
+        self.modRMInstance.modRSave(self.registers.operSize, operSum, OPCODE_SAVE)
+        self.registers.setFullFlags(operOp1, operOp2, self.registers.operSize, OPCODE_IMUL)
         self.registers.setEFLAG(FLAG_CF | FLAG_OF, temp!=operSum)
     cdef opcodeGroup1_RM_ImmFunc(self, unsigned char operSize, unsigned char immIsByte):
         cdef unsigned char operOpcode, operOpcodeId
@@ -1039,7 +1031,7 @@ cdef class Opcodes:
         else:
             self.main.printMsg("opcodeGroup3_RM16_32_IMM16_32: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
-    cdef opcodeGroup0F(self, unsigned char operSize, unsigned char addrSize):
+    cdef opcodeGroup0F(self):
         cdef unsigned char operOpcode, bitSize, operOpcodeMod, operOpcodeModId, \
             newCF, newOF, oldOF, count, eaxIsInvalid
         cdef unsigned short eaxReg, limit
@@ -1057,7 +1049,7 @@ cdef class Opcodes:
             operOpcodeMod = self.registers.getCurrentOpcode(OP_SIZE_BYTE, False)
             operOpcodeModId = (operOpcodeMod>>3)&7
             self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
-            mmAddr = self.modRMInstance.getRMValueFull(addrSize)
+            mmAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             if (operOpcodeModId in (0, 1)): # SLDT/STR
                 if (operOpcodeModId == 0): # SLDT
                     self.modRMInstance.modRMSave(OP_SIZE_WORD, (<Segments>\
@@ -1105,12 +1097,12 @@ cdef class Opcodes:
             operOpcodeMod = self.registers.getCurrentOpcode(OP_SIZE_BYTE, False)
             operOpcodeModId = (operOpcodeMod>>3)&7
             if (operOpcodeModId in (0, 1, 2, 3)): # SGDT/SIDT LGDT/LIDT
-                self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
+                self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             elif (operOpcodeModId in (4, 6)): # SMSW/LMSW
                 self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             else:
                 self.main.printMsg("Group0F_01: operOpcodeModId not in (0, 1, 2, 3, 4, 6)")
-            mmAddr = self.modRMInstance.getRMValueFull(addrSize)
+            mmAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             if (operOpcodeMod == 0xc1): # VMCALL
                 self.main.printMsg("opcodeGroup0F_01: VMCALL isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
@@ -1143,14 +1135,14 @@ cdef class Opcodes:
                     (<Gdt>self.registers.segments.gdt).getBaseLimit(&base, &limit)
                 elif (operOpcodeModId == 1): # SIDT
                     (<Idt>self.registers.segments.idt).getBaseLimit(&base, &limit)
-                if (operSize == OP_SIZE_WORD):
+                if (self.registers.operSize == OP_SIZE_WORD):
                     base &= 0xffffff
                 self.registers.mmWriteValue(mmAddr, limit, OP_SIZE_WORD, CPU_SEGMENT_DS, True)
                 self.registers.mmWriteValue(mmAddr+OP_SIZE_WORD, base, OP_SIZE_DWORD, CPU_SEGMENT_DS, True)
             elif (operOpcodeModId in (2, 3)): # LGDT/LIDT
                 limit = self.registers.mmReadValueUnsigned(mmAddr, OP_SIZE_WORD, CPU_SEGMENT_DS, True)
                 base = self.registers.mmReadValueUnsigned(mmAddr+OP_SIZE_WORD, OP_SIZE_DWORD, CPU_SEGMENT_DS, True)
-                if (operSize == OP_SIZE_WORD):
+                if (self.registers.operSize == OP_SIZE_WORD):
                     base &= 0xffffff
                 if (operOpcodeModId == 2): # LGDT
                     (<Gdt>self.registers.segments.gdt).loadTablePosition(base, limit)
@@ -1232,27 +1224,27 @@ cdef class Opcodes:
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         elif (operOpcode == 0x38): # MOVBE
             operOpcodeMod = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             if (operOpcodeMod == 0xf0): # MOVBE R16_32, M16_32
-                op2 = self.modRMInstance.modRMLoad(operSize, False, True)
-                op2 = (<Misc>self.main.misc).reverseByteOrder(op2, operSize)
-                self.modRMInstance.modRSave(operSize, op2, OPCODE_SAVE)
+                op2 = self.modRMInstance.modRMLoad(self.registers.operSize, False, True)
+                op2 = (<Misc>self.main.misc).reverseByteOrder(op2, self.registers.operSize)
+                self.modRMInstance.modRSave(self.registers.operSize, op2, OPCODE_SAVE)
             elif (operOpcodeMod == 0xf1): # MOVBE M16_32, R16_32
-                op2 = self.modRMInstance.modRLoad(operSize, False)
-                op2 = (<Misc>self.main.misc).reverseByteOrder(op2, operSize)
-                self.modRMInstance.modRMSave(operSize, op2, True, OPCODE_SAVE)
+                op2 = self.modRMInstance.modRLoad(self.registers.operSize, False)
+                op2 = (<Misc>self.main.misc).reverseByteOrder(op2, self.registers.operSize)
+                self.modRMInstance.modRMSave(self.registers.operSize, op2, True, OPCODE_SAVE)
             else:
                 self.main.exitError("MOVBE: operOpcodeMod {0:#04x} not in (0xf0, 0xf1)", operOpcodeMod)
         elif (operOpcode >= 0x40 and operOpcode <= 0x4f): # CMOVcc
-            self.cmovFunc(operSize, self.registers.getCond(operOpcode&0xf))
+            self.cmovFunc(self.registers.getCond(operOpcode&0xf))
         elif (operOpcode >= 0x80 and operOpcode <= 0x8f):
-            self.jumpShort(operSize, operSize, self.registers.getCond(operOpcode&0xf))
+            self.jumpShort(self.registers.operSize, self.registers.getCond(operOpcode&0xf))
         elif (operOpcode >= 0x90 and operOpcode <= 0x9f): # SETcc
             self.setWithCondFunc(self.registers.getCond(operOpcode&0xf))
         elif (operOpcode == 0xa0): # PUSH FS
-            self.pushSeg(operSize, PUSH_FS)
+            self.pushSeg(PUSH_FS)
         elif (operOpcode == 0xa1): # POP FS
-            self.popSeg(operSize, POP_FS)
+            self.popSeg(POP_FS)
         elif (operOpcode == 0xa2): # CPUID
             eaxId = self.registers.regRead(CPU_REGISTER_EAX, False)
             eaxIsInvalid = (eaxId >= 0x40000000 and eaxId <= 0x4fffffff)
@@ -1292,13 +1284,13 @@ cdef class Opcodes:
             #else:
             #    self.main.exitError("CPUID: eaxId {0:#04x} unknown.", eaxId)
         elif (operOpcode == 0xa3): # BT RM16/32, R16
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op2 = self.modRMInstance.modRLoad(operSize, False)
-            self.btFunc(operSize, addrSize, op2, BT_NONE)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            op2 = self.modRMInstance.modRLoad(self.registers.operSize, False)
+            self.btFunc(op2, BT_NONE)
         elif (operOpcode in (0xa4, 0xa5)): # SHLD
-            bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
-            bitSize = operSize << 3
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
+            bitMaskHalf = (<Misc>self.main.misc).getBitMask80(self.registers.operSize)
+            bitSize = self.registers.operSize << 3
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             if (operOpcode == 0xa4): # SHLD imm8
                 count = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
             elif (operOpcode == 0xa5): # SHLD CL
@@ -1312,9 +1304,9 @@ cdef class Opcodes:
             if (count > bitSize): # bad parameters
                 self.main.exitError("group0F: SHLD: count > bitSize (count == {0:d}, bitSize == {1:d}, operOpcode == {2:#04x}).", count, bitSize, operOpcode)
                 return
-            op1 = self.modRMInstance.modRMLoad(operSize, False, True) # dest
+            op1 = self.modRMInstance.modRMLoad(self.registers.operSize, False, True) # dest
             oldOF = (op1&bitMaskHalf)!=0
-            op2  = self.modRMInstance.modRLoad(operSize, False) # src
+            op2  = self.modRMInstance.modRLoad(self.registers.operSize, False) # src
             newCF = self.registers.valGetBit(op1, bitSize-count)
             for i in range(bitSize-1, count-1, -1):
                 tmpBit = self.registers.valGetBit(op1, i-count)
@@ -1322,24 +1314,24 @@ cdef class Opcodes:
             for i in range(count-1, -1, -1):
                 tmpBit = self.registers.valGetBit(op2, i-count+bitSize)
                 op1 = self.registers.valSetBit(op1, i, tmpBit)
-            self.modRMInstance.modRMSave(operSize, op1, True, OPCODE_SAVE)
+            self.modRMInstance.modRMSave(self.registers.operSize, op1, True, OPCODE_SAVE)
             if (count == 1):
                 newOF = oldOF!=((op1&bitMaskHalf)!=0)
                 self.registers.setEFLAG(FLAG_OF, newOF)
             self.registers.setEFLAG(FLAG_CF, newCF)
-            self.registers.setSZP(op1, operSize)
+            self.registers.setSZP(op1, self.registers.operSize)
         elif (operOpcode == 0xa8): # PUSH GS
-            self.pushSeg(operSize, PUSH_GS)
+            self.pushSeg(PUSH_GS)
         elif (operOpcode == 0xa9): # POP GS
-            self.popSeg(operSize, POP_GS)
+            self.popSeg(POP_GS)
         elif (operOpcode == 0xab): # BTS RM16/32, R16
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op2 = self.modRMInstance.modRLoad(operSize, False)
-            self.btFunc(operSize, addrSize, op2, BT_SET)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            op2 = self.modRMInstance.modRLoad(self.registers.operSize, False)
+            self.btFunc(op2, BT_SET)
         elif (operOpcode in (0xac, 0xad)): # SHRD
-            bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
-            bitSize = operSize << 3
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
+            bitMaskHalf = (<Misc>self.main.misc).getBitMask80(self.registers.operSize)
+            bitSize = self.registers.operSize << 3
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             if (operOpcode == 0xac): # SHRD imm8
                 count = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
             elif (operOpcode == 0xad): # SHRD CL
@@ -1353,9 +1345,9 @@ cdef class Opcodes:
             if (count > bitSize): # bad parameters
                 self.main.exitError("group0F: SHRD: count > bitSize (count == {0:d}, bitSize == {1:d}, operOpcode == {2:#04x}).", count, bitSize, operOpcode)
                 return
-            op1 = self.modRMInstance.modRMLoad(operSize, False, True) # dest
+            op1 = self.modRMInstance.modRMLoad(self.registers.operSize, False, True) # dest
             oldOF = (op1&bitMaskHalf)!=0
-            op2  = self.modRMInstance.modRLoad(operSize, False) # src
+            op2  = self.modRMInstance.modRLoad(self.registers.operSize, False) # src
             newCF = self.registers.valGetBit(op1, count-1)
             for i in range(bitSize-count):
                 tmpBit = self.registers.valGetBit(op1, i+count)
@@ -1363,60 +1355,61 @@ cdef class Opcodes:
             for i in range(bitSize-count, bitSize):
                 tmpBit = self.registers.valGetBit(op2, i+count-bitSize)
                 op1 = self.registers.valSetBit(op1, i, tmpBit)
-            self.modRMInstance.modRMSave(operSize, op1, True, OPCODE_SAVE)
+            self.modRMInstance.modRMSave(self.registers.operSize, op1, True, OPCODE_SAVE)
             if (count == 1):
                 newOF = oldOF!=((op1&bitMaskHalf)!=0)
                 self.registers.setEFLAG(FLAG_OF, newOF)
             self.registers.setEFLAG(FLAG_CF, newCF)
-            self.registers.setSZP(op1, operSize)
+            self.registers.setSZP(op1, self.registers.operSize)
         elif (operOpcode == 0xaf): # IMUL R16_32, R/M16_32
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op1 = self.modRMInstance.modRLoad(operSize, True)
-            op2 = self.modRMInstance.modRMLoad(operSize, True, True)
-            if (operSize == OP_SIZE_WORD):
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            op1 = self.modRMInstance.modRLoad(self.registers.operSize, True)
+            op2 = self.modRMInstance.modRMLoad(self.registers.operSize, True, True)
+            if (self.registers.operSize == OP_SIZE_WORD):
                 op1 = <unsigned short>op1
                 op2 = <unsigned short>op2
-            elif (operSize == OP_SIZE_DWORD):
+            elif (self.registers.operSize == OP_SIZE_DWORD):
                 op1 = <unsigned long>op1
                 op2 = <unsigned long>op2
-            self.registers.setFullFlags(op1, op2, operSize, OPCODE_IMUL)
+            self.registers.setFullFlags(op1, op2, self.registers.operSize, OPCODE_IMUL)
             qop1 = (op1*op2)
-            if (operSize == OP_SIZE_WORD):
+            if (self.registers.operSize == OP_SIZE_WORD):
                 qop1 = <unsigned short>qop1
-            elif (operSize == OP_SIZE_DWORD):
+            elif (self.registers.operSize == OP_SIZE_DWORD):
                 qop1 = <unsigned long>qop1
-            self.modRMInstance.modRSave(operSize, qop1, OPCODE_SAVE)
+            self.modRMInstance.modRSave(self.registers.operSize, qop1, OPCODE_SAVE)
         elif (operOpcode in (0xb0, 0xb1)): # 0xb0: CMPXCHG RM8, R8 ;; 0xb1: CMPXCHG RM16_32, R16_32
+            bitSize = self.registers.operSize # bitSize is in bytes (double usage of vars)
             if (operOpcode == 0xb0): # 0xb0: CMPXCHG RM8, R8
-                operSize = OP_SIZE_BYTE
-            eaxReg  = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op1 = self.modRMInstance.modRMLoad(operSize, False, True)
+                bitSize = OP_SIZE_BYTE
+            eaxReg  = self.registers.getWordAsDword(CPU_REGISTER_AX, bitSize)
+            self.modRMInstance.modRMOperands(bitSize, MODRM_FLAGS_NONE)
+            op1 = self.modRMInstance.modRMLoad(bitSize, False, True)
             op2 = self.reg.regRead(eaxReg, False)
-            self.registers.setFullFlags(op2, op1, operSize, OPCODE_SUB)
+            self.registers.setFullFlags(op2, op1, bitSize, OPCODE_SUB)
             if (op2 == op1):
                 self.registers.setEFLAG(FLAG_ZF, True)
-                op2 = self.modRMInstance.modRLoad(operSize, False)
-                self.modRMInstance.modRMSave(operSize, op2, True, OPCODE_SAVE)
+                op2 = self.modRMInstance.modRLoad(bitSize, False)
+                self.modRMInstance.modRMSave(bitSize, op2, True, OPCODE_SAVE)
             else:
                 self.registers.setEFLAG(FLAG_ZF, False)
                 self.registers.regWrite(eaxReg, op1)
         elif (operOpcode == 0xb2): # LSS
-            self.lfpFunc(operSize, CPU_SEGMENT_SS) # 'load far pointer' function
+            self.lfpFunc(CPU_SEGMENT_SS) # 'load far pointer' function
         elif (operOpcode == 0xb3): # BTR RM16/32, R16
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op2 = self.modRMInstance.modRLoad(operSize, False)
-            self.btFunc(operSize, addrSize, op2, BT_RESET)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            op2 = self.modRMInstance.modRLoad(self.registers.operSize, False)
+            self.btFunc(op2, BT_RESET)
         elif (operOpcode == 0xb4): # LFS
-            self.lfpFunc(operSize, CPU_SEGMENT_FS) # 'load far pointer' function
+            self.lfpFunc(CPU_SEGMENT_FS) # 'load far pointer' function
         elif (operOpcode == 0xb5): # LGS
-            self.lfpFunc(operSize, CPU_SEGMENT_GS) # 'load far pointer' function
+            self.lfpFunc(CPU_SEGMENT_GS) # 'load far pointer' function
         elif (operOpcode == 0xb6): # MOVZX R16_32, R/M8
             self.modRMInstance.modRMOperandsResetEip(OP_SIZE_BYTE, MODRM_FLAGS_NONE)
-            self.modRMInstanceOther.modRMOperands(operSize, MODRM_FLAGS_NONE)
+            self.modRMInstanceOther.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             self.modRMInstance.copyRMVars(self.modRMInstanceOther)
             op2 = self.modRMInstance.modRMLoad(OP_SIZE_BYTE, False, True)
-            self.modRMInstance.modRSave(operSize, op2, OPCODE_SAVE)
+            self.modRMInstance.modRSave(self.registers.operSize, op2, OPCODE_SAVE)
         elif (operOpcode == 0xb7): # MOVZX R32, R/M16
             self.modRMInstance.modRMOperandsResetEip(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             self.modRMInstanceOther.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_NONE)
@@ -1426,53 +1419,53 @@ cdef class Opcodes:
         elif (operOpcode == 0xb8): # POPCNT R16/32 RM16/32
             if (self.registers.repPrefix):
                 raise ChemuException(CPU_EXCEPTION_UD)
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op2 = self.modRMInstance.modRMLoad(operSize, False, True)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            op2 = self.modRMInstance.modRMLoad(self.registers.operSize, False, True)
             op2 = bin(op2).count('1')
-            self.modRMInstance.modRSave(operSize, op2, OPCODE_SAVE)
+            self.modRMInstance.modRSave(self.registers.operSize, op2, OPCODE_SAVE)
             self.registers.setEFLAG(FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | FLAG_OF, False)
             self.registers.setEFLAG(FLAG_ZF, op2==0)
         elif (operOpcode == 0xba): # BT/BTS/BTR/BTC RM16/32 IMM8
             operOpcodeMod = self.registers.getCurrentOpcode(OP_SIZE_BYTE, False)
             operOpcodeModId = (operOpcodeMod>>3)&7
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             op2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
             if (operOpcodeModId == 4): # BT
-                self.btFunc(operSize, addrSize, op2, BT_NONE)
+                self.btFunc(op2, BT_NONE)
             elif (operOpcodeModId == 5): # BTS
-                self.btFunc(operSize, addrSize, op2, BT_SET)
+                self.btFunc(op2, BT_SET)
             elif (operOpcodeModId == 6): # BTR
-                self.btFunc(operSize, addrSize, op2, BT_RESET)
+                self.btFunc(op2, BT_RESET)
             elif (operOpcodeModId == 7): # BTC
-                self.btFunc(operSize, addrSize, op2, BT_COMPLEMENT)
+                self.btFunc(op2, BT_COMPLEMENT)
             else:
                 self.main.printMsg("opcodeGroup0F_BA: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0xbb): # BTC RM16/32, R16
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op2 = self.modRMInstance.modRLoad(operSize, False)
-            self.btFunc(operSize, addrSize, op2, BT_COMPLEMENT)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            op2 = self.modRMInstance.modRLoad(self.registers.operSize, False)
+            self.btFunc(op2, BT_COMPLEMENT)
         elif (operOpcode == 0xbc): # BSF R16_32, R/M16_32
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op2 = self.modRMInstance.modRMLoad(operSize, False, True)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            op2 = self.modRMInstance.modRMLoad(self.registers.operSize, False, True)
             self.registers.setEFLAG(FLAG_ZF, op2==0)
             op1 = 0
             if (op2 > 1):
                 op1 = bin(op2)[::-1].find('1')
-            self.modRMInstance.modRSave(operSize, op1, OPCODE_SAVE)
+            self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
         elif (operOpcode == 0xbd): # BSR R16_32, R/M16_32
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op2 = self.modRMInstance.modRMLoad(operSize, False, True)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            op2 = self.modRMInstance.modRMLoad(self.registers.operSize, False, True)
             self.registers.setEFLAG(FLAG_ZF, op2==0)
-            self.modRMInstance.modRSave(operSize, op2.bit_length()-1, OPCODE_SAVE)
+            self.modRMInstance.modRSave(self.registers.operSize, op2.bit_length()-1, OPCODE_SAVE)
         elif (operOpcode == 0xbe): # MOVSX R16_32, R/M8
             self.modRMInstance.modRMOperandsResetEip(OP_SIZE_BYTE, MODRM_FLAGS_NONE)
-            self.modRMInstanceOther.modRMOperands(operSize, MODRM_FLAGS_NONE)
+            self.modRMInstanceOther.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             self.modRMInstance.copyRMVars(self.modRMInstanceOther)
             op2 = <unsigned long>self.modRMInstance.modRMLoad(OP_SIZE_BYTE, True, True)
-            if (operSize == OP_SIZE_WORD):
+            if (self.registers.operSize == OP_SIZE_WORD):
                 op2 = <unsigned short>op2
-            self.modRMInstance.modRSave(operSize, op2, OPCODE_SAVE)
+            self.modRMInstance.modRSave(self.registers.operSize, op2, OPCODE_SAVE)
         elif (operOpcode == 0xbf): # MOVSX R32, R/M16
             self.modRMInstance.modRMOperandsResetEip(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             self.modRMInstanceOther.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_NONE)
@@ -1480,19 +1473,20 @@ cdef class Opcodes:
             op2 = <unsigned long>self.modRMInstance.modRMLoad(OP_SIZE_WORD, True, True)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
         elif (operOpcode in (0xc0, 0xc1)): # 0xc0: XADD RM8, R8 ;; 0xc1: XADD RM16_32, R16_32
+            bitSize = self.registers.operSize # bitSize is in bytes (double usage of vars)
             if (operOpcode == 0xc0): # 0xc0: XADD RM8, R8
-                operSize = OP_SIZE_BYTE
-            self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-            op1 = self.modRMInstance.modRMLoad(operSize, False, True)
-            op2 = self.modRMInstance.modRLoad(operSize, False)
-            self.modRMInstance.modRMSave(operSize, op2, True, OPCODE_ADD)
-            self.modRMInstance.modRSave(operSize, op1, OPCODE_SAVE)
-            self.registers.setFullFlags(op2, op1, operSize, OPCODE_ADD)
+                bitSize = OP_SIZE_BYTE
+            self.modRMInstance.modRMOperands(bitSize, MODRM_FLAGS_NONE)
+            op1 = self.modRMInstance.modRMLoad(bitSize, False, True)
+            op2 = self.modRMInstance.modRLoad(bitSize, False)
+            self.modRMInstance.modRMSave(bitSize, op2, True, OPCODE_ADD)
+            self.modRMInstance.modRSave(bitSize, op1, OPCODE_SAVE)
+            self.registers.setFullFlags(op2, op1, bitSize, OPCODE_ADD)
         elif (operOpcode == 0xc7): # CMPXCHG8B M64
             operOpcodeMod = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
             operOpcodeModId = (operOpcodeMod>>3)&7
             if (operOpcodeModId == 1):
-                op1 = self.registers.getCurrentOpcodeAdd(addrSize, False)
+                op1 = self.registers.getCurrentOpcodeAdd(self.registers.addrSize, False)
                 qop1 = (<Mm>self.main.mm).mmPhyReadValueUnsigned(op1, OP_SIZE_QWORD)
                 qop2 = self.registers.regRead(CPU_REGISTER_EDX, False)
                 qop2 <<= 32
@@ -1530,43 +1524,43 @@ cdef class Opcodes:
         else:
             self.main.printMsg("opcodeGroupFE: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
-    cdef opcodeGroupFF(self, unsigned char operSize):
+    cdef opcodeGroupFF(self):
         cdef unsigned char operOpcode, operOpcodeId
         cdef unsigned short segVal
         cdef unsigned long op1, eipAddr
         operOpcode = self.registers.getCurrentOpcode(OP_SIZE_BYTE, False)
         operOpcodeId = (operOpcode>>3)&7
-        self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
+        self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
         if (operOpcodeId == 0): # 0/INC
-            self.incFuncRM(operSize)
+            self.incFuncRM(self.registers.operSize)
         elif (operOpcodeId == 1): # 1/DEC
-            self.decFuncRM(operSize)
+            self.decFuncRM(self.registers.operSize)
         elif (operOpcodeId == 2): # 2/CALL NEAR
-            eipAddr = self.modRMInstance.modRMLoad(operSize, False, True)
-            self.stackPushRegId(CPU_REGISTER_EIP, operSize)
+            eipAddr = self.modRMInstance.modRMLoad(self.registers.operSize, False, True)
+            self.stackPushRegId(CPU_REGISTER_EIP, self.registers.operSize)
             self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
         elif (operOpcodeId == 3): # 3/CALL FAR
-            op1 = self.modRMInstance.getRMValueFull(operSize)
-            eipAddr = self.registers.mmReadValueUnsigned(op1, operSize, self.modRMInstance.rmNameSegId, True)
-            segVal = self.registers.mmReadValueUnsigned(op1+operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
-            self.stackPushSegId(CPU_SEGMENT_CS, operSize)
-            self.stackPushRegId(CPU_REGISTER_EIP, operSize)
+            op1 = self.modRMInstance.getRMValueFull(self.registers.operSize)
+            eipAddr = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+            segVal = self.registers.mmReadValueUnsigned(op1+self.registers.operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
+            self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
+            self.stackPushRegId(CPU_REGISTER_EIP, self.registers.operSize)
             self.syncProtectedModeState()
             self.registers.segWrite(CPU_SEGMENT_CS, segVal)
             self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
         elif (operOpcodeId == 4): # 4/JMP NEAR
-            eipAddr = self.modRMInstance.modRMLoad(operSize, False, True)
+            eipAddr = self.modRMInstance.modRMLoad(self.registers.operSize, False, True)
             self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
         elif (operOpcodeId == 5): # 5/JMP FAR
-            op1 = self.modRMInstance.getRMValueFull(operSize)
-            eipAddr = self.registers.mmReadValueUnsigned(op1, operSize, self.modRMInstance.rmNameSegId, True)
-            segVal = self.registers.mmReadValueUnsigned(op1+operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
+            op1 = self.modRMInstance.getRMValueFull(self.registers.operSize)
+            eipAddr = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+            segVal = self.registers.mmReadValueUnsigned(op1+self.registers.operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
             self.syncProtectedModeState()
             self.registers.segWrite(CPU_SEGMENT_CS, segVal)
             self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
         elif (operOpcodeId == 6): # 6/PUSH
-            op1 = self.modRMInstance.modRMLoad(operSize, False, True)
-            self.stackPushValue(op1, operSize)
+            op1 = self.modRMInstance.modRMLoad(self.registers.operSize, False, True)
+            self.stackPushValue(op1, self.registers.operSize)
         else:
             self.main.printMsg("opcodeGroupFF: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
@@ -1598,22 +1592,22 @@ cdef class Opcodes:
         retValue = self.modRMInstance.modRMSave(rmSize, 1, True, OPCODE_SUB)
         self.registers.setFullFlags(retValue+1, 1, rmSize, OPCODE_SUB)
         self.registers.setEFLAG(FLAG_CF, origCF)
-    cdef incReg(self, unsigned char operSize):
+    cdef incReg(self):
         cdef unsigned short regName
         regName  = CPU_REGISTER_WORD[self.main.cpu.opcode&7]
-        regName  = self.registers.getWordAsDword(regName, operSize)
-        self.incFuncReg(regName, operSize)
-    cdef decReg(self, unsigned char operSize):
+        regName  = self.registers.getWordAsDword(regName, self.registers.operSize)
+        self.incFuncReg(regName, self.registers.operSize)
+    cdef decReg(self):
         cdef unsigned short regName
         regName  = CPU_REGISTER_WORD[self.main.cpu.opcode&7]
-        regName  = self.registers.getWordAsDword(regName, operSize)
-        self.decFuncReg(regName, operSize)
-    cdef pushReg(self, unsigned char operSize):
+        regName  = self.registers.getWordAsDword(regName, self.registers.operSize)
+        self.decFuncReg(regName, self.registers.operSize)
+    cdef pushReg(self):
         cdef unsigned short regName
         regName  = CPU_REGISTER_WORD[self.main.cpu.opcode&7]
-        regName  = self.registers.getWordAsDword(regName, operSize)
-        self.stackPushRegId(regName, operSize)
-    cdef pushSeg(self, unsigned char operSize, unsigned char opcode):
+        regName  = self.registers.getWordAsDword(regName, self.registers.operSize)
+        self.stackPushRegId(regName,self.registers. operSize)
+    cdef pushSeg(self, unsigned char opcode):
         cdef unsigned short segName
         if (opcode == PUSH_CS):
             segName = CPU_SEGMENT_CS
@@ -1630,12 +1624,12 @@ cdef class Opcodes:
         else:
             self.main.exitError("pushSeg: unknown push-opcode: {0:#04x}", opcode)
             return
-        self.stackPushSegId(segName, operSize)
-    cdef popReg(self, unsigned char operSize):
+        self.stackPushSegId(segName, self.registers.operSize)
+    cdef popReg(self):
         cdef unsigned short regName
-        regName  = self.registers.getWordAsDword(CPU_REGISTER_WORD[self.main.cpu.opcode&7], operSize)
-        self.stackPopRegId(regName, operSize)
-    cdef popSeg(self, unsigned char operSize, unsigned char opcode):
+        regName  = self.registers.getWordAsDword(CPU_REGISTER_WORD[self.main.cpu.opcode&7], self.registers.operSize)
+        self.stackPopRegId(regName)
+    cdef popSeg(self, unsigned char opcode):
         cdef unsigned short segName
         if (opcode == POP_DS):
             segName = CPU_SEGMENT_DS
@@ -1650,67 +1644,67 @@ cdef class Opcodes:
         else:
             self.main.exitError("popSeg: unknown pop-opcode: {0:#04x}", opcode)
             return
-        self.stackPopSegId(segName, operSize)
-    cdef popRM16_32(self, unsigned char operSize):
+        self.stackPopSegId(segName)
+    cdef popRM16_32(self):
         cdef unsigned char operOpcode, operOpcodeId
         operOpcode = self.registers.getCurrentOpcode(OP_SIZE_BYTE, False)
         operOpcodeId = (operOpcode>>3)&7
-        self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
+        self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
         if (operOpcodeId == 0): # POP
-            self.stackPopRM(operSize)
+            self.stackPopRM()
         else:
             self.main.printMsg("popRM16_32: unknown operOpcodeId: {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
-    cdef lea(self, unsigned char operSize, unsigned char addrSize):
+    cdef lea(self):
         cdef unsigned long mmAddr
-        self.modRMInstance.modRMOperands(addrSize, MODRM_FLAGS_NONE)
-        mmAddr = self.modRMInstance.getRMValueFull(addrSize)
-        if (operSize == OP_SIZE_WORD):
+        self.modRMInstance.modRMOperands(self.registers.addrSize, MODRM_FLAGS_NONE)
+        mmAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
+        if (self.registers.operSize == OP_SIZE_WORD):
             mmAddr = <unsigned short>mmAddr
-        self.modRMInstance.modRSave(operSize, mmAddr, OPCODE_SAVE)
-    cdef retNear(self, unsigned char operSize, unsigned char imm):
+        self.modRMInstance.modRSave(self.registers.operSize, mmAddr, OPCODE_SAVE)
+    cdef retNear(self, unsigned char imm):
         cdef unsigned char stackAddrSize
         cdef unsigned short espName
         cdef unsigned long tempEIP
         stackAddrSize = self.registers.getAddrSegSize(CPU_SEGMENT_SS)
         espName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
-        tempEIP = self.stackPopValue(operSize)
+        tempEIP = self.stackPopValue()
         self.registers.regWrite(CPU_REGISTER_EIP, tempEIP)
         if (imm):
             self.registers.regAdd(espName, imm)
-    cdef retNearImm(self, unsigned char operSize):
+    cdef retNearImm(self):
         cdef unsigned short imm
         imm = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, False) # imm16
-        self.retNear(operSize, imm)
-    cdef retFar(self, unsigned char operSize, unsigned char imm):
+        self.retNear(imm)
+    cdef retFar(self, unsigned char imm):
         cdef unsigned char stackAddrSize
         cdef unsigned short espName
         stackAddrSize = self.registers.getAddrSegSize(CPU_SEGMENT_SS)
         espName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
         self.syncProtectedModeState()
-        self.stackPopRegId(CPU_REGISTER_EIP, operSize)
-        self.stackPopSegId(CPU_SEGMENT_CS, operSize)
+        self.stackPopRegId(CPU_REGISTER_EIP)
+        self.stackPopSegId(CPU_SEGMENT_CS)
         if (imm):
             self.registers.regAdd(espName, imm)
-    cdef retFarImm(self, unsigned char operSize):
+    cdef retFarImm(self):
         cdef unsigned short imm
         imm = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, False) # imm16
-        self.retFar(operSize, imm)
-    cdef lfpFunc(self, unsigned char operSize, unsigned char segId): # 'load far pointer' function
+        self.retFar(imm)
+    cdef lfpFunc(self, unsigned char segId): # 'load far pointer' function
         cdef unsigned short segmentAddr
         cdef unsigned long mmAddr, offsetAddr
-        self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-        mmAddr = self.modRMInstance.getRMValueFull(operSize)
-        offsetAddr = self.registers.mmReadValueUnsigned(mmAddr, operSize, self.modRMInstance.rmNameSegId, True)
-        segmentAddr = self.registers.mmReadValueUnsigned(mmAddr+operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
-        self.modRMInstance.modRSave(operSize, offsetAddr, OPCODE_SAVE)
+        self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+        mmAddr = self.modRMInstance.getRMValueFull(self.registers.operSize)
+        offsetAddr = self.registers.mmReadValueUnsigned(mmAddr, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+        segmentAddr = self.registers.mmReadValueUnsigned(mmAddr+self.registers.operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
+        self.modRMInstance.modRSave(self.registers.operSize, offsetAddr, OPCODE_SAVE)
         self.registers.segWrite(segId, segmentAddr)
-    cdef xlatb(self, unsigned char addrSize):
+    cdef xlatb(self):
         cdef unsigned char m8, data
         cdef unsigned short baseReg
         cdef unsigned long baseValue
         m8 = self.registers.regRead(CPU_REGISTER_AL, False)
-        baseReg = self.registers.getWordAsDword(CPU_REGISTER_BX, addrSize)
+        baseReg = self.registers.getWordAsDword(CPU_REGISTER_BX, self.registers.addrSize)
         baseValue = self.registers.regRead(baseReg, False)
         data = self.registers.mmReadValueUnsigned(baseValue+m8, OP_SIZE_BYTE, CPU_SEGMENT_DS, True)
         self.registers.regWrite(CPU_REGISTER_AL, data)
@@ -1888,7 +1882,7 @@ cdef class Opcodes:
                 self.main.exitError("Interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")
                 return
             entrySegment = ((entrySegment&0xfffc)|(self.registers.cpl&3))
-            if (self.registers.cpl): # FIXME
+            if (self.registers.cpl&3 != entrySegment&3): # FIXME
                 self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
                 self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
         if (entryType == IDT_INTR_TYPE_INTERRUPT):
@@ -1906,40 +1900,41 @@ cdef class Opcodes:
             self.interrupt(CPU_EXCEPTION_OF, -1)
     cdef int3(self):
         self.interrupt(CPU_EXCEPTION_BP, -1)
-    cdef iret(self, unsigned char operSize):
+    cdef iret(self):
         cdef unsigned char inProtectedMode
-        cdef unsigned short SSsel
+        cdef unsigned short SSsel, intrSeg
         cdef unsigned long tempEFLAGS, EFLAGS, newEIP, eflagsMask, temp
         inProtectedMode = (<Segments>self.registers.segments).isInProtectedMode()
-        if ((not inProtectedMode) and operSize == OP_SIZE_DWORD):
-            newEIP = self.stackGetValue(operSize)
+        if ((not inProtectedMode) and self.registers.operSize == OP_SIZE_DWORD):
+            newEIP = self.stackGetValue()
             if ((newEIP>>16)!=0):
                 raise ChemuException(CPU_EXCEPTION_GP)
-        self.stackPopRegId(CPU_REGISTER_EIP, operSize)
-        self.stackPopSegId(CPU_SEGMENT_CS, operSize)
-        tempEFLAGS = self.stackPopValue(operSize)
+        intrSeg = self.registers.segRead(CPU_SEGMENT_CS)
+        self.stackPopRegId(CPU_REGISTER_EIP)
+        self.stackPopSegId(CPU_SEGMENT_CS)
+        tempEFLAGS = self.stackPopValue()
         EFLAGS = self.registers.regRead(CPU_REGISTER_EFLAGS, False)
         if (inProtectedMode):
-            if (0): # TODO
-                pass
+            if (self.registers.cpl&3 != intrSeg&3): # TODO
+                self.main.printMsg("Opcodes::iret: cpl!=intrSeg&3. What to do here???")
             else: # RPL==CPL
                 eflagsMask = FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | \
                              FLAG_TF | FLAG_DF | FLAG_OF | FLAG_NT
-                if (operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
+                if (self.registers.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
                     eflagsMask |= FLAG_RF | FLAG_AC | FLAG_ID
                 if (self.registers.cpl < self.registers.iopl):
                     eflagsMask |= FLAG_IF
                 if (not self.registers.cpl):
                     eflagsMask |= FLAG_IOPL
-                    if (operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
+                    if (self.registers.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
                         eflagsMask |= FLAG_VIF | FLAG_VIP
                 temp = tempEFLAGS&eflagsMask
                 tempEFLAGS &= ~eflagsMask
                 tempEFLAGS |= temp
         else:
-            if (operSize == OP_SIZE_DWORD):
+            if (self.registers.operSize == OP_SIZE_DWORD):
                 tempEFLAGS = ((tempEFLAGS & 0x257fd5) | (EFLAGS & 0x1a0000))
-        if (operSize == OP_SIZE_WORD):
+        if (self.registers.operSize == OP_SIZE_WORD):
             tempEFLAGS = <unsigned short>tempEFLAGS
             if (not inProtectedMode):
                 tempEFLAGS |= (EFLAGS&0xffff0000)
@@ -2027,23 +2022,23 @@ cdef class Opcodes:
             self.registers.regSub(CPU_REGISTER_AL, 0x60)
             self.registers.setEFLAG(FLAG_CF, True)
         self.registers.setSZP_O0(self.registers.regRead(CPU_REGISTER_AL, False), OP_SIZE_BYTE)
-    cdef cbw_cwde(self, unsigned char operSize):
+    cdef cbw_cwde(self):
         cdef unsigned long op2
-        if (operSize == OP_SIZE_WORD): # CBW
+        if (self.registers.operSize == OP_SIZE_WORD): # CBW
             op2 = <unsigned short>self.registers.regRead(CPU_REGISTER_AL, True)
             self.registers.regWrite(CPU_REGISTER_AX, op2)
-        elif (operSize == OP_SIZE_DWORD): # CWDE
+        elif (self.registers.operSize == OP_SIZE_DWORD): # CWDE
             op2 = <unsigned long>self.registers.regRead(CPU_REGISTER_AX, True)
             self.registers.regWrite(CPU_REGISTER_EAX, op2)
         else:
-            self.main.exitError("cbw_cwde: operSize {0:d} not in (OP_SIZE_WORD, OP_SIZE_DWORD))", operSize)
-    cdef cwd_cdq(self, unsigned char operSize):
+            self.main.exitError("cbw_cwde: operSize {0:d} not in (OP_SIZE_WORD, OP_SIZE_DWORD))", self.registers.operSize)
+    cdef cwd_cdq(self):
         cdef unsigned short eaxReg, edxReg
         cdef unsigned long bitMask, bitMaskHalf, op2
-        bitMask = (<Misc>self.main.misc).getBitMaskFF(operSize)
-        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
-        eaxReg = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
-        edxReg = self.registers.getWordAsDword(CPU_REGISTER_DX, operSize)
+        bitMask = (<Misc>self.main.misc).getBitMaskFF(self.registers.operSize)
+        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(self.registers.operSize)
+        eaxReg = self.registers.getWordAsDword(CPU_REGISTER_AX, self.registers.operSize)
+        edxReg = self.registers.getWordAsDword(CPU_REGISTER_DX, self.registers.operSize)
         op2 = self.registers.regRead(eaxReg, False)
         if (op2&bitMaskHalf):
             self.registers.regWrite(edxReg, bitMask)
@@ -2286,10 +2281,10 @@ cdef class Opcodes:
         self.registers.regWrite(regName, regValue2)
         self.registers.regWrite(regName2, regValue)
     ##### DON'T USE XCHG AX, AX FOR OPCODE 0x90, use NOP instead!!
-    cdef xchgReg(self, unsigned char operSize):
+    cdef xchgReg(self):
         cdef unsigned short regName, regName2
-        regName  = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
-        regName2 = self.registers.getWordAsDword(CPU_REGISTER_WORD[self.main.cpu.opcode&7], operSize)
+        regName  = self.registers.getWordAsDword(CPU_REGISTER_AX, self.registers.operSize)
+        regName2 = self.registers.getWordAsDword(CPU_REGISTER_WORD[self.main.cpu.opcode&7], self.registers.operSize)
         self.xchgFuncReg(regName, regName2)
     cdef xchgR_RM(self, unsigned char operSize):
         cdef unsigned long op1, op2
@@ -2298,7 +2293,7 @@ cdef class Opcodes:
         op2 = self.modRMInstance.modRMLoad(operSize, False, True)
         self.modRMInstance.modRSave(operSize, op2, OPCODE_SAVE)
         self.modRMInstance.modRMSave(operSize, op1, True, OPCODE_SAVE)
-    cdef enter(self, unsigned char operSize):
+    cdef enter(self):
         cdef unsigned char stackSize, nestingLevel, i
         cdef unsigned short sizeOp, espNameStack, ebpNameStack
         cdef unsigned long frameTemp, temp
@@ -2312,65 +2307,63 @@ cdef class Opcodes:
         frameTemp = self.registers.regRead(espNameStack, False)
         if (nestingLevel > 1):
             for i in range(nestingLevel-1):
-                self.registers.regSub(ebpNameStack, operSize)
-                temp = self.registers.mmReadValueUnsigned(self.registers.regRead(ebpNameStack, False), operSize, CPU_SEGMENT_SS, False)
-                self.stackPushValue(temp, operSize)
+                self.registers.regSub(ebpNameStack, self.registers.operSize)
+                temp = self.registers.mmReadValueUnsigned(self.registers.regRead(ebpNameStack, False), self.registers.operSize, CPU_SEGMENT_SS, False)
+                self.stackPushValue(temp, self.registers.operSize)
         if (nestingLevel >= 1):
-            self.stackPushValue(frameTemp, operSize)
+            self.stackPushValue(frameTemp, self.registers.operSize)
         self.registers.regWrite(ebpNameStack, frameTemp)
         self.registers.regSub(espNameStack, sizeOp)
-    cdef leave(self, unsigned char operSize):
+    cdef leave(self):
         cdef unsigned char stackSize
         cdef unsigned short ebpNameOper, espNameStack, ebpNameStack
         stackSize = self.registers.getAddrSegSize(CPU_SEGMENT_SS)
-        ebpNameOper = self.registers.getWordAsDword(CPU_REGISTER_BP, operSize)
+        ebpNameOper = self.registers.getWordAsDword(CPU_REGISTER_BP, self.registers.operSize)
         espNameStack = self.registers.getWordAsDword(CPU_REGISTER_SP, stackSize)
         ebpNameStack = self.registers.getWordAsDword(CPU_REGISTER_BP, stackSize)
         self.registers.regWrite(espNameStack, self.registers.regRead(ebpNameStack, False))
-        self.stackPopRegId(ebpNameOper, operSize)
-    cdef cmovFunc(self, unsigned char operSize, unsigned char cond): # R16, R/M 16; R32, R/M 32
-        self.movR_RM(operSize, cond)
+        self.stackPopRegId(ebpNameOper)
+    cdef cmovFunc(self, unsigned char cond): # R16, R/M 16; R32, R/M 32
+        self.movR_RM(self.registers.operSize, cond)
     cdef setWithCondFunc(self, unsigned char cond): # if cond==True set 1, else 0
         self.modRMInstance.modRMOperands(OP_SIZE_BYTE, MODRM_FLAGS_NONE)
         self.modRMInstance.modRMSave(OP_SIZE_BYTE, cond!=0, True, OPCODE_SAVE)
     cdef arpl(self):
-        cdef unsigned char operSize
         cdef unsigned short op1, op2
         if (not (<Segments>self.registers.segments).isInProtectedMode()):
             raise ChemuException(CPU_EXCEPTION_UD)
-        operSize = OP_SIZE_WORD
-        self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-        op1 = self.modRMInstance.modRMLoad(operSize, False, True)
-        op2 = self.modRMInstance.modRLoad(operSize, False)
+        self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
+        op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
+        op2 = self.modRMInstance.modRLoad(OP_SIZE_WORD, False)
         if (op1 < op2):
             self.registers.setEFLAG(FLAG_ZF, True)
-            self.modRMInstance.modRMSave(operSize, (op1&0xfffc)|(op2&3), True, OPCODE_SAVE)
+            self.modRMInstance.modRMSave(OP_SIZE_WORD, (op1&0xfffc)|(op2&3), True, OPCODE_SAVE)
         else:
             self.registers.setEFLAG(FLAG_ZF, False)
-    cdef bound(self, unsigned char operSize, unsigned char addrSize):
+    cdef bound(self):
         cdef unsigned long returnInt
         cdef long index, lowerBound, upperBound
-        self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
-        index = self.modRMInstance.modRLoad(operSize, True)
-        returnInt = self.modRMInstance.getRMValueFull(addrSize)
-        lowerBound = self.registers.mmReadValueSigned(returnInt, operSize, self.modRMInstance.rmNameSegId, True)
-        upperBound = self.registers.mmReadValueSigned(returnInt+operSize, operSize, self.modRMInstance.rmNameSegId, True)
-        if (index < lowerBound or index > upperBound+operSize):
+        self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+        index = self.modRMInstance.modRLoad(self.registers.operSize, True)
+        returnInt = self.modRMInstance.getRMValueFull(self.registers.addrSize)
+        lowerBound = self.registers.mmReadValueSigned(returnInt, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+        upperBound = self.registers.mmReadValueSigned(returnInt+self.registers.operSize, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+        if (index < lowerBound or index > upperBound+self.registers.operSize):
             raise ChemuException(CPU_EXCEPTION_BR)
-    cdef btFunc(self, unsigned char operSize, unsigned char addrSize, unsigned long offset, unsigned char newValType):
+    cdef btFunc(self, unsigned long offset, unsigned char newValType):
         cdef unsigned char operSizeInBits, state
         cdef unsigned long value, address
-        operSizeInBits = operSize << 3
+        operSizeInBits = self.registers.operSize << 3
         address = 0
         if (self.modRMInstance.mod == 3): # register operand
             offset %= operSizeInBits
-            value = self.modRMInstance.modRLoad(operSize, False)
+            value = self.modRMInstance.modRLoad(self.registers.operSize, False)
             state = self.registers.valGetBit(value, offset)
             self.registers.setEFLAG(FLAG_CF, state)
         else: # memory operand
-            address = self.modRMInstance.getRMValueFull(addrSize)
-            address += (operSize * (offset // operSizeInBits))
-            value = self.registers.mmReadValueUnsigned(address, operSize, self.modRMInstance.rmNameSegId, True)
+            address = self.modRMInstance.getRMValueFull(self.registers.addrSize)
+            address += (self.registers.operSize * (offset // operSizeInBits))
+            value = self.registers.mmReadValueUnsigned(address, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
             state = self.registers.valGetBit(value, offset)
             self.registers.setEFLAG(FLAG_CF, state)
         if (newValType != BT_NONE):
@@ -2384,9 +2377,9 @@ cdef class Opcodes:
                 self.main.exitError("btFunc: unknown newValType: {0:d}", newValType)
             value = self.registers.valSetBit(value, offset, state)
             if (self.modRMInstance.mod == 3): # register operand
-                self.modRMInstance.modRSave(operSize, value, OPCODE_SAVE)
+                self.modRMInstance.modRSave(self.registers.operSize, value, OPCODE_SAVE)
             else: # memory operands
-                self.registers.mmWriteValue(address, value, operSize, self.modRMInstance.rmNameSegId, True)
+                self.registers.mmWriteValue(address, value, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
     cdef run(self):
         self.modRMInstance = ModRMClass(self.main, (<Registers>self.main.cpu.registers))
         self.modRMInstanceOther = ModRMClass(self.main, (<Registers>self.main.cpu.registers))

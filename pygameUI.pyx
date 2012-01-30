@@ -283,32 +283,32 @@ cdef class PygameUI:
             return 0x50
         elif (key == pygame.K_PAGEDOWN):
             return 0x51
-        #elif (key == pygame.K_KP_PLUS):
-        #    return 0x52
-        #elif (key == pygame.K_KP_MINUS):
-        #    return 0x53
-        #elif (key == pygame.K_END):
+        elif (key == pygame.K_KP_PLUS):
+            return 0x52
+        elif (key == pygame.K_KP_MINUS):
+            return 0x53
+        #elif (key == pygame.K_KP_END):
         #    return 0x54
-        #elif (key == pygame.K_DOWN):
+        #elif (key == pygame.K_KP_DOWN):
         #    return 0x55
-        #elif (key == pygame.K_PAGEDOWN):
+        #elif (key == pygame.K_KP_PAGEDOWN):
         #    return 0x56
-        #elif (key == pygame.K_LEFT):
+        #elif (key == pygame.K_KP_LEFT):
         #    return 0x57
-        #elif (key == pygame.K_RIGHT):
+        #elif (key == pygame.K_KP_RIGHT):
         #    return 0x58
-        #elif (key == pygame.K_HOME):
+        #elif (key == pygame.K_KP_HOME):
         #    return 0x59
-        #elif (key == pygame.K_UP):
+        #elif (key == pygame.K_KP_UP):
         #    return 0x5a
-        #elif (key == pygame.K_PAGEUP):
+        #elif (key == pygame.K_KP_PAGEUP):
         #    return 0x5b
-        #elif (key == pygame.K_INSERT):
+        #elif (key == pygame.K_KP_INSERT):
         #    return 0x5c
-        #elif (key == pygame.K_DELETE):
+        #elif (key == pygame.K_KP_DELETE):
         #    return 0x5d
-        #elif (key == pygame.K_KP5):
-        #    return 0x5e
+        elif (key == pygame.K_KP5):
+            return 0x5e
         elif (key == pygame.K_UP):
             return 0x5f
         elif (key == pygame.K_DOWN):
@@ -317,22 +317,23 @@ cdef class PygameUI:
             return 0x61
         elif (key == pygame.K_RIGHT):
             return 0x62
-        #elif (key == pygame.K_KP_ENTER):
-        #    return 0x63
-        #elif (key == pygame.K_KP_MULTIPLY):
-        #    return 0x64
-        #elif (key == pygame.K_KP_DIVIDE):
-        #    return 0x65
+        elif (key == pygame.K_KP_ENTER):
+            return 0x63
+        elif (key == pygame.K_KP_MULTIPLY):
+            return 0x64
+        elif (key == pygame.K_KP_DIVIDE):
+            return 0x65
         elif (key == pygame.K_LSUPER):
             return 0x66
         elif (key == pygame.K_RSUPER):
             return 0x67
         elif (key == pygame.K_MENU):
             return 0x68
-        #elif (key == pygame.K_SYSREQ): # OR SYSRQ?
-        #    return 0x69
+        elif (key == pygame.K_SYSREQ): # OR SYSRQ?
+            return 0x69
         elif (key == pygame.K_BREAK):
             return 0x6a
+        self.main.printMsg("keyToScancode: unknown key. (keyId: {0:d}, keyName: {1:s})", key, repr(pygame.key.name(key)))
         return 0xff
     cpdef handleEvent(self, object event):
         try:

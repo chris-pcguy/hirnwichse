@@ -544,7 +544,7 @@ cdef class Registers:
         return (<Mm>self.main.mm).mmPhyWriteValue(mmAddr, data, dataSize)
     cdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
         cdef unsigned char carryOn
-        cdef unsigned long long oldData#, bitMask
+        cdef unsigned long long oldData
         if (valueOp == OPCODE_SAVE):
             return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
         else:
@@ -582,30 +582,22 @@ cdef class Registers:
     cdef unsigned char isSegPresent(self, unsigned short segId):
         return (((<Segment>self.segments.getSegmentInstance(segId)).accessByte & GDT_ACCESS_PRESENT) != 0)
     cdef unsigned char getOpSegSize(self, unsigned short segId):
-        cdef unsigned char opSize
-        segId  = self.getSegSize(segId)
-        opSize = (((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
-        return opSize
+        segId = <unsigned char>self.getSegSize(segId)
+        return <unsigned char>((((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef unsigned char getAddrSegSize(self, unsigned short segId):
-        cdef unsigned char addrSize
-        segId    = self.getSegSize(segId)
-        addrSize = (((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
-        return addrSize
+        segId = <unsigned char>self.getSegSize(segId)
+        return <unsigned char>((((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef getOpAddrSegSize(self, unsigned short segId, unsigned char *opSize, unsigned char *addrSize):
-        segId    = self.getSegSize(segId)
-        opSize[0]   = (((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
-        addrSize[0] = (((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
+        segId = <unsigned char>self.getSegSize(segId)
+        opSize[0]   = ((((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
+        addrSize[0] = ((((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef unsigned char getOpCodeSegSize(self):
-        cdef unsigned char opSize
-        opSize = (((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
-        return opSize
+        return <unsigned char>((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef unsigned char getAddrCodeSegSize(self):
-        cdef unsigned char addrSize
-        addrSize = (((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
-        return addrSize
+        return <unsigned char>((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
-        opSize[0]   = (((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
-        addrSize[0] = (((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD
+        opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
+        addrSize[0] = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef run(self):
         self.regs = ConfigSpace(CPU_REGISTER_LENGTH, self.main)
         self.segments = Segments(self.main)
