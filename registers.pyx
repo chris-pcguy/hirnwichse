@@ -150,7 +150,7 @@ cdef class ModRMClass:
     cdef unsigned short modSegSave(self, unsigned char regSize, unsigned long long value):
         if (self.regName == CPU_SEGMENT_CS):
             raise ChemuException(CPU_EXCEPTION_UD)
-        return self.registers.segWrite(self.regName, value)
+        return self.registers.segWrite(self.regName, <unsigned short>value)
     cdef long long modRLoad(self, unsigned char regSize, unsigned char signed):
         cdef long long retVal
         retVal = self.registers.regRead(self.regName, signed)
