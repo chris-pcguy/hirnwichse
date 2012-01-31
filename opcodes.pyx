@@ -833,7 +833,7 @@ cdef class Opcodes:
         cdef unsigned long eipAddr
         eipAddr = self.registers.getCurrentOpcodeAdd(self.registers.operSize, False)
         segVal = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
-        self.stackPushSegId(CPU_SEGMENT_CS, OP_SIZE_WORD)
+        self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
         self.stackPushRegId(CPU_REGISTER_EIP, self.registers.operSize)
         self.syncProtectedModeState()
         self.registers.segWrite(CPU_SEGMENT_CS, segVal)
@@ -1050,11 +1050,15 @@ cdef class Opcodes:
             self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             mmAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             if (operOpcodeModId in (0, 1)): # SLDT/STR
+                bitSize = OP_SIZE_WORD # bitSize is in bytes because of the double-usage of vars
+                if (self.modRMInstance.mod == 3):
+                    bitSize = OP_SIZE_DWORD
                 if (operOpcodeModId == 0): # SLDT
-                    self.modRMInstance.modRMSave(OP_SIZE_WORD, (<Segments>\
+                    self.modRMInstance.modRMSave(bitSize, (<Segments>\
                       self.registers.segments).ldtr, True, OPCODE_SAVE)
                 elif (operOpcodeModId == 1): # STR
-                    ###op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
+                    self.modRMInstance.modRMSave(bitSize, (<Segments>\
+                      self.registers.segments).tr, True, OPCODE_SAVE)
                     self.main.exitError("opcodeGroup0F_00: STR not supported yet.")
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
@@ -1080,6 +1084,10 @@ cdef class Opcodes:
                         raise ChemuException(CPU_EXCEPTION_GP, op1)
                     elif (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
                         raise ChemuException(CPU_EXCEPTION_NP, op1)
+                    (<Segments>self.registers.segments).tr = op1&0xfff8
+                    gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op1))
+                    (<Gdt>self.registers.segments.tss).loadTablePosition(gdtEntry.base, gdtEntry.limit)
+                    (<Gdt>self.registers.segments.tss).loadTableData()
                     self.main.exitError("opcodeGroup0F_00: LTR not supported yet.")
             elif (operOpcodeModId == 4): # VERR
                 op1 = self.modRMInstance.modRMLoad(OP_SIZE_WORD, False, True)
@@ -1542,7 +1550,7 @@ cdef class Opcodes:
             op1 = self.modRMInstance.getRMValueFull(self.registers.operSize)
             eipAddr = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
             segVal = self.registers.mmReadValueUnsigned(op1+self.registers.operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
-            self.stackPushSegId(CPU_SEGMENT_CS, OP_SIZE_WORD)
+            self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
             self.stackPushRegId(CPU_REGISTER_EIP, self.registers.operSize)
             self.syncProtectedModeState()
             self.registers.segWrite(CPU_SEGMENT_CS, segVal)
@@ -1682,7 +1690,7 @@ cdef class Opcodes:
         espName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
         self.syncProtectedModeState()
         self.stackPopRegId(CPU_REGISTER_EIP, self.registers.operSize)
-        self.stackPopSegId(CPU_SEGMENT_CS, OP_SIZE_WORD)
+        self.stackPopSegId(CPU_SEGMENT_CS, self.registers.operSize)
         if (imm):
             self.registers.regAdd(espName, imm)
     cdef retFarImm(self):

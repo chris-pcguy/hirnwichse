@@ -54,9 +54,9 @@ cdef class ChEmu:
         self.printMsg("ERROR: {0:s}".format(errorStr), *errorStrArguments)
         if (exitNow):
             exit(errorExitCode)
-    def debug(self, str debugStr, *debugStrArguments): # this needs to be 'def'
-        if (self.debugEnabled):
-            self.printMsg(debugStr, *debugStrArguments)
+    ##def debug(self, str debugStr, *debugStrArguments): # this needs to be 'def'
+    ##    if (self.debugEnabled):
+    ##        self.printMsg(debugStr, *debugStrArguments)
     def printMsg(self, str msgStr, *msgStrArguments): # this needs to be 'def'
         print(msgStr.format(*msgStrArguments))
         stdout.flush()

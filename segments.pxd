@@ -65,13 +65,25 @@ cdef class Idt:
     cdef getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip)
     cdef run(self)
 
+cdef class Tss:
+    cdef Segments segments
+    cdef ConfigSpace table
+    cdef unsigned short tableLimit
+    cdef unsigned long tableBase
+    cdef reset(self)
+    cdef loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit)
+    cdef loadTableData(self)
+    cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit)
+    cdef run(self)
+
 cdef class Segments:
     cpdef object main
     cdef Gdt gdt, ldt
     cdef Idt idt
+    cdef Tss tss
     cdef Segment cs, ds, es, fs, gs, ss
     cdef unsigned char A20Active, protectedModeOn
-    cdef unsigned short ldtr
+    cdef unsigned short ldtr, tr
     cdef reset(self)
     cdef unsigned char isInProtectedMode(self)
     cdef unsigned char getA20State(self)

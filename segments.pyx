@@ -74,7 +74,7 @@ cdef class Segment:
         cdef unsigned long limit
         limit = self.limit
         if (self.flags & GDT_FLAG_USE_4K):
-            limit *= 4096
+            limit <<= 12
         # TODO: handle the direction bit here.
         if ((address < self.base) or ((address+size)>(self.base+limit))):
             return False
@@ -257,6 +257,30 @@ cdef class Idt:
     cdef run(self):
         self.table = ConfigSpace((<unsigned long>IDT_HARD_LIMIT+1), self.segments.main)
         self.table.run()
+
+
+
+
+cdef class Tss:
+    def __init__(self, Segments segments):
+        self.segments = segments
+    cdef reset(self):
+        self.table.csResetData()
+    cdef loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit):
+        self.tableBase, self.tableLimit = tableBase, tableLimit
+    cdef loadTableData(self):
+        self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
+                            (<unsigned long>self.tableLimit+1)), (<unsigned long>self.tableLimit+1))
+    cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
+        retTableBase[0] = self.tableBase
+        retTableLimit[0] = self.tableLimit
+    cdef run(self):
+        self.table = ConfigSpace((<unsigned long>TSS_HARD_LIMIT+1), self.segments.main)
+        self.table.run()
+
+
+
+
 
 cdef class Segments:
     def __init__(self, object main):

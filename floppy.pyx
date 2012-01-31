@@ -332,50 +332,6 @@ cdef class FloppyController:
                 self.st3 |= FDC_ST3_TRKO
             self.handleResult()
             return
-        elif (cmd in (0x7, 0xf)): # 0x7: calibrate drive ## 0xf: positioning r/w head
-            drive = self.command[1] & 0x3
-            self.DOR &= 0xfc
-            self.DOR |= drive
-            if (cmd == 0x7):
-                (<FloppyDrive>self.drive[drive]).cylinder = 0
-            else:
-                (<FloppyDrive>self.drive[drive]).head = (self.command[1] >> 2) & 0x1
-                (<FloppyDrive>self.drive[drive]).cylinder = self.command[2]
-            self.msr &= FDC_MSR_NODMA
-            self.msr |= (1 << drive)
-            if (cmd == 0x7):
-                self.st0 = FDC_ST0_SE | drive
-                if ((<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_NONE or not ((self.DOR >> (drive+4)) & 0x1)):
-                    self.st0 |= 0x50
-            else:
-                self.st0 = FDC_ST0_SE | ((<FloppyDrive>self.drive[drive]).head << 2) | drive
-            self.handleIdle()
-            self.raiseFloppyIrq()
-        elif (cmd == 0x8): # check interrupt state
-            if (self.resetSensei):
-                drive = 4 - self.resetSensei
-                self.st0 &= 0xf8
-                self.st0 |= ((<FloppyDrive>self.drive[drive]).head << 2) | drive
-                self.resetSensei -= 1
-            elif (not self.pendingIrq):
-                self.st0 = 0x80
-            self.handleResult()
-            return
-        elif (cmd == 0xa): # read id
-            drive = self.command[1] & 0x3
-            (<FloppyDrive>self.drive[drive]).head = (self.command[1] >> 2) & 0x1
-            self.DOR &= 0xfc
-            self.DOR |= drive
-            motorOn = (self.DOR >> (drive+4)) & 0x1
-            if (not motorOn or (<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_NONE or not (<FloppyDrive>self.drive[drive]).isLoaded):
-                self.msr &= FDC_MSR_NODMA
-                self.msr |= FDC_MSR_BUSY
-                return
-            self.st0 = ((<FloppyDrive>self.drive[drive]).head << 2) | drive
-            self.msr &= FDC_MSR_NODMA
-            self.msr |= FDC_MSR_BUSY
-            self.handleResult()
-            return
         elif (cmd in (0x5, 0x6)):
             if (not (self.DOR & 0x8)):
                 self.main.exitError("FDC: read/write command with DMA and INT disabled.")
@@ -433,6 +389,9 @@ cdef class FloppyController:
             if (logicalSector >= (<FloppyDrive>self.drive[drive]).media.sectors):
                 self.main.exitError("FDC: logical sector out of bounds")
                 return
+            
+            if (not eot):
+                eot = (<FloppyDrive>self.drive[drive]).media.sectorsPerTrack
 
             (<FloppyDrive>self.drive[drive]).cylinder = cylinder
             (<FloppyDrive>self.drive[drive]).head = head
@@ -449,6 +408,52 @@ cdef class FloppyController:
                 (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
             else:
                 self.main.exitError("FDC: handleCommand: unknown r/w cmd {0:#04x}.", cmd)
+        elif (cmd in (0x7, 0xf)): # 0x7: calibrate drive ## 0xf: positioning r/w head
+            drive = self.command[1] & 0x3
+            self.DOR &= 0xfc
+            self.DOR |= drive
+            if (cmd == 0x7):
+                (<FloppyDrive>self.drive[drive]).cylinder = 0
+            else:
+                (<FloppyDrive>self.drive[drive]).head = (self.command[1] >> 2) & 0x1
+                (<FloppyDrive>self.drive[drive]).cylinder = self.command[2]
+            self.msr &= FDC_MSR_NODMA
+            self.msr |= (1 << drive)
+            self.st0 = FDC_ST0_SE | drive
+            if (cmd == 0x7):
+                motorOn = (self.DOR >> (drive+4)) & 0x1
+                if ((<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_NONE or not motorOn):
+                    self.st0 |= 0x50
+            else:
+                self.st0 |= ((<FloppyDrive>self.drive[drive]).head << 2)
+            self.handleIdle()
+            self.raiseFloppyIrq()
+            return
+        elif (cmd == 0x8): # check interrupt state
+            if (self.resetSensei > 0):
+                drive = 4 - self.resetSensei
+                self.st0 &= 0xf8
+                self.st0 |= ((<FloppyDrive>self.drive[drive]).head << 2) | drive
+                self.resetSensei -= 1
+            elif (not self.pendingIrq):
+                self.st0 = 0x80
+            self.handleResult()
+            return
+        elif (cmd == 0xa): # read id
+            drive = self.command[1] & 0x3
+            (<FloppyDrive>self.drive[drive]).head = (self.command[1] >> 2) & 0x1
+            self.DOR &= 0xfc
+            self.DOR |= drive
+            motorOn = (self.DOR >> (drive+4)) & 0x1
+            if (not motorOn or (<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_NONE or not (<FloppyDrive>self.drive[drive]).isLoaded):
+                self.msr &= FDC_MSR_NODMA
+                self.msr |= FDC_MSR_BUSY
+                return
+            self.st0 = ((<FloppyDrive>self.drive[drive]).head << 2) | drive
+            self.msr &= FDC_MSR_NODMA
+            self.msr |= FDC_MSR_BUSY
+            self.handleResult()
+            return
         else:
             self.main.printMsg("FDC: handleCommand: unknown command {0:#04x}.", cmd)
             self.clearCommand()
