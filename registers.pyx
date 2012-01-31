@@ -111,6 +111,20 @@ cdef class ModRMClass:
         cdef long long returnInt
         if (self.mod == 3):
             returnInt = self.registers.regRead(self.rmName0, signed)
+            if (signed):
+                if (regSize == OP_SIZE_BYTE):
+                    returnInt = <char>returnInt
+                elif (regSize == OP_SIZE_WORD):
+                    returnInt = <short>returnInt
+                elif (regSize == OP_SIZE_DWORD):
+                    returnInt = <long>returnInt
+            else:
+                if (regSize == OP_SIZE_BYTE):
+                    returnInt = <unsigned char>returnInt
+                elif (regSize == OP_SIZE_WORD):
+                    returnInt = <unsigned short>returnInt
+                elif (regSize == OP_SIZE_DWORD):
+                    returnInt = <unsigned long>returnInt
         else:
             returnInt = self.getRMValueFull(self.registers.addrSize)
             if (signed):
@@ -122,6 +136,12 @@ cdef class ModRMClass:
         # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
         cdef long long rmValueFull
         if (self.mod == 3):
+            if (regSize == OP_SIZE_BYTE):
+                value = <unsigned char>value
+            elif (regSize == OP_SIZE_WORD):
+                value = <unsigned short>value
+            elif (regSize == OP_SIZE_DWORD):
+                value = <unsigned long>value
             return self.registers.regWriteWithOp(self.rmName0, value, valueOp)
         rmValueFull = self.getRMValueFull(self.registers.addrSize)
         return self.registers.mmWriteValueWithOp(rmValueFull, value, regSize, self.rmNameSegId, allowOverride, valueOp)
@@ -132,8 +152,30 @@ cdef class ModRMClass:
             raise ChemuException(CPU_EXCEPTION_UD)
         return self.registers.segWrite(self.regName, value)
     cdef long long modRLoad(self, unsigned char regSize, unsigned char signed):
-        return self.registers.regRead(self.regName, signed)
+        cdef long long retVal
+        retVal = self.registers.regRead(self.regName, signed)
+        if (signed):
+            if (regSize == OP_SIZE_BYTE):
+                retVal = <char>retVal
+            elif (regSize == OP_SIZE_WORD):
+                retVal = <short>retVal
+            elif (regSize == OP_SIZE_DWORD):
+                retVal = <long>retVal
+        else:
+            if (regSize == OP_SIZE_BYTE):
+                retVal = <unsigned char>retVal
+            elif (regSize == OP_SIZE_WORD):
+                retVal = <unsigned short>retVal
+            elif (regSize == OP_SIZE_DWORD):
+                retVal = <unsigned long>retVal
+        return retVal
     cdef unsigned long long modRSave(self, unsigned char regSize, unsigned long long value, unsigned char valueOp):
+        if (regSize == OP_SIZE_BYTE):
+            value = <unsigned char>value
+        elif (regSize == OP_SIZE_WORD):
+            value = <unsigned short>value
+        elif (regSize == OP_SIZE_DWORD):
+            value = <unsigned long>value
         return self.registers.regWriteWithOp(self.regName, value, valueOp)
 
 

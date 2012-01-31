@@ -173,22 +173,38 @@ cdef class Gdt:
                 raise ChemuException(CPU_EXCEPTION_SS, num)
             else:
                 raise ChemuException(CPU_EXCEPTION_NP, num)
-    cdef unsigned char checkReadAllowed(self, unsigned short num):
+    cdef unsigned char checkReadAllowed(self, unsigned short num): # for VERR
+        cdef unsigned char rpl
         cdef GdtEntry gdtEntry
-        if (num&0xfff8 == 0 or num > self.tableLimit):
+        rpl = num&3
+        num &= 0xfff8
+        if (num == 0 or num > self.tableLimit):
             return False
         gdtEntry = self.getEntry(num)
-        if ((not gdtEntry or not gdtEntry.segPresent) or (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW)):
+        if (not gdtEntry):
+            return False
+        if ((((gdtEntry.accessByte & GDT_ACCESS_SYSTEM_SEGMENT_TYPE) == 0) or not gdtEntry.segIsConforming) and \
+          ((self.registers.cpl > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
+            return False
+        if (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW):
             return False
         return True
-    cdef unsigned char checkWriteAllowed(self, unsigned short num):
+    cdef unsigned char checkWriteAllowed(self, unsigned short num): # for VERW
+        cdef unsigned char rpl
         cdef GdtEntry gdtEntry
-        if (num&0xfff8 == 0 or num > self.tableLimit):
+        rpl = num&3
+        num &= 0xfff8
+        if (num == 0 or num > self.tableLimit):
             return False
         gdtEntry = self.getEntry(num)
-        if (not gdtEntry or not gdtEntry.segPresent or gdtEntry.segIsCodeSeg or not gdtEntry.segIsRW):
+        if (not gdtEntry):
             return False
-        return True
+        if ((((gdtEntry.accessByte & GDT_ACCESS_SYSTEM_SEGMENT_TYPE) == 0) or not gdtEntry.segIsConforming) and \
+          ((self.registers.cpl > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
+            return False
+        if (not gdtEntry.segIsCodeSeg and gdtEntry.segIsRW):
+            return True
+        return False
     cdef checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment):
         cdef unsigned char numSegDPL
         cdef GdtEntry gdtEntry
