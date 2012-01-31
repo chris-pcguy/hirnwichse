@@ -408,6 +408,7 @@ cdef class FloppyController:
                 (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
             else:
                 self.main.exitError("FDC: handleCommand: unknown r/w cmd {0:#04x}.", cmd)
+                return
         elif (cmd in (0x7, 0xf)): # 0x7: calibrate drive ## 0xf: positioning r/w head
             drive = self.command[1] & 0x3
             self.DOR &= 0xfc
@@ -530,7 +531,7 @@ cdef class FloppyController:
         retVal = 0
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC_CTRL::inPort: PIO mode isn't supported!")
-            return retVal
+            return 0
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x2): # read dor
                 return self.DOR
@@ -568,7 +569,7 @@ cdef class FloppyController:
                 return retVal
             elif (ioPortAddr == 0x6):
                 ##self.main.debug("FDC_CTRL::inPort: hdc-shared port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
-                return 0x00 # TODO: 0x3f6/0x376 should be shared with hard disk controller.; TODO: Should I return 0xff here?
+                return 0 # TODO: 0x3f6/0x376 should be shared with hard disk controller.
             elif (ioPortAddr == 0x7):
                 drive = self.DOR & 0x3
                 if (self.DOR & (1<<(drive+4))):

@@ -44,7 +44,7 @@ cdef class Opcodes:
     cdef outsFunc(self, unsigned char operSize)
     cdef insFunc(self, unsigned char operSize)
     cdef jcxzShort(self)
-    cdef jumpShort(self, unsigned char offsetSize, unsigned char c)
+    cdef jumpShort(self, unsigned char offsetSize, unsigned char cond)
     cdef callNearRel16_32(self)
     cdef callPtr16_32(self)
     cdef pushaWD(self)
