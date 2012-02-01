@@ -86,9 +86,9 @@ cdef class Mm:
             return <bytes>(b'\x00'*dataSize)
         return mmArea.mmAreaRead(mmAddr, dataSize)
     cdef long long mmPhyReadValueSigned(self, unsigned long mmAddr, unsigned char dataSize):
-        return int.from_bytes((<bytes>self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=True)
+        return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=True)
     cdef unsigned long long mmPhyReadValueUnsigned(self, unsigned long mmAddr, unsigned char dataSize):
-        return int.from_bytes((<bytes>self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=False)
+        return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=False)
     cdef mmPhyWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize): # dataSize in bytes
         cdef MmArea mmArea
         cdef list mmAreas
@@ -145,7 +145,7 @@ cdef class ConfigSpace:
             data = <unsigned short>data
         elif (size == OP_SIZE_DWORD):
             data = <unsigned long>data
-        self.csWrite(offset, (<bytes>data.to_bytes(length=size, byteorder="little", signed=False)), size)
+        self.csWrite(offset, data.to_bytes(length=size, byteorder="little", signed=False), size)
         return data
     cdef unsigned long long csWriteValueBE(self, unsigned long offset, unsigned long long data, unsigned char size): # Big Endian
         if (size == OP_SIZE_BYTE):
@@ -154,7 +154,7 @@ cdef class ConfigSpace:
             data = <unsigned short>data
         elif (size == OP_SIZE_DWORD):
             data = <unsigned long>data
-        self.csWrite(offset, (<bytes>data.to_bytes(length=size, byteorder="big", signed=False)), size)
+        self.csWrite(offset, data.to_bytes(length=size, byteorder="big", signed=False), size)
         return data
     cdef unsigned long long csAddValue(self, unsigned long offset, unsigned long long data, unsigned char size):
         return self.csWriteValue(offset, <unsigned long long>(self.csReadValueUnsigned(offset, size)+data), size)
