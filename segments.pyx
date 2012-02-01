@@ -86,12 +86,12 @@ cdef class GdtEntry:
     def __init__(self, unsigned long long entryData):
         self.parseEntryData(entryData)
     cdef parseEntryData(self, unsigned long long entryData):
-        self.accessByte = <unsigned char>(entryData>>40)
+        self.accessByte = (entryData>>40)&0xff
         self.flags  = (entryData>>52)&0xf
-        self.base  = (<unsigned char>(entryData>>56))<<24
-        self.limit = (( entryData>>48)&0xf)<<16
-        self.base  |= (entryData>>16)&0xffffff
-        self.limit |= <unsigned short>entryData
+        self.base  = (entryData>>16)&0xffffff
+        self.limit = entryData&0xffff
+        self.base  |= ((entryData>>56)&0xff)<<24
+        self.limit |= ((entryData>>48)&0xf)<<16
         if (self.flags & GDT_FLAG_SIZE): # segment size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
             self.segSize = OP_SIZE_DWORD
         else:
@@ -100,7 +100,7 @@ cdef class GdtEntry:
         self.segIsCodeSeg = (self.accessByte&GDT_ACCESS_EXECUTABLE)!=0
         self.segIsRW = (self.accessByte&GDT_ACCESS_READABLE_WRITABLE)!=0
         self.segIsConforming = (self.accessByte&GDT_ACCESS_CONFORMING)!=0
-        self.segDPL = (self.accessByte&GDT_ACCESS_DPL)>>5
+        self.segDPL = ((self.accessByte&GDT_ACCESS_DPL)>>5)&3
         if (self.flags & GDT_FLAG_LONGMODE): # TODO: long-mode isn't implemented yet...
             self.main.exitError("Do you just tried to use long-mode?!? It will take a VERY LONG TIME until it get implemented...")
 
@@ -108,9 +108,9 @@ cdef class IdtEntry:
     def __init__(self, unsigned long long entryData):
         self.parseEntryData(entryData)
     cdef parseEntryData(self, unsigned long long entryData):
-        self.entryEip = (<unsigned short>(entryData>>48))<<16 # interrupt eip: upper word
-        self.entryEip |= <unsigned short>entryData # interrupt eip: lower word
-        self.entrySegment = <unsigned short>(entryData>>16) # interrupt segment
+        self.entryEip = entryData&0xffff # interrupt eip: lower word
+        self.entryEip |= ((entryData>>48)&0xffff)<<16 # interrupt eip: upper word
+        self.entrySegment = (entryData>>16)&0xffff # interrupt segment
         self.entryType = (entryData>>40)&0x7 # interrupt type
         self.entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
         self.entryPresent = (entryData>>47)&1 # is interrupt present
@@ -122,13 +122,21 @@ cdef class IdtEntry:
 cdef class Gdt:
     def __init__(self, Segments segments):
         self.segments = segments
+        self.tableBase = self.tableLimit = 0
     cdef reset(self):
         self.table.csResetData()
     cdef loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit):
+        if (tableLimit > GDT_HARD_LIMIT):
+            self.segments.main.exitError("Gdt::loadTablePosition: tableLimit {0:#06x} > GDT_HARD_LIMIT {1:#06x}.",\
+              tableLimit, GDT_HARD_LIMIT)
+            return
         self.tableBase, self.tableLimit = tableBase, tableLimit
     cdef loadTableData(self):
+        if (not self.tableLimit):
+            self.segments.main.exitError("Gdt::loadTableData: tableLimit is zero.")
+            return
         self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
-                            (<unsigned long>self.tableLimit+1)), (<unsigned long>self.tableLimit+1))
+                            (<unsigned long>self.tableLimit)+1), (<unsigned long>self.tableLimit)+1)
     cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
@@ -243,16 +251,20 @@ cdef class Gdt:
 cdef class Idt:
     def __init__(self, Segments segments):
         self.segments = segments
+        self.tableBase = self.tableLimit = 0
     cdef reset(self):
         self.table.csResetData()
     cdef loadTable(self, unsigned long tableBase, unsigned short tableLimit):
+        if (tableLimit > IDT_HARD_LIMIT):
+            self.segments.main.exitError("Idt::loadTablePosition: tableLimit {0:#06x} > IDT_HARD_LIMIT {1:#06x}.",\
+              tableLimit, IDT_HARD_LIMIT)
+            return
         self.tableBase, self.tableLimit = tableBase, tableLimit
-        if (self.tableLimit > IDT_HARD_LIMIT):
-            self.segments.main.exitError("IDT::loadTablePosition: tableLimit {0:#06x} > IDT_HARD_LIMIT {1:#06x}.",\
-               self.tableLimit, IDT_HARD_LIMIT)
+        if (not self.tableLimit):
+            self.segments.main.exitError("Idt::loadTableData: tableLimit is zero.")
             return
         self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
-                            (<unsigned long>self.tableLimit+1)), (<unsigned long>self.tableLimit+1))
+                            (<unsigned long>self.tableLimit)+1), (<unsigned long>self.tableLimit)+1)
     cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
@@ -280,13 +292,21 @@ cdef class Idt:
 cdef class Tss:
     def __init__(self, Segments segments):
         self.segments = segments
+        self.tableBase = self.tableLimit = 0
     cdef reset(self):
         self.table.csResetData()
     cdef loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit):
+        if (tableLimit > TSS_HARD_LIMIT):
+            self.segments.main.exitError("Tss::loadTablePosition: tableLimit {0:#06x} > TSS_HARD_LIMIT {1:#06x}.",\
+              tableLimit, TSS_HARD_LIMIT)
+            return
         self.tableBase, self.tableLimit = tableBase, tableLimit
     cdef loadTableData(self):
+        if (not self.tableLimit):
+            self.segments.main.exitError("Tss::loadTableData: tableLimit is zero.")
+            return
         self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
-                            (<unsigned long>self.tableLimit+1)), (<unsigned long>self.tableLimit+1))
+                            (<unsigned long>self.tableLimit)+1), (<unsigned long>self.tableLimit)+1)
     cdef getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
@@ -301,12 +321,12 @@ cdef class Tss:
 cdef class Segments:
     def __init__(self, object main):
         self.main = main
-        self.ldtr = 0
+        self.ldtr = self.tr = 0
     cdef reset(self):
         self.gdt.reset()
         self.ldt.reset()
         self.idt.reset()
-        self.ldtr = 0
+        self.ldtr = self.tr = 0
         self.A20Active = True # enable A20-line by default.
         self.protectedModeOn = False
     cdef unsigned char isInProtectedMode(self):
@@ -380,9 +400,11 @@ cdef class Segments:
         self.gdt = Gdt(self)
         self.ldt = Gdt(self)
         self.idt = Idt(self)
+        self.tss = Tss(self)
         self.gdt.run()
         self.ldt.run()
         self.idt.run()
+        self.tss.run()
         self.cs = Segment(self, CPU_SEGMENT_CS, 0)
         self.ds = Segment(self, CPU_SEGMENT_DS, 0)
         self.es = Segment(self, CPU_SEGMENT_ES, 0)

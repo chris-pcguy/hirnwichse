@@ -1076,25 +1076,36 @@ cdef class Opcodes:
                         ##self.main.debug("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid.")
                         op1 = 0
                     else:
-                        if ((op1 & SELECTOR_USE_LDT) or (((<Gdt>self.registers.segments.gdt).getSegAccess(op1)&\
+                        if ((op1 & SELECTOR_USE_LDT) or \
+                          ((op1&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit) or \
+                          (((<Gdt>self.registers.segments.gdt).getSegAccess(op1) & \
                           GDT_ACCESS_SYSTEM_SEGMENT_TYPE) != GDT_ENTRY_SYSTEM_TYPE_LDT)):
                             raise ChemuException(CPU_EXCEPTION_GP, op1)
                         elif (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
                             raise ChemuException(CPU_EXCEPTION_NP, op1)
-                    (<Segments>self.registers.segments).ldtr = op1&0xfff8
+                    op1 &= 0xfff8
                     gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op1))
-                    (<Gdt>self.registers.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
-                    (<Gdt>self.registers.segments.ldt).loadTableData()
+                    if (not gdtEntry):
+                        op1 = 0
+                    (<Segments>self.registers.segments).ldtr = op1
+                    if (gdtEntry):
+                        (<Gdt>self.registers.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
+                        (<Gdt>self.registers.segments.ldt).loadTableData()
                 elif (operOpcodeModId == 3): # LTR
                     if ((op1&0xfff8) == 0):
                         raise ChemuException(CPU_EXCEPTION_GP, 0)
-                    elif (((<Segments>self.registers.segments).ldtr == (op1&0xfff8)) or (((<Gdt>self.registers.segments.gdt).getSegAccess(op1)&\
+                    elif ((op1 & SELECTOR_USE_LDT) or \
+                      ((op1&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit) or \
+                      (((<Gdt>self.registers.segments.gdt).getSegAccess(op1) & \
                       GDT_ACCESS_SYSTEM_SEGMENT_TYPE) != GDT_ENTRY_SYSTEM_TYPE_TSS)):
                         raise ChemuException(CPU_EXCEPTION_GP, op1)
                     elif (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
                         raise ChemuException(CPU_EXCEPTION_NP, op1)
-                    (<Segments>self.registers.segments).tr = op1&0xfff8
                     gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op1))
+                    if (not gdtEntry):
+                        raise ChemuException(CPU_EXCEPTION_GP, op1)
+                    op1 &= 0xfff8
+                    (<Segments>self.registers.segments).tr = op1
                     (<Gdt>self.registers.segments.tss).loadTablePosition(gdtEntry.base, gdtEntry.limit)
                     (<Gdt>self.registers.segments.tss).loadTableData()
                     self.main.printMsg("opcodeGroup0F_00_LTR: TR isn't fully supported yet.")
