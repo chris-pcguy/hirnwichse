@@ -8,15 +8,6 @@ cdef class ModRMClass:
     def __init__(self, object main, Registers registers):
         self.main = main
         self.registers = registers
-    cdef resetVars(self, unsigned char modRMByte):
-        self.rmNameSegId = CPU_SEGMENT_DS
-        self.rmName1 = CPU_REGISTER_NONE
-        self.rmName2 = 0
-        self.rm  = modRMByte&0x7
-        self.reg = (modRMByte>>3)&0x7
-        self.mod = (modRMByte>>6)&0x3
-    cdef copyRMVars(self, ModRMClass otherInstance):
-        self.regName = otherInstance.regName
     cdef sibOperands(self):
         cdef unsigned char sibByte, base, indexOrSs
         cdef unsigned short indexReg
@@ -36,7 +27,14 @@ cdef class ModRMClass:
             self.rmName0 = CPU_REGISTER_DWORD[base]
         # Don't add disp8/disp32 to rmName2 here, as it get done in modRMOperands
     cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
-        self.resetVars(self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False))
+        cdef unsigned char modRMByte
+        modRMByte = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
+        self.rmNameSegId = CPU_SEGMENT_DS
+        self.rmName1 = CPU_REGISTER_NONE
+        self.rmName2 = 0
+        self.rm  = modRMByte&0x7
+        self.reg = (modRMByte>>3)&0x7
+        self.mod = (modRMByte>>6)&0x3
         self.regName = self.registers.getRegNameWithFlags(modRMflags, self.reg, regSize) # source
         if (self.mod == 3): # reg: source ; rm: dest
             if (regSize == OP_SIZE_BYTE):
@@ -92,11 +90,6 @@ cdef class ModRMClass:
             if (self.rmName0 in (CPU_REGISTER_BP, CPU_REGISTER_EBP)): # TODO: only use this if mod in (0,1,2)???
                 self.rmNameSegId = CPU_SEGMENT_SS
             self.rmNameSegId = self.registers.segmentOverridePrefix or self.rmNameSegId
-    cdef modRMOperandsResetEip(self, unsigned char regSize, unsigned char modRMflags):
-        cdef unsigned long oldEip
-        oldEip = self.registers.regRead( CPU_REGISTER_EIP, False )
-        self.modRMOperands(regSize, modRMflags)
-        self.registers.regWrite( CPU_REGISTER_EIP, oldEip )
     cdef unsigned long long getRMValueFull(self, unsigned char rmSize):
         cdef unsigned long long retAddr
         retAddr = <unsigned long long>((self.registers.regRead(self.rmName0, False)+self.registers.regRead(self.rmName1, False)\

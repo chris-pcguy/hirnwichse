@@ -9,11 +9,8 @@ cdef class ModRMClass:
     cdef unsigned char rm, reg, mod
     cdef unsigned short rmName0, rmName1, rmNameSegId, regName
     cdef long long rmName2
-    cdef resetVars(self, unsigned char modRMByte)
-    cdef copyRMVars(self, ModRMClass otherInstance)
     cdef sibOperands(self)
     cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags)
-    cdef modRMOperandsResetEip(self, unsigned char regSize, unsigned char modRMflags)
     cdef unsigned long long getRMValueFull(self, unsigned char rmSize)
     cdef long long modRMLoad(self, unsigned char regSize, unsigned char signed, unsigned char allowOverride)
     cdef unsigned long long modRMSave(self, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp) # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
