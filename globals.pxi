@@ -1,6 +1,6 @@
 
 
-DEF STRICT_CHECKS = 1
+DEF STRICT_CHECKS = 0
 
 
 
@@ -226,8 +226,6 @@ cdef tuple CPU_REGISTER_SREG = (CPU_SEGMENT_ES,CPU_SEGMENT_CS,CPU_SEGMENT_SS,CPU
 cdef tuple CPU_REGISTER_CREG = (CPU_REGISTER_CR0, None, CPU_REGISTER_CR2, CPU_REGISTER_CR3, CPU_REGISTER_CR4, None, None, None)
 cdef tuple CPU_REGISTER_DREG = (CPU_REGISTER_DR0, CPU_REGISTER_DR1, CPU_REGISTER_DR2, CPU_REGISTER_DR3, None, None, CPU_REGISTER_DR6, CPU_REGISTER_DR7)
 
-cdef tuple CPU_REGISTER_INST_POINTER = (CPU_REGISTER_RIP, CPU_REGISTER_EIP, CPU_REGISTER_IP)
-
 DEF GDT_USE_LDT = 0x4
 DEF GDT_FLAG_USE_4K = 0x8
 DEF GDT_FLAG_SIZE = 0x4 # 0==16bit; 1==32bit
@@ -261,7 +259,7 @@ DEF TSS_HARD_LIMIT = 0x67
 cdef unsigned char BITMASK_BYTE  = 0xff
 cdef unsigned short BITMASK_WORD  = 0xffff
 cdef unsigned long BITMASK_DWORD = 0xffffffff
-cdef unsigned long long BITMASK_QWORD = 0xffffffffffffffffU
+cdef unsigned long long BITMASK_QWORD = 0xffffffffffffffff
 
 
 DEF CPU_EXCEPTION_DE = 0 # divide-by-zero error

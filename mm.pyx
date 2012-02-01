@@ -103,7 +103,7 @@ cdef class Mm:
             data = <unsigned short>data
         elif (dataSize == OP_SIZE_DWORD):
             data = <unsigned long>data
-        self.mmPhyWrite(mmAddr, (<bytes>data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
+        self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
         return data
 
 

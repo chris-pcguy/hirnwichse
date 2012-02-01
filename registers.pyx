@@ -18,20 +18,20 @@ cdef class ModRMClass:
     cdef copyRMVars(self, ModRMClass otherInstance):
         self.regName = otherInstance.regName
     cdef sibOperands(self):
-        cdef unsigned char sibByte, base, index, ss
+        cdef unsigned char sibByte, base, indexOrSs
         cdef unsigned short indexReg
         sibByte = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         base    = (sibByte)&7
-        index   = (sibByte>>3)&7
-        if (index == 4):
+        indexOrSs   = (sibByte>>3)&7
+        if (indexOrSs == 4):
             self.rmName2 = 0
         else:
-            ss = (sibByte>>6)&3
-            indexReg = CPU_REGISTER_DWORD[index]
-            self.rmName2 = <unsigned long>(self.registers.regRead( indexReg, False ) * (1 << ss))
+            indexReg = CPU_REGISTER_DWORD[indexOrSs]
+            indexOrSs = (sibByte>>6)&3
+            self.rmName2 = <unsigned long>(self.registers.regRead( indexReg, False ) * (1 << indexOrSs))
         if (self.mod == 0 and base == 5):
             self.rmName0 = CPU_REGISTER_NONE
-            self.rmName2 += self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+            self.rmName2 = <unsigned long>(self.rmName2+self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False))
         else:
             self.rmName0 = CPU_REGISTER_DWORD[base]
         # Don't add disp8/disp32 to rmName2 here, as it get done in modRMOperands
@@ -83,9 +83,9 @@ cdef class ModRMClass:
                 else:
                     self.rmName0 = CPU_REGISTER_DWORD[self.rm]
                 if (self.mod == 1):
-                    self.rmName2 += self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
+                    self.rmName2 = <unsigned long>(self.rmName2 + self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True))
                 elif (self.mod == 2):
-                    self.rmName2 += self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+                    self.rmName2 = <unsigned long>(self.rmName2 + self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False))
             else:
                 self.main.exitError("modRMOperands: AddrSegSize(CS) not in (OP_SIZE_WORD, OP_SIZE_DWORD)")
                 return
@@ -99,7 +99,7 @@ cdef class ModRMClass:
         self.registers.regWrite( CPU_REGISTER_EIP, oldEip )
     cdef unsigned long long getRMValueFull(self, unsigned char rmSize):
         cdef unsigned long long retAddr
-        retAddr = ((self.registers.regRead(self.rmName0, False)+self.registers.regRead(self.rmName1, False)\
+        retAddr = <unsigned long long>((self.registers.regRead(self.rmName0, False)+self.registers.regRead(self.rmName1, False)\
                         +self.rmName2))
         if (rmSize == OP_SIZE_WORD):
             retAddr = <unsigned short>retAddr
@@ -111,37 +111,37 @@ cdef class ModRMClass:
         cdef long long returnInt
         if (self.mod == 3):
             returnInt = self.registers.regRead(self.rmName0, signed)
-            if (signed):
-                if (regSize == OP_SIZE_BYTE):
-                    returnInt = <char>returnInt
-                elif (regSize == OP_SIZE_WORD):
-                    returnInt = <short>returnInt
-                elif (regSize == OP_SIZE_DWORD):
-                    returnInt = <long>returnInt
-            else:
-                if (regSize == OP_SIZE_BYTE):
-                    returnInt = <unsigned char>returnInt
-                elif (regSize == OP_SIZE_WORD):
-                    returnInt = <unsigned short>returnInt
-                elif (regSize == OP_SIZE_DWORD):
-                    returnInt = <unsigned long>returnInt
         else:
             returnInt = self.getRMValueFull(self.registers.addrSize)
             if (signed):
                 returnInt = self.registers.mmReadValueSigned(returnInt, regSize, self.rmNameSegId, allowOverride)
             else:
                 returnInt = self.registers.mmReadValueUnsigned(returnInt, regSize, self.rmNameSegId, allowOverride)
+        if (signed):
+            if (regSize == OP_SIZE_BYTE):
+                returnInt = <char>returnInt
+            elif (regSize == OP_SIZE_WORD):
+                returnInt = <short>returnInt
+            elif (regSize == OP_SIZE_DWORD):
+                returnInt = <long>returnInt
+        else:
+            if (regSize == OP_SIZE_BYTE):
+                returnInt = <unsigned char>returnInt
+            elif (regSize == OP_SIZE_WORD):
+                returnInt = <unsigned short>returnInt
+            elif (regSize == OP_SIZE_DWORD):
+                returnInt = <unsigned long>returnInt
         return returnInt
     cdef unsigned long long modRMSave(self, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp):
         # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
         cdef long long rmValueFull
+        if (regSize == OP_SIZE_BYTE):
+            value = <unsigned char>value
+        elif (regSize == OP_SIZE_WORD):
+            value = <unsigned short>value
+        elif (regSize == OP_SIZE_DWORD):
+            value = <unsigned long>value
         if (self.mod == 3):
-            if (regSize == OP_SIZE_BYTE):
-                value = <unsigned char>value
-            elif (regSize == OP_SIZE_WORD):
-                value = <unsigned short>value
-            elif (regSize == OP_SIZE_DWORD):
-                value = <unsigned long>value
             return self.registers.regWriteWithOp(self.rmName0, value, valueOp)
         rmValueFull = self.getRMValueFull(self.registers.addrSize)
         return self.registers.mmWriteValueWithOp(rmValueFull, value, regSize, self.rmNameSegId, allowOverride, valueOp)
@@ -189,9 +189,9 @@ cdef class Registers:
         self.resetPrefixes()
         self.segments.reset()
         self.regWrite(CPU_REGISTER_EFLAGS, 0x2)
+        self.regWrite(CPU_REGISTER_CR0, 0x60000034)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
         self.regWrite(CPU_REGISTER_EIP, 0xfff0)
-        self.regWrite(CPU_REGISTER_CR0, 0x60000034)
     cdef resetPrefixes(self):
         self.operandSizePrefix = self.addressSizePrefix = False
         self.segmentOverridePrefix = self.repPrefix = 0
@@ -205,10 +205,13 @@ cdef class Registers:
         return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed):
         cdef unsigned long opcodeAddr
+        if (not signed and numBytes == OP_SIZE_QWORD):
+            self.main.exitError("Registers::getCurrentOpcodeAdd: !signed && numBytes == 8, can't work yet.")
+            return 0
         opcodeAddr = self.regAdd(self.eipSizeRegId, numBytes)-numBytes
         if (signed):
             return self.mmReadValueSigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
-        return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
+        return <unsigned long>self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned long *retAddr):
         retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
         retAddr[0] = self.regAdd(self.eipSizeRegId, 1)-1
@@ -251,9 +254,10 @@ cdef class Registers:
         cdef unsigned char opSize
         if (regId == CPU_REGISTER_NONE):
             return 0
-        #if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
-        #    self.main.exitError("regRead: regId is reserved! ({0:d})", regId)
-        #    return 0
+        IF STRICT_CHECKS:
+            if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
+                self.main.exitError("regRead: regId is reserved! ({0:d})", regId)
+                return 0
         opSize = self.getRegSize(regId)
         regId = CPU_REG_DATA_OFFSETS[regId]
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
@@ -262,9 +266,10 @@ cdef class Registers:
         return self.regs.csReadValueUnsignedBE(regId, opSize)
     cdef unsigned long regWrite(self, unsigned short regId, unsigned long value):
         cdef unsigned char opSize
-        #if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
-        #    self.main.exitError("regWrite: regId is reserved! ({0:d})", regId)
-        #    return 0
+        IF STRICT_CHECKS:
+            if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
+                self.main.exitError("regWrite: regId is reserved! ({0:d})", regId)
+                return 0
         opSize = self.getRegSize(regId)
         regId = CPU_REG_DATA_OFFSETS[regId]
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
@@ -273,11 +278,11 @@ cdef class Registers:
     cdef unsigned long regAdd(self, unsigned short regId, long long value):
         return self.regWrite(regId, <unsigned long>(self.regRead(regId, False)+value))
     cdef unsigned long regAdc(self, unsigned short regId, unsigned long value):
-        return self.regAdd(regId, value+self.getEFLAG( FLAG_CF ))
+        return self.regAdd(regId, <unsigned long>(value+self.getEFLAG( FLAG_CF )))
     cdef unsigned long regSub(self, unsigned short regId, unsigned long value):
         return self.regWrite(regId, <unsigned long>(self.regRead(regId, False)-value))
     cdef unsigned long regSbb(self, unsigned short regId, unsigned long value):
-        return self.regSub(regId, value+self.getEFLAG( FLAG_CF ))
+        return self.regSub(regId, <unsigned long>(value+self.getEFLAG( FLAG_CF )))
     cdef unsigned long regXor(self, unsigned short regId, unsigned long value):
         return self.regWrite(regId, (self.regRead(regId, False)^value))
     cdef unsigned long regAnd(self, unsigned short regId, unsigned long value):
@@ -315,10 +320,10 @@ cdef class Registers:
             self.main.printMsg("REGISTERS::regWriteWithOp: unknown valueOp {0:d}.", valueOp)
     cdef unsigned long valSetBit(self, unsigned long value, unsigned char bit, unsigned char state):
         if (state):
-            return ( value | (1<<bit) )
-        return ( value & (~(1<<bit)) )
+            return ( value | <unsigned long>(1<<bit) )
+        return ( value & <unsigned long>(~(1<<bit)) )
     cdef unsigned char valGetBit(self, unsigned long value, unsigned char bit): # return True if bit is set, otherwise False
-        return (value&(1<<bit))!=0
+        return (value&<unsigned long>(1<<bit))!=0
     cdef unsigned long getEFLAG(self, unsigned long flags):
         return self.getFlag(CPU_REGISTER_EFLAGS, flags)
     cdef unsigned long setEFLAG(self, unsigned long flags, unsigned char flagState):
@@ -555,7 +560,7 @@ cdef class Registers:
     #            raise ChemuException(CPU_EXCEPTION_GP, segVal)
     cdef unsigned long getRealAddr(self, unsigned short segId, long long offsetAddr):
         cdef unsigned long realAddr
-        realAddr = (<unsigned long>((<Segment>self.segments.getSegmentInstance(segId)).base)+offsetAddr)
+        realAddr = <unsigned long>(((<Segment>self.segments.getSegmentInstance(segId)).base)+offsetAddr)
         # TODO: check for limit asf...
         if (not self.segments.isInProtectedMode()):
             if (self.segments.getA20State()): # A20 Active? if True == on, else off
@@ -602,11 +607,11 @@ cdef class Registers:
                     data = <unsigned long long>(oldData+data)
                     return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
                 elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
-                    carryOn = self.getEFLAG( FLAG_CF )!=0
+                    carryOn = self.getEFLAG( FLAG_CF )
                     if (valueOp == OPCODE_ADC):
-                        data = <unsigned long long>(oldData+(data+carryOn))
+                        data = <unsigned long long>(oldData+<unsigned long long>(data+carryOn))
                     else:
-                        data = <unsigned long long>(oldData-(data+carryOn))
+                        data = <unsigned long long>(oldData-<unsigned long long>(data+carryOn))
                     return self.mmWriteValue(mmAddr, data, dataSize, segId, allowOverride)
                 elif (valueOp == OPCODE_SUB):
                     data = <unsigned long long>(oldData-data)
