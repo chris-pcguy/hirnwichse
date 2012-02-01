@@ -66,8 +66,8 @@ cdef class Opcodes:
     cdef opcodeGroup0F(self)
     cdef opcodeGroupFE(self)
     cdef opcodeGroupFF(self)
-    cdef incFuncReg(self, unsigned char regId, unsigned char regSize)
-    cdef decFuncReg(self, unsigned char regId, unsigned char regSize)
+    cdef incFuncReg(self, unsigned short regId, unsigned char regSize)
+    cdef decFuncReg(self, unsigned short regId, unsigned char regSize)
     cdef incFuncRM(self, unsigned char rmSize)
     cdef decFuncRM(self, unsigned char rmSize)
     cdef incReg(self)
@@ -78,11 +78,11 @@ cdef class Opcodes:
     cdef popSeg(self, unsigned char opcode)
     cdef popRM16_32(self)
     cdef lea(self)
-    cdef retNear(self, unsigned char imm)
+    cdef retNear(self, unsigned short imm)
     cdef retNearImm(self)
-    cdef retFar(self, unsigned char imm)
+    cdef retFar(self, unsigned short imm)
     cdef retFarImm(self)
-    cdef lfpFunc(self, unsigned char segId) # 'load far pointer' function
+    cdef lfpFunc(self, unsigned short segId) # 'load far pointer' function
     cdef xlatb(self)
     cdef opcodeGroup2_RM(self, unsigned char operSize)
     cdef interrupt(self, short intNum, long errorCode) # TODO: complete this!
