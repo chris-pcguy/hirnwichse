@@ -6,12 +6,12 @@ from segments cimport Segment, GdtEntry, Gdt, Idt, Segments
 cdef class ModRMClass:
     cpdef object main
     cdef Registers registers
-    cdef unsigned char rm, reg, mod
+    cdef unsigned char rm, reg, mod, ss
     cdef unsigned short rmName0, rmName1, rmNameSegId, regName
     cdef long long rmName2
     cdef sibOperands(self)
     cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags)
-    cdef unsigned long long getRMValueFull(self, unsigned char rmSize)
+    cdef unsigned long getRMValueFull(self, unsigned char rmSize)
     cdef long long modRMLoad(self, unsigned char regSize, unsigned char signed, unsigned char allowOverride)
     cdef unsigned long long modRMSave(self, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp) # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
     cdef unsigned short modSegLoad(self)
@@ -40,7 +40,7 @@ cdef class Registers:
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue)
     cdef long long regRead(self, unsigned short regId, unsigned char signed)
     cdef unsigned long regWrite(self, unsigned short regId, unsigned long value)
-    cdef unsigned long regAdd(self, unsigned short regId, long long value)
+    cdef unsigned long regAdd(self, unsigned short regId, unsigned long value)
     cdef unsigned long regAdc(self, unsigned short regId, unsigned long value)
     cdef unsigned long regSub(self, unsigned short regId, unsigned long value)
     cdef unsigned long regSbb(self, unsigned short regId, unsigned long value)
@@ -63,14 +63,14 @@ cdef class Registers:
     cdef unsigned char getCond(self, unsigned char index)
     cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method)
     #cdef checkMemAccessRights(self, unsigned short segId, unsigned char write)
-    cdef unsigned long getRealAddr(self, unsigned short segId, long long offsetAddr)
-    cdef unsigned long mmGetRealAddr(self, long long mmAddr, unsigned short segId, unsigned char allowOverride)
-    cdef bytes mmRead(self, long long mmAddr, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef long long mmReadValueSigned(self, long long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned long long mmReadValueUnsigned(self, long long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef mmWrite(self, long long mmAddr, bytes data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned long long mmWriteValue(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned long long mmWriteValueWithOp(self, long long mmAddr, unsigned long long data, unsigned long long dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
+    cdef unsigned long getRealAddr(self, unsigned short segId, unsigned long offsetAddr)
+    cdef unsigned long mmGetRealAddr(self, unsigned long mmAddr, unsigned short segId, unsigned char allowOverride)
+    cdef bytes mmRead(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef long long mmReadValueSigned(self, unsigned long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned long long mmReadValueUnsigned(self, unsigned long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef mmWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned long long mmWriteValue(self, unsigned long mmAddr, unsigned long long data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned long long mmWriteValueWithOp(self, unsigned long mmAddr, unsigned long long data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
     cdef unsigned char getSegSize(self, unsigned short segId)
     cdef unsigned char isSegPresent(self, unsigned short segId)
     cdef unsigned char getOpSegSize(self, unsigned short segId)

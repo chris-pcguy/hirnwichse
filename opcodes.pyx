@@ -604,7 +604,10 @@ cdef class Opcodes:
             if (countVal == 0):
                 return
         df = self.registers.getEFLAG(FLAG_DF)!=0
-        dataLength = operSize*countVal
+        dataLength = <unsigned long long>(operSize*countVal)
+        if (dataLength != <unsigned long>dataLength):
+            self.main.printMsg("Opcodes::stosFunc: dataLength overflow.")
+        dataLength = <unsigned long>dataLength
         destAddr = self.registers.regRead(dataReg, False)
         if (df):
             destAddr -= dataLength-operSize
@@ -633,7 +636,10 @@ cdef class Opcodes:
             if (countVal == 0):
                 return
         df = self.registers.getEFLAG(FLAG_DF)!=0
-        dataLength = operSize*countVal
+        dataLength = <unsigned long long>(operSize*countVal)
+        if (dataLength != <unsigned long>dataLength):
+            self.main.printMsg("Opcodes::movsFunc: dataLength overflow.")
+        dataLength = <unsigned long>dataLength
         esiVal = self.registers.regRead(esiReg, False)
         ediVal = self.registers.regRead(ediReg, False)
         if (df):
@@ -665,7 +671,10 @@ cdef class Opcodes:
             if (countVal == 0):
                 return
         df = self.registers.getEFLAG(FLAG_DF)!=0
-        dataLength = operSize*countVal
+        dataLength = <unsigned long long>(operSize*countVal)
+        if (dataLength != <unsigned long>dataLength):
+            self.main.printMsg("Opcodes::lodsFunc: dataLength overflow.")
+        dataLength = <unsigned long>dataLength
         if (not df):
             esiVal = self.registers.regAdd(esiReg, dataLength)-operSize
         else:

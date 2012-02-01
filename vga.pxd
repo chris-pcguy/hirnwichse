@@ -4,9 +4,9 @@ from pygameUI cimport PygameUI
 
 
 cdef class VRamArea(MmArea):
-    cdef unsigned long long memBaseAddrTextmodeBaseDiff
-    cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize)
-    cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long long dataSize)
+    cdef unsigned long memBaseAddrTextmodeBaseDiff
+    cdef mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize)
+    cpdef handleVRamWrite(self, unsigned long mmAreaAddr, unsigned long dataSize)
 
 
 cdef class VGA_REGISTER_RAW(ConfigSpace):

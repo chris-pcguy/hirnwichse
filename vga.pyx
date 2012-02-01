@@ -6,10 +6,10 @@ include "globals.pxi"
 
 
 cdef class VRamArea(MmArea):
-    def __init__(self, Mm mmObj, unsigned long long mmBaseAddr, unsigned long long mmAreaSize, unsigned char mmReadOnly):
+    def __init__(self, Mm mmObj, unsigned long mmBaseAddr, unsigned long mmAreaSize, unsigned char mmReadOnly):
         MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
         self.memBaseAddrTextmodeBaseDiff = VGA_TEXTMODE_ADDR-self.mmBaseAddr
-    cdef mmAreaWrite(self, unsigned long long mmAddr, bytes data, unsigned long long dataSize): # dataSize(type int) is count in bytes
+    cdef mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize): # dataSize(type int) is count in bytes
         MmArea.mmAreaWrite(self, mmAddr, data, dataSize)
         # TODO: hardcoded to 80x25
         if (mmAddr < VGA_TEXTMODE_ADDR or mmAddr+dataSize > VGA_TEXTMODE_ADDR+4000):
@@ -17,7 +17,7 @@ cdef class VRamArea(MmArea):
         if ((<Vga>self.main.platform.vga).getProcessVideoMem() and (<ExtReg>(<Vga>self.main.platform.vga).extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
             mmAddr -= self.mmBaseAddr
             self.handleVRamWrite(mmAddr, dataSize)
-    cpdef handleVRamWrite(self, unsigned long long mmAreaAddr, unsigned long long dataSize):
+    cpdef handleVRamWrite(self, unsigned long mmAreaAddr, unsigned long dataSize):
         cpdef list rectList
         cpdef unsigned char x, y
         cpdef bytes charstr
