@@ -72,16 +72,6 @@ cdef class Segment:
         return self.segIsConforming
     cdef unsigned char getSegDPL(self):
         return self.segDPL
-    cdef unsigned char isAddressInLimit(self, unsigned long address, unsigned long size):
-        cdef unsigned long limit
-        limit = self.limit
-        if (self.flags & GDT_FLAG_USE_4K):
-            limit <<= 12
-        # TODO: handle the direction bit here.
-        if ((address < self.base) or ((address+size)>(self.base+limit))):
-            return False
-        return True
-
 
 
 cdef class GdtEntry:
@@ -105,6 +95,16 @@ cdef class GdtEntry:
         self.segDPL = ((self.accessByte&GDT_ACCESS_DPL)>>5)&3
         if (self.flags & GDT_FLAG_LONGMODE): # TODO: long-mode isn't implemented yet...
             self.main.exitError("Do you just tried to use long-mode?!? It will take a VERY LONG TIME until it get implemented...")
+    cdef unsigned char isAddressInLimit(self, unsigned long address, unsigned long size):
+        cdef unsigned long limit
+        limit = self.limit
+        if (self.flags & GDT_FLAG_USE_4K):
+            limit <<= 12
+        # TODO: handle the direction bit here.
+        if ((address < self.base) or ((address+size)>(self.base+limit))):
+            return False
+        return True
+
 
 cdef class IdtEntry:
     def __init__(self, unsigned long long entryData):

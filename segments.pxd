@@ -13,12 +13,12 @@ cdef class Segment:
     cdef unsigned char isSegReadableWritable(self)
     cdef unsigned char isSegConforming(self)
     cdef unsigned char getSegDPL(self)
-    cdef unsigned char isAddressInLimit(self, unsigned long address, unsigned long size)
 
 cdef class GdtEntry:
     cdef unsigned char accessByte, flags, segSize, segPresent, segIsCodeSeg, segIsRW, segIsConforming, segDPL
     cdef unsigned long base, limit
     cdef parseEntryData(self, unsigned long long entryData)
+    cdef unsigned char isAddressInLimit(self, unsigned long address, unsigned long size)
 
 cdef class IdtEntry:
     cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent

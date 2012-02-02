@@ -477,12 +477,12 @@ cdef class Opcodes:
             (<Gdt>self.registers.segments.gdt).loadTableData()
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if ((<Segments>self.registers.segments).isInProtectedMode()):
-            if (self.cpl > self.iopl):
+            if (self.registers.cpl > self.registers.iopl):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         return self.main.platform.inPort(ioPortAddr, dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if ((<Segments>self.registers.segments).isInProtectedMode()):
-            if (self.cpl > self.iopl):
+            if (self.registers.cpl > self.registers.iopl):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         self.main.platform.outPort(ioPortAddr, data, dataSize)
     cdef jumpFarAbsolutePtr(self):
@@ -2011,25 +2011,39 @@ cdef class Opcodes:
     cdef int3(self):
         self.interrupt(CPU_EXCEPTION_BP, -1)
     cdef iret(self):
+        cdef GdtEntry gdtEntry
         cdef unsigned char inProtectedMode
         cdef unsigned short SSsel, intrSeg
-        cdef unsigned long tempEFLAGS, EFLAGS, newEIP, eflagsMask, temp
+        cdef unsigned long tempEFLAGS, tempEIP, tempCS, eflagsMask
         inProtectedMode = (<Segments>self.registers.segments).isInProtectedMode()
         if (not inProtectedMode and self.registers.operSize == OP_SIZE_DWORD):
-            newEIP = self.stackGetValue()
-            if ((newEIP>>16)!=0):
+            tempEIP = self.stackGetValue()
+            if ((tempEIP>>16)!=0):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         intrSeg = self.registers.segRead(CPU_SEGMENT_CS)
-        self.stackPopRegId(CPU_REGISTER_EIP)
-        self.stackPopSegId(CPU_SEGMENT_CS)
+        tempEIP = self.stackPopValue()
+        tempCS = self.stackPopValue()
         tempEFLAGS = self.stackPopValue()
-        EFLAGS = self.registers.regRead(CPU_REGISTER_EFLAGS, False)
-        if (((EFLAGS | tempEFLAGS) & (FLAG_NT | FLAG_VM)) != 0):
+        if ((tempEFLAGS & (FLAG_NT | FLAG_VM)) != 0):
             self.main.exitError("Opcodes::iret: VM86-Mode isn't supported yet.")
         if (inProtectedMode):
-            if (self.registers.cpl&3 != intrSeg&3): # TODO
-                self.main.printMsg("Opcodes::iret: cpl!=intrSeg&3. What to do here???")
-            else: # RPL==CPL
+            if ((tempCS&0xfff8) == 0):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
+            if ((tempCS&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit):
+                raise ChemuException(CPU_EXCEPTION_GP, tempCS&0xfff8)
+            gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(tempCS))
+            if (not gdtEntry.segIsCodeSeg or ((tempCS&3) < self.registers.cpl) or (gdtEntry.segIsConforming and \
+              (gdtEntry.segDPL > (tempCS&3)))):
+                raise ChemuException(CPU_EXCEPTION_GP, tempCS&0xfff8)
+            if (not gdtEntry.segPresent):
+                raise ChemuException(CPU_EXCEPTION_NP, tempCS&0xfff8)
+            if ((tempCS&3) > self.registers.cpl): # outer privilege level
+                self.main.exitError("Opcodes::iret: rpl > cpl. What to do here???")
+            else: # same privilege level; rpl==cpl
+                if (not gdtEntry.isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
+                    raise ChemuException(CPU_EXCEPTION_GP, 0)
+                self.registers.regWrite(CPU_REGISTER_EIP, tempEIP)
+                self.registers.segWrite(CPU_SEGMENT_CS, tempCS)
                 eflagsMask = FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | \
                              FLAG_TF | FLAG_DF | FLAG_OF | FLAG_NT
                 if (self.registers.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
@@ -2040,16 +2054,18 @@ cdef class Opcodes:
                     eflagsMask |= FLAG_IOPL
                     if (self.registers.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
                         eflagsMask |= FLAG_VIF | FLAG_VIP
-                temp = tempEFLAGS&eflagsMask
-                tempEFLAGS &= ~eflagsMask
-                tempEFLAGS |= temp
+                tempEFLAGS &= eflagsMask
+                tempEFLAGS |= FLAG_REQUIRED
+                self.registers.regWrite(CPU_REGISTER_EFLAGS, tempEFLAGS)
         else:
             if (self.registers.operSize == OP_SIZE_DWORD):
-                tempEFLAGS = ((tempEFLAGS & 0x257fd5) | (EFLAGS & 0x1a0000))
+                tempEFLAGS = (tempEFLAGS & 0x257fd5)
+                tempEFLAGS |= self.registers.regRead(CPU_REGISTER_EFLAGS, False)&0x1a0000
+                self.registers.regWrite(CPU_REGISTER_EFLAGS, tempEFLAGS)
             else:
-                tempEFLAGS = <unsigned short>tempEFLAGS
-                tempEFLAGS |= (EFLAGS&0xffff0000)
-        self.registers.regWrite(CPU_REGISTER_EFLAGS, tempEFLAGS)
+                self.registers.regWrite(CPU_REGISTER_FLAGS, (<unsigned short>tempEFLAGS))
+            self.registers.regWrite(CPU_REGISTER_EIP, tempEIP)
+            self.registers.segWrite(CPU_SEGMENT_CS, tempCS)
     cdef aad(self):
         cdef unsigned char imm8, tempAL, tempAH
         imm8 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
