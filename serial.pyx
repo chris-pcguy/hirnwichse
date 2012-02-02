@@ -18,7 +18,6 @@ cdef class Serial:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
     cdef run(self):
-        #self.main.platform.addHandlers(SERIAL_PORTS, self)
         pass
 
 

@@ -7,6 +7,37 @@ from os.path import exists, getsize
 
 include "globals.pxi"
 
+DEF FDC_FIRST_PORTBASE  = 0x3f0
+DEF FDC_SECOND_PORTBASE = 0x370
+DEF FDC_PORTCOUNT       = 7
+DEF FDC_DMA_CHANNEL     = 2
+DEF FDC_IRQ = 6 # floppy disk controller's IRQnum
+
+DEF FDC_ST0_NR = 0x8 # ST0 drive not ready
+DEF FDC_ST0_UC = 0x10 # ST0 unit check, set on error
+DEF FDC_ST0_SE = 0x20 # ST0 seek end
+DEF FDC_ST1_NID = 0x1 # ST1 no address mark
+DEF FDC_ST1_NW = 0x2 # ST1 write protected
+DEF FDC_ST1_NDAT = 0x4 # ST1 no data
+DEF FDC_ST1_TO = 0x10 # ST1 time-out
+DEF FDC_ST1_DE = 0x20 # ST1 data error
+DEF FDC_ST1_EN = 0x80 # ST1 end of cylinder
+DEF FDC_ST3_DSDR = 0x8 # ST3 double sided drive/floppy
+DEF FDC_ST3_TRKO = 0x10 # ST3 track 0 seeked
+DEF FDC_ST3_RDY = 0x20 # ST3 drive ready
+DEF FDC_ST3_WPDR = 0x40 # ST3 write protected
+DEF FDC_DOR_NORESET = 0x4 # DOR reset
+DEF FDC_DOR_DMA = 0x8 # DOR dma && irq enabled
+DEF FDC_MSR_BUSY = 0x10 # MSR command busy
+DEF FDC_MSR_NODMA = 0x20 # MSR just use PIO. (NO DMA!)
+DEF FDC_MSR_DIO = 0x40 # MSR FIFO IO port expects an IN opcode (wiki.osdev.org)
+DEF FDC_MSR_RQM = 0x80 # MSR ok (or mandatory) to exchange bytes with the FIFO IO port (wiki.osdev.org)
+DEF FDC_CMD_SK = 0x20 # command is using skip-mode
+DEF FDC_CMD_MF = 0x40 # command is using mfm
+DEF FDC_CMD_MT = 0x80 # command is using multi-track
+DEF FDC_SECTOR_SIZE = 512
+
+cdef dict FDC_CMDLENGTH_TABLE = {0x3: 3, 0x4: 2, 0x5: 9, 0x6: 9, 0x7: 2, 0x8: 1, 0xa: 2, 0xf: 3}
 
 
 cdef class FloppyMedia:
@@ -660,15 +691,6 @@ cdef class Floppy:
         cdef FloppyController controller
         for controller in self.controller:
             controller.run()
-        #self.main.platform.addReadHandlers(FDC_FIRST_READ_PORTS, self)
-        #self.main.platform.addReadHandlers(FDC_SECOND_READ_PORTS, self)
-        #self.main.platform.addWriteHandlers(FDC_FIRST_WRITE_PORTS, self)
-        #self.main.platform.addWriteHandlers(FDC_SECOND_WRITE_PORTS, self)
-
-
-
-
-
 
 
 

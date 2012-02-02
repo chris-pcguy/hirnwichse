@@ -5,6 +5,7 @@ from socket import error as SocketError, IPPROTO_TCP, TCP_NODELAY
 from socketserver import BaseRequestHandler, ThreadingMixIn, TCPServer
 
 include "globals.pxi"
+include "cpu_globals.pxi"
 
 # with MUCH help from qemu's gdbstub.c
 

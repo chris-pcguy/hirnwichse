@@ -2,6 +2,37 @@
 from misc import ChemuException
 
 include "globals.pxi"
+include "cpu_globals.pxi"
+
+
+# Parity Flag Table: DO NOT EDIT!!!
+cdef tuple PARITY_TABLE = (True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, False, True, True, False,
+                True, False, False, True, True, False, False, True, False, True,
+                True, False, False, True, True, False, True, False, False, True,
+                True, False, False, True, False, True, True, False, True, False,
+                False, True, False, True, True, False, False, True, True, False,
+                True, False, False, True, False, True, True, False, True, False,
+                False, True, True, False, False, True, False, True, True, False,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, True, False, False, True,
+                False, True, True, False, False, True, True, False, True, False,
+                False, True, False, True, True, False, True, False, False, True,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, True, False, False, True,
+                False, True, True, False, True, False, False, True, False, True,
+                True, False, False, True, True, False, True, False, False, True,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True, False, True, True, False,
+                True, False, False, True, True, False, False, True, False, True,
+                True, False, True, False, False, True, False, True, True, False,
+                False, True, True, False, True, False, False, True, False, True,
+                True, False, True, False, False, True, True, False, False, True,
+                False, True, True, False, False, True, True, False, True, False,
+                False, True, True, False, False, True, False, True, True, False,
+                True, False, False, True, False, True, True, False, False, True,
+                True, False, True, False, False, True)
+
 
 
 cdef class ModRMClass:
@@ -402,17 +433,17 @@ cdef class Registers:
             return self.getEFLAG(FLAG_OF)!=0
         elif (index == 0x1): # NO
             return self.getEFLAG(FLAG_OF)==0
-        elif (index == 0x2): # C
+        elif (index == 0x2): # B
             return self.getEFLAG(FLAG_CF)
-        elif (index == 0x3): # NC
+        elif (index == 0x3): # NB
             return self.getEFLAG(FLAG_CF)==0
         elif (index == 0x4): # E
             return self.getEFLAG(FLAG_ZF)!=0
         elif (index == 0x5): # NE
             return self.getEFLAG(FLAG_ZF)==0
-        elif (index == 0x6): # NA
+        elif (index == 0x6): # BE
             return self.getEFLAG(FLAG_CF_ZF)!=0
-        elif (index == 0x7): # A
+        elif (index == 0x7): # NBE
             return self.getEFLAG(FLAG_CF_ZF)==0
         elif (index == 0x8): # S
             return self.getEFLAG(FLAG_SF)!=0
@@ -426,9 +457,9 @@ cdef class Registers:
             return (self.getEFLAG(FLAG_SF_OF) in (FLAG_SF, FLAG_OF))
         elif (index == 0xd): # NL
             return (self.getEFLAG(FLAG_SF_OF) in (0, FLAG_SF_OF))
-        elif (index == 0xe): # NG
+        elif (index == 0xe): # LE
             return (self.getEFLAG(FLAG_ZF)!=0 or (self.getEFLAG(FLAG_SF_OF) in (FLAG_SF, FLAG_OF)) )
-        elif (index == 0xf): # G
+        elif (index == 0xf): # NLE
             return (self.getEFLAG(FLAG_SF_OF_ZF) in (0, FLAG_SF_OF))
         else:
             self.main.exitError("getCond: index {0:#x} invalid.", index)

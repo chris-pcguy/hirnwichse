@@ -5,6 +5,17 @@ include "globals.pxi"
 # This file contains (much) code from the Bochs Emulator (c) by it's developers
 
 
+DEF DMA_MODE_DEMAND = 0
+DEF DMA_MODE_SINGLE = 1
+DEF DMA_MODE_BLOCK = 2
+DEF DMA_MODE_CASCADE = 3
+
+DEF DMA_REQREG_REQUEST = 0x4
+DEF DMA_CMD_DISABLE = 0x4
+
+cdef tuple DMA_CHANNEL_INDEX = (2, 3, 1, 0, 0, 0, 0)
+
+
 
 cdef class IsaDmaChannel:
     def __init__(self, IsaDmaController controller, unsigned char channelNum):
@@ -366,8 +377,6 @@ cdef class IsaDma:
         memset(self.extPageReg, 0, 16)
         for controller in self.controller:
             controller.run()
-        #self.main.platform.addHandlers(DMA_MASTER_CONTROLLER_PORTS, self)
-        #self.main.platform.addHandlers(DMA_SLAVE_CONTROLLER_PORTS, self)
-        #self.main.platform.addHandlers(DMA_EXT_PAGE_REG_PORTS, self)
+
 
 

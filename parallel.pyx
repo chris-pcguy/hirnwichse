@@ -18,7 +18,6 @@ cdef class Parallel:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
     cdef run(self):
-        #self.main.platform.addHandlers(PARALLEL_PORTS, self)
         pass
 
 

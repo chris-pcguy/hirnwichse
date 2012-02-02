@@ -1,6 +1,7 @@
 
 
 include "globals.pxi"
+include "cpu_globals.pxi"
 
 DEF DISKETTE_RET_STATUS_ADDR = 0x441 # byte
 

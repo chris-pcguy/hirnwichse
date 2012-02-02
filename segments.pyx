@@ -2,6 +2,8 @@
 from misc import ChemuException
 
 include "globals.pxi"
+include "cpu_globals.pxi"
+
 
 cdef class Segment:
     def __init__(self, Segments segments, unsigned short segmentId, unsigned short segmentIndex):

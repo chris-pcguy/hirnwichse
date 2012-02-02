@@ -6,6 +6,8 @@ from time import sleep
 include "globals.pxi"
 include "kb_scancodes.pxi"
 
+DEF KBC_IRQ = 1 # keyboard controller's IRQnum
+
 DEF PPCB_T2BOTH = 0x03
 DEF PPCB_T2OUT = 0x20
 

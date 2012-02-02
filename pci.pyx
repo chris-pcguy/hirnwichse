@@ -2,6 +2,25 @@
 
 include "globals.pxi"
 
+DEF PCI_DEVICE_CONFIG_SIZE  = 256
+DEF PCIE_DEVICE_CONFIG_SIZE = 4096
+
+DEF PCI_VENDOR_ID = 0x00
+DEF PCI_DEVICE_ID = 0x02
+DEF PCI_CLASS_DEVICE = 0x0a
+DEF PCI_HEADER_TYPE = 0x0e
+
+DEF PCI_PRIMARY_BUS = 0x18
+DEF PCI_SECONDARY_BUS = 0x19
+DEF PCI_SUBORDINATE_BUS = 0x1a
+
+DEF PCI_CLASS_BRIDGE_HOST = 0x0600
+DEF PCI_CLASS_BRIDGE_PCI  = 0x0604
+DEF PCI_VENDOR_ID_INTEL   = 0x8086
+DEF PCI_DEVICE_ID_INTEL_430FX = 0x122d
+
+DEF PCI_HEADER_TYPE_BRIDGE = 1
+
 
 cdef class PciAddress:
     def __init__(self, unsigned long address):
@@ -141,6 +160,5 @@ cdef class Pci:
         for busIndex, busHandle in self.busList.items():
             if (busHandle is not None):
                 busHandle.run()
-        #self.main.platform.addHandlers(PCI_CONTROLLER_PORTS, self)
 
 

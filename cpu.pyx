@@ -5,6 +5,8 @@ from misc import ChemuException
 
 
 include "globals.pxi"
+include "cpu_globals.pxi"
+
 
 
 cdef class Cpu:
@@ -120,7 +122,7 @@ cdef class Cpu:
                         continue
                     sleep(1)
                     continue
-                if ((self.cycles % 5000) == 0):
+                if ((self.cycles % 10000) == 0):
                     self.main.pyroUI.pumpEvents()
                 self.doCycle()
         except (SystemExit, KeyboardInterrupt):
