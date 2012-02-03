@@ -17,6 +17,7 @@ cdef class Cpu:
     cdef unsigned char INTR, HRQ
     cdef unsigned short savedCs
     cdef unsigned long savedEip
+    cdef unsigned long long oldCycleInc
     cdef reset(self)
     cdef saveCurrentInstPointer(self)
     cdef setINTR(self, unsigned char state)

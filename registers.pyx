@@ -51,24 +51,26 @@ cdef class ModRMClass:
         if (base == 5):
             if (self.mod == 0):
                 self.rmName0 = CPU_REGISTER_NONE
-                self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, self.rmName1 != CPU_REGISTER_NONE)
+                self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
             elif (self.mod == 1):
                 self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
             elif (self.mod == 2):
-                self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, True)
+                self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+        else:
+            self.rmName2 = 0
         # Don't add disp8/disp32 to rmName2 here, as it get done in modRMOperands
     cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
         cdef unsigned char modRMByte
         modRMByte = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         self.rmNameSegId = CPU_SEGMENT_DS
         self.rmName1 = CPU_REGISTER_NONE
-        self.rmName2 = 0
         self.rm  = modRMByte&0x7
         self.reg = (modRMByte>>3)&0x7
         self.mod = (modRMByte>>6)&0x3
         self.ss = 0
         self.regName = self.registers.getRegNameWithFlags(modRMflags, self.reg, regSize) # reg
         if (self.mod == 3): # if mod==3, then: reg is source ; rm is dest
+            self.rmName2 = 0
             if (regSize == OP_SIZE_BYTE):
                 self.rmName0  = CPU_REGISTER_BYTE[self.rm] # rm
             elif (regSize == OP_SIZE_WORD):
@@ -97,10 +99,12 @@ cdef class ModRMClass:
                     self.rmName1 = CPU_REGISTER_SI
                 elif (self.rm in (1, 3)):
                     self.rmName1 = CPU_REGISTER_DI
-                if (self.mod == 1):
+                if (self.mod == 0 and self.rm != 6):
+                    self.rmName2 = 0
+                elif (self.mod == 1):
                     self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
                 elif (self.mod == 2):
-                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, True)
+                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
                 if (self.rmName0 == CPU_REGISTER_BP): # TODO: damn, that can't be correct!?!
                     self.rmNameSegId = CPU_SEGMENT_SS
             elif (self.registers.addrSize == OP_SIZE_DWORD):
@@ -112,12 +116,13 @@ cdef class ModRMClass:
                         self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
                     else:
                         self.rmName0 = CPU_REGISTER_DWORD[self.rm]
-                if (self.rmName0 == CPU_REGISTER_EBP):
-                    self.rmNameSegId = CPU_SEGMENT_SS
+                        self.rmName2 = 0
                 if (self.mod == 1):
                     self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
                 elif (self.mod == 2):
-                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, True)
+                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+                if (self.rmName0 == CPU_REGISTER_EBP):
+                    self.rmNameSegId = CPU_SEGMENT_SS
             self.rmNameSegId = self.registers.segmentOverridePrefix or self.rmNameSegId
     cdef unsigned long getRMValueFull(self, unsigned char rmSize):
         cdef unsigned long retAddr
@@ -551,30 +556,34 @@ cdef class Registers:
             if (regSize == OP_SIZE_BYTE):
                 regSum = <char>regSum
             self.setEFLAG(FLAG_SF, regSum<0)
-    #cdef checkMemAccessRights(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char write):
-    #    cdef unsigned short segVal
-    #    if (not self.segments.isInProtectedMode()):
-    #        return
-    #    segVal = self.segRead(segId)
-    #    if (not self.segments.isSegPresent(segVal) ):
-    #        if (segId == CPU_SEGMENT_SS):
-    #            raise ChemuException(CPU_EXCEPTION_SS, segVal)
-    #        else:
-    #            raise ChemuException(CPU_EXCEPTION_NP, segVal)
-    #    if ( segVal == 0 ):
-    #        if (segId == CPU_SEGMENT_SS):
-    #            raise ChemuException(CPU_EXCEPTION_SS, segVal)
-    #        else:
-    #            raise ChemuException(CPU_EXCEPTION_GP, segVal)
-    #    if (write):
-    #        if (self.segments.isCodeSeg(segVal) or not self.segments.isSegReadableWritable(segVal) ):
-    #            if (segId == CPU_SEGMENT_SS):
-    #                raise ChemuException(CPU_EXCEPTION_SS, segVal)
-    #            else:
-    #                raise ChemuException(CPU_EXCEPTION_GP, segVal)
-    #    else:
-    #        if (self.segments.isCodeSeg(segVal) and not self.segments.isSegReadableWritable(segVal) ):
-    #            raise ChemuException(CPU_EXCEPTION_GP, segVal)
+    cdef checkMemAccessRights(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char write):
+        cdef GdtEntry gdtEntry
+        cdef unsigned char addrInLimit
+        cdef unsigned short segVal
+        if (not self.segments.isInProtectedMode()):
+            return
+        segVal = self.segRead(segId)
+        if ( (segVal&0xfff8) == 0 ):
+            if (segId == CPU_SEGMENT_SS):
+                raise ChemuException(CPU_EXCEPTION_SS, segVal)
+            else:
+                raise ChemuException(CPU_EXCEPTION_GP, segVal)
+        gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segVal))
+        if (not gdtEntry or not gdtEntry.segPresent ):
+            if (segId == CPU_SEGMENT_SS):
+                raise ChemuException(CPU_EXCEPTION_SS, segVal)
+            else:
+                raise ChemuException(CPU_EXCEPTION_NP, segVal)
+        addrInLimit = gdtEntry.isAddressInLimit(mmAddr, dataSize)
+        if (write):
+            if ((gdtEntry.segIsCodeSeg or not gdtEntry.segIsRW) or not addrInLimit):
+                if (segId == CPU_SEGMENT_SS):
+                    raise ChemuException(CPU_EXCEPTION_SS, segVal)
+                else:
+                    raise ChemuException(CPU_EXCEPTION_GP, segVal)
+        else:
+            if ((gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) or not addrInLimit):
+                raise ChemuException(CPU_EXCEPTION_GP, segVal)
     cdef unsigned long getRealAddr(self, unsigned short segId, unsigned long offsetAddr):
         cdef unsigned long long realAddr
         realAddr = <unsigned long long>(((<Segment>(self.segments.getSegmentInstance(segId))).base)+offsetAddr)
@@ -592,7 +601,7 @@ cdef class Registers:
         mmAddr = self.getRealAddr(segId, mmAddr)
         return mmAddr
     cdef bytes mmRead(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char allowOverride):
-        ##self.checkMemAccessRights(mmAddr, dataSize, segId, False)
+        self.checkMemAccessRights(mmAddr, dataSize, segId, False)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyRead(mmAddr, dataSize)
     cdef long long mmReadValueSigned(self, unsigned long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
@@ -602,7 +611,7 @@ cdef class Registers:
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyReadValueUnsigned(mmAddr, dataSize)
     cdef mmWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize, unsigned short segId, unsigned char allowOverride):
-        ##self.checkMemAccessRights(mmAddr, dataSize, segId, True)
+        self.checkMemAccessRights(mmAddr, dataSize, segId, True)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         (<Mm>self.main.mm).mmPhyWrite(mmAddr, data, dataSize)
     cdef unsigned long long mmWriteValue(self, unsigned long mmAddr, unsigned long long data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):

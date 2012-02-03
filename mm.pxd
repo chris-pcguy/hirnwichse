@@ -14,7 +14,8 @@ cdef class MmArea:
     cpdef mmFreeAreaData(self)
     cdef mmSetReadOnly(self, unsigned char mmReadOnly)
     cdef bytes mmAreaRead(self, unsigned long mmAddr, unsigned long dataSize)
-    cdef mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize) # dataSize(type int) is count in bytes
+    cdef mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize)
+    cdef mmAreaCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize)
     cpdef run(self)
 
 
@@ -30,7 +31,7 @@ cdef class Mm:
     cdef unsigned long long mmPhyReadValueUnsigned(self, unsigned long mmAddr, unsigned char dataSize)
     cdef mmPhyWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize)
     cdef unsigned long long mmPhyWriteValue(self, unsigned long mmAddr, unsigned long long data, unsigned char dataSize)
-
+    cdef mmPhyCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize)
 
 cdef class ConfigSpace:
     cpdef object main
@@ -40,6 +41,7 @@ cdef class ConfigSpace:
     cpdef csFreeData(self)
     cdef bytes csRead(self, unsigned long offset, unsigned long size)
     cdef csWrite(self, unsigned long offset, bytes data, unsigned long size)
+    cdef csCopy(self, unsigned long destOffset, unsigned long srcOffset, unsigned long size)
     cdef unsigned long long csReadValueUnsigned(self, unsigned long offset, unsigned char size)
     cdef unsigned long long csReadValueUnsignedBE(self, unsigned long offset, unsigned char size)
     cdef long long csReadValueSigned(self, unsigned long offset, unsigned char size)

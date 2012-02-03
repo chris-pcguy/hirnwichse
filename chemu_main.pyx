@@ -6,7 +6,7 @@
 from sys import argv, exc_info, exit, stdout
 from argparse import ArgumentParser
 from threading import active_count
-from time import sleep
+from time import sleep, time
 from atexit import register
 import Pyro4
 
@@ -59,7 +59,7 @@ cdef class ChEmu:
     ##        self.printMsg(debugStr, *debugStrArguments)
     def printMsg(self, str msgStr, *msgStrArguments): # this needs to be 'def'
         print(msgStr.format(*msgStrArguments))
-        stdout.flush()
+        stdout.flush()  
     cpdef runThreadFunc(self):
         self.platform.run()
         (<Pic>self.platform.pic).cpuInstance = self.cpu

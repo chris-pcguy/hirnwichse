@@ -40,6 +40,16 @@ cdef class MmArea:
             self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
             return
         memcpy(<char*>(self.mmAreaData+mmAddr), <char*>data, dataSize)
+    cdef mmAreaCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize):
+        destAddr -= self.mmBaseAddr
+        srcAddr -= self.mmBaseAddr
+        if (self.mmAreaData is None or not dataSize):
+            self.main.printMsg("MmArea::mmAreaCopy: self.mmAreaData is None || not dataSize.")
+            raise MemoryError()
+        if (self.mmReadOnly):
+            self.main.exitError("MmArea::mmAreaCopy: mmArea is mmReadOnly, exiting...")
+            return
+        memcpy(<char*>(self.mmAreaData+destAddr), <char*>(self.mmAreaData+srcAddr), dataSize)
     cpdef run(self):
         self.mmAreaData = <char*>malloc(self.mmAreaSize)
         if (self.mmAreaData is None):
@@ -56,7 +66,7 @@ cdef class Mm:
         cdef MmArea mmAreaObjectInstance
         mmAreaObjectInstance = <MmArea>mmAreaObject(self, mmBaseAddr, mmAreaSize, mmReadOnly)
         mmAreaObjectInstance.run()
-        self.mmAreas.append(mmAreaObjectInstance)
+        self.mmAreas.insert(0, mmAreaObjectInstance)
     cdef unsigned char mmDelArea(self, unsigned long mmBaseAddr):
         cdef unsigned short i
         for i in range(len(self.mmAreas)):
@@ -70,6 +80,7 @@ cdef class Mm:
         for mmArea in self.mmAreas:
             if (mmAddr >= mmArea.mmBaseAddr and mmAddr+dataSize-1 <= mmArea.mmEndAddr):
                 return mmArea
+        return None
     cdef list mmGetAreas(self, unsigned long mmAddr, unsigned long dataSize): # dataSize in bytes
         cdef MmArea mmArea
         cdef list foundAreas
@@ -82,7 +93,7 @@ cdef class Mm:
         cdef MmArea mmArea
         mmArea = self.mmGetSingleArea(mmAddr, dataSize)
         if (mmArea is None):
-            self.main.printMsg("mmPhyRead: mmAreas not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            self.main.printMsg("mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             return <bytes>(b'\x00'*dataSize)
         return mmArea.mmAreaRead(mmAddr, dataSize)
     cdef long long mmPhyReadValueSigned(self, unsigned long mmAddr, unsigned char dataSize):
@@ -91,13 +102,11 @@ cdef class Mm:
         return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=False)
     cdef mmPhyWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize): # dataSize in bytes
         cdef MmArea mmArea
-        cdef list mmAreas
-        mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        if (not mmAreas):
-            self.main.exitError("mmPhyWrite: mmAreas not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+        mmArea = self.mmGetSingleArea(mmAddr, dataSize)
+        if (mmArea is None):
+            self.main.exitError("mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             return
-        for mmArea in mmAreas:
-            mmArea.mmAreaWrite(mmAddr, data, dataSize)
+        mmArea.mmAreaWrite(mmAddr, data, dataSize)
     cdef unsigned long long mmPhyWriteValue(self, unsigned long mmAddr, unsigned long long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data
@@ -107,6 +116,14 @@ cdef class Mm:
             data = <unsigned long>data
         self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
         return data
+    cdef mmPhyCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize): # dataSize in bytes
+        cdef MmArea mmAreaDest, mmAreaSrc
+        mmAreaDest = self.mmGetSingleArea(destAddr, dataSize)
+        mmAreaSrc = self.mmGetSingleArea(srcAddr, dataSize)
+        if (mmAreaDest is None or mmAreaSrc is None or mmAreaDest != mmAreaSrc):
+            self.main.printMsg("mmPhyCopy: mmAreas not found or not the same! (destAddr: {0:#010x}, srcAddr: {1:#010x}, dataSize: {2:d})", destAddr, srcAddr, dataSize)
+            return
+        mmAreaDest.mmAreaCopy(destAddr, srcAddr, dataSize)
 
 
 cdef class ConfigSpace:
@@ -130,6 +147,11 @@ cdef class ConfigSpace:
             self.main.printMsg("ConfigSpace::csWrite: self.csData is None || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             raise MemoryError()
         memcpy(<char*>(self.csData+offset), <char*>data, size)
+    cdef csCopy(self, unsigned long destOffset, unsigned long srcOffset, unsigned long size):
+        if (self.csData is None or not size or (destOffset+size > self.csSize) or (srcOffset+size > self.csSize)):
+            self.main.printMsg("ConfigSpace::csCopy: self.csData is None || not size || (destOffset+size > self.csSize) || (srcOffset+size > self.csSize). (destOffset: {0:#06x}, srcOffset: {1:#06x}, size: {2:d})", destOffset, srcOffset, size)
+            raise MemoryError()
+        memcpy(<char*>(self.csData+destOffset), <char*>(self.csData+srcOffset), size)
     cdef unsigned long long csReadValueUnsigned(self, unsigned long offset, unsigned char size):
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)
     cdef unsigned long long csReadValueUnsignedBE(self, unsigned long offset, unsigned char size): # Big Endian

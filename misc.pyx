@@ -1,5 +1,5 @@
 
-from threading import Thread, Timer
+from threading import Thread
 
 include "globals.pxi"
 
@@ -53,12 +53,6 @@ cdef class Misc:
         data = value.to_bytes(length=valueSize, byteorder="big")
         value = int.from_bytes(bytes=data, byteorder="little")
         return value
-    cpdef object createTimer(self, float seconds, object timerFunc, unsigned char startIt):
-        cpdef object timerObject
-        timerObject = Timer(seconds, timerFunc)
-        if (startIt):
-            timerObject.start()
-        return timerObject
     cpdef object createThread(self, object threadFunc, unsigned char startIt):
         cpdef object threadObject
         threadObject = Thread(target=threadFunc)

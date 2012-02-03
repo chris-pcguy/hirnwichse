@@ -7,6 +7,7 @@ include "globals.pxi"
 cdef class Cmos:
     def __init__(self, object main):
         self.main = main
+        self.dt = self.oldDt = None
         self.cmosIndex = 0
         self.equipmentDefaultValue = 0xc
     cdef setEquipmentDefaultValue(self, unsigned char value):
@@ -47,8 +48,11 @@ cdef class Cmos:
         ##self.updateTime()
     cdef updateTime(self):
         cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century
-        statusb = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
+        self.oldDt = self.dt
         self.dt = gmtime()
+        if (self.oldDt is not None and self.dt is not None and self.dt == self.oldDt):
+            return
+        statusb = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
         second  = self.dt.tm_sec
         minute  = self.dt.tm_min
         hour    = self.dt.tm_hour

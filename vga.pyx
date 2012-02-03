@@ -182,7 +182,7 @@ cdef class Vga:
             x = 0
             y += 1
         if (y == 25):
-            self.scrollDown(page, attr)
+            self.scrollUp(page, attr, 1)
             y -= 1
         cursorPos = ((y<<8)|x)
         if (updateCursor):
@@ -211,18 +211,22 @@ cdef class Vga:
             self.main.printMsg("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
         (<Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page<<1), pos, 2)
-    cdef scrollDown(self, unsigned char page, short attr):
+    cdef scrollUp(self, unsigned char page, short attr, unsigned short lines):
         cdef bytes oldData
-        cdef unsigned long oldAddr
+        cdef unsigned long oldAddr, dataSize
         self.setProcessVideoMem(False)
         page = self.getCorrectPage(page)
         oldAddr = self.getAddrOfPos(page, 0, 0)
-        oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr+160, 3840) # 3840==24*80*2
-        (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 3840)
+        if (lines == 0):
+            lines = 25
+            dataSize = 4000 # 160*25
+        else:
+            dataSize = 160*lines
+            (<Mm>self.main.mm).mmPhyCopy(oldAddr, oldAddr+dataSize, 4000-dataSize)
         if (attr == -1):
             attr = (<Mm>self.main.mm).mmPhyReadValueUnsigned(self.getAddrOfPos(page, 79, 24)+1, 1)
-        oldData = bytes([ 0x20, attr ])*80
-        (<Mm>self.main.mm).mmPhyWrite(oldAddr+3840, oldData, 160)
+        oldData = bytes([ 0x20, attr ])*80*lines
+        (<Mm>self.main.mm).mmPhyWrite(oldAddr+(4000-dataSize), oldData, dataSize)
         self.setProcessVideoMem(True)
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, 4000)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)

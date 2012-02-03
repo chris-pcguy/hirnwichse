@@ -20,7 +20,7 @@ cdef class Cpu:
         self.debugSingleStep = False
         self.INTR = False
         self.HRQ = False
-        self.cycles = 0
+        self.cycles = self.oldCycleInc = 0
         self.registers.reset()
     cdef saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
@@ -111,6 +111,7 @@ cdef class Cpu:
             opcode = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         return opcode
     cpdef doInfiniteCycles(self):
+        cdef unsigned long long cycleInc
         try:
             while (not self.main.quitEmu):
                 if ((self.cpuHalted and self.main.exitIfCpuHalted) or self.main.quitEmu):
@@ -122,7 +123,9 @@ cdef class Cpu:
                         continue
                     sleep(1)
                     continue
-                if ((self.cycles % 10000) == 0):
+                cycleInc = self.cycles >> 13
+                if (cycleInc > self.oldCycleInc):
+                    self.oldCycleInc = cycleInc
                     self.main.pyroUI.pumpEvents()
                 self.doCycle()
         except (SystemExit, KeyboardInterrupt):

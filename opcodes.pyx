@@ -1181,6 +1181,8 @@ cdef class Opcodes:
             ##self.main.debug("Group0F_01: operOpcodeModId=={0:d}", operOpcodeModId)
             if (operOpcodeModId in (0, 1, 2, 3)): # SGDT/SIDT LGDT/LIDT
                 self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+                if (self.modRMInstance.mod == 3):
+                    raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeModId in (4, 6)): # SMSW/LMSW
                 self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             else:

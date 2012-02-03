@@ -101,7 +101,8 @@ cdef class GdtEntry:
         if (self.flags & GDT_FLAG_USE_4K):
             limit <<= 12
         # TODO: handle the direction bit here.
-        if ((address < self.base) or ((address+size)>(self.base+limit))):
+        ## address is an offset.
+        if ((address+size)>limit):
             return False
         return True
 

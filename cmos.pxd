@@ -5,7 +5,7 @@ from mm cimport ConfigSpace
 
 cdef class Cmos:
     cdef ConfigSpace configSpace
-    cpdef object main, dt
+    cpdef object main, dt, oldDt
     cdef unsigned char cmosIndex, equipmentDefaultValue
     cdef setEquipmentDefaultValue(self, unsigned char value)
     cdef unsigned char getEquipmentDefaultValue(self)

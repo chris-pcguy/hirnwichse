@@ -38,6 +38,9 @@ cdef class PythonBios:
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DX, dx)
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, cx)
                 return True
+            elif (ah == 0x06): # scroll up
+                (<Vga>self.main.platform.vga).scrollUp(0xff, bh, al)
+                return True
             elif (ah == 0x0f): # get currMode; write it to AL
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, (currMode|\
                     ((<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_VIDEO_CTL_ADDR, 1)&0x80)))
