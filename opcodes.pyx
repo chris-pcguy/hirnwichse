@@ -739,7 +739,7 @@ cdef class Opcodes:
             zfFlag = self.registers.getEFLAG(FLAG_ZF)!=0
             if ((self.registers.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or \
               (self.registers.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
-                newCount = <unsigned long>(countVal-i-1)
+                newCount = countVal-i-1
                 break
         self.registers.regWrite(esiReg, esiVal)
         self.registers.regWrite(ediReg, ediVal)
@@ -759,9 +759,9 @@ cdef class Opcodes:
             if (countVal == 0):
                 return
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
+        ediVal = self.registers.regRead(ediReg, False)
+        src1 = self.registers.regRead(eaxReg, False)
         for i in range(countVal):
-            ediVal = self.registers.regRead(ediReg, False)
-            src1 = self.registers.regRead(eaxReg, False)
             src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, CPU_SEGMENT_ES, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
             if (not dfFlag):
