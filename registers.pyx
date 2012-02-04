@@ -39,7 +39,7 @@ cdef class ModRMClass:
     def __init__(self, object main, Registers registers):
         self.main = main
         self.registers = registers
-    cdef sibOperands(self):
+    cdef unsigned char sibOperands(self):
         cdef unsigned char sibByte, base, index
         sibByte = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         base    = (sibByte)&7
@@ -56,8 +56,10 @@ cdef class ModRMClass:
                 self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
             elif (self.mod == 2):
                 self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+            return True
         else:
             self.rmName2 = 0
+        return False
         # Don't add disp8/disp32 to rmName2 here, as it get done in modRMOperands
     cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
         cdef unsigned char modRMByte
@@ -110,14 +112,16 @@ cdef class ModRMClass:
             elif (self.registers.addrSize == OP_SIZE_DWORD):
                 self.rmName2 = 0
                 if (self.rm == 4): # If RM==4; then SIB
-                    self.sibOperands()
+                    modRMByte = self.sibOperands()
                 else:
                     if (self.mod == 0 and self.rm == 5):
+                        modRMByte = True
                         self.rmName0 = CPU_REGISTER_NONE
                         self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
                     else:
+                        modRMByte = False
                         self.rmName0 = CPU_REGISTER_DWORD[self.rm]
-                if (self.rmName2 == 0):
+                if (not modRMByte):
                     if (self.mod == 1):
                         self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
                     elif (self.mod == 2):
@@ -211,7 +215,7 @@ cdef class Registers:
         self.resetPrefixes()
         self.segments.reset()
         self.regWrite(CPU_REGISTER_EFLAGS, 0x2)
-        self.regWrite(CPU_REGISTER_CR0, 0x60000034)
+        self.regWrite(CPU_REGISTER_CR0, 0x40000034)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
         self.regWrite(CPU_REGISTER_EIP, 0xfff0)
     cdef resetPrefixes(self):
@@ -256,7 +260,7 @@ cdef class Registers:
             return OP_SIZE_QWORD
         self.main.exitError("regId is unknown! ({0:d})", regId)
     cdef unsigned short segRead(self, unsigned short segId):
-        if (not segId and not (segId in CPU_REGISTER_SREG)):
+        if (not segId or not (segId in CPU_REGISTER_SREG)):
             self.main.exitError("segRead: segId is not a segment! ({0:d})", segId)
             return 0
         segId = CPU_REG_DATA_OFFSETS[segId]
@@ -265,7 +269,7 @@ cdef class Registers:
         return segId
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue):
         cdef Segment segmentInstance
-        if (not segId and not (segId in CPU_REGISTER_SREG)):
+        if (not segId or not (segId in CPU_REGISTER_SREG)):
             self.main.exitError("segWrite: segId is not a segment! ({0:d})", segId)
             return 0
         if ((<Segments>self.segments).isInProtectedMode()):
@@ -295,6 +299,9 @@ cdef class Registers:
         return self.regs.csReadValueUnsignedBE(regId, opSize)
     cdef unsigned long regWrite(self, unsigned short regId, unsigned long value):
         cdef unsigned char opSize
+        if (regId == CPU_REGISTER_NONE):
+            self.main.exitError("regWrite: regId is CPU_REGISTER_NONE!")
+            return 0
         IF STRICT_CHECKS:
             if (regId < CPU_MIN_REGISTER or regId >= CPU_MAX_REGISTER):
                 self.main.exitError("regWrite: regId is reserved! ({0:d})", regId)

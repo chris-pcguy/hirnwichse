@@ -2024,9 +2024,9 @@ cdef class Opcodes:
         tempEIP = self.stackPopValue()
         tempCS = self.stackPopValue()
         tempEFLAGS = self.stackPopValue()
-        if ((tempEFLAGS & (FLAG_NT | FLAG_VM)) != 0):
-            self.main.exitError("Opcodes::iret: VM86-Mode isn't supported yet.")
         if (inProtectedMode):
+            if ((tempEFLAGS & (FLAG_NT | FLAG_VM)) != 0):
+                self.main.exitError("Opcodes::iret: VM86-Mode isn't supported yet.")
             if ((tempCS&0xfff8) == 0):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             if ((tempCS&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit):

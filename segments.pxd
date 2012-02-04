@@ -15,6 +15,7 @@ cdef class Segment:
     cdef unsigned char getSegDPL(self)
 
 cdef class GdtEntry:
+    cdef Gdt gdt
     cdef unsigned char accessByte, flags, segSize, segPresent, segIsCodeSeg, segIsRW, segIsConforming, segDPL
     cdef unsigned long base, limit
     cdef parseEntryData(self, unsigned long long entryData)

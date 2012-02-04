@@ -75,7 +75,8 @@ cdef class Segment:
 
 
 cdef class GdtEntry:
-    def __init__(self, unsigned long long entryData):
+    def __init__(self, Gdt gdt, unsigned long long entryData):
+        self.gdt = gdt
         self.parseEntryData(entryData)
     cdef parseEntryData(self, unsigned long long entryData):
         self.accessByte = (entryData>>40)&0xff
@@ -94,7 +95,7 @@ cdef class GdtEntry:
         self.segIsConforming = (self.accessByte&GDT_ACCESS_CONFORMING)!=0
         self.segDPL = ((self.accessByte&GDT_ACCESS_DPL)>>5)&3
         if (self.flags & GDT_FLAG_LONGMODE): # TODO: long-mode isn't implemented yet...
-            self.main.exitError("Do you just tried to use long-mode?!? It will take a VERY LONG TIME until it get implemented...")
+            self.gdt.segments.main.exitError("Do you just tried to use long-mode?!? It will take a VERY LONG TIME until it get implemented...")
     cdef unsigned char isAddressInLimit(self, unsigned long address, unsigned long size):
         cdef unsigned long limit
         limit = self.limit
@@ -149,8 +150,9 @@ cdef class Gdt:
         if (not num):
             ##self.segments.main.debug("GDT::getEntry: num == 0!")
             return None
+        self.loadTableData() # do we need this here? It seems, that memtest86-4.0a need this.
         entryData = self.table.csReadValueUnsigned(num, 8)
-        return GdtEntry(entryData)
+        return GdtEntry(self, entryData)
     cdef unsigned char getSegSize(self, unsigned short num):
         return self.getEntry(num).segSize
     cdef unsigned char getSegAccess(self, unsigned short num):
@@ -266,11 +268,8 @@ cdef class Idt:
               tableLimit, IDT_HARD_LIMIT)
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
-        if (not self.tableLimit):
-            if (self.segments.protectedModeOn):
-                self.segments.main.exitError("Idt::loadTableData: tableLimit is zero.")
-            else:
-                self.segments.main.printMsg("Idt::loadTableData: tableLimit is zero.")
+        if (self.segments.protectedModeOn and not self.tableLimit and self.tableBase):
+            self.segments.main.exitError("Idt::loadTableData: tableLimit is zero.")
             return
         self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
                             (<unsigned long>self.tableLimit)+1), (<unsigned long>self.tableLimit)+1)
