@@ -169,15 +169,17 @@ cdef class Gdt:
     cdef unsigned char getSegDPL(self, unsigned short num):
         return self.getEntry(num).segDPL
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment):
+        cdef unsigned char cpl
         cdef GdtEntry gdtEntry
         if (num&0xfff8 == 0 or num > self.tableLimit):
             if (num&0xfff8 == 0):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             else:
                 raise ChemuException(CPU_EXCEPTION_GP, num)
+        cpl = self.segments.cs.segmentIndex&3
         gdtEntry = self.getEntry(num)
-        if (not gdtEntry or (isStackSegment and ( num&3 != self.segments.main.cpu.registers.cpl or \
-          gdtEntry.segDPL != self.segments.main.cpu.registers.cpl)) or 0):
+        if (not gdtEntry or (isStackSegment and ( num&3 != cpl or \
+          gdtEntry.segDPL != cpl)) or 0):
             raise ChemuException(CPU_EXCEPTION_GP, num)
         elif (not gdtEntry.segPresent):
             if (isStackSegment):
@@ -195,7 +197,7 @@ cdef class Gdt:
         if (not gdtEntry):
             return False
         if ((((gdtEntry.accessByte & GDT_ACCESS_SYSTEM_SEGMENT_TYPE) == 0) or not gdtEntry.segIsConforming) and \
-          ((self.registers.cpl > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
+          ((self.segments.cs.segmentIndex&3 > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
             return False
         if (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW):
             return False
@@ -211,13 +213,13 @@ cdef class Gdt:
         if (not gdtEntry):
             return False
         if ((((gdtEntry.accessByte & GDT_ACCESS_SYSTEM_SEGMENT_TYPE) == 0) or not gdtEntry.segIsConforming) and \
-          ((self.registers.cpl > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
+          ((self.segments.cs.segmentIndex&3 > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
             return False
         if (not gdtEntry.segIsCodeSeg and gdtEntry.segIsRW):
             return True
         return False
     cdef checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment):
-        cdef unsigned char numSegDPL
+        cdef unsigned char numSegDPL, cpl
         cdef GdtEntry gdtEntry
         if (num&0xfff8 == 0 or num > self.tableLimit):
             if (loadStackSegment):
@@ -231,6 +233,7 @@ cdef class Gdt:
             if (loadStackSegment):
                 raise ChemuException(CPU_EXCEPTION_GP, num)
             return
+        cpl = self.segments.cs.segmentIndex&3
         numSegDPL = gdtEntry.segDPL
         if (not gdtEntry.segPresent):
             if (loadStackSegment):
@@ -238,14 +241,14 @@ cdef class Gdt:
             else:
                 raise ChemuException(CPU_EXCEPTION_NP, num)
         elif (loadStackSegment):
-            if ((num&3 != self.segments.main.cpu.registers.cpl or numSegDPL != self.segments.main.cpu.registers.cpl) or \
-                (not gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW)):
-                  raise ChemuException(CPU_EXCEPTION_GP, num)
+            if ((num&3 != cpl or numSegDPL != cpl) or \
+              (not gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW)):
+                raise ChemuException(CPU_EXCEPTION_GP, num)
         else: # not loadStackSegment
             if ( ((not gdtEntry.segIsCodeSeg or not gdtEntry.segIsConforming) and (num&3 > numSegDPL and \
-                self.segments.main.cpu.registers.cpl > numSegDPL)) or \
-                (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
-                  raise ChemuException(CPU_EXCEPTION_GP, num)
+              cpl > numSegDPL)) or \
+              (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
+                raise ChemuException(CPU_EXCEPTION_GP, num)
     cdef run(self):
         self.table = ConfigSpace((<unsigned long>GDT_HARD_LIMIT+1), self.segments.main)
         self.table.run()
@@ -264,7 +267,10 @@ cdef class Idt:
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
         if (not self.tableLimit):
-            self.segments.main.exitError("Idt::loadTableData: tableLimit is zero.")
+            if (self.segments.protectedModeOn):
+                self.segments.main.exitError("Idt::loadTableData: tableLimit is zero.")
+            else:
+                self.segments.main.printMsg("Idt::loadTableData: tableLimit is zero.")
             return
         self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
                             (<unsigned long>self.tableLimit)+1), (<unsigned long>self.tableLimit)+1)
@@ -272,6 +278,8 @@ cdef class Idt:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
     cdef IdtEntry getEntry(self, unsigned char num):
+        if (not self.tableLimit):
+            self.segments.main.exitError("Idt::getEntry: tableLimit is zero.")
         return IdtEntry(<unsigned long long>self.table.csReadValueUnsigned((num*8), 8))
     cdef unsigned char isEntryPresent(self, unsigned char num):
         return self.getEntry(num).entryPresent

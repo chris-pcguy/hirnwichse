@@ -1,5 +1,6 @@
 
 from threading import Thread
+from random import randint
 
 include "globals.pxi"
 
@@ -53,6 +54,13 @@ cdef class Misc:
         data = value.to_bytes(length=valueSize, byteorder="big")
         value = int.from_bytes(bytes=data, byteorder="little")
         return value
+    cdef bytes generateString(self, unsigned char firstChar, unsigned char lastChar, unsigned short stringLen):
+        cdef unsigned short i
+        cdef bytes returnedString # 'bytes' object
+        returnedString = b''
+        for i in range(stringLen):
+            returnedString += bytes([ randint(firstChar, lastChar) ])
+        return returnedString
     cpdef object createThread(self, object threadFunc, unsigned char startIt):
         cpdef object threadObject
         threadObject = Thread(target=threadFunc)

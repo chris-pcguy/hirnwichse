@@ -114,7 +114,3 @@ cdef tuple FDC_FIRST_WRITE_PORTS = (0x3f2, 0x3f3, 0x3f4, 0x3f5, 0x3f6, 0x3f7)
 cdef tuple FDC_SECOND_WRITE_PORTS = (0x372, 0x373, 0x374, 0x375, 0x376, 0x377)
 
 
-
-cdef bytes PYRO_HMAC_KEY = b"ftzuijoftretzuinjgfttzuijhgzuiokjhgzuiookhgtzuioplkjgztzuiokjhgftrzuiojhgftrzio"
-
-

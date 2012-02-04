@@ -207,7 +207,7 @@ cdef class Registers:
         self.main = main
     cdef reset(self):
         self.regs.csResetData()
-        self.operSize = self.addrSize = self.cpl = self.iopl = 0
+        self.operSize = self.addrSize = 0
         self.resetPrefixes()
         self.segments.reset()
         self.regWrite(CPU_REGISTER_EFLAGS, 0x2)
@@ -219,6 +219,12 @@ cdef class Registers:
         self.segmentOverridePrefix = self.repPrefix = 0
     cdef readCodeSegSize(self):
         self.getOpAddrCodeSegSize(&self.operSize, &self.addrSize)
+    cdef unsigned char getCPL(self):
+        if (not (<Segments>self.segments).isInProtectedMode()):
+            return 0
+        return (<Segment>(self.segments.cs).segmentIndex&3)
+    cdef unsigned char getIOPL(self):
+        return (self.getEFLAG(FLAG_IOPL)>>12)&3
     cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed):
         cdef unsigned long opcodeAddr
         opcodeAddr = self.regRead(self.eipSizeRegId, False)

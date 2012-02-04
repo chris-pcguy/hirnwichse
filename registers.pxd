@@ -24,12 +24,14 @@ cdef class Registers:
     cdef Segments segments
     cdef public ConfigSpace regs
     cdef public unsigned char repPrefix, segmentOverridePrefix, operandSizePrefix, \
-                                addressSizePrefix, cpl, iopl, codeSegSize
+                                addressSizePrefix, codeSegSize
     cdef unsigned char operSize, addrSize
     cdef public unsigned short eipSizeRegId
     cdef reset(self)
     cdef resetPrefixes(self)
     cdef readCodeSegSize(self)
+    cdef unsigned char getCPL(self)
+    cdef unsigned char getIOPL(self)
     cdef unsigned char getRegSize(self, unsigned short regId)
     cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed)
     cdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed)

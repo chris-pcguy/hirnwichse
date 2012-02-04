@@ -70,11 +70,11 @@ cdef class ChEmu:
     cpdef run(self):
         try:
             self.parseArgs()
+            self.misc = Misc(self)
             Pyro4.config.reset(useenvironment=False)
-            Pyro4.config.HMAC_KEY = PYRO_HMAC_KEY
+            Pyro4.config.HMAC_KEY = self.misc.generateString(0x20, 0x7e, 64)
             Pyro4.config.SOCK_REUSE = True
             self.pyroDaemon = Pyro4.core.Daemon()
-            self.misc = Misc(self)
             self.mm = Mm(self)
             self.platform = Platform(self, self.memSize)
             self.cpu = Cpu(self)
