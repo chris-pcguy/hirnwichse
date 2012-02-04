@@ -108,6 +108,7 @@ cdef class ModRMClass:
                 if (self.rmName0 == CPU_REGISTER_BP): # TODO: damn, that can't be correct!?!
                     self.rmNameSegId = CPU_SEGMENT_SS
             elif (self.registers.addrSize == OP_SIZE_DWORD):
+                self.rmName2 = 0
                 if (self.rm == 4): # If RM==4; then SIB
                     self.sibOperands()
                 else:
@@ -116,11 +117,11 @@ cdef class ModRMClass:
                         self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
                     else:
                         self.rmName0 = CPU_REGISTER_DWORD[self.rm]
-                        self.rmName2 = 0
-                if (self.mod == 1):
-                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
-                elif (self.mod == 2):
-                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+                if (self.rmName2 == 0):
+                    if (self.mod == 1):
+                        self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
+                    elif (self.mod == 2):
+                        self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
                 if (self.rmName0 == CPU_REGISTER_EBP):
                     self.rmNameSegId = CPU_SEGMENT_SS
             self.rmNameSegId = self.registers.segmentOverridePrefix or self.rmNameSegId
@@ -417,9 +418,7 @@ cdef class Registers:
             if (reg in (4, 5)):
                 if (self.getFlag( CPU_REGISTER_CR4, CR4_FLAG_DE )):
                     raise ChemuException(CPU_EXCEPTION_UD)
-                else:
-                    if (reg in (4, 5)):
-                        reg += 2
+                reg += 2
             regName = CPU_REGISTER_DREG[reg]
         else:
             if (operSize == OP_SIZE_BYTE):
@@ -463,7 +462,7 @@ cdef class Registers:
         elif (index == 0xd): # NL
             return (self.getEFLAG(FLAG_SF_OF) in (0, FLAG_SF_OF))
         elif (index == 0xe): # LE
-            return (self.getEFLAG(FLAG_ZF)!=0 or (self.getEFLAG(FLAG_SF_OF) in (FLAG_SF, FLAG_OF)) )
+            return (self.getEFLAG(FLAG_ZF)!=0 or ((self.getEFLAG(FLAG_SF_OF) in (FLAG_SF, FLAG_OF))) )
         elif (index == 0xf): # NLE
             return (self.getEFLAG(FLAG_SF_OF_ZF) in (0, FLAG_SF_OF))
         else:

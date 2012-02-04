@@ -93,34 +93,38 @@ cdef class Cmos:
         self.writeValue(CMOS_CHECKSUM_L, checkSum&0xff, OP_SIZE_BYTE)
         self.writeValue(CMOS_CHECKSUM_H, (checkSum>>8)&0xff, OP_SIZE_BYTE)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+        cdef unsigned char tempIndex
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x70):
                 return self.cmosIndex
             elif (ioPortAddr == 0x71):
-                if (self.cmosIndex <= 0x9 or self.cmosIndex == CMOS_CENTURY):
+                tempIndex = self.cmosIndex&0x7f
+                if (tempIndex <= 0x9 or tempIndex == CMOS_CENTURY):
                     self.updateTime()
-                return self.readValue(self.cmosIndex, OP_SIZE_BYTE)
+                return self.readValue(tempIndex, OP_SIZE_BYTE)
             else:
                 self.main.exitError("inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported. (port: {0:#06x})", dataSize, ioPortAddr)
         return 0
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+        cdef unsigned char tempIndex
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data
             if (ioPortAddr == 0x70):
-                self.cmosIndex = data&0x7f #(~0x80)
+                self.cmosIndex = data
             elif (ioPortAddr == 0x71):
-                self.writeValue(self.cmosIndex, data, OP_SIZE_BYTE)
-                if (self.cmosIndex == CMOS_STATUS_REGISTER_A):
+                tempIndex = self.cmosIndex&0x7f
+                self.writeValue(tempIndex, data, OP_SIZE_BYTE)
+                if (tempIndex == CMOS_STATUS_REGISTER_A):
                     self.main.printMsg("CMOS::outPort: RTC not supported yet.")
-                elif (self.cmosIndex == CMOS_EXT_MEMORY_L):
+                elif (tempIndex == CMOS_EXT_MEMORY_L):
                     self.writeValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
-                elif (self.cmosIndex == CMOS_EXT_MEMORY_H):
+                elif (tempIndex == CMOS_EXT_MEMORY_H):
                     self.writeValue(CMOS_EXT_MEMORY_H2, data, OP_SIZE_BYTE)
-                elif (self.cmosIndex == CMOS_EXT_MEMORY_L2):
+                elif (tempIndex == CMOS_EXT_MEMORY_L2):
                     self.writeValue(CMOS_EXT_MEMORY_L, data, OP_SIZE_BYTE)
-                elif (self.cmosIndex == CMOS_EXT_MEMORY_H2):
+                elif (tempIndex == CMOS_EXT_MEMORY_H2):
                     self.writeValue(CMOS_EXT_MEMORY_H, data, OP_SIZE_BYTE)
                 self.makeCheckSum()
             else:
