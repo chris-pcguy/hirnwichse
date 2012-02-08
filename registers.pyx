@@ -113,6 +113,8 @@ cdef class ModRMClass:
                 self.rmName2 = 0
                 if (self.rm == 4): # If RM==4; then SIB
                     modRMByte = self.sibOperands()
+                    if (self.rmName0 == CPU_REGISTER_ESP):
+                        self.rmNameSegId = CPU_SEGMENT_SS
                 else:
                     if (self.mod == 0 and self.rm == 5):
                         modRMByte = True
