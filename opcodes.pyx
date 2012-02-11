@@ -594,8 +594,8 @@ cdef class Opcodes:
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         ##if (self.main.cpu.savedCs == 0x10 and self.main.cpu.savedEip == 0x2006ddd):
         ##    self.main.cpu.debugHalt = True
-        if (self.main.cpu.savedCs == 0x10 and self.main.cpu.savedEip == 0x2006de4):
-            self.main.cpu.debugHalt = True
+        ##if (self.main.cpu.savedCs == 0x10 and self.main.cpu.savedEip == 0x2006de4):
+        ##    self.main.cpu.debugHalt = True
         self.modRMInstance.modRMSave(operSize, self.modRMInstance.modRLoad(operSize, False), True, OPCODE_SAVE)
     cdef movR_RM(self, unsigned char operSize, unsigned char cond):
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
