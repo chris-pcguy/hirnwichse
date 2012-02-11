@@ -231,32 +231,34 @@ cdef class Vga:
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, 4000)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        if (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr == 0x3c0):
-                return self.attrctrlreg.getIndex()
-            if (ioPortAddr == 0x3c1):
-                return self.attrctrlreg.getData(dataSize)
-            elif (ioPortAddr == 0x3c5):
-                return self.seq.getData(dataSize)
-            elif (ioPortAddr == 0x3c6):
-                return self.dac.getMask()
-            elif (ioPortAddr == 0x3c7):
-                return self.dac.getReadIndex()
-            elif (ioPortAddr == 0x3c8):
-                return self.dac.getWriteIndex()
-            elif (ioPortAddr == 0x3c9):
-                return self.dac.getData(dataSize)
-            elif (ioPortAddr == 0x3cc):
-                return self.extreg.getMiscOutReg()
-            elif (ioPortAddr == 0x3da):
-                return 0
-            else:
-                self.main.exitError("inPort: port {0:#04x} not supported. (dataSize byte)", ioPortAddr)
+        cdef unsigned long retVal
+        retVal = 0
+        if (ioPortAddr == 0x3c0):
+            retVal = self.attrctrlreg.getIndex()
+        if (ioPortAddr == 0x3c1):
+            retVal = self.attrctrlreg.getData(dataSize)
+        elif (ioPortAddr == 0x3c5):
+            retVal = self.seq.getData(dataSize)
+        elif (ioPortAddr == 0x3c6):
+            retVal = self.dac.getMask()
+        elif (ioPortAddr == 0x3c7):
+            retVal = self.dac.getReadIndex()
+        elif (ioPortAddr == 0x3c8):
+            retVal = self.dac.getWriteIndex()
+        elif (ioPortAddr == 0x3c9):
+            retVal = self.dac.getData(dataSize)
+        elif (ioPortAddr == 0x3cc):
+            retVal = self.extreg.getMiscOutReg()
+        elif (ioPortAddr == 0x3da):
+            retVal = 0
         else:
-            if (ioPortAddr == 0x3cc):
-                return self.extreg.getMiscOutReg()
-            else:
-                self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+            self.main.exitError("inPort: port {0:#04x} not supported. (dataSize byte)", ioPortAddr)
+        if (dataSize == OP_SIZE_BYTE):
+            return retVal&BITMASK_BYTE
+        elif (dataSize == OP_SIZE_WORD):
+            return retVal&BITMASK_WORD
+        else:
+            self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return 0
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):

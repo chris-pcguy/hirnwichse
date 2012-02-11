@@ -15,8 +15,8 @@ cdef class Cpu:
     cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep
     cdef public unsigned long long cycles
     cdef unsigned char INTR, HRQ
-    cdef unsigned short savedCs
-    cdef unsigned long savedEip
+    cdef public unsigned short savedCs
+    cdef public unsigned long savedEip
     cdef unsigned long long oldCycleInc
     cdef reset(self)
     cdef saveCurrentInstPointer(self)
@@ -26,8 +26,9 @@ cdef class Cpu:
     cdef exception(self, unsigned char exceptionId, long errorCode)
     cpdef handleException(self, object exception)
     cdef unsigned char parsePrefixes(self, unsigned char opcode)
-    cpdef doInfiniteCycles(self)
+    cpdef cpuDump(self)
+    cdef doInfiniteCycles(self)
     cdef doCycle(self)
-    cpdef run(self)
+    cdef run(self)
 
 

@@ -9,7 +9,6 @@ cdef class ModRMClass:
     cdef unsigned char rm, reg, mod, ss
     cdef unsigned short rmName0, rmName1, rmNameSegId, regName
     cdef long long rmName2
-    cdef unsigned char sibOperands(self)
     cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags)
     cdef unsigned long getRMValueFull(self, unsigned char rmSize)
     cdef long long modRMLoad(self, unsigned char regSize, unsigned char signed, unsigned char allowOverride)

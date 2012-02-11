@@ -49,8 +49,7 @@ cdef class Cpu:
         self.main.printMsg("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
         if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
-            self.savedEip += 1
-            self.savedEip &= 0xffffffff
+            self.savedEip = <unsigned long>(self.savedEip+1)
         self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
         self.registers.regWrite(CPU_REGISTER_EIP, self.savedEip)
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
@@ -110,7 +109,34 @@ cdef class Cpu:
             ##elif (opcode == OPCODE_PREFIX_LOCK):
             opcode = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         return opcode
-    cpdef doInfiniteCycles(self):
+    cpdef cpuDump(self):
+        self.main.printMsg("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regRead(CPU_REGISTER_EAX, False), \
+          self.registers.regRead(CPU_REGISTER_ECX, False))
+        self.main.printMsg("EDX: {0:#010x}, EBX: {1:#010x}", self.registers.regRead(CPU_REGISTER_EDX, False), \
+          self.registers.regRead(CPU_REGISTER_EBX, False))
+        self.main.printMsg("ESP: {0:#010x}, EBP: {1:#010x}", self.registers.regRead(CPU_REGISTER_ESP, False), \
+          self.registers.regRead(CPU_REGISTER_EBP, False))
+        self.main.printMsg("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regRead(CPU_REGISTER_ESI, False), \
+          self.registers.regRead(CPU_REGISTER_EDI, False))
+        self.main.printMsg("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regRead(CPU_REGISTER_EIP, False), \
+          self.registers.regRead(CPU_REGISTER_EFLAGS, False))
+        self.main.printMsg("CS: {0:#06x}, SS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_CS), \
+          self.registers.segRead(CPU_SEGMENT_SS))
+        self.main.printMsg("DS: {0:#06x}, ES: {1:#06x}", self.registers.segRead(CPU_SEGMENT_DS), \
+          self.registers.segRead(CPU_SEGMENT_ES))
+        self.main.printMsg("FS: {0:#06x}, GS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_FS), \
+          self.registers.segRead(CPU_SEGMENT_GS))
+        self.main.printMsg("CR0: {0:#010x}, CR2: {1:#010x}", self.registers.regRead(CPU_REGISTER_CR0, False), \
+          self.registers.regRead(CPU_REGISTER_CR2, False))
+        self.main.printMsg("CR3: {0:#010x}, CR4: {1:#010x}", self.registers.regRead(CPU_REGISTER_CR3, False), \
+          self.registers.regRead(CPU_REGISTER_CR4, False))
+        self.main.printMsg("DR0: {0:#010x}, DR1: {1:#010x}", self.registers.regRead(CPU_REGISTER_DR0, False), \
+          self.registers.regRead(CPU_REGISTER_DR1, False))
+        self.main.printMsg("DR2: {0:#010x}, DR3: {1:#010x}", self.registers.regRead(CPU_REGISTER_DR2, False), \
+          self.registers.regRead(CPU_REGISTER_DR3, False))
+        self.main.printMsg("DR6: {0:#010x}, DR7: {1:#010x}", self.registers.regRead(CPU_REGISTER_DR6, False), \
+          self.registers.regRead(CPU_REGISTER_DR7, False))
+    cdef doInfiniteCycles(self):
         cdef unsigned long long cycleInc
         try:
             while (not self.main.quitEmu):
@@ -176,7 +202,7 @@ cdef class Cpu:
         except:
             print(exc_info())
             self.main.exitError('doCycle: (else case) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
-    cpdef run(self):
+    cdef run(self):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
         self.opcodes.registers = self.registers

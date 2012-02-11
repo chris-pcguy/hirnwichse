@@ -39,33 +39,12 @@ cdef class ModRMClass:
     def __init__(self, object main, Registers registers):
         self.main = main
         self.registers = registers
-    cdef unsigned char sibOperands(self):
-        cdef unsigned char sibByte, base, index
-        sibByte = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
-        base    = (sibByte)&7
-        index   = (sibByte>>3)&7
-        self.ss = (sibByte>>6)&3
-        self.rmName0 = CPU_REGISTER_DWORD[base]
-        if (index != 4):
-            self.rmName1 = CPU_REGISTER_DWORD[index]
-        if (base == 5):
-            if (self.mod == 0):
-                self.rmName0 = CPU_REGISTER_NONE
-                self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
-            elif (self.mod == 1):
-                self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
-            elif (self.mod == 2):
-                self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
-            return True
-        else:
-            self.rmName2 = 0
-        return False
-        # Don't add disp8/disp32 to rmName2 here, as it get done in modRMOperands
     cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
-        cdef unsigned char modRMByte
+        cdef unsigned char modRMByte, index
         modRMByte = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
         self.rmNameSegId = CPU_SEGMENT_DS
         self.rmName1 = CPU_REGISTER_NONE
+        self.rmName2 = 0
         self.rm  = modRMByte&0x7
         self.reg = (modRMByte>>3)&0x7
         self.mod = (modRMByte>>6)&0x3
@@ -83,26 +62,11 @@ cdef class ModRMClass:
                 self.main.exitError("modRMOperands: mod==3; regSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)", regSize)
         else:
             if (self.registers.addrSize == OP_SIZE_WORD):
-                if (self.rm in (0, 1, 7)):
-                    self.rmName0 = CPU_REGISTER_BX
-                elif (self.rm in (2, 3)):
-                    self.rmName0 = CPU_REGISTER_BP
-                elif (self.rm == 4):
-                    self.rmName0 = CPU_REGISTER_SI
-                elif (self.rm == 5):
-                    self.rmName0 = CPU_REGISTER_DI
-                elif (self.rm == 6):
-                    if (self.mod == 0):
+                self.rmName0 = CPU_MODRM_16BIT_RM0[self.rm]
+                self.rmName1 = CPU_MODRM_16BIT_RM1[self.rm]
+                if (self.mod == 0 and self.rm == 6):
                         self.rmName0 = CPU_REGISTER_NONE
                         self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_WORD, False)
-                    else:
-                        self.rmName0 = CPU_REGISTER_BP
-                if (self.rm in (0, 2)):
-                    self.rmName1 = CPU_REGISTER_SI
-                elif (self.rm in (1, 3)):
-                    self.rmName1 = CPU_REGISTER_DI
-                if (self.mod == 0 and self.rm != 6):
-                    self.rmName2 = 0
                 elif (self.mod == 1):
                     self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
                 elif (self.mod == 2):
@@ -110,25 +74,22 @@ cdef class ModRMClass:
                 if (self.rmName0 == CPU_REGISTER_BP): # TODO: damn, that can't be correct!?!
                     self.rmNameSegId = CPU_SEGMENT_SS
             elif (self.registers.addrSize == OP_SIZE_DWORD):
-                self.rmName2 = 0
                 if (self.rm == 4): # If RM==4; then SIB
-                    modRMByte = self.sibOperands()
-                    if (self.rmName0 == CPU_REGISTER_ESP):
-                        self.rmNameSegId = CPU_SEGMENT_SS
-                else:
-                    if (self.mod == 0 and self.rm == 5):
-                        modRMByte = True
-                        self.rmName0 = CPU_REGISTER_NONE
-                        self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
-                    else:
-                        modRMByte = False
-                        self.rmName0 = CPU_REGISTER_DWORD[self.rm]
-                if (not modRMByte):
-                    if (self.mod == 1):
-                        self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
-                    elif (self.mod == 2):
-                        self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
-                if (self.rmName0 == CPU_REGISTER_EBP):
+                    modRMByte = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
+                    self.rm  = modRMByte&0x7
+                    index   = (modRMByte>>3)&7
+                    self.ss = (modRMByte>>6)&3
+                    if (index != 4):
+                        self.rmName1 = CPU_REGISTER_DWORD[index]
+                self.rmName0 = CPU_REGISTER_DWORD[self.rm]
+                if (self.mod == 0 and self.rm == 5):
+                    self.rmName0 = CPU_REGISTER_NONE
+                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+                elif (self.mod == 1):
+                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
+                elif (self.mod == 2):
+                    self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
+                if (self.rmName0 in (CPU_REGISTER_ESP, CPU_REGISTER_EBP)):
                     self.rmNameSegId = CPU_SEGMENT_SS
             self.rmNameSegId = self.registers.segmentOverridePrefix or self.rmNameSegId
     cdef unsigned long getRMValueFull(self, unsigned char rmSize):
@@ -217,7 +178,7 @@ cdef class Registers:
         self.resetPrefixes()
         self.segments.reset()
         self.regWrite(CPU_REGISTER_EFLAGS, 0x2)
-        self.regWrite(CPU_REGISTER_CR0, 0x40000034)
+        self.regWrite(CPU_REGISTER_CR0, 0x40000014)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
         self.regWrite(CPU_REGISTER_EIP, 0xfff0)
     cdef resetPrefixes(self):
@@ -249,7 +210,8 @@ cdef class Registers:
         return <unsigned long>(self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False))
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned long *retAddr):
         retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
-        retAddr[0] = self.regAdd(self.eipSizeRegId, 1)-1
+        retAddr[0] = self.regRead(self.eipSizeRegId, False)
+        self.regWrite(self.eipSizeRegId, <unsigned long>(retAddr[0]+OP_SIZE_BYTE))
         return self.mmReadValueUnsigned(retAddr[0], OP_SIZE_BYTE, CPU_SEGMENT_CS, False)
     cdef unsigned char getRegSize(self, unsigned short regId):
         if (regId in CPU_REGISTER_BYTE):
@@ -485,7 +447,7 @@ cdef class Registers:
     cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method):
         cdef unsigned char unsignedOverflow, signedOverflow, isResZero, afFlag, reg0Nibble, reg1Nibble, regSumNibble, carried
         cdef unsigned long bitMaskHalf
-        cdef unsigned long long regSumu, regSumMasked, regSumuMasked
+        cdef unsigned long long regSumu
         cdef long long regSum
         afFlag = carried = False
         bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
@@ -494,79 +456,83 @@ cdef class Registers:
             if (method == OPCODE_ADC and self.getEFLAG(FLAG_CF)):
                 carried = True
                 reg1 += 1
-            regSum = reg0+reg1
-            regSumMasked = <unsigned long>regSum
+            regSumu = <unsigned long>(reg0+reg1)
             if (regSize == OP_SIZE_BYTE):
-                regSumMasked = <unsigned char>regSumMasked
+                regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
-                regSumMasked = <unsigned short>regSumMasked
-            isResZero = regSumMasked==0
-            unsignedOverflow = (regSumMasked < reg0 or regSumMasked < reg1)
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSum])
+                regSumu = <unsigned short>regSumu
+            isResZero = regSumu==0
+            unsignedOverflow = (regSumu < reg0 or regSumu < reg1)
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
             self.setEFLAG(FLAG_ZF, isResZero)
             reg0Nibble = reg0&0xf
             reg1Nibble = reg1&0xf
-            regSumNibble = regSum&0xf
+            regSumNibble = regSumu&0xf
             if ((carried and regSumNibble<=reg0Nibble) or regSumNibble<reg0Nibble):
                 afFlag = True
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
-            regSum &= bitMaskHalf
-            signedOverflow = ( ((not reg0 and not reg1) and regSum) or ((reg0 and reg1) and not regSum) ) != 0
+            regSumu &= bitMaskHalf
+            signedOverflow = ( ((not reg0 and not reg1) and regSumu) or ((reg0 and reg1) and not regSumu) ) != 0
             self.setEFLAG(FLAG_AF, afFlag)
             self.setEFLAG(FLAG_CF, unsignedOverflow)
             self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
-            self.setEFLAG(FLAG_SF, regSum!=0)
+            self.setEFLAG(FLAG_SF, regSumu!=0)
         elif (method in (OPCODE_SUB, OPCODE_SBB)):
             if (method == OPCODE_SBB and self.getEFLAG(FLAG_CF)):
                 carried = True
                 reg1 += 1
-            regSum = reg0-reg1
-            regSumMasked = <unsigned long>regSum
+            regSumu = <unsigned long>(reg0-reg1)
             if (regSize == OP_SIZE_BYTE):
-                regSumMasked = <unsigned char>regSumMasked
+                regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
-                regSumMasked = <unsigned short>regSumMasked
-            isResZero = regSumMasked==0
-            unsignedOverflow = ( regSum<0 )
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSum])
+                regSumu = <unsigned short>regSumu
+            isResZero = regSumu==0
+            unsignedOverflow = ((not carried and regSumu > reg0) or (carried and regSumu >= reg0))
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
             self.setEFLAG(FLAG_ZF, isResZero)
             reg0Nibble = reg0&0xf
             reg1Nibble = reg1&0xf
-            regSumNibble = regSum&0xf
+            regSumNibble = regSumu&0xf
             if ((carried and regSumNibble>=reg0Nibble) or regSumNibble>reg0Nibble):
                 afFlag = True
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
-            regSum &= bitMaskHalf
-            signedOverflow = ( ((reg0 and not reg1) and not regSum) or ((not reg0 and reg1) and regSum) ) != 0
+            regSumu &= bitMaskHalf
+            signedOverflow = ( ((reg0 and not reg1) and not regSumu) or ((not reg0 and reg1) and regSumu) ) != 0
             self.setEFLAG(FLAG_AF, afFlag)
             self.setEFLAG(FLAG_CF, unsignedOverflow )
             self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
-            self.setEFLAG(FLAG_SF, regSum!=0)
+            self.setEFLAG(FLAG_SF, regSumu!=0)
         elif (method in (OPCODE_MUL, OPCODE_IMUL)):
             if (regSize == OP_SIZE_BYTE):
-                regSum = <short>((<short>reg0)*(<char>reg1))
-                regSumu = <unsigned short>((<unsigned char>reg0)*(<unsigned char>reg1))
-                isResZero = <unsigned short>regSum==0
-                if (method == OPCODE_IMUL):
-                    self.setEFLAG(FLAG_CF | FLAG_OF, ((<short>regSum)<0))
+                regSum = <short>((<char>reg0)*(<char>reg1))
+                reg0 = <unsigned char>reg0
+                reg1 = <unsigned char>reg1
+                regSumu = <unsigned char>(reg0*reg1)
+                isResZero = (<unsigned short>regSum)==0
+                if (method == OPCODE_MUL):
+                    self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
             elif (regSize == OP_SIZE_WORD):
                 regSum = <long>((<short>reg0)*(<short>reg1))
-                regSumu = <unsigned long>((<unsigned short>reg0)*(<unsigned short>reg1))
-                isResZero = <unsigned long>regSum==0
-                if (method == OPCODE_IMUL):
-                    self.setEFLAG(FLAG_CF | FLAG_OF, (<unsigned long>(<short>regSum))!=(<unsigned long>regSum))
+                reg0 = <unsigned short>reg0
+                reg1 = <unsigned short>reg1
+                regSumu = <unsigned short>(reg0*reg1)
+                isResZero = (<unsigned long>regSum)==0
+                if (method == OPCODE_MUL):
+                    self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
             elif (regSize == OP_SIZE_DWORD):
                 regSum = <long long>((<long>reg0)*(<long>reg1))
-                regSumu = <unsigned long long>((<unsigned long>reg0)*(<unsigned long>reg1))
-                isResZero = <unsigned long long>regSum==0
-                if (method == OPCODE_IMUL):
-                    self.setEFLAG(FLAG_CF | FLAG_OF, (<unsigned long>regSum)!=(<unsigned long long>regSum))
+                reg0 = <unsigned long>reg0
+                reg1 = <unsigned long>reg1
+                regSumu = <unsigned long>(reg0*reg1)
+                isResZero = (<unsigned long long>regSum)==0
+                if (method == OPCODE_MUL):
+                    self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
+            if (method == OPCODE_IMUL):
+                self.setEFLAG(FLAG_CF | FLAG_OF, (regSumu>>(regSize<<3))!=0)
             self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSum])
             self.setEFLAG(FLAG_ZF, isResZero)
-            if (method == OPCODE_MUL):
-                self.setEFLAG(FLAG_CF | FLAG_OF, (regSumu>>(regSize<<3))!=0)
             if (regSize == OP_SIZE_BYTE):
                 regSum = <char>regSum
             self.setEFLAG(FLAG_SF, regSum<0)
@@ -599,10 +565,8 @@ cdef class Registers:
             if ((gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) or not addrInLimit):
                 raise ChemuException(CPU_EXCEPTION_GP, segVal)
     cdef unsigned long getRealAddr(self, unsigned short segId, unsigned long offsetAddr):
-        cdef unsigned long long realAddr
-        realAddr = <unsigned long long>(((<Segment>(self.segments.getSegmentInstance(segId))).base)+offsetAddr)
-        if (realAddr != <unsigned long>realAddr):
-            self.main.printMsg("Registers::getRealAddr: realAddr overflow.")
+        cdef unsigned long realAddr
+        realAddr = <unsigned long>(((<Segment>(self.segments.getSegmentInstance(segId))).base)+offsetAddr)
         # TODO: check for limit asf...
         if (not self.segments.isInProtectedMode()):
             if (self.segments.getA20State()): # A20 Active? if True == on, else off
