@@ -8,9 +8,6 @@ include "kb_scancodes.pxi"
 
 DEF KBC_IRQ = 1 # keyboard controller's IRQnum
 
-DEF PPCB_T2BOTH = 0x03
-DEF PPCB_T2OUT = 0x20
-
 DEF PS2_CPU_RESET = 0x01
 DEF PS2_A20 = 0x02
 DEF PS2_CMDBYTE_IRQ1 = 0x01
@@ -28,8 +25,8 @@ cdef class PS2:
         self.resetInternals(True)
         self.lastUsedPort = 0x64
         self.lastUsedCmd = 0
-        self.ppcbT2Both = False
-        self.ppcbT2Out = False
+        self.ppcbT2Nibble = 0
+        self.ppcbT2Done = False
         self.kbdClockEnabled = True
         self.irq1Requested = False
         self.allowIrq1 = True
@@ -131,8 +128,8 @@ cdef class PS2:
                 #    self.activateTimer()
                 return retByte
             elif (ioPortAddr == 0x61):
-                return (self.ppcbT2Both and PPCB_T2BOTH) | \
-                       (self.ppcbT2Out and PPCB_T2OUT)
+                return (self.ppcbT2Done and PPCB_T2_DONE) | \
+                       (self.ppcbT2Nibble & 0xf)
             elif (ioPortAddr == 0x92):
                 return ((<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).getA20State() << 1)
             else:
@@ -279,8 +276,8 @@ cdef class PS2:
                     self.lastUsedPort = ioPortAddr
                     self.lastUsedCmd = data
             elif (ioPortAddr == 0x61):
-                self.ppcbT2Both = (data&PPCB_T2BOTH)!=0
-                self.ppcbT2Out = (data&PPCB_T2OUT)!=0
+                self.ppcbT2Done = (data & PPCB_T2_DONE) != 0
+                self.ppcbT2Nibble = (data & 0xf)
             elif (ioPortAddr == 0x92):
                 (<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).setA20State( (data & PS2_A20) != 0 )
             else:

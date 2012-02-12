@@ -147,7 +147,7 @@ cdef class Cpu:
                     if (self.asyncEvent):
                         self.handleAsyncEvent()
                         continue
-                    sleep(1)
+                    sleep(0.2)
                     continue
                 cycleInc = self.cycles >> 13
                 if (cycleInc > self.oldCycleInc):
