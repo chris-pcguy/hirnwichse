@@ -24,20 +24,25 @@ cdef class PitChannel:
         elif (self.channelId == 2 and ((<PS2>self.main.platform.ps2).ppcbT2Nibble & PPCB_T2_ENABLE)):
             (<PS2>self.main.platform.ps2).ppcbT2Done = True
         else:
-            self.main.printMsg("runTimer: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
+            self.main.printMsg("mode0Func: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
     cpdef mode2Func(self): # TODO
-        if (not self.counterValue or self.counterMode != 2):
-            self.main.printMsg("runTimer: channelId {0:d}: counterValue{1:d} == 0 or counterMode{2:d} != 2 .".format(self.channelId, self.counterValue, self.counterMode))
+        if (not self.counterValue or self.counterMode not in (2, 3)):
+            self.main.printMsg("mode2Func: channelId {0:d}: counterValue{1:d} == 0 or counterMode{2:d} not in (2, 3) .".format(self.channelId, self.counterValue, self.counterMode))
             return
-        self.counterValue = <unsigned long>(self.counterValue-1)
+        if (self.counterMode == 2):
+            self.counterValue = <unsigned long>(self.counterValue-1)
+        elif (self.counterMode == 3):
+            self.counterValue = <unsigned long>(self.counterValue-2)
+        else:
+            self.main.exitError("mode2Func: counterMode {0:d} is unknown.", self.counterMode)
         if (not self.counterValue):
             self.counterValue = self.counterStartValue
         sleep(self.tempTimerValue)
-        if (self.channelId == 0): # just raise IRQ on channel0
+        if (self.channelId == 0):# or (self.counterMode == 3 and self.channelId == 2)): # just raise IRQ on channel0
             (<Pic>self.main.platform.pic).raiseIrq(0)
-        else:
-            self.main.printMsg("runTimer: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
-        if (self.counterModeTimer and self.counterMode == 2 and (not self.main.quitEmu)):
+        elif (self.channelId != 3):
+            self.main.printMsg("mode2Func: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
+        if (self.counterModeTimer and self.counterMode in (2, 3) and (not self.main.quitEmu)):
             self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
     cpdef runTimer(self):
         if (self.channelId == 1):
@@ -47,6 +52,8 @@ cdef class PitChannel:
             self.counterValue = 0x10000
         if (self.counterFormat != 0):
             self.counterValue = self.main.misc.bcdToDec(self.counterValue)
+        if (self.counterMode == 3 and self.counterValue%2 == 1):
+            self.counterValue -= 1
         self.counterStartValue = self.counterValue
         self.tempTimerValue = 1.0/(1193182.0/self.counterValue)
         if (self.tempTimerValue < 0.01): # TODO
@@ -58,16 +65,18 @@ cdef class PitChannel:
                 self.counterModeTimer = None
             if (not self.main.quitEmu):
                 self.counterModeTimer = self.main.misc.createThread(self.mode0Func, True)
-        elif (self.counterMode == 2): # mode 2
-            if (self.channelId == 2):
-                self.main.exitError("runTimer: is it ok to use mode-2 with channelId-2 and cpu clock measures?")
+        elif (self.counterMode in (2, 3)): # mode 2/3
+            if (self.counterMode == 2 and self.channelId == 2):
+                self.main.exitError("runTimer: is it ok to use mode-{0:d} with channelId-{1:d} and cpu clock measures?", self.counterMode, self.channelId)
                 return
+            if (self.counterMode == 3 and self.channelId == 2 and ((<PS2>self.main.platform.ps2).ppcbT2Nibble & PPCB_T2_ENABLE)):
+                (<PS2>self.main.platform.ps2).ppcbT2Done = False
             if (self.counterModeTimer):
                 self.counterModeTimer = None
             if (not self.main.quitEmu):
                 self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
         else:
-            self.main.exitError("runTimer: counterMode {0:d} not supported yet.".format(self.counterMode))
+            self.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})".format(self.counterMode, self.channelId))
             return
     cdef run(self):
         self.reset()

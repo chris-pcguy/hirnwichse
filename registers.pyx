@@ -51,7 +51,6 @@ cdef class ModRMClass:
         self.ss = 0
         self.regName = self.registers.getRegNameWithFlags(modRMflags, self.reg, regSize) # reg
         if (self.mod == 3): # if mod==3, then: reg is source ; rm is dest
-            self.rmName2 = 0
             if (regSize == OP_SIZE_BYTE):
                 self.rmName0  = CPU_REGISTER_BYTE[self.rm] # rm
             elif (regSize == OP_SIZE_WORD):
@@ -81,11 +80,12 @@ cdef class ModRMClass:
                     self.ss = (modRMByte>>6)&3
                     if (index != 4):
                         self.rmName1 = CPU_REGISTER_DWORD[index]
-                self.rmName0 = CPU_REGISTER_DWORD[self.rm]
                 if (self.mod == 0 and self.rm == 5):
                     self.rmName0 = CPU_REGISTER_NONE
                     self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
-                elif (self.mod == 1):
+                else:
+                    self.rmName0 = CPU_REGISTER_DWORD[self.rm]
+                if (self.mod == 1):
                     self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, True)
                 elif (self.mod == 2):
                     self.rmName2 = self.registers.getCurrentOpcodeAdd(OP_SIZE_DWORD, False)
