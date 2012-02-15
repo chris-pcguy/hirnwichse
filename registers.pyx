@@ -224,18 +224,20 @@ cdef class Registers:
             return OP_SIZE_QWORD
         self.main.exitError("regId is unknown! ({0:d})", regId)
     cdef unsigned short segRead(self, unsigned short segId):
-        if (not segId or not (segId in CPU_REGISTER_SREG)):
-            self.main.exitError("segRead: segId is not a segment! ({0:d})", segId)
-            return 0
+        IF STRICT_CHECKS:
+            if (not segId or not (segId in CPU_REGISTER_SREG)):
+                self.main.exitError("segRead: segId is not a segment! ({0:d})", segId)
+                return 0
         segId = CPU_REG_DATA_OFFSETS[segId]
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         segId = self.regs.csReadValueUnsignedBE(segId, OP_SIZE_WORD)
         return segId
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue):
         cdef Segment segmentInstance
-        if (not segId or not (segId in CPU_REGISTER_SREG)):
-            self.main.exitError("segWrite: segId is not a segment! ({0:d})", segId)
-            return 0
+        IF STRICT_CHECKS:
+            if (not segId or not (segId in CPU_REGISTER_SREG)):
+                self.main.exitError("segWrite: segId is not a segment! ({0:d})", segId)
+                return 0
         if ((<Segments>self.segments).isInProtectedMode()):
             (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId == CPU_SEGMENT_SS)
         segmentInstance = <Segment>(self.segments.getSegmentInstance(segId))
@@ -564,22 +566,18 @@ cdef class Registers:
         else:
             if ((gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) or not addrInLimit):
                 raise ChemuException(CPU_EXCEPTION_GP, segVal)
-    cdef unsigned long getRealAddr(self, unsigned short segId, unsigned long offsetAddr):
-        cdef unsigned long realAddr
-        realAddr = <unsigned long>(((<Segment>(self.segments.getSegmentInstance(segId))).base)+offsetAddr)
-        # TODO: check for limit asf...
-        if (not self.segments.isInProtectedMode()):
-            if (self.segments.getA20State()): # A20 Active? if True == on, else off
-                return realAddr&0x1fffff
-            return realAddr&0xfffff
-        return realAddr
     cdef unsigned long mmGetRealAddr(self, unsigned long mmAddr, unsigned short segId, unsigned char allowOverride):
         if (allowOverride and self.segmentOverridePrefix):
             segId = self.segmentOverridePrefix
-        mmAddr = self.getRealAddr(segId, mmAddr)
+        mmAddr = <unsigned long>(((<Segment>(self.segments.getSegmentInstance(segId))).base)+mmAddr)
+        # TODO: check for limit asf...
+        if (not self.segments.isInProtectedMode()):
+            if (self.segments.getA20State()): # A20 Active? if True == on, else off
+                return mmAddr&0x1fffff
+            return mmAddr&0xfffff
         return mmAddr
     cdef bytes mmRead(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char allowOverride):
-        self.checkMemAccessRights(mmAddr, dataSize, segId, False)
+        #self.checkMemAccessRights(mmAddr, dataSize, segId, False)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyRead(mmAddr, dataSize)
     cdef long long mmReadValueSigned(self, unsigned long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
@@ -589,7 +587,7 @@ cdef class Registers:
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyReadValueUnsigned(mmAddr, dataSize)
     cdef mmWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize, unsigned short segId, unsigned char allowOverride):
-        self.checkMemAccessRights(mmAddr, dataSize, segId, True)
+        #self.checkMemAccessRights(mmAddr, dataSize, segId, True)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         (<Mm>self.main.mm).mmPhyWrite(mmAddr, data, dataSize)
     cdef unsigned long long mmWriteValue(self, unsigned long mmAddr, unsigned long long data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):

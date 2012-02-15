@@ -62,7 +62,6 @@ cdef class Registers:
     cdef unsigned char getCond(self, unsigned char index)
     cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method)
     cdef checkMemAccessRights(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char write)
-    cdef unsigned long getRealAddr(self, unsigned short segId, unsigned long offsetAddr)
     cdef unsigned long mmGetRealAddr(self, unsigned long mmAddr, unsigned short segId, unsigned char allowOverride)
     cdef bytes mmRead(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char allowOverride)
     cdef long long mmReadValueSigned(self, unsigned long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)

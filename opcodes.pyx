@@ -625,7 +625,7 @@ cdef class Opcodes:
             if (not countVal):
                 return
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
-        dataLength = <unsigned long long>(operSize*countVal)
+        dataLength = (<unsigned long long>countVal*operSize)
         if (dataLength != <unsigned long>dataLength):
             self.main.printMsg("Opcodes::stosFunc: dataLength overflow.")
         dataLength = <unsigned long>dataLength
@@ -660,7 +660,7 @@ cdef class Opcodes:
             if (not countVal):
                 return
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
-        dataLength = <unsigned long long>(operSize*countVal)
+        dataLength = (<unsigned long long>countVal*operSize)
         if (dataLength != <unsigned long>dataLength):
             self.main.printMsg("Opcodes::movsFunc: dataLength overflow.")
         dataLength = <unsigned long>dataLength
@@ -698,7 +698,7 @@ cdef class Opcodes:
             if (not countVal):
                 return
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
-        dataLength = <unsigned long long>(operSize*countVal)
+        dataLength = (<unsigned long long>countVal*operSize)
         if (dataLength != <unsigned long>dataLength):
             self.main.printMsg("Opcodes::lodsFunc: dataLength overflow.")
         dataLength = <unsigned long>dataLength
