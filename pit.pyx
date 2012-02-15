@@ -40,7 +40,7 @@ cdef class PitChannel:
         sleep(self.tempTimerValue)
         if (self.channelId == 0):# or (self.counterMode == 3 and self.channelId == 2)): # just raise IRQ on channel0
             (<Pic>self.main.platform.pic).raiseIrq(0)
-        elif (self.channelId != 3):
+        elif (self.channelId != 2):
             self.main.printMsg("mode2Func: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
         if (self.counterModeTimer and self.counterMode in (2, 3) and (not self.main.quitEmu)):
             self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
