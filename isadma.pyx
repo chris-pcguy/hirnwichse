@@ -32,7 +32,7 @@ cdef class IsaDmaChannel:
         self.transferMode = 0
         self.DRQ = False
         self.DACK = False
-    cdef run(self):
+    cdef void run(self):
         self.dmaMemActionInstance = None
         self.readFromMem = self.writeToMem = NULL
 
@@ -48,22 +48,22 @@ cdef class IsaDmaController:
         self.isadma = isadma
         self.main = self.isadma.main
         self.channel = (IsaDmaChannel(self, self.firstChannel), IsaDmaChannel(self, self.firstChannel+1), IsaDmaChannel(self, self.firstChannel+2), IsaDmaChannel(self, self.firstChannel+3))
-    cdef reset(self):
+    cdef void reset(self):
         self.flipFlop = False
-    cdef doCommand(self, unsigned char data):
+    cdef void doCommand(self, unsigned char data):
         self.cmdReg = data
         self.ctrlDisabled = (data & DMA_CMD_DISABLE)!=0
         self.controlHRQ()
-    cdef doManualRequest(self, unsigned char data):
+    cdef void doManualRequest(self, unsigned char data):
         cdef unsigned char channel = data & 3
         if ((data & DMA_REQREG_REQUEST) != 0): # set request bit
             self.statusReg |= (1 << (channel+4))
         else: # clear it
             self.statusReg &= ~(1 << (channel+4))
         self.controlHRQ()
-    cdef setFlipFlop(self, unsigned char flipFlop):
+    cdef void setFlipFlop(self, unsigned char flipFlop):
         self.flipFlop = flipFlop
-    cdef setTransferMode(self, unsigned char transferModeByte):
+    cdef void setTransferMode(self, unsigned char transferModeByte):
         cdef unsigned char channel = transferModeByte&3
         (<IsaDmaChannel>self.channel[channel]).transferDirection = (transferModeByte>>2)&3
         (<IsaDmaChannel>self.channel[channel]).autoInit = (transferModeByte&0x10)!=0
@@ -71,10 +71,10 @@ cdef class IsaDmaController:
         (<IsaDmaChannel>self.channel[channel]).transferMode = (transferModeByte>>6)&3
         if ((self.master or (not self.master and channel != 0)) and (<IsaDmaChannel>self.channel[channel]).transferMode != DMA_MODE_SINGLE):
             self.main.exitError("ISADMA::setTransferMode: transferMode: {0:d} not supported yet.", (<IsaDmaChannel>self.channel[channel]).transferMode)
-    cdef maskChannel(self, unsigned char channel, unsigned char maskIt):
+    cdef void maskChannel(self, unsigned char channel, unsigned char maskIt):
         (<IsaDmaChannel>self.channel[channel]).channelMasked = (maskIt!=False)
         self.controlHRQ()
-    cdef maskChannels(self, unsigned char maskByte):
+    cdef void maskChannels(self, unsigned char maskByte):
         (<IsaDmaChannel>self.channel[0]).channelMasked = (maskByte&1)!=0
         (<IsaDmaChannel>self.channel[1]).channelMasked = (maskByte&2)!=0
         (<IsaDmaChannel>self.channel[2]).channelMasked = (maskByte&4)!=0
@@ -87,9 +87,9 @@ cdef class IsaDmaController:
         retVal |= ((<IsaDmaChannel>self.channel[2]).channelMasked!=0)<<2
         retVal |= ((<IsaDmaChannel>self.channel[3]).channelMasked!=0)<<3
         return retVal
-    cdef setPageByte(self, unsigned char channel, unsigned char data):
+    cdef void setPageByte(self, unsigned char channel, unsigned char data):
         (<IsaDmaChannel>self.channel[channel]).page = data
-    cdef setAddrByte(self, unsigned char channel, unsigned char data):
+    cdef void setAddrByte(self, unsigned char channel, unsigned char data):
         if (self.flipFlop):
             (<IsaDmaChannel>self.channel[channel]).baseAddress = ((<unsigned char>(<IsaDmaChannel>self.channel[channel]).baseAddress) | (data<<8))
             (<IsaDmaChannel>self.channel[channel]).currentAddress = (<IsaDmaChannel>self.channel[channel]).baseAddress
@@ -97,7 +97,7 @@ cdef class IsaDmaController:
             (<IsaDmaChannel>self.channel[channel]).baseAddress = ((<IsaDmaChannel>self.channel[channel]).baseAddress&0xff00) | data
             (<IsaDmaChannel>self.channel[channel]).currentAddress = (<IsaDmaChannel>self.channel[channel]).baseAddress
         self.setFlipFlop(not self.flipFlop)
-    cdef setCountByte(self, unsigned char channel, unsigned char data):
+    cdef void setCountByte(self, unsigned char channel, unsigned char data):
         if (self.flipFlop):
             (<IsaDmaChannel>self.channel[channel]).baseCount = ((<unsigned char>(<IsaDmaChannel>self.channel[channel]).baseCount) | (data<<8))
             (<IsaDmaChannel>self.channel[channel]).currentCount = (<IsaDmaChannel>self.channel[channel]).baseCount
@@ -123,10 +123,10 @@ cdef class IsaDmaController:
             retVal = <unsigned char>((<IsaDmaChannel>self.channel[channel]).currentCount)
         self.setFlipFlop(not self.flipFlop)
         return retVal
-    cdef setAddrWord(self, unsigned char channel, unsigned short data):
+    cdef void setAddrWord(self, unsigned char channel, unsigned short data):
         (<IsaDmaChannel>self.channel[channel]).baseAddress = data
         (<IsaDmaChannel>self.channel[channel]).currentAddress = data
-    cdef setCountWord(self, unsigned char channel, unsigned short data):
+    cdef void setCountWord(self, unsigned char channel, unsigned short data):
         (<IsaDmaChannel>self.channel[channel]).baseCount = data
         (<IsaDmaChannel>self.channel[channel]).currentCount = (<IsaDmaChannel>self.channel[channel]).baseCount
     cdef unsigned short getAddrWord(self, unsigned char channel):
@@ -138,7 +138,7 @@ cdef class IsaDmaController:
         status = self.statusReg
         self.statusReg &= 0xf0
         return status
-    cdef controlHRQ(self):
+    cdef void controlHRQ(self):
         cdef unsigned char channel
         if (self.ctrlDisabled):
             return
@@ -157,7 +157,7 @@ cdef class IsaDmaController:
                 else:
                     self.isadma.setDRQ(4, True)
                 return
-    cdef run(self):
+    cdef void run(self):
         cdef IsaDmaChannel isaDmaChannel
         for isaDmaChannel in self.channel:
             isaDmaChannel.run()
@@ -203,7 +203,7 @@ cdef class IsaDma:
         else:
             self.main.exitError("ISADma::inPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
         return 0
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef unsigned char ma_sl, channelNum
         ma_sl = (ioPortAddr>=0xc0)
         channelNum = (ioPortAddr>>(1+ma_sl))&3
@@ -251,9 +251,9 @@ cdef class IsaDma:
             self.extPageReg[ioPortAddr&0xf] = <unsigned char>data
         else:
             self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
-    cdef getTC(self):
+    cdef unsigned char getTC(self):
         return self.TC
-    cdef setDRQ(self, unsigned char channel, unsigned char val):
+    cdef void setDRQ(self, unsigned char channel, unsigned char val):
         cdef unsigned long dmaBase, dmaRoof
         cdef unsigned char ma_sl
         cdef IsaDmaController currController
@@ -283,7 +283,7 @@ cdef class IsaDma:
             self.main.exitError("ISADMA::setDRQ: request outside 64k boundary.")
             return
         currController.controlHRQ()
-    cdef raiseHLDA(self):
+    cdef void raiseHLDA(self):
         cdef unsigned char ma_sl, channel, countExpired, i
         cdef unsigned short data
         cdef unsigned long phyAddr
@@ -362,7 +362,7 @@ cdef class IsaDma:
             if (not ma_sl):
                 self.setDRQ(4, False)
                 (<IsaDmaChannel>(<IsaDmaController>self.controller[1]).channel[0]).DACK = False
-    cdef setDmaMemActions(self, unsigned char controllerId, unsigned char channelId, object classInstance, ReadFromMem readFromMem, WriteToMem writeToMem):
+    cdef void setDmaMemActions(self, unsigned char controllerId, unsigned char channelId, object classInstance, ReadFromMem readFromMem, WriteToMem writeToMem):
         cdef IsaDmaController controller
         cdef IsaDmaChannel channel
         controller = (<IsaDmaController>self.controller[controllerId])
@@ -370,7 +370,7 @@ cdef class IsaDma:
         channel.dmaMemActionInstance = classInstance
         channel.readFromMem = readFromMem
         channel.writeToMem = writeToMem
-    cdef run(self):
+    cdef void run(self):
         cdef IsaDmaController controller
         self.cpuInstance = None
         self.setHRQ = NULL

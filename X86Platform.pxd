@@ -42,18 +42,18 @@ cdef class Platform:
     cdef list ports
     cdef unsigned char copyRomToLowMem
     cdef unsigned long long memSize
-    cdef initDevices(self)
-    cdef addReadHandlers(self, tuple portNums, object classObject, InPort inObject)
-    cdef addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject)
-    cdef delHandlers(self, tuple portNums)
-    cdef delReadHandlers(self, tuple portNums)
-    cdef delWriteHandlers(self, tuple portNums)
+    cdef void initDevices(self)
+    cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject)
+    cdef void addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject)
+    cdef void delHandlers(self, tuple portNums)
+    cdef void delReadHandlers(self, tuple portNums)
+    cdef void delWriteHandlers(self, tuple portNums)
     cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cpdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cdef loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize)
-    cdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional)
-    cdef initDevicesPorts(self)
-    cdef runDevices(self)
+    cdef void loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize)
+    cdef void loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional)
+    cdef void initDevicesPorts(self)
+    cdef void runDevices(self)
     cpdef initRemotes(self)
     cpdef run(self)
 

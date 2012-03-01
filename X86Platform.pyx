@@ -33,7 +33,7 @@ cdef class Platform:
         self.memSize = memSize
         self.copyRomToLowMem = True
         self.ports  = list()
-    cdef initDevices(self):
+    cdef void initDevices(self):
         self.cmos     = Cmos(self.main)
         self.pic      = Pic(self.main)
         self.isadma   = IsaDma(self.main)
@@ -46,7 +46,7 @@ cdef class Platform:
         self.serial   = Serial(self.main)
         self.gdbstub  = GDBStub(self.main)
         self.pythonBios = PythonBios(self.main)
-    cdef addReadHandlers(self, tuple portNums, object classObject, InPort inObject):
+    cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject):
         cdef PortHandler port
         cdef unsigned long i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
@@ -69,7 +69,7 @@ cdef class Platform:
         port.classObject = classObject
         port.inPort = inObject
         self.ports.append(port)
-    cdef addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject):
+    cdef void addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject):
         cdef PortHandler port
         cdef unsigned long i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
@@ -92,7 +92,7 @@ cdef class Platform:
         port.classObject = classObject
         port.outPort = outObject
         self.ports.append(port)
-    cdef delHandlers(self, tuple portNums):
+    cdef void delHandlers(self, tuple portNums):
         cdef PortHandler port
         cdef unsigned long i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
@@ -105,7 +105,7 @@ cdef class Platform:
                 return
             elif (set(port.ports).issuperset(portNums)):
                 port.ports = tuple(set(port.ports).difference_update(portNums))
-    cdef delReadHandlers(self, tuple portNums):
+    cdef void delReadHandlers(self, tuple portNums):
         cdef PortHandler port
         cdef unsigned long i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
@@ -121,7 +121,7 @@ cdef class Platform:
             elif (set(port.ports).issuperset(portNums)):
                 self.main.printMsg("delReadHandlers: Don't know what todo here.")
                 return
-    cdef delWriteHandlers(self, tuple portNums):
+    cdef void delWriteHandlers(self, tuple portNums):
         cdef PortHandler port
         cdef unsigned long i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
@@ -181,7 +181,7 @@ cdef class Platform:
         except:
             print(exc_info())
             exit(1)
-    cdef loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize):
+    cdef void loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize):
         cdef object romFp
         cdef bytes romData
         try:
@@ -191,7 +191,7 @@ cdef class Platform:
         finally:
             if (romFp):
                 romFp.close()
-    cdef loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional):
+    cdef void loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional):
         cdef unsigned long long romMemSize, romSize, size
         romMemSize = SIZE_64KB
         romSize = stat(romFileName).st_size
@@ -207,7 +207,7 @@ cdef class Platform:
                 self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
                 return
             (<Mm>self.main.mm).mmPhyWrite(mmAddr&0xfffff, (<Mm>self.main.mm).mmPhyRead(mmAddr, romSize), romSize)
-    cdef initDevicesPorts(self):
+    cdef void initDevicesPorts(self):
         self.addReadHandlers((0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
         self.addWriteHandlers((0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)
         self.addReadHandlers((0x20, 0x21, 0xa0, 0xa1), self.pic, <InPort>self.pic.inPort)
@@ -235,7 +235,7 @@ cdef class Platform:
         self.addReadHandlers(SERIAL_PORTS, self.serial, <InPort>self.serial.inPort)
         self.addWriteHandlers(PARALLEL_PORTS, self.parallel, <OutPort>self.parallel.outPort)
         self.addWriteHandlers(SERIAL_PORTS, self.serial, <OutPort>self.serial.outPort)
-    cdef runDevices(self):
+    cdef void runDevices(self):
         self.cmos.run()
         self.pic.run()
         self.isadma.run()
@@ -260,7 +260,7 @@ cdef class Platform:
             self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
             if (self.main.vgaBiosFilename):
                 self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
-            <MmArea>((<Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
+            (<MmArea>(<Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
             self.initDevicesPorts()
             self.runDevices()
         except:

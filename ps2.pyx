@@ -15,13 +15,13 @@ DEF PS2_CMDBYTE_IRQ1 = 0x01
 cdef class PS2:
     def __init__(self, object main):
         self.main = main
-    cdef resetInternals(self, unsigned char powerUp):
+    cdef void resetInternals(self, unsigned char powerUp):
         self.outBuffer  = bytes() # KBC -> CPU
         self.needWriteBytes = 0 # need to write $N bytes to 0x60
         self.currentScancodesSet = 1 # MF2
         ##if (powerUp):
         ##    self.setKeyboardRepeatRate(0x2a) # do this in pygameUI.pyx instead!!
-    cdef initDevice(self):
+    cdef void initDevice(self):
         self.resetInternals(True)
         self.lastUsedPort = 0x64
         self.lastUsedCmd = 0
@@ -36,19 +36,19 @@ cdef class PS2:
         self.outb = False
         self.batInProgress = False
         self.timerPending = 0
-    cdef appendToOutBytesJustAppend(self, bytes data):
+    cdef void appendToOutBytesJustAppend(self, bytes data):
         self.outBuffer += data
-    cdef appendToOutBytes(self, bytes data):
+    cdef void appendToOutBytes(self, bytes data):
         self.appendToOutBytesJustAppend(data)
         if (not self.outb and self.kbdClockEnabled):
             self.activateTimer()
-    cdef appendToOutBytesImm(self, bytes data):
+    cdef void appendToOutBytesImm(self, bytes data):
         self.appendToOutBytesJustAppend(data)
         self.outb = True
         if (self.allowIrq1):
             self.irq1Requested = True
             (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
-    cdef appendToOutBytesDoIrq(self, bytes data):
+    cdef void appendToOutBytesDoIrq(self, bytes data):
         if (self.outb):
             self.main.printMsg("KBC::appendToOutBytesDoIrq: self.outb!=0")
             return
@@ -137,7 +137,7 @@ cdef class PS2:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x60):
                 if (not self.needWriteBytes):
@@ -285,7 +285,7 @@ cdef class PS2:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
-    cdef setKbdClockEnable(self, unsigned char value):
+    cdef void setKbdClockEnable(self, unsigned char value):
         cdef unsigned char prevKbdClockEnabled
         if (not value):
             self.kbdClockEnabled = False

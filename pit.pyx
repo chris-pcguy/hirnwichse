@@ -9,7 +9,7 @@ cdef class PitChannel:
         self.main = main
         self.pit = pit
         self.channelId = channelId
-    cdef reset(self):
+    cdef void reset(self):
         self.counterFormat = 0 # 0 == binary; 1 == BCD
         self.counterMode = 0 # 0-5 valid, 6,7 not
         self.counterWriteMode = 0 # 1 == LSB ; 2 == MSB ; 3 == LSB;MSB
@@ -78,7 +78,7 @@ cdef class PitChannel:
         else:
             self.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})".format(self.counterMode, self.channelId))
             return
-    cdef run(self):
+    cdef void run(self):
         self.reset()
 
 cdef class Pit:
@@ -86,7 +86,7 @@ cdef class Pit:
         self.main = main
         self.channels = (PitChannel(self.main, self, 0), PitChannel(self.main, self, 1),\
                          PitChannel(self.main, self, 2)) # channel 0-2
-    cdef reset(self):
+    cdef void reset(self):
         cdef PitChannel channel
         self.channel = 0
         for channel in self.channels:
@@ -120,7 +120,7 @@ cdef class Pit:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef unsigned char channel, bcd, modeNumber, counterWriteMode
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
@@ -168,7 +168,7 @@ cdef class Pit:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
-    cdef run(self):
+    cdef void run(self):
         self.reset()
         #self.main.platform.addHandlers((0x40, 0x41, 0x42, 0x43), self)
 

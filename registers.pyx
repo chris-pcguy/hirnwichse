@@ -39,7 +39,7 @@ cdef class ModRMClass:
     def __init__(self, object main, Registers registers):
         self.main = main
         self.registers = registers
-    cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
+    cdef void modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
         cdef unsigned char modRMByte, index
         modRMByte = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_BYTE)
         self.rmNameSegId = CPU_SEGMENT_DS
@@ -395,14 +395,14 @@ cdef class Registers:
                 return regWord
         self.main.exitError("unknown case. (regWord: {0:d}, wantRegSize: {1:d})", regWord, wantRegSize)
         return 0
-    cdef setSZP(self, unsigned long value, unsigned char regSize):
+    cdef void setSZP(self, unsigned long value, unsigned char regSize):
         self.setEFLAG(FLAG_SF, (value&(<Misc>self.main.misc).getBitMask80(regSize))!=0)
         self.setEFLAG(FLAG_ZF, value==0)
         self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>value])
-    cdef setSZP_O0(self, unsigned long value, unsigned char regSize):
+    cdef void setSZP_O0(self, unsigned long value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.setEFLAG(FLAG_OF, False)
-    cdef setSZP_C0_O0_A0(self, unsigned long value, unsigned char regSize):
+    cdef void setSZP_C0_O0_A0(self, unsigned long value, unsigned char regSize):
         self.setSZP_O0(value, regSize)
         self.setEFLAG(FLAG_CF | FLAG_AF, False)
     cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize):
@@ -465,7 +465,7 @@ cdef class Registers:
             return (self.getEFLAG(FLAG_SF_OF_ZF) in (0, FLAG_SF_OF))
         else:
             self.main.exitError("getCond: index {0:#x} invalid.", index)
-    cdef setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method):
+    cdef void setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method):
         cdef unsigned char unsignedOverflow, signedOverflow, isResZero, afFlag, reg0Nibble, reg1Nibble, regSumNibble, carried
         cdef unsigned long bitMaskHalf
         cdef unsigned long long regSumu
@@ -557,7 +557,7 @@ cdef class Registers:
             if (regSize == OP_SIZE_BYTE):
                 regSum = <char>regSum
             self.setEFLAG(FLAG_SF, regSum<0)
-    cdef checkMemAccessRights(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char write):
+    cdef void checkMemAccessRights(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char write):
         cdef GdtEntry gdtEntry
         cdef unsigned char addrInLimit
         cdef unsigned short segVal
@@ -605,7 +605,7 @@ cdef class Registers:
     cdef unsigned long long mmReadValueUnsigned(self, unsigned long mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyReadValueUnsigned(mmAddr, dataSize)
-    cdef mmWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize, unsigned short segId, unsigned char allowOverride):
+    cdef void mmWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize, unsigned short segId, unsigned char allowOverride):
         #self.checkMemAccessRights(mmAddr, dataSize, segId, True)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         (<Mm>self.main.mm).mmPhyWrite(mmAddr, data, dataSize)
@@ -657,7 +657,7 @@ cdef class Registers:
     cdef unsigned char getAddrSegSize(self, unsigned short segId):
         segId = <unsigned char>self.getSegSize(segId)
         return <unsigned char>((((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-    cdef getOpAddrSegSize(self, unsigned short segId, unsigned char *opSize, unsigned char *addrSize):
+    cdef void getOpAddrSegSize(self, unsigned short segId, unsigned char *opSize, unsigned char *addrSize):
         segId = <unsigned char>self.getSegSize(segId)
         opSize[0]   = ((((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
         addrSize[0] = ((((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
@@ -665,10 +665,10 @@ cdef class Registers:
         return <unsigned char>((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef unsigned char getAddrCodeSegSize(self):
         return <unsigned char>((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-    cdef getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
+    cdef void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
         opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
         addrSize[0] = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-    cdef run(self):
+    cdef void run(self):
         self.regs = ConfigSpace(CPU_REGISTER_LENGTH, self.main)
         self.segments = Segments(self.main)
         self.regs.run()

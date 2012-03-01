@@ -12,7 +12,7 @@ include "cpu_globals.pxi"
 cdef class Cpu:
     def __init__(self, object main):
         self.main = main
-    cdef reset(self):
+    cdef void reset(self):
         self.savedCs  = 0xf000
         self.savedEip = 0xfff0
         self.cpuHalted = False
@@ -22,17 +22,17 @@ cdef class Cpu:
         self.HRQ = False
         self.cycles = self.oldCycleInc = 0
         self.registers.reset()
-    cdef saveCurrentInstPointer(self):
+    cdef inline void saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
         self.savedEip = self.registers.regReadUnsigned(CPU_REGISTER_EIP)
-    cdef setINTR(self, unsigned char state):
+    cdef inline void setINTR(self, unsigned char state):
         self.INTR = state
         self.asyncEvent = True
-    cdef setHRQ(self, unsigned char state):
+    cdef inline void setHRQ(self, unsigned char state):
         self.HRQ = state
         if (state):
             self.asyncEvent = True
-    cdef handleAsyncEvent(self):
+    cdef void handleAsyncEvent(self):
         cdef unsigned char irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
         oldIF = self.registers.getEFLAG(FLAG_IF)!=0
@@ -45,7 +45,7 @@ cdef class Cpu:
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
             self.asyncEvent = False
         return
-    cdef exception(self, unsigned char exceptionId, long errorCode):
+    cdef void exception(self, unsigned char exceptionId, long errorCode):
         self.main.printMsg("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
         if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
@@ -136,7 +136,7 @@ cdef class Cpu:
           self.registers.regReadUnsigned(CPU_REGISTER_DR3))
         self.main.printMsg("DR6: {0:#010x}, DR7: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR6), \
           self.registers.regReadUnsigned(CPU_REGISTER_DR7))
-    cdef doInfiniteCycles(self):
+    cdef void doInfiniteCycles(self):
         cdef unsigned long long cycleInc
         try:
             while (not self.main.quitEmu):
@@ -161,7 +161,7 @@ cdef class Cpu:
         except:
             print(exc_info())
             self.main.exitError('doInfiniteCycles: (else case) exception, exiting...', exitNow=True)
-    cdef doCycle(self):
+    cdef void doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
             return
         if (self.debugHalt and self.debugSingleStep):
@@ -202,7 +202,7 @@ cdef class Cpu:
         except:
             print(exc_info())
             self.main.exitError('doCycle: (else case) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
-    cdef run(self):
+    cdef void run(self):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
         self.opcodes.registers = self.registers

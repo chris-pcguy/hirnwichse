@@ -10,15 +10,15 @@ cdef class Cmos:
         self.dt = self.oldDt = None
         self.cmosIndex = 0
         self.equipmentDefaultValue = 0xc
-    cdef setEquipmentDefaultValue(self, unsigned char value):
+    cdef inline void setEquipmentDefaultValue(self, unsigned char value):
         self.equipmentDefaultValue = value
     cdef unsigned char getEquipmentDefaultValue(self):
         return self.equipmentDefaultValue
     cdef unsigned long readValue(self, unsigned char index, unsigned char size):
         return self.configSpace.csReadValueUnsigned(index, size)
-    cdef writeValue(self, unsigned char index, unsigned long value, unsigned char size):
+    cdef inline void writeValue(self, unsigned char index, unsigned long value, unsigned char size):
         self.configSpace.csWriteValue(index, value, size)
-    cdef reset(self):
+    cdef void reset(self):
         cdef unsigned long long memSizeInK, extMemSizeInK, extMemSizeIn64K
         memSizeInK = extMemSizeInK = extMemSizeIn64K = 0
         self.configSpace.csResetData()
@@ -46,7 +46,7 @@ cdef class Cmos:
         # TODO: set here the physical memory over 4GB if we need it...
         # ... or if we're able to handle it anywhere in the future... oO
         ##self.updateTime()
-    cdef updateTime(self):
+    cdef void updateTime(self):
         cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century
         self.oldDt = self.dt
         self.dt = gmtime()
@@ -88,7 +88,7 @@ cdef class Cmos:
         self.writeValue(CMOS_MONTH, month, OP_SIZE_BYTE)
         self.writeValue(CMOS_YEAR_NO_CENTURY, year, OP_SIZE_BYTE)
         self.writeValue(CMOS_CENTURY, century, OP_SIZE_BYTE)
-    cdef makeCheckSum(self):
+    cdef void makeCheckSum(self):
         cdef unsigned short checkSum = (<Misc>self.main.misc).checksum(bytes(self.configSpace.csRead(0x10, 0x1e))) # 0x10..0x2d
         self.writeValue(CMOS_CHECKSUM_L, checkSum&0xff, OP_SIZE_BYTE)
         self.writeValue(CMOS_CHECKSUM_H, (checkSum>>8)&0xff, OP_SIZE_BYTE)
@@ -107,7 +107,7 @@ cdef class Cmos:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported. (port: {0:#06x})", dataSize, ioPortAddr)
         return 0
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef unsigned char tempIndex
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data
@@ -132,7 +132,7 @@ cdef class Cmos:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported. (port: {1:#06x})", dataSize, ioPortAddr)
         return
-    cdef run(self):
+    cdef void run(self):
         self.configSpace = ConfigSpace(128, self.main)
         self.configSpace.run()
         self.reset()

@@ -25,7 +25,7 @@ DEF PCI_HEADER_TYPE_BRIDGE = 1
 cdef class PciAddress:
     def __init__(self, unsigned long address):
         self.calculateAddress(address)
-    cdef calculateAddress(self, unsigned long address):
+    cdef void calculateAddress(self, unsigned long address):
         self.enableBit = (address&0x80000000)!=0
         self.bus = (address>>16)&0xff
         self.device = (address>>11)&0x1f
@@ -38,7 +38,7 @@ cdef class PciDevice:
         self.pci = pci
         self.main = main
         self.configSpace = None
-    cdef reset(self):
+    cdef void reset(self):
         if (self.configSpace is not None):
             self.configSpace.csResetData()
     cdef unsigned long getData(self, unsigned char function, unsigned char register, unsigned char dataSize):
@@ -47,21 +47,21 @@ cdef class PciDevice:
             self.main.printMsg("PciDevice::getData: function {0:d} != 0.", function)
             return bitMask
         return self.configSpace.csReadValueUnsigned(register, dataSize)
-    cdef setData(self, unsigned char function, unsigned char register, unsigned long data, unsigned char dataSize):
+    cdef void setData(self, unsigned char function, unsigned char register, unsigned long data, unsigned char dataSize):
         if (function != 0):
             self.main.printMsg("PciDevice::getData: function {0:d} != 0.", function)
             return
         self.configSpace.csWriteValue(register, data, dataSize)
-    cdef setVendorId(self, unsigned short vendorId):
+    cdef void setVendorId(self, unsigned short vendorId):
         self.setData(0, PCI_VENDOR_ID, vendorId, OP_SIZE_WORD)
-    cdef setDeviceId(self, unsigned short deviceId):
+    cdef void setDeviceId(self, unsigned short deviceId):
         self.setData(0, PCI_DEVICE_ID, deviceId, OP_SIZE_WORD)
-    cdef setClassDevice(self, unsigned short classDevice):
+    cdef void setClassDevice(self, unsigned short classDevice):
         self.setData(0, PCI_CLASS_DEVICE, classDevice, OP_SIZE_WORD)
-    cdef setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId):
+    cdef void setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId):
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
-    cdef run(self):
+    cdef void run(self):
         self.configSpace = ConfigSpace(PCI_DEVICE_CONFIG_SIZE, self.main)
         if (self.configSpace is not None):
             self.configSpace.run()
@@ -69,7 +69,7 @@ cdef class PciDevice:
 cdef class PciBridge(PciDevice):
     def __init__(self, PciBus bus, Pci pci, object main):
         PciDevice.__init__(self, bus, pci, main)
-    cdef run(self):
+    cdef void run(self):
         PciDevice.run(self)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_430FX)
         self.setClassDevice(PCI_CLASS_BRIDGE_HOST)
@@ -87,7 +87,7 @@ cdef class PciBus:
         if (deviceHandle is not None):
             return deviceHandle
         return None
-    cdef run(self):
+    cdef void run(self):
         cdef unsigned char deviceIndex
         cdef PciDevice deviceHandle
         for deviceIndex, deviceHandle in self.deviceList.items():
@@ -124,7 +124,7 @@ cdef class Pci:
                 self.main.printMsg("Pci::readRegister: Warning: tried to read from configSpace without enableBit set.")
             return deviceHandle.getData(pciAddressHandle.function, pciAddressHandle.register, pciAddressHandle.dataSize)
         return bitMask
-    cdef writeRegister(self, unsigned long address, unsigned long data, unsigned char dataSize):
+    cdef void writeRegister(self, unsigned long address, unsigned long data, unsigned char dataSize):
         cdef PciDevice deviceHandle
         cdef PciAddress pciAddressHandle
         pciAddressHandle = PciAddress(address)
@@ -143,7 +143,7 @@ cdef class Pci:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0xcf8):
                 self.address = data
@@ -154,7 +154,7 @@ cdef class Pci:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
-    cdef run(self):
+    cdef void run(self):
         cdef unsigned char busIndex
         cdef PciBus busHandle
         for busIndex, busHandle in self.busList.items():

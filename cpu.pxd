@@ -18,17 +18,17 @@ cdef class Cpu:
     cdef unsigned short savedCs
     cdef unsigned long savedEip
     cdef unsigned long long oldCycleInc
-    cdef reset(self)
-    cdef saveCurrentInstPointer(self)
-    cdef setINTR(self, unsigned char state)
-    cdef setHRQ(self, unsigned char state)
-    cdef handleAsyncEvent(self)
-    cdef exception(self, unsigned char exceptionId, long errorCode)
+    cdef void reset(self)
+    cdef inline void saveCurrentInstPointer(self)
+    cdef inline void setINTR(self, unsigned char state)
+    cdef inline void setHRQ(self, unsigned char state)
+    cdef void handleAsyncEvent(self)
+    cdef void exception(self, unsigned char exceptionId, long errorCode)
     cpdef handleException(self, object exception)
     cdef unsigned char parsePrefixes(self, unsigned char opcode)
     cpdef cpuDump(self)
-    cdef doInfiniteCycles(self)
-    cdef doCycle(self)
-    cdef run(self)
+    cdef void doInfiniteCycles(self)
+    cdef void doCycle(self)
+    cdef void run(self)
 
 

@@ -45,7 +45,7 @@ cdef class FloppyMedia:
         self.floppyDrive = floppyDrive
         self.mediaType = FLOPPY_DISK_TYPE_NONE
         self.tracks = self.heads = self.sectorsPerTrack = self.sectors = 0
-    cdef setDataForMedia(self, unsigned char mediaType):
+    cdef void setDataForMedia(self, unsigned char mediaType):
         self.mediaType = mediaType
         if (mediaType == FLOPPY_DISK_TYPE_NONE):
             self.tracks = self.heads = self.sectorsPerTrack = self.sectors = 0
@@ -118,7 +118,7 @@ cdef class FloppyDrive:
             self.main.printMsg("FloppyDrive::getDiskType: can't assign filesize {0:d} to a type, mark disk as unrecognized", size)
         self.main.printMsg("FloppyDrive::getDiskType: floppy has disktype {0:d}.", diskType)
         return diskType
-    cdef loadDrive(self, bytes filename):
+    cdef void loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType, driveType
         if (not filename or not access(filename, F_OK | R_OK)):
             self.main.printMsg("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", self.driveId, filename)
@@ -161,7 +161,7 @@ cdef class FloppyDrive:
         return data
     cdef bytes readSectors(self, unsigned long sector, unsigned long count): # count in sectors
         return self.readBytes(sector*512, count*512)
-    cdef writeBytes(self, unsigned long offset, unsigned long size, bytes data):
+    cdef void writeBytes(self, unsigned long offset, unsigned long size, bytes data):
         cdef unsigned long oldPos
         if (len(data) < size): # data is too short.
             data += b'\x00'*(size-len(data))
@@ -170,7 +170,7 @@ cdef class FloppyDrive:
         retData = self.fp.write(data)
         self.fp.seek(oldPos)
         self.fp.flush()
-    cdef writeSectors(self, unsigned long sector, unsigned long count, bytes data):
+    cdef void writeSectors(self, unsigned long sector, unsigned long count, bytes data):
         self.writeBytes(sector*512, count*512, data)
 
 
@@ -182,7 +182,7 @@ cdef class FloppyController:
         self.fdcBufferIndex = 0 # TODO: maybe move this line...
         self.command = self.result = self.fdcBuffer = b"" # and this too, to reset?
         self.drive = (FloppyDrive(self, 0), FloppyDrive(self, 1), FloppyDrive(self, 2), FloppyDrive(self, 3))
-    cdef reset(self, unsigned char hwReset):
+    cdef void reset(self, unsigned char hwReset):
         cdef unsigned char i
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC::reset: PIO mode isn't fully supported yet.")
@@ -205,7 +205,7 @@ cdef class FloppyController:
             (<FloppyDrive>self.drive[drive]).writeSectors(sector, count, data)
             return
         return (<FloppyDrive>self.drive[drive]).readSectors(sector, count)
-    cdef addCommand(self, unsigned char command):
+    cdef void addCommand(self, unsigned char command):
         cdef unsigned char cmdLength, cmd
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC::addCommand: PIO mode isn't fully supported yet.")
@@ -230,15 +230,15 @@ cdef class FloppyController:
         elif (len(self.command) > cmdLength):
             self.main.exitError("FDC: addCommand: command {0:#04x} too long (current length: {1:d}, correct length: {2:d}).", cmd, len(self.command), cmdLength)
             return
-    cdef addToCommand(self, unsigned char command):
+    cdef inline void addToCommand(self, unsigned char command):
         self.command += bytes([command])
-    cdef addToResult(self, unsigned char result):
+    cdef inline void addToResult(self, unsigned char result):
         self.result += bytes([result])
-    cdef clearCommand(self):
+    cdef inline void clearCommand(self):
         self.command = b""
-    cdef clearResult(self):
+    cdef inline void clearResult(self):
         self.result = b""
-    cdef setDor(self, unsigned char data):
+    cdef void setDor(self, unsigned char data):
         cdef unsigned char normalOperation, prevNormalOperation
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC::setDor: PIO mode isn't fully supported yet.")
@@ -252,27 +252,27 @@ cdef class FloppyController:
         if (prevNormalOperation and not normalOperation): # normal -> reset
             self.msr &= FDC_MSR_NODMA
             self.doCmdReset()
-    cdef setMsr(self, unsigned char data):
+    cdef inline void setMsr(self, unsigned char data):
         self.msr = data
-    cdef doCmdReset(self):
+    cdef void doCmdReset(self):
         self.reset(False)
         self.clearCommand()
         self.st0 = 0xc0
         self.raiseFloppyIrq()
         self.resetSensei = 4
-    cdef resetChangeline(self):
+    cdef void resetChangeline(self):
         cdef unsigned char drive
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC::resetChangeline: PIO mode isn't fully supported yet.")
-            return False
+            return
         drive = self.DOR & 0x3
         if ((<FloppyDrive>self.drive[drive]).isLoaded):
             (<FloppyDrive>self.drive[drive]).DIR &= ~0x80
-    cdef incrementSector(self):
+    cdef void incrementSector(self):
         cdef unsigned char drive
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC::incrementSector: PIO mode isn't fully supported yet.")
-            return False
+            return
         drive = self.DOR & 0x3
         (<FloppyDrive>self.drive[drive]).sector += 1
         if ( ((<FloppyDrive>self.drive[drive]).sector > (<FloppyDrive>self.drive[drive]).eot) or \
@@ -289,7 +289,7 @@ cdef class FloppyController:
                 self.resetChangeline()
             if ((<FloppyDrive>self.drive[drive]).cylinder >= (<FloppyDrive>self.drive[drive]).media.tracks):
                 (<FloppyDrive>self.drive[drive]).cylinder = (<FloppyDrive>self.drive[drive]).media.tracks
-    cdef getTC(self):
+    cdef unsigned char getTC(self):
         cdef unsigned char drive, TC
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC::getTC: PIO mode isn't fully supported yet.")
@@ -297,7 +297,7 @@ cdef class FloppyController:
         self.fdc.setupDMATransfer(self)
         TC = (<IsaDma>self.main.platform.isadma).getTC()
         return TC
-    cdef handleResult(self):
+    cdef void handleResult(self):
         cdef unsigned char drive, cmd
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC::handleResult: PIO mode isn't fully supported yet.")
@@ -330,12 +330,12 @@ cdef class FloppyController:
                 self.main.exitError("FDC_CTRL::handleResult: unknown command: {0:#04x}", cmd)
         else:
             self.main.exitError("FDC_CTRL::handleResult: self.command is empty.")
-    cdef handleIdle(self):
+    cdef void handleIdle(self):
         self.msr &= (FDC_MSR_NODMA | 0xf)
         self.msr |= FDC_MSR_RQM
         self.clearCommand()
         self.fdcBufferIndex = 0
-    cdef handleCommand(self):
+    cdef void handleCommand(self):
         cdef unsigned char drive, cmd, motorOn, head, cylinder, sector, eot, sectorSize
         cdef unsigned long logicalSector
         if (self.msr & FDC_MSR_NODMA):
@@ -491,7 +491,7 @@ cdef class FloppyController:
             self.clearCommand()
             self.st0 = 0x80
             self.handleResult()
-    cdef readFromMem(self, unsigned char data):
+    cdef void readFromMem(self, unsigned char data):
         cdef unsigned char drive
         cdef unsigned long logicalSector
         if (self.msr & FDC_MSR_NODMA):
@@ -549,11 +549,11 @@ cdef class FloppyController:
                 self.fdcBuffer = self.floppyXfer(drive, logicalSector, 1, b"", False)
                 (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
         return data
-    cdef raiseFloppyIrq(self):
+    cdef void raiseFloppyIrq(self):
         (<Pic>self.main.platform.pic).raiseIrq(FDC_IRQ)
         self.pendingIrq = True
         self.resetSensei = 0
-    cdef lowerFloppyIrq(self):
+    cdef void lowerFloppyIrq(self):
         if (self.pendingIrq):
             (<Pic>self.main.platform.pic).lowerIrq(FDC_IRQ)
             self.pendingIrq = False
@@ -611,7 +611,7 @@ cdef class FloppyController:
         else:
             self.main.exitError("FDC_CTRL::inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC_CTRL::outPort: PIO mode isn't supported!")
             return
@@ -640,7 +640,7 @@ cdef class FloppyController:
                 self.main.exitError("FDC_CTRL::outPort: port {0:#06x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
         else:
             self.main.exitError("FDC_CTRL::outPort: dataSize {0:d} not supported., (port: {1:#06x})", dataSize, ioPortAddr)
-    cdef run(self):
+    cdef void run(self):
         cdef unsigned char fdaLoaded, fdbLoaded, cmosVal
         self.reset(True)
         if (self.controllerId == 0):
@@ -662,7 +662,7 @@ cdef class Floppy:
     def __init__(self, object main):
         self.main = main
         self.controller = (FloppyController(self, 0), FloppyController(self, 1))
-    cdef setupDMATransfer(self, FloppyController classInstance):
+    cdef void setupDMATransfer(self, FloppyController classInstance):
         (<IsaDma>self.main.platform.isadma).setDmaMemActions(0, FDC_DMA_CHANNEL, classInstance, \
           <ReadFromMem>classInstance.readFromMem, <WriteToMem>classInstance.writeToMem)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
@@ -676,7 +676,7 @@ cdef class Floppy:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr >= FDC_FIRST_PORTBASE and ioPortAddr <= FDC_FIRST_PORTBASE+FDC_PORTCOUNT):
                 (<FloppyController>self.controller[0]).outPort(ioPortAddr-FDC_FIRST_PORTBASE, data, dataSize)
@@ -687,7 +687,7 @@ cdef class Floppy:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
         return
-    cdef run(self):
+    cdef void run(self):
         cdef FloppyController controller
         for controller in self.controller:
             controller.run()

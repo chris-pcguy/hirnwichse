@@ -167,11 +167,11 @@ cdef class PythonBios:
                     return True
                 self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) ax {0:#06x} not supported yet in PythonBIOS.", ax)
         return False
-    cdef setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy
+    cdef void setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy
         (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, newCF )
         (<Registers>self.main.cpu.registers).regWrite( CPU_REGISTER_AX, ax )
         (<Mm>self.main.mm).mmPhyWriteValue(DISKETTE_RET_STATUS_ADDR, ax>>8, OP_SIZE_BYTE)
-    cdef run(self):
+    cdef void run(self):
         pass
 
 

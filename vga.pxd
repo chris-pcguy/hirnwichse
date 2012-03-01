@@ -5,20 +5,20 @@ from pygameUI cimport PygameUI
 
 cdef class VRamArea(MmArea):
     cdef unsigned long memBaseAddrTextmodeBaseDiff
-    cdef mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize)
+    cdef void mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize)
     cpdef handleVRamWrite(self, unsigned long mmAreaAddr, unsigned long dataSize)
 
 
 cdef class VGA_REGISTER_RAW(ConfigSpace):
     cdef Vga vga
     cdef unsigned short index
-    cdef reset(self)
+    cdef void reset(self)
     cdef unsigned short getIndex(self)
-    cdef setIndex(self, unsigned short index)
-    cdef indexAdd(self, unsigned short n)
-    cdef indexSub(self, unsigned short n)
+    cdef void setIndex(self, unsigned short index)
+    cdef void indexAdd(self, unsigned short n)
+    cdef void indexSub(self, unsigned short n)
     cdef unsigned long getData(self, unsigned char dataSize)
-    cdef setData(self, unsigned long data, unsigned char dataSize)
+    cdef void setData(self, unsigned long data, unsigned char dataSize)
 
 cdef class CRT(VGA_REGISTER_RAW):
     pass
@@ -28,12 +28,12 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
     cdef unsigned short readIndex, writeIndex
     cdef unsigned short getReadIndex(self)
     cdef unsigned short getWriteIndex(self)
-    cdef setReadIndex(self, unsigned short index)
-    cdef setWriteIndex(self, unsigned short index)
+    cdef void setReadIndex(self, unsigned short index)
+    cdef void setWriteIndex(self, unsigned short index)
     cdef unsigned long getData(self, unsigned char dataSize)
-    cdef setData(self, unsigned long data, unsigned char dataSize)
+    cdef void setData(self, unsigned long data, unsigned char dataSize)
     cdef unsigned char getMask(self)
-    cdef setMask(self, unsigned char value)
+    cdef void setMask(self, unsigned char value)
 
 
 cdef class GDC(VGA_REGISTER_RAW):
@@ -45,12 +45,12 @@ cdef class Sequencer(VGA_REGISTER_RAW):
 cdef class ExtReg(VGA_REGISTER_RAW):
     cdef unsigned char miscOutReg
     cdef unsigned char getMiscOutReg(self)
-    cdef setMiscOutReg(self, unsigned char value)
+    cdef void setMiscOutReg(self, unsigned char value)
 
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     cdef unsigned char flipFlop
     cdef unsigned long getIndexData(self, unsigned char dataSize)
-    cdef setIndexData(self, unsigned long data, unsigned char dataSize)
+    cdef void setIndexData(self, unsigned long data, unsigned char dataSize)
 
 
 cdef class Vga:
@@ -64,19 +64,19 @@ cdef class Vga:
     cdef public ExtReg extreg
     cdef AttrCtrlReg attrctrlreg
     cdef unsigned char processVideoMem
-    cdef setProcessVideoMem(self, unsigned char processVideoMem)
+    cdef void setProcessVideoMem(self, unsigned char processVideoMem)
     cdef unsigned char getProcessVideoMem(self)
     cdef unsigned char getCorrectPage(self, unsigned char page)
-    cdef writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor)
-    cdef writeCharacter(self, unsigned long address, unsigned char c, short attr)
+    cdef void writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor)
+    cdef void writeCharacter(self, unsigned long address, unsigned char c, short attr)
     cdef unsigned long getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y)
     cdef unsigned short getCursorPosition(self, unsigned char page)
-    cdef setCursorPosition(self, unsigned char page, unsigned short pos)
-    cdef scrollUp(self, unsigned char page, short attr, unsigned short lines)
+    cdef void setCursorPosition(self, unsigned char page, unsigned short pos)
+    cdef void scrollUp(self, unsigned char page, short attr, unsigned short lines)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cdef VRamAddMemArea(self)
-    cdef run(self)
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
+    cdef void VRamAddMemArea(self)
+    cdef void run(self)
 
 
 

@@ -14,14 +14,14 @@ cdef class MmArea:
         self.mmAreaSize = mmAreaSize
         self.mmEndAddr  = (<unsigned long long>self.mmBaseAddr+self.mmAreaSize)
         self.mmReadOnly = mmReadOnly
-    cdef mmResetAreaData(self):
+    cdef void mmResetAreaData(self):
         if (self.mmAreaData is not None):
             memset(self.mmAreaData, 0x00, self.mmAreaSize)
     cpdef mmFreeAreaData(self):
         if (self.mmAreaData is not None):
             free(self.mmAreaData)
         self.mmAreaData = None
-    cdef mmSetReadOnly(self, unsigned char mmReadOnly):
+    cdef void mmSetReadOnly(self, unsigned char mmReadOnly):
         self.mmReadOnly = mmReadOnly
     cdef bytes mmAreaRead(self, unsigned long mmAddr, unsigned long dataSize):
         mmAddr -= self.mmBaseAddr
@@ -30,7 +30,7 @@ cdef class MmArea:
                 self.main.printMsg("MmArea::mmAreaRead: self.mmAreaData is None || not dataSize.")
                 raise MemoryError()
         return self.mmAreaData[mmAddr:mmAddr+dataSize]
-    cdef mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize):
+    cdef void mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize):
         mmAddr -= self.mmBaseAddr
         IF STRICT_CHECKS:
             if (self.mmAreaData is None or not dataSize):
@@ -40,7 +40,7 @@ cdef class MmArea:
                 self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
                 return
         memcpy(<char*>(self.mmAreaData+mmAddr), <char*>data, dataSize)
-    cdef mmAreaCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize):
+    cdef void mmAreaCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize):
         destAddr -= self.mmBaseAddr
         srcAddr -= self.mmBaseAddr
         IF STRICT_CHECKS:
@@ -63,7 +63,7 @@ cdef class Mm:
     def __init__(self, object main):
         self.main = main
         self.mmAreas = []
-    cdef mmAddArea(self, unsigned long mmBaseAddr, unsigned long mmAreaSize, unsigned char mmReadOnly, MmArea mmAreaObject):
+    cdef void mmAddArea(self, unsigned long mmBaseAddr, unsigned long mmAreaSize, unsigned char mmReadOnly, MmArea mmAreaObject):
         cdef MmArea mmAreaObjectInstance
         mmAreaObjectInstance = <MmArea>mmAreaObject(self, mmBaseAddr, mmAreaSize, mmReadOnly)
         mmAreaObjectInstance.run()
@@ -101,7 +101,7 @@ cdef class Mm:
         return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=True)
     cdef unsigned long long mmPhyReadValueUnsigned(self, unsigned long mmAddr, unsigned char dataSize):
         return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=False)
-    cdef mmPhyWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize): # dataSize in bytes
+    cdef void mmPhyWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize): # dataSize in bytes
         cdef MmArea mmArea
         mmArea = self.mmGetSingleArea(mmAddr, dataSize)
         if (mmArea is None):
@@ -117,7 +117,7 @@ cdef class Mm:
             data = <unsigned long>data
         self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
         return data
-    cdef mmPhyCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize): # dataSize in bytes
+    cdef void mmPhyCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize): # dataSize in bytes
         cdef MmArea mmAreaDest, mmAreaSrc
         mmAreaDest = self.mmGetSingleArea(destAddr, dataSize)
         mmAreaSrc = self.mmGetSingleArea(srcAddr, dataSize)
@@ -131,7 +131,7 @@ cdef class ConfigSpace:
     def __init__(self, unsigned long csSize, object main):
         self.csSize = csSize
         self.main = main
-    cdef csResetData(self):
+    cdef void csResetData(self):
         if (self.csData is not None):
             memset(self.csData, 0x00, self.csSize)
     cpdef csFreeData(self):
@@ -144,13 +144,13 @@ cdef class ConfigSpace:
                 self.main.printMsg("ConfigSpace::csRead: self.csData is None || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
                 raise MemoryError()
         return self.csData[offset:offset+size]
-    cdef csWrite(self, unsigned long offset, bytes data, unsigned long size):
+    cdef void csWrite(self, unsigned long offset, bytes data, unsigned long size):
         IF STRICT_CHECKS:
             if (self.csData is None or not size or offset+size > self.csSize):
                 self.main.printMsg("ConfigSpace::csWrite: self.csData is None || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
                 raise MemoryError()
         memcpy(<char*>(self.csData+offset), <char*>data, size)
-    cdef csCopy(self, unsigned long destOffset, unsigned long srcOffset, unsigned long size):
+    cdef void csCopy(self, unsigned long destOffset, unsigned long srcOffset, unsigned long size):
         IF STRICT_CHECKS:
             if (self.csData is None or not size or (destOffset+size > self.csSize) or (srcOffset+size > self.csSize)):
                 self.main.printMsg("ConfigSpace::csCopy: self.csData is None || not size || (destOffset+size > self.csSize) || (srcOffset+size > self.csSize). (destOffset: {0:#06x}, srcOffset: {1:#06x}, size: {2:d})", destOffset, srcOffset, size)

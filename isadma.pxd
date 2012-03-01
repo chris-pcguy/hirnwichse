@@ -16,7 +16,7 @@ cdef class IsaDmaChannel:
     cdef IsaDma isadma
     cdef unsigned char channelNum, channelMasked, transferDirection, autoInit, addressDecrement, transferMode, page, DRQ, DACK
     cdef unsigned short baseAddress, baseCount, currentAddress, currentCount
-    cdef run(self)
+    cdef void run(self)
     ###
 
 cdef class IsaDmaController:
@@ -24,27 +24,27 @@ cdef class IsaDmaController:
     cdef IsaDma isadma
     cdef tuple channel
     cdef unsigned char flipFlop, firstChannel, master, ctrlDisabled, cmdReg, statusReg
-    cdef reset(self)
-    cdef doCommand(self, unsigned char data)
-    cdef doManualRequest(self, unsigned char data)
-    cdef setFlipFlop(self, unsigned char flipFlop)
-    cdef setTransferMode(self, unsigned char transferModeByte)
-    cdef maskChannel(self, unsigned char channel, unsigned char maskIt)
-    cdef maskChannels(self, unsigned char maskByte)
+    cdef void reset(self)
+    cdef void doCommand(self, unsigned char data)
+    cdef void doManualRequest(self, unsigned char data)
+    cdef void setFlipFlop(self, unsigned char flipFlop)
+    cdef void setTransferMode(self, unsigned char transferModeByte)
+    cdef void maskChannel(self, unsigned char channel, unsigned char maskIt)
+    cdef void maskChannels(self, unsigned char maskByte)
     cdef unsigned char getChannelMasks(self)
-    cdef setPageByte(self, unsigned char channel, unsigned char data)
-    cdef setAddrByte(self, unsigned char channel, unsigned char data)
-    cdef setCountByte(self, unsigned char channel, unsigned char data)
+    cdef void setPageByte(self, unsigned char channel, unsigned char data)
+    cdef void setAddrByte(self, unsigned char channel, unsigned char data)
+    cdef void setCountByte(self, unsigned char channel, unsigned char data)
     cdef unsigned char getPageByte(self, unsigned char channel)
     cdef unsigned char getAddrByte(self, unsigned char channel)
     cdef unsigned char getCountByte(self, unsigned char channel)
-    cdef setAddrWord(self, unsigned char channel, unsigned short data)
-    cdef setCountWord(self, unsigned char channel, unsigned short data)
+    cdef void setAddrWord(self, unsigned char channel, unsigned short data)
+    cdef void setCountWord(self, unsigned char channel, unsigned short data)
     cdef unsigned short getAddrWord(self, unsigned char channel)
     cdef unsigned short getCountWord(self, unsigned char channel)
     cdef unsigned char getStatus(self)
-    cdef controlHRQ(self)
-    cdef run(self)
+    cdef void controlHRQ(self)
+    cdef void run(self)
 
 cdef class IsaDma:
     cpdef public object main
@@ -53,12 +53,12 @@ cdef class IsaDma:
     cdef tuple controller
     cdef unsigned char extPageReg[16], HLDA, TC # extPageReg is unused.
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cdef getTC(self)
-    cdef setDRQ(self, unsigned char channel, unsigned char val)
-    cdef raiseHLDA(self)
-    cdef setDmaMemActions(self, unsigned char controllerId, unsigned char channelId, object classInstance, ReadFromMem readFromMem, WriteToMem writeToMem)
-    cdef run(self)
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
+    cdef unsigned char getTC(self)
+    cdef void setDRQ(self, unsigned char channel, unsigned char val)
+    cdef void raiseHLDA(self)
+    cdef void setDmaMemActions(self, unsigned char controllerId, unsigned char channelId, object classInstance, ReadFromMem readFromMem, WriteToMem writeToMem)
+    cdef void run(self)
 
 
 
