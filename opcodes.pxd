@@ -4,22 +4,35 @@ from segments cimport Segments, Gdt, Idt, IdtEntry, GdtEntry
 from registers cimport Registers, ModRMClass
 from mm cimport Mm
 
+include "cpu_globals.pxi"
+
 
 cdef class Opcodes:
     cpdef object main
     cdef Registers registers
     cdef ModRMClass modRMInstance
     cdef unsigned char executeOpcode(self, unsigned char opcode)
-    cdef undefNoUD(self)
-    cdef cli(self)
-    cdef sti(self)
-    cdef cld(self)
-    cdef std(self)
-    cdef clc(self)
-    cdef stc(self)
-    cdef cmc(self)
-    cdef hlt(self)
-    cdef syncProtectedModeState(self)
+    cdef inline void cli(self):
+        self.registers.setEFLAG(FLAG_IF, False)
+    cdef inline void sti(self):
+        self.registers.setEFLAG(FLAG_IF, True)
+        self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
+    cdef inline void cld(self):
+        self.registers.setEFLAG(FLAG_DF, False)
+    cdef inline void std(self):
+        self.registers.setEFLAG(FLAG_DF, True)
+    cdef inline void clc(self):
+        self.registers.setEFLAG(FLAG_CF, False)
+    cdef inline void stc(self):
+        self.registers.setEFLAG(FLAG_CF, True)
+    cdef inline void cmc(self):
+        self.registers.setEFLAG(FLAG_CF, not self.registers.getEFLAG(FLAG_CF))
+    cdef inline void hlt(self):
+        self.main.cpu.cpuHalted = True
+    cdef inline void syncProtectedModeState(self):
+        (<Segments>self.registers.segments).protectedModeOn = self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PE)
+        if ((<Segments>self.registers.segments).protectedModeOn):
+            (<Gdt>self.registers.segments.gdt).loadTableData()
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
     cdef jumpFarAbsolutePtr(self)

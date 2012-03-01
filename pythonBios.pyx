@@ -16,11 +16,11 @@ cdef class PythonBios:
                             updateCursor, c, attr, attrInBuf, sector, head, tempByte
         cdef bytes data
         #return False
-        ax = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_AX, False)
-        cx = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_CX, False)
-        dx = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_DX, False)
-        bx = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_BX, False)
-        bp = (<Registers>self.main.cpu.registers).regRead(CPU_REGISTER_BP, False)
+        ax = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_AX)
+        cx = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_CX)
+        dx = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_DX)
+        bx = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_BX)
+        bp = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_BP)
         ah, al = ax>>8, ax&0xff
         ch, cl = cx>>8, cx&0xff
         dh, dl = dx>>8, dx&0xff

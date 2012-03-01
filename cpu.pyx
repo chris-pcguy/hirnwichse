@@ -24,7 +24,7 @@ cdef class Cpu:
         self.registers.reset()
     cdef saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
-        self.savedEip = self.registers.regRead(CPU_REGISTER_EIP, False)
+        self.savedEip = self.registers.regReadUnsigned(CPU_REGISTER_EIP)
     cdef setINTR(self, unsigned char state):
         self.INTR = state
         self.asyncEvent = True
@@ -107,35 +107,35 @@ cdef class Cpu:
                 self.registers.repPrefix = opcode
             ### TODO: I don't think, that we ever need lockPrefix.
             ##elif (opcode == OPCODE_PREFIX_LOCK):
-            opcode = self.registers.getCurrentOpcodeAdd(OP_SIZE_BYTE, False)
+            opcode = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_BYTE)
         return opcode
     cpdef cpuDump(self):
-        self.main.printMsg("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regRead(CPU_REGISTER_EAX, False), \
-          self.registers.regRead(CPU_REGISTER_ECX, False))
-        self.main.printMsg("EDX: {0:#010x}, EBX: {1:#010x}", self.registers.regRead(CPU_REGISTER_EDX, False), \
-          self.registers.regRead(CPU_REGISTER_EBX, False))
-        self.main.printMsg("ESP: {0:#010x}, EBP: {1:#010x}", self.registers.regRead(CPU_REGISTER_ESP, False), \
-          self.registers.regRead(CPU_REGISTER_EBP, False))
-        self.main.printMsg("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regRead(CPU_REGISTER_ESI, False), \
-          self.registers.regRead(CPU_REGISTER_EDI, False))
-        self.main.printMsg("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regRead(CPU_REGISTER_EIP, False), \
-          self.registers.regRead(CPU_REGISTER_EFLAGS, False))
+        self.main.printMsg("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_EAX), \
+          self.registers.regReadUnsigned(CPU_REGISTER_ECX))
+        self.main.printMsg("EDX: {0:#010x}, EBX: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_EDX), \
+          self.registers.regReadUnsigned(CPU_REGISTER_EBX))
+        self.main.printMsg("ESP: {0:#010x}, EBP: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_ESP), \
+          self.registers.regReadUnsigned(CPU_REGISTER_EBP))
+        self.main.printMsg("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_ESI), \
+          self.registers.regReadUnsigned(CPU_REGISTER_EDI))
+        self.main.printMsg("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_EIP), \
+          self.registers.regReadUnsigned(CPU_REGISTER_EFLAGS))
         self.main.printMsg("CS: {0:#06x}, SS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_CS), \
           self.registers.segRead(CPU_SEGMENT_SS))
         self.main.printMsg("DS: {0:#06x}, ES: {1:#06x}", self.registers.segRead(CPU_SEGMENT_DS), \
           self.registers.segRead(CPU_SEGMENT_ES))
         self.main.printMsg("FS: {0:#06x}, GS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_FS), \
           self.registers.segRead(CPU_SEGMENT_GS))
-        self.main.printMsg("CR0: {0:#010x}, CR2: {1:#010x}", self.registers.regRead(CPU_REGISTER_CR0, False), \
-          self.registers.regRead(CPU_REGISTER_CR2, False))
-        self.main.printMsg("CR3: {0:#010x}, CR4: {1:#010x}", self.registers.regRead(CPU_REGISTER_CR3, False), \
-          self.registers.regRead(CPU_REGISTER_CR4, False))
-        self.main.printMsg("DR0: {0:#010x}, DR1: {1:#010x}", self.registers.regRead(CPU_REGISTER_DR0, False), \
-          self.registers.regRead(CPU_REGISTER_DR1, False))
-        self.main.printMsg("DR2: {0:#010x}, DR3: {1:#010x}", self.registers.regRead(CPU_REGISTER_DR2, False), \
-          self.registers.regRead(CPU_REGISTER_DR3, False))
-        self.main.printMsg("DR6: {0:#010x}, DR7: {1:#010x}", self.registers.regRead(CPU_REGISTER_DR6, False), \
-          self.registers.regRead(CPU_REGISTER_DR7, False))
+        self.main.printMsg("CR0: {0:#010x}, CR2: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_CR0), \
+          self.registers.regReadUnsigned(CPU_REGISTER_CR2))
+        self.main.printMsg("CR3: {0:#010x}, CR4: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_CR3), \
+          self.registers.regReadUnsigned(CPU_REGISTER_CR4))
+        self.main.printMsg("DR0: {0:#010x}, DR1: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR0), \
+          self.registers.regReadUnsigned(CPU_REGISTER_DR1))
+        self.main.printMsg("DR2: {0:#010x}, DR3: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR2), \
+          self.registers.regReadUnsigned(CPU_REGISTER_DR3))
+        self.main.printMsg("DR6: {0:#010x}, DR7: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR6), \
+          self.registers.regReadUnsigned(CPU_REGISTER_DR7))
     cdef doInfiniteCycles(self):
         cdef unsigned long long cycleInc
         try:

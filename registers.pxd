@@ -11,9 +11,11 @@ cdef class ModRMClass:
     cdef long long rmName2
     cdef modRMOperands(self, unsigned char regSize, unsigned char modRMflags)
     cdef unsigned long getRMValueFull(self, unsigned char rmSize)
-    cdef long long modRMLoad(self, unsigned char regSize, unsigned char signed, unsigned char allowOverride)
+    cdef signed long long modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride)
+    cdef unsigned long long modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride)
     cdef unsigned long long modRMSave(self, unsigned char regSize, unsigned long long value, unsigned char allowOverride, unsigned char valueOp) # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
-    cdef long long modRLoad(self, unsigned char regSize, unsigned char signed)
+    cdef signed long long modRLoadSigned(self, unsigned char regSize)
+    cdef unsigned long long modRLoadUnsigned(self, unsigned char regSize)
     cdef unsigned long long modRSave(self, unsigned char regSize, unsigned long long value, unsigned char valueOp)
 
 
@@ -26,18 +28,21 @@ cdef class Registers:
                                 addressSizePrefix, codeSegSize
     cdef unsigned char operSize, addrSize
     cdef public unsigned short eipSizeRegId
-    cdef reset(self)
-    cdef resetPrefixes(self)
-    cdef readCodeSegSize(self)
+    cdef void reset(self)
+    cdef void resetPrefixes(self)
+    cdef void readCodeSegSize(self)
     cdef unsigned char getCPL(self)
     cdef unsigned char getIOPL(self)
     cdef unsigned char getRegSize(self, unsigned short regId)
-    cdef long long getCurrentOpcode(self, unsigned char numBytes, unsigned char signed)
-    cdef long long getCurrentOpcodeAdd(self, unsigned char numBytes, unsigned char signed)
+    cdef signed long long getCurrentOpcodeSigned(self, unsigned char numBytes)
+    cdef unsigned long long getCurrentOpcodeUnsigned(self, unsigned char numBytes)
+    cdef signed long long getCurrentOpcodeAddSigned(self, unsigned char numBytes)
+    cdef unsigned long long getCurrentOpcodeAddUnsigned(self, unsigned char numBytes)
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned long *retAddr)
     cdef unsigned short segRead(self, unsigned short segId)
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue)
-    cdef long long regRead(self, unsigned short regId, unsigned char signed)
+    cdef signed long long regReadSigned(self, unsigned short regId)
+    cdef unsigned long long regReadUnsigned(self, unsigned short regId)
     cdef unsigned long regWrite(self, unsigned short regId, unsigned long value)
     cdef unsigned long regAdd(self, unsigned short regId, unsigned long value)
     cdef unsigned long regAdc(self, unsigned short regId, unsigned long value)

@@ -387,7 +387,10 @@ cdef class PygameUI:
         except:
             print(exc_info())
     cpdef pumpEvents(self):
-        pygame.event.pump()
+        try:
+            pygame.event.pump()
+        except pygame.error:
+            self.main.quitEmu = True
     cpdef run(self):
         self.initPygame()
         (<Misc>self.main.misc).createThread(self.handleEvents, True)
