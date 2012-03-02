@@ -121,8 +121,8 @@ cdef class Mm:
         cdef MmArea mmAreaDest, mmAreaSrc
         mmAreaDest = self.mmGetSingleArea(destAddr, dataSize)
         mmAreaSrc = self.mmGetSingleArea(srcAddr, dataSize)
-        if (mmAreaDest is None or mmAreaSrc is None or mmAreaDest != mmAreaSrc):
-            self.main.printMsg("mmPhyCopy: mmAreas not found or not the same! (destAddr: {0:#010x}, srcAddr: {1:#010x}, dataSize: {2:d})", destAddr, srcAddr, dataSize)
+        if (mmAreaDest is None or mmAreaSrc is None or mmAreaDest is not mmAreaSrc):
+            self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
             return
         mmAreaDest.mmAreaCopy(destAddr, srcAddr, dataSize)
 

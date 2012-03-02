@@ -586,9 +586,8 @@ cdef class Opcodes:
     cdef int stosFunc(self, unsigned char operSize):
         cdef unsigned char dfFlag
         cdef unsigned short dataReg, srcReg, countReg
-        cdef unsigned long data, countVal
+        cdef unsigned long data, countVal, ediVal
         cdef unsigned long long dataLength
-        cdef long long destAddr
         cdef bytes memData
         srcReg  = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
         dataReg = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.addrSize)
@@ -604,13 +603,13 @@ cdef class Opcodes:
             self.main.printMsg("Opcodes::stosFunc: dataLength overflow.")
         dataLength = <unsigned long>dataLength
         data = self.registers.regReadUnsigned(srcReg)
-        destAddr = self.registers.regReadUnsigned(dataReg)
+        ediVal = self.registers.regReadUnsigned(dataReg)
         if (dfFlag):
-            destAddr = <unsigned long>(destAddr-(dataLength-operSize))
+            ediVal = <unsigned long>(ediVal-(dataLength-operSize))
         if (self.registers.addrSize == OP_SIZE_WORD):
-            destAddr = <unsigned short>destAddr
+            ediVal = <unsigned short>ediVal
         memData = data.to_bytes(length=operSize, byteorder="little")*countVal
-        self.registers.mmWrite(destAddr, memData, dataLength, CPU_SEGMENT_ES, False)
+        self.registers.mmWrite(ediVal, memData, dataLength, CPU_SEGMENT_ES, False)
         if (not dfFlag):
             self.registers.regAdd(dataReg, dataLength)
         else:
@@ -622,10 +621,8 @@ cdef class Opcodes:
     cdef int movsFunc(self, unsigned char operSize):
         cdef unsigned char dfFlag
         cdef unsigned short esiReg, ediReg, countReg
-        cdef unsigned long countVal
+        cdef unsigned long countVal, esiVal, ediVal
         cdef unsigned long long dataLength
-        cdef long long esiVal, ediVal
-        cdef bytes data
         esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, self.registers.addrSize)
         ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.addrSize)
         countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
@@ -647,8 +644,9 @@ cdef class Opcodes:
         if (self.registers.addrSize == OP_SIZE_WORD):
             esiVal = <unsigned short>esiVal
             ediVal = <unsigned short>ediVal
-        data = self.registers.mmRead(esiVal, dataLength, CPU_SEGMENT_DS, True)
-        self.registers.mmWrite(ediVal, data, dataLength, CPU_SEGMENT_ES, False)
+        esiVal = self.registers.mmGetRealAddr(esiVal, CPU_SEGMENT_DS, True)
+        ediVal = self.registers.mmGetRealAddr(ediVal, CPU_SEGMENT_ES, False)
+        (<Mm>self.main.mm).mmPhyCopy(ediVal, esiVal, dataLength)
         if (not dfFlag):
             self.registers.regAdd(esiReg, dataLength)
             self.registers.regAdd(ediReg, dataLength)
@@ -662,9 +660,8 @@ cdef class Opcodes:
     cdef int lodsFunc(self, unsigned char operSize):
         cdef unsigned char dfFlag
         cdef unsigned short eaxReg, esiReg, countReg
-        cdef unsigned long data, countVal
+        cdef unsigned long data, countVal, esiVal
         cdef unsigned long long dataLength
-        cdef long long esiVal
         eaxReg = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
         esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, self.registers.addrSize)
         countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
@@ -964,7 +961,7 @@ cdef class Opcodes:
             value = <unsigned short>value
         self.registers.regWrite(regId, value)
         return True
-    cdef long long stackPopValue(self):
+    cdef unsigned long stackPopValue(self):
         cdef unsigned char stackAddrSize
         cdef unsigned short stackRegName
         cdef unsigned long data
@@ -973,7 +970,7 @@ cdef class Opcodes:
         data = self.stackGetValue()
         self.registers.regAdd(stackRegName, self.registers.operSize)
         return data
-    cdef long long stackGetValue(self):
+    cdef unsigned long stackGetValue(self):
         cdef unsigned char stackAddrSize
         cdef unsigned short stackRegName
         cdef unsigned long stackAddr
