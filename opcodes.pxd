@@ -11,7 +11,7 @@ cdef class Opcodes:
     cpdef object main
     cdef Registers registers
     cdef ModRMClass modRMInstance
-    cdef unsigned char executeOpcode(self, unsigned char opcode)
+    cdef int executeOpcode(self, unsigned char opcode) except -1
     cdef inline void cli(self):
         self.registers.setEFLAG(FLAG_IF, False)
     cdef inline void sti(self):
@@ -33,105 +33,105 @@ cdef class Opcodes:
         (<Segments>self.registers.segments).protectedModeOn = self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PE)
         if ((<Segments>self.registers.segments).protectedModeOn):
             (<Gdt>self.registers.segments.gdt).loadTableData()
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
-    cdef jumpFarAbsolutePtr(self)
-    cdef loopFunc(self, unsigned char loopType)
-    cdef opcodeR_RM(self, unsigned char opcode, unsigned char operSize)
-    cdef opcodeRM_R(self, unsigned char opcode, unsigned char operSize)
-    cdef opcodeAxEaxImm(self, unsigned char opcode, unsigned char operSize)
-    cdef movImmToR(self, unsigned char operSize)
-    cdef movRM_R(self, unsigned char operSize)
-    cdef movR_RM(self, unsigned char operSize, unsigned char cond)
-    cdef movRM16_SREG(self)
-    cdef movSREG_RM16(self)
-    cdef movAxMoffs(self, unsigned char operSize)
-    cdef movMoffsAx(self, unsigned char operSize)
-    cdef stosFunc(self, unsigned char operSize)
-    cdef movsFunc(self, unsigned char operSize)
-    cdef lodsFunc(self, unsigned char operSize)
-    cdef cmpsFunc(self, unsigned char operSize)
-    cdef scasFunc(self, unsigned char operSize)
-    cdef inAxImm8(self, unsigned char operSize)
-    cdef inAxDx(self, unsigned char operSize)
-    cdef outImm8Ax(self, unsigned char operSize)
-    cdef outDxAx(self, unsigned char operSize)
-    cdef outsFunc(self, unsigned char operSize)
-    cdef insFunc(self, unsigned char operSize)
-    cdef jcxzShort(self)
-    cdef jumpShort(self, unsigned char offsetSize, unsigned char cond)
-    cdef callNearRel16_32(self)
-    cdef callPtr16_32(self)
-    cdef pushaWD(self)
-    cdef popaWD(self)
-    cdef pushfWD(self)
-    cdef popfWD(self)
-    cdef stackPopSegId(self, unsigned short segId)
-    cdef stackPopRegId(self, unsigned short regId)
-    cdef unsigned long stackGetValue(self)
-    cdef unsigned long stackPopValue(self)
-    cdef stackPushSegId(self, unsigned short segId, unsigned char operSize)
-    cdef stackPushRegId(self, unsigned short regId, unsigned char operSize)
-    cdef stackPushValue(self, unsigned long value, unsigned char operSize)
-    cdef pushIMM(self, unsigned char immIsByte)
-    cdef imulR_RM_ImmFunc(self, unsigned char immIsByte)
-    cdef opcodeGroup1_RM_ImmFunc(self, unsigned char operSize, unsigned char immIsByte)
-    cdef opcodeGroup3_RM_ImmFunc(self, unsigned char operSize)
-    cdef opcodeGroup0F(self)
-    cdef opcodeGroupFE(self)
-    cdef opcodeGroupFF(self)
-    cdef incFuncReg(self, unsigned short regId, unsigned char regSize)
-    cdef decFuncReg(self, unsigned short regId, unsigned char regSize)
-    cdef incFuncRM(self, unsigned char rmSize)
-    cdef decFuncRM(self, unsigned char rmSize)
-    cdef incReg(self)
-    cdef decReg(self)
-    cdef pushReg(self)
-    cdef pushSeg(self, unsigned char opcode)
-    cdef popReg(self)
-    cdef popSeg(self, unsigned char opcode)
-    cdef popRM16_32(self)
-    cdef lea(self)
-    cdef retNear(self, unsigned short imm)
-    cdef retNearImm(self)
-    cdef retFar(self, unsigned short imm)
-    cdef retFarImm(self)
-    cdef lfpFunc(self, unsigned short segId) # 'load far pointer' function
-    cdef xlatb(self)
-    cdef opcodeGroup2_RM(self, unsigned char operSize)
-    cdef interrupt(self, short intNum, long errorCode) # TODO: complete this!
-    cdef into(self)
-    cdef int3(self)
-    cdef iret(self)
-    cdef aad(self)
-    cdef aam(self)
-    cdef aaa(self)
-    cdef aas(self)
-    cdef daa(self)
-    cdef das(self)
-    cdef cbw_cwde(self)
-    cdef cwd_cdq(self)
-    cdef shlFunc(self, unsigned char operSize, unsigned char count)
-    cdef sarFunc(self, unsigned char operSize, unsigned char count)
-    cdef shrFunc(self, unsigned char operSize, unsigned char count)
-    cdef rclFunc(self, unsigned char operSize, unsigned char count)
-    cdef rcrFunc(self, unsigned char operSize, unsigned char count)
-    cdef rolFunc(self, unsigned char operSize, unsigned char count)
-    cdef rorFunc(self, unsigned char operSize, unsigned char count)
-    cdef opcodeGroup4_RM(self, unsigned char operSize, unsigned char method)
-    cdef sahf(self)
-    cdef lahf(self)
-    cdef xchgFuncReg(self, unsigned short regName, unsigned short regName2)
-    cdef xchgReg(self)
-    cdef xchgR_RM(self, unsigned char operSize)
-    cdef enter(self)
-    cdef leave(self)
-    cdef cmovFunc(self, unsigned char cond) # R16, R/M 16; R32, R/M 32
-    cdef setWithCondFunc(self, unsigned char cond) # if cond==True set 1, else 0
-    cdef arpl(self)
-    cdef bound(self)
-    cdef btFunc(self, unsigned long offset, unsigned char newValType)
-    cdef run(self)
+    cdef long long inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
+    cdef int outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize) except -1
+    cdef int jumpFarAbsolutePtr(self) except -1
+    cdef int loopFunc(self, unsigned char loopType) except -1
+    cdef int opcodeR_RM(self, unsigned char opcode, unsigned char operSize) except -1
+    cdef int opcodeRM_R(self, unsigned char opcode, unsigned char operSize) except -1
+    cdef int opcodeAxEaxImm(self, unsigned char opcode, unsigned char operSize) except -1
+    cdef int movImmToR(self, unsigned char operSize) except -1
+    cdef int movRM_R(self, unsigned char operSize) except -1
+    cdef int movR_RM(self, unsigned char operSize, unsigned char cond) except -1
+    cdef int movRM16_SREG(self) except -1
+    cdef int movSREG_RM16(self) except -1
+    cdef int movAxMoffs(self, unsigned char operSize) except -1
+    cdef int movMoffsAx(self, unsigned char operSize) except -1
+    cdef int stosFunc(self, unsigned char operSize) except -1
+    cdef int movsFunc(self, unsigned char operSize) except -1
+    cdef int lodsFunc(self, unsigned char operSize) except -1
+    cdef int cmpsFunc(self, unsigned char operSize) except -1
+    cdef int scasFunc(self, unsigned char operSize) except -1
+    cdef int inAxImm8(self, unsigned char operSize) except -1
+    cdef int inAxDx(self, unsigned char operSize) except -1
+    cdef int outImm8Ax(self, unsigned char operSize) except -1
+    cdef int outDxAx(self, unsigned char operSize) except -1
+    cdef int outsFunc(self, unsigned char operSize) except -1
+    cdef int insFunc(self, unsigned char operSize) except -1
+    cdef int jcxzShort(self) except -1
+    cdef int jumpShort(self, unsigned char offsetSize, unsigned char cond) except -1
+    cdef int callNearRel16_32(self) except -1
+    cdef int callPtr16_32(self) except -1
+    cdef int pushaWD(self) except -1
+    cdef int popaWD(self) except -1
+    cdef int pushfWD(self) except -1
+    cdef int popfWD(self) except -1
+    cdef int stackPopSegId(self, unsigned short segId) except -1
+    cdef int stackPopRegId(self, unsigned short regId) except -1
+    cdef long long stackGetValue(self) except -1
+    cdef long long stackPopValue(self) except -1
+    cdef int stackPushValue(self, unsigned long value, unsigned char operSize) except -1
+    cdef int stackPushSegId(self, unsigned short segId, unsigned char operSize) except -1
+    cdef int stackPushRegId(self, unsigned short regId, unsigned char operSize) except -1
+    cdef int pushIMM(self, unsigned char immIsByte) except -1
+    cdef int imulR_RM_ImmFunc(self, unsigned char immIsByte) except -1
+    cdef int opcodeGroup1_RM_ImmFunc(self, unsigned char operSize, unsigned char immIsByte) except -1
+    cdef int opcodeGroup3_RM_ImmFunc(self, unsigned char operSize) except -1
+    cdef int opcodeGroup0F(self) except -1
+    cdef int opcodeGroupFE(self) except -1
+    cdef int opcodeGroupFF(self) except -1
+    cdef int incFuncReg(self, unsigned short regId, unsigned char regSize) except -1
+    cdef int decFuncReg(self, unsigned short regId, unsigned char regSize) except -1
+    cdef int incFuncRM(self, unsigned char rmSize) except -1
+    cdef int decFuncRM(self, unsigned char rmSize) except -1
+    cdef int incReg(self) except -1
+    cdef int decReg(self) except -1
+    cdef int pushReg(self) except -1
+    cdef int pushSeg(self, unsigned char opcode) except -1
+    cdef int popReg(self) except -1
+    cdef int popSeg(self, unsigned char opcode) except -1
+    cdef int popRM16_32(self) except -1
+    cdef int lea(self) except -1
+    cdef int retNear(self, unsigned short imm) except -1
+    cdef int retNearImm(self) except -1
+    cdef int retFar(self, unsigned short imm) except -1
+    cdef int retFarImm(self) except -1
+    cdef int lfpFunc(self, unsigned short segId) except -1 # 'load far pointer' function
+    cdef int xlatb(self) except -1
+    cdef int opcodeGroup2_RM(self, unsigned char operSize) except -1
+    cdef int interrupt(self, short intNum, long errorCode) except -1 # TODO: complete this!
+    cdef int into(self) except -1
+    cdef int int3(self) except -1
+    cdef int iret(self) except -1
+    cdef int aad(self) except -1
+    cdef int aam(self) except -1
+    cdef int aaa(self) except -1
+    cdef int aas(self) except -1
+    cdef int daa(self) except -1
+    cdef int das(self) except -1
+    cdef int cbw_cwde(self) except -1
+    cdef int cwd_cdq(self) except -1
+    cdef int shlFunc(self, unsigned char operSize, unsigned char count) except -1
+    cdef int sarFunc(self, unsigned char operSize, unsigned char count) except -1
+    cdef int shrFunc(self, unsigned char operSize, unsigned char count) except -1
+    cdef int rclFunc(self, unsigned char operSize, unsigned char count) except -1
+    cdef int rcrFunc(self, unsigned char operSize, unsigned char count) except -1
+    cdef int rolFunc(self, unsigned char operSize, unsigned char count) except -1
+    cdef int rorFunc(self, unsigned char operSize, unsigned char count) except -1
+    cdef int opcodeGroup4_RM(self, unsigned char operSize, unsigned char method) except -1
+    cdef int sahf(self) except -1
+    cdef int lahf(self) except -1
+    cdef int xchgFuncReg(self, unsigned short regName, unsigned short regName2) except -1
+    cdef int xchgReg(self) except -1
+    cdef int xchgR_RM(self, unsigned char operSize) except -1
+    cdef int enter(self) except -1
+    cdef int leave(self) except -1
+    cdef int cmovFunc(self, unsigned char cond) except -1 # R16, R/M 16; R32, R/M 32
+    cdef int setWithCondFunc(self, unsigned char cond) except -1 # if cond==True set 1, else 0
+    cdef int arpl(self) except -1
+    cdef int bound(self) except -1
+    cdef int btFunc(self, unsigned long offset, unsigned char newValType) except -1
+    cdef void run(self)
     # end of opcodes
 
 

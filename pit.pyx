@@ -55,7 +55,7 @@ cdef class PitChannel:
         if (self.counterMode == 3 and self.counterValue%2 == 1):
             self.counterValue -= 1
         self.counterStartValue = self.counterValue
-        self.tempTimerValue = 1.0/(1193182.0/self.counterValue)
+        self.tempTimerValue = 1.0/(1193182.0/self.counterStartValue)
         if (self.tempTimerValue < 0.01): # TODO
             self.tempTimerValue = 0.01
         if (self.counterMode == 0): # mode 0
