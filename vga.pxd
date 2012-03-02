@@ -5,7 +5,7 @@ from pygameUI cimport PygameUI
 
 cdef class VRamArea(MmArea):
     cdef unsigned long memBaseAddrTextmodeBaseDiff
-    cdef void mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize)
+    cdef void mmAreaWrite(self, unsigned long mmAddr, char *data, unsigned long dataSize)
     cpdef handleVRamWrite(self, unsigned long mmAreaAddr, unsigned long dataSize)
 
 

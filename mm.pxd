@@ -15,7 +15,7 @@ cdef class MmArea:
     cpdef mmFreeAreaData(self)
     cdef void mmSetReadOnly(self, unsigned char mmReadOnly)
     cdef bytes mmAreaRead(self, unsigned long mmAddr, unsigned long dataSize)
-    cdef void mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize)
+    cdef void mmAreaWrite(self, unsigned long mmAddr, char *data, unsigned long dataSize)
     cdef void mmAreaCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize)
     cpdef run(self)
 

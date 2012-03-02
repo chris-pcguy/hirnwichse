@@ -1986,7 +1986,6 @@ cdef class Opcodes:
         cdef IdtEntry idtEntry
         isSoftInt = False
         entryType, entrySize, entryPresent, eflagsClearThis = IDT_INTR_TYPE_INTERRUPT, OP_SIZE_WORD, True, (FLAG_TF | FLAG_RF)
-        cpl = self.registers.getCPL()
         inProtectedMode = (<Segments>self.registers.segments).isInProtectedMode()
         if (inProtectedMode):
             eflagsClearThis |= (FLAG_NT | FLAG_VM)
@@ -2011,6 +2010,7 @@ cdef class Opcodes:
                     return True
         self.main.debug("Interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}, AX: {3:#06x}", intNum, entrySegment, entryEip, self.registers.regReadUnsigned(CPU_REGISTER_AX))
         if (inProtectedMode):
+            cpl = self.registers.getCPL()
             if ((cpl and cpl > entrySegment&3) or (<Segments>self.registers.segments).getSegDPL(entrySegment)):
                 self.main.exitError("Interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")
                 return True
@@ -2031,17 +2031,18 @@ cdef class Opcodes:
             self.stackPushValue(errorCode, entrySize)
         return True
     cdef int into(self):
+        self.main.printMsg("Opcodes::into: enter function.")
         if (self.registers.getEFLAG(FLAG_OF)):
             return self.interrupt(CPU_EXCEPTION_OF, -1)
         return True
     cdef int int3(self):
+        self.main.printMsg("Opcodes::int3: enter function.")
         return self.interrupt(CPU_EXCEPTION_BP, -1)
     cdef int iret(self):
         cdef GdtEntry gdtEntry
         cdef unsigned char inProtectedMode, cpl
         cdef unsigned short SSsel, intrSeg
         cdef unsigned long tempEFLAGS, tempEIP, tempCS, eflagsMask
-        cpl = self.registers.getCPL()
         inProtectedMode = (<Segments>self.registers.segments).isInProtectedMode()
         if (not inProtectedMode and self.registers.operSize == OP_SIZE_DWORD):
             tempEIP = self.stackGetValue()
@@ -2058,6 +2059,7 @@ cdef class Opcodes:
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             if ((tempCS&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit):
                 raise ChemuException(CPU_EXCEPTION_GP, tempCS&0xfff8)
+            cpl = self.registers.getCPL()
             gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(tempCS))
             if (not gdtEntry.segIsCodeSeg or ((tempCS&3) < cpl) or (gdtEntry.segIsConforming and \
               (gdtEntry.segDPL > (tempCS&3)))):

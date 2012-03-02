@@ -30,7 +30,7 @@ cdef class MmArea:
                 self.main.printMsg("MmArea::mmAreaRead: self.mmAreaData is None || not dataSize.")
                 raise MemoryError()
         return self.mmAreaData[mmAddr:mmAddr+dataSize]
-    cdef void mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize):
+    cdef void mmAreaWrite(self, unsigned long mmAddr, char *data, unsigned long dataSize):
         mmAddr -= self.mmBaseAddr
         IF STRICT_CHECKS:
             if (self.mmAreaData is None or not dataSize):
@@ -39,7 +39,7 @@ cdef class MmArea:
             if (self.mmReadOnly):
                 self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
                 return
-        memcpy(<char*>(self.mmAreaData+mmAddr), <char*>data, dataSize)
+        memcpy(<char*>(self.mmAreaData+mmAddr), data, dataSize)
     cdef void mmAreaCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize):
         destAddr -= self.mmBaseAddr
         srcAddr -= self.mmBaseAddr

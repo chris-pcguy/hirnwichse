@@ -9,7 +9,7 @@ cdef class VRamArea(MmArea):
     def __init__(self, Mm mmObj, unsigned long mmBaseAddr, unsigned long mmAreaSize, unsigned char mmReadOnly):
         MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
         self.memBaseAddrTextmodeBaseDiff = VGA_TEXTMODE_ADDR-self.mmBaseAddr
-    cdef void mmAreaWrite(self, unsigned long mmAddr, bytes data, unsigned long dataSize): # dataSize(type int) is count in bytes
+    cdef void mmAreaWrite(self, unsigned long mmAddr, char *data, unsigned long dataSize): # dataSize(type int) is count in bytes
         MmArea.mmAreaWrite(self, mmAddr, data, dataSize)
         # TODO: hardcoded to 80x25
         if (mmAddr < VGA_TEXTMODE_ADDR or mmAddr+dataSize > VGA_TEXTMODE_ADDR+4000):
