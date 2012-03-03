@@ -115,23 +115,23 @@ cdef class ExtReg(VGA_REGISTER_RAW):
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_ATTRCTRLREG_AREA_SIZE, vga, main)
-        self.clearFlipFlop()
-    cdef void clearFlipFlop(self):
-        self.flipFlop = False
+        self.setFlipFlop(False)
+    cdef void setFlipFlop(self, unsigned char flipFlop):
+        self.flipFlop = flipFlop
     cdef unsigned long getIndexData(self, unsigned char dataSize):
         cdef unsigned long retVal
         if (not self.flipFlop):
             retVal = self.getIndex()
         else:
             retVal = self.getData(dataSize)
-        self.flipFlop = not self.flipFlop
+        self.setFlipFlop(not self.flipFlop)
         return retVal
     cdef void setIndexData(self, unsigned long data, unsigned char dataSize):
         if (not self.flipFlop):
             self.setIndex(data)
         else:
             self.setData(data, dataSize)
-        self.flipFlop = not self.flipFlop
+        self.setFlipFlop(not self.flipFlop)
 
 
 
@@ -256,7 +256,7 @@ cdef class Vga:
         elif (ioPortAddr == 0x3cc):
             retVal = self.extreg.getMiscOutReg()
         elif (ioPortAddr == 0x3da):
-            self.attrctrlreg.clearFlipFlop()
+            self.attrctrlreg.setFlipFlop(False)
         else:
             self.main.exitError("inPort: port {0:#04x} isn't supported. (dataSize byte)", ioPortAddr)
         return retVal&BITMASK_BYTE

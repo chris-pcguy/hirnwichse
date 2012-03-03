@@ -31,10 +31,9 @@ cdef class Opcodes:
         self.main.cpu.cpuHalted = True
     cdef inline void syncProtectedModeState(self):
         (<Segments>self.registers.segments).protectedModeOn = self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PE)
-        if ((<Segments>self.registers.segments).protectedModeOn):
-            (<Gdt>self.registers.segments.gdt).loadTableData()
     cdef long long inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
     cdef int outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize) except -1
+    cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned long eipVal) except -1
     cdef int jumpFarAbsolutePtr(self) except -1
     cdef int loopFunc(self, unsigned char loopType) except -1
     cdef int opcodeR_RM(self, unsigned char opcode, unsigned char operSize) except -1

@@ -310,7 +310,7 @@ cdef class IsaDma:
         currController = (<IsaDmaController>self.controller[ma_sl])
         currChannel = (<IsaDmaChannel>currController.channel[channel])
         phyAddr = ((currChannel.page << 16) | \
-                   (currChannel.currentAddress << ma_sl))
+                   <unsigned short>(currChannel.currentAddress << ma_sl))
         (<IsaDmaChannel>(<IsaDmaController>self.controller[ma_sl]).channel[channel]).DACK = True
         if (currChannel.addressDecrement):
             currChannel.currentAddress = <unsigned short>(currChannel.currentAddress-1)

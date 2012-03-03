@@ -30,16 +30,14 @@ cdef class IdtEntry:
 
 cdef class Gdt:
     cdef Segments segments
-    cdef ConfigSpace table
     cdef unsigned short tableLimit
     cdef unsigned long tableBase
-    cdef void reset(self)
     cdef void loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit)
-    cdef void loadTableData(self)
     cdef void getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit)
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char getSegSize(self, unsigned short num)
-    cdef unsigned char getSegAccess(self, unsigned short num)
+    cdef unsigned char getSegType(self, unsigned short num)
+    cdef void setSegType(self, unsigned short num, unsigned char segmentType)
     cdef unsigned char isSegPresent(self, unsigned short num)
     cdef unsigned char isCodeSeg(self, unsigned short num)
     cdef unsigned char isSegReadableWritable(self, unsigned short num)
@@ -49,14 +47,11 @@ cdef class Gdt:
     cdef unsigned char checkReadAllowed(self, unsigned short num)
     cdef unsigned char checkWriteAllowed(self, unsigned short num)
     cdef void checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment)
-    cdef void run(self)
 
 cdef class Idt:
     cdef Segments segments
-    cdef ConfigSpace table
     cdef unsigned short tableLimit
     cdef unsigned long tableBase
-    cdef void reset(self)
     cdef void loadTable(self, unsigned long tableBase, unsigned short tableLimit)
     cdef void getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit)
     cdef IdtEntry getEntry(self, unsigned char num)
@@ -64,18 +59,13 @@ cdef class Idt:
     cdef unsigned char getEntryNeededDPL(self, unsigned char num)
     cdef unsigned char getEntrySize(self, unsigned char num)
     cdef void getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip)
-    cdef void run(self)
 
 cdef class Tss:
     cdef Segments segments
-    cdef ConfigSpace table
     cdef unsigned short tableLimit
     cdef unsigned long tableBase
-    cdef void reset(self)
     cdef void loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit)
-    cdef void loadTableData(self)
     cdef void getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit)
-    cdef void run(self)
 
 cdef class Segments:
     cpdef object main
@@ -91,7 +81,6 @@ cdef class Segments:
     cdef void setA20State(self, unsigned char state)
     cdef Segment getSegmentInstance(self, unsigned short segmentId)
     cdef GdtEntry getEntry(self, unsigned short num)
-    cdef unsigned char getSegAccess(self, unsigned short num)
     cdef unsigned char isCodeSeg(self, unsigned short num)
     cdef unsigned char isSegReadableWritable(self, unsigned short num)
     cdef unsigned char isSegConforming(self, unsigned short num)

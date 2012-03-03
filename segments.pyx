@@ -127,20 +127,12 @@ cdef class Gdt:
     def __init__(self, Segments segments):
         self.segments = segments
         self.tableBase = self.tableLimit = 0
-    cdef void reset(self):
-        self.table.csResetData()
     cdef void loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit):
         if (tableLimit > GDT_HARD_LIMIT):
             self.segments.main.exitError("Gdt::loadTablePosition: tableLimit {0:#06x} > GDT_HARD_LIMIT {1:#06x}.",\
               tableLimit, GDT_HARD_LIMIT)
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
-    cdef void loadTableData(self):
-        if (not self.tableLimit):
-            self.segments.main.exitError("Gdt::loadTableData: tableLimit is zero.")
-            return
-        self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
-                            (<unsigned long>self.tableLimit)+1), (<unsigned long>self.tableLimit)+1)
     cdef void getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
@@ -150,13 +142,14 @@ cdef class Gdt:
         if (not num):
             ##self.segments.main.debug("GDT::getEntry: num == 0!")
             return None
-        self.loadTableData() # do we need this here? It seems, that memtest86-4.0a need this.
-        entryData = self.table.csReadValueUnsigned(num, 8)
+        entryData = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(self.tableBase+num, 8)
         return GdtEntry(self, entryData)
     cdef unsigned char getSegSize(self, unsigned short num):
         return self.getEntry(num).segSize
-    cdef unsigned char getSegAccess(self, unsigned short num):
-        return self.getEntry(num).accessByte
+    cdef unsigned char getSegType(self, unsigned short num):
+        return ((<Mm>self.segments.main.mm).mmPhyReadValue(num+5, OP_SIZE_BYTE) & (~GDT_ACCESS_PRESENT))
+    cdef void setSegType(self, unsigned short num, unsigned char segmentType):
+        (<Mm>self.segments.main.mm).mmPhyWriteValue(num+5, ((self.getEntry(num).segPresent and GDT_ACCESS_PRESENT) | segmentType), OP_SIZE_BYTE)
     cdef unsigned char isSegPresent(self, unsigned short num):
         return self.getEntry(num).segPresent
     cdef unsigned char isCodeSeg(self, unsigned short num):
@@ -198,7 +191,7 @@ cdef class Gdt:
         gdtEntry = self.getEntry(num)
         if (not gdtEntry):
             return False
-        if ((((gdtEntry.accessByte & GDT_ACCESS_SYSTEM_SEGMENT_TYPE) == 0) or not gdtEntry.segIsConforming) and \
+        if (((self.getSegType(num) == 0) or not gdtEntry.segIsConforming) and \
           ((self.segments.cs.segmentIndex&3 > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
             return False
         if (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW):
@@ -214,7 +207,7 @@ cdef class Gdt:
         gdtEntry = self.getEntry(num)
         if (not gdtEntry):
             return False
-        if ((((gdtEntry.accessByte & GDT_ACCESS_SYSTEM_SEGMENT_TYPE) == 0) or not gdtEntry.segIsConforming) and \
+        if (((self.getSegType(num) == 0) or not gdtEntry.segIsConforming) and \
           ((self.segments.cs.segmentIndex&3 > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
             return False
         if (not gdtEntry.segIsCodeSeg and gdtEntry.segIsRW):
@@ -251,17 +244,12 @@ cdef class Gdt:
               cpl > numSegDPL)) or \
               (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
                 raise ChemuException(CPU_EXCEPTION_GP, num)
-    cdef void run(self):
-        self.table = ConfigSpace((<unsigned long>GDT_HARD_LIMIT+1), self.segments.main)
-        self.table.run()
 
 
 cdef class Idt:
     def __init__(self, Segments segments):
         self.segments = segments
         self.tableBase = self.tableLimit = 0
-    cdef void reset(self):
-        self.table.csResetData()
     cdef void loadTable(self, unsigned long tableBase, unsigned short tableLimit):
         if (tableLimit > IDT_HARD_LIMIT):
             self.segments.main.exitError("Idt::loadTablePosition: tableLimit {0:#06x} > IDT_HARD_LIMIT {1:#06x}.",\
@@ -269,17 +257,15 @@ cdef class Idt:
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
         if (self.segments.protectedModeOn and not self.tableLimit and self.tableBase):
-            self.segments.main.exitError("Idt::loadTableData: tableLimit is zero.")
+            self.segments.main.exitError("Idt::loadTable: tableLimit is zero.")
             return
-        self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
-                            (<unsigned long>self.tableLimit)+1), (<unsigned long>self.tableLimit)+1)
     cdef void getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
     cdef IdtEntry getEntry(self, unsigned char num):
         if (not self.tableLimit):
             self.segments.main.exitError("Idt::getEntry: tableLimit is zero.")
-        return IdtEntry(<unsigned long long>self.table.csReadValueUnsigned((num*8), 8))
+        return IdtEntry(<unsigned long long>(<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(self.tableBase+(num*8), 8))
     cdef unsigned char isEntryPresent(self, unsigned char num):
         return self.getEntry(num).entryPresent
     cdef unsigned char getEntryNeededDPL(self, unsigned char num):
@@ -292,9 +278,6 @@ cdef class Idt:
         offset = num*4 # Don't use ConfigSpace here.
         entryEip[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset, 2)
         entrySegment[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset+2, 2)
-    cdef void run(self):
-        self.table = ConfigSpace((<unsigned long>IDT_HARD_LIMIT+1), self.segments.main)
-        self.table.run()
 
 
 
@@ -303,28 +286,11 @@ cdef class Tss:
     def __init__(self, Segments segments):
         self.segments = segments
         self.tableBase = self.tableLimit = 0
-    cdef void reset(self):
-        self.table.csResetData()
     cdef void loadTablePosition(self, unsigned long tableBase, unsigned short tableLimit):
-        if (tableLimit > TSS_HARD_LIMIT):
-            self.segments.main.exitError("Tss::loadTablePosition: tableLimit {0:#06x} > TSS_HARD_LIMIT {1:#06x}.",\
-              tableLimit, TSS_HARD_LIMIT)
-            return
         self.tableBase, self.tableLimit = tableBase, tableLimit
-    cdef void loadTableData(self):
-        if (not self.tableLimit):
-            self.segments.main.exitError("Tss::loadTableData: tableLimit is zero.")
-            return
-        self.table.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.tableBase, \
-                            (<unsigned long>self.tableLimit)+1), (<unsigned long>self.tableLimit)+1)
     cdef void getBaseLimit(self, unsigned long *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
-    cdef void run(self):
-        self.table = ConfigSpace((<unsigned long>TSS_HARD_LIMIT+1), self.segments.main)
-        self.table.run()
-
-
 
 
 
@@ -333,9 +299,6 @@ cdef class Segments:
         self.main = main
         self.ldtr = self.tr = 0
     cdef void reset(self):
-        self.gdt.reset()
-        self.ldt.reset()
-        self.idt.reset()
         self.ldtr = self.tr = 0
         self.A20Active = True # enable A20-line by default.
         self.protectedModeOn = False
@@ -369,10 +332,6 @@ cdef class Segments:
         if (num & SELECTOR_USE_LDT):
             return <GdtEntry>self.ldt.getEntry(num)
         return <GdtEntry>self.gdt.getEntry(num)
-    cdef unsigned char getSegAccess(self, unsigned short num):
-        if (num & SELECTOR_USE_LDT):
-            return self.ldt.getSegAccess(num)
-        return self.gdt.getSegAccess(num)
     cdef unsigned char isCodeSeg(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
             return self.ldt.isCodeSeg(num)
@@ -411,10 +370,6 @@ cdef class Segments:
         self.ldt = Gdt(self)
         self.idt = Idt(self)
         self.tss = Tss(self)
-        self.gdt.run()
-        self.ldt.run()
-        self.idt.run()
-        self.tss.run()
         self.cs = Segment(self, CPU_SEGMENT_CS, 0)
         self.ds = Segment(self, CPU_SEGMENT_DS, 0)
         self.es = Segment(self, CPU_SEGMENT_ES, 0)

@@ -451,15 +451,25 @@ cdef class Opcodes:
             if (self.registers.getCPL() > self.registers.getIOPL()):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         self.main.platform.outPort(ioPortAddr, data, dataSize)
+    cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned long eipVal):
+        cdef GdtEntry gdtEntry
+        self.syncProtectedModeState()
+        if ((<Segments>self.registers.segments).isInProtectedMode()):
+            gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(segVal))
+            if (not gdtEntry or not gdtEntry.segPresent):
+                raise ChemuException(CPU_EXCEPTION_NP, segVal)
+        if (method == OPCODE_CALL):
+            self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
+            self.stackPushRegId(self.registers.eipSizeRegId, self.registers.operSize)
+        self.registers.segWrite(CPU_SEGMENT_CS, segVal)
+        self.registers.regWrite(CPU_REGISTER_EIP, eipVal)
+        return True
     cdef int jumpFarAbsolutePtr(self):
         cdef unsigned short cs
         cdef unsigned long eip
         eip = self.registers.getCurrentOpcodeAddUnsigned(self.registers.operSize)
         cs = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_WORD)
-        self.syncProtectedModeState()
-        self.registers.regWrite(CPU_REGISTER_EIP, eip)
-        self.registers.segWrite(CPU_SEGMENT_CS, cs)
-        return True
+        return self.jumpFarDirect(OPCODE_JUMP, cs, eip)
     cdef int loopFunc(self, unsigned char loopType):
         cdef unsigned char cond, oldZF
         cdef unsigned short countReg
@@ -607,7 +617,7 @@ cdef class Opcodes:
             ediVal = <unsigned long>(ediVal-(dataLength-operSize))
         if (self.registers.addrSize == OP_SIZE_WORD):
             ediVal = <unsigned short>ediVal
-        self.registers.mmWrite(ediVal, <bytes>data.to_bytes(length=operSize, \
+        self.registers.mmWrite(ediVal, data.to_bytes(length=operSize, \
           byteorder="little")*countVal, dataLength, CPU_SEGMENT_ES, False)
         if (not dfFlag):
             self.registers.regAdd(dataReg, dataLength)
@@ -868,11 +878,7 @@ cdef class Opcodes:
         cdef unsigned long eipAddr
         eipAddr = self.registers.getCurrentOpcodeAddUnsigned(self.registers.operSize)
         segVal = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_WORD)
-        self.syncProtectedModeState()
-        self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
-        self.stackPushRegId(self.registers.eipSizeRegId, self.registers.operSize)
-        self.registers.segWrite(CPU_SEGMENT_CS, segVal)
-        self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
+        self.jumpFarDirect(OPCODE_CALL, segVal, eipAddr)
         return True
     cdef int pushaWD(self):
         cdef unsigned short regName
@@ -1086,7 +1092,7 @@ cdef class Opcodes:
         return True
     cdef int opcodeGroup0F(self):
         cdef unsigned char operOpcode, bitSize, operOpcodeMod, operOpcodeModId, \
-            newCF, newOF, oldOF, count, eaxIsInvalid, cpl
+            newCF, newOF, oldOF, count, eaxIsInvalid, cpl, segType
         cdef unsigned short eaxReg, limit
         cdef unsigned long eaxId, bitMask, bitMaskHalf, base, mmAddr, op1, op2
         cdef unsigned long long qop1, qop2
@@ -1124,37 +1130,51 @@ cdef class Opcodes:
                         op1 = 0
                     else:
                         if ((op1 & SELECTOR_USE_LDT) or \
-                          ((op1&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit) or \
-                          (((<Gdt>self.registers.segments.gdt).getSegAccess(op1) & \
-                          GDT_ACCESS_SYSTEM_SEGMENT_TYPE) != GDT_ENTRY_SYSTEM_TYPE_LDT)):
+                          ((op1&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit)):
                             raise ChemuException(CPU_EXCEPTION_GP, op1)
-                        elif (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
+                        segType = (<Gdt>self.registers.segments.gdt).getSegType(op1)
+                        if (segType != TABLE_ENTRY_SYSTEM_TYPE_LDT):
+                            raise ChemuException(CPU_EXCEPTION_GP, op1)
+                        if (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
                             raise ChemuException(CPU_EXCEPTION_NP, op1)
-                    op1 &= 0xfff8
+                        op1 &= 0xfff8
                     gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op1))
                     if (not gdtEntry):
                         op1 = 0
                     (<Segments>self.registers.segments).ldtr = op1
                     if (gdtEntry):
                         (<Gdt>self.registers.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
-                        (<Gdt>self.registers.segments.ldt).loadTableData()
                 elif (operOpcodeModId == 3): # LTR
                     if (not (op1&0xfff8)):
                         raise ChemuException(CPU_EXCEPTION_GP, 0)
                     elif ((op1 & SELECTOR_USE_LDT) or \
-                      ((op1&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit) or \
-                      (((<Gdt>self.registers.segments.gdt).getSegAccess(op1) & \
-                      GDT_ACCESS_SYSTEM_SEGMENT_TYPE) != GDT_ENTRY_SYSTEM_TYPE_TSS)):
+                      ((op1&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit)):
                         raise ChemuException(CPU_EXCEPTION_GP, op1)
-                    elif (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
+                    segType = (<Gdt>self.registers.segments.gdt).getSegType(op1)
+                    if (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
                         raise ChemuException(CPU_EXCEPTION_NP, op1)
                     gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op1))
-                    if (not gdtEntry):
+                    if (not gdtEntry or (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, \
+                      TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS))):
                         raise ChemuException(CPU_EXCEPTION_GP, op1)
-                    op1 &= 0xfff8
+                    if (segType == TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS):
+                        (<Gdt>self.registers.segments.gdt).setSegType(op1, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY)
+                    elif (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS):
+                        (<Gdt>self.registers.segments.gdt).setSegType(op1, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)
+                    if (gdtEntry.segSize == OP_SIZE_WORD and gdtEntry.limit != TSS_MIN_16BIT_HARD_LIMIT):
+                        self.segments.main.printMsg(\
+                          "opcodeGroup0F_00_LTR: tssLimit {0:#06x} != TSS_MIN_16BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
+                          TSS_MIN_16BIT_HARD_LIMIT)
+                        op1 = 0
+                    elif (gdtEntry.segSize == OP_SIZE_DWORD and gdtEntry.limit < TSS_MIN_32BIT_HARD_LIMIT):
+                        self.segments.main.printMsg(\
+                          "opcodeGroup0F_00_LTR: tssLimit {0:#06x} < TSS_MIN_32BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
+                          TSS_MIN_32BIT_HARD_LIMIT)
+                        op1 = 0
+                    else:
+                        op1 &= 0xfff8
                     (<Segments>self.registers.segments).tr = op1
                     (<Gdt>self.registers.segments.tss).loadTablePosition(gdtEntry.base, gdtEntry.limit)
-                    (<Gdt>self.registers.segments.tss).loadTableData()
                     self.main.printMsg("opcodeGroup0F_00_LTR: TR isn't fully supported yet.")
             elif (operOpcodeModId == 4): # VERR
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)
@@ -1254,9 +1274,9 @@ cdef class Opcodes:
                 return True
             gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op2))
             if ((not gdtEntry.segIsConforming and ((cpl > gdtEntry.segDPL) or ((op2&3) > gdtEntry.segDPL))) or \
-              ((gdtEntry.accessByte & GDT_ACCESS_SYSTEM_SEGMENT_TYPE) not in (0x1, 0x2, 0x3, 0x9, 0xb))):
+              ((<Gdt>self.registers.segments.gdt).getSegType(op2) not in (0x1, 0x2, 0x3, 0x9, 0xb))):
                 self.registers.setEFLAG(FLAG_ZF, False)
-                return True
+                return True  
             op1 = gdtEntry.limit
             if ((gdtEntry.flags & GDT_FLAG_USE_4K) != 0):
                 op1 <<= 12
@@ -1643,11 +1663,7 @@ cdef class Opcodes:
             op1 = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             eipAddr = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
             segVal = self.registers.mmReadValueUnsigned(op1+self.registers.operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
-            self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
-            self.stackPushRegId(self.registers.eipSizeRegId, self.registers.operSize)
-            self.syncProtectedModeState()
-            self.registers.segWrite(CPU_SEGMENT_CS, segVal)
-            self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
+            self.jumpFarDirect(OPCODE_CALL, segVal, eipAddr)
         elif (operOpcodeId == 4): # 4/JMP NEAR
             eipAddr = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
@@ -1655,9 +1671,7 @@ cdef class Opcodes:
             op1 = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             eipAddr = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
             segVal = self.registers.mmReadValueUnsigned(op1+self.registers.operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
-            self.syncProtectedModeState()
-            self.registers.segWrite(CPU_SEGMENT_CS, segVal)
-            self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
+            return self.jumpFarDirect(OPCODE_JUMP, segVal, eipAddr)
         elif (operOpcodeId == 6): # 6/PUSH
             op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             return self.stackPushValue(op1, self.registers.operSize)
@@ -1794,19 +1808,18 @@ cdef class Opcodes:
     cdef int retFar(self, unsigned short imm):
         cdef unsigned char stackAddrSize
         cdef unsigned short espName
-        stackAddrSize = self.registers.getSegSize(CPU_SEGMENT_SS)
-        espName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
         self.syncProtectedModeState()
         self.stackPopRegId(CPU_REGISTER_EIP)
         self.stackPopSegId(CPU_SEGMENT_CS)
         if (imm):
+            stackAddrSize = self.registers.getSegSize(CPU_SEGMENT_SS)
+            espName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
             self.registers.regAdd(espName, imm)
         return True
     cdef int retFarImm(self):
         cdef unsigned short imm
         imm = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_WORD) # imm16
-        self.retFar(imm)
-        return True
+        return self.retFar(imm)
     cdef int lfpFunc(self, unsigned short segId): # 'load far pointer' function
         cdef unsigned short segmentAddr
         cdef unsigned long mmAddr, offsetAddr
@@ -1981,7 +1994,8 @@ cdef class Opcodes:
         cdef unsigned long entryEip, eflagsClearThis
         cdef IdtEntry idtEntry
         isSoftInt = False
-        entryType, entrySize, entryPresent, eflagsClearThis = IDT_INTR_TYPE_INTERRUPT, OP_SIZE_WORD, True, (FLAG_TF | FLAG_RF)
+        entryType, entrySize, entryPresent, eflagsClearThis = TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, \
+          OP_SIZE_WORD, True, (FLAG_TF | FLAG_RF)
         inProtectedMode = (<Segments>self.registers.segments).isInProtectedMode()
         if (inProtectedMode):
             eflagsClearThis |= (FLAG_NT | FLAG_VM)
@@ -2015,7 +2029,7 @@ cdef class Opcodes:
                 self.main.printMsg("Opcodes::interrupt: cpl&3 != entrySegment&3. What to do here???")
                 self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
                 self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
-        if (entryType == IDT_INTR_TYPE_INTERRUPT):
+        if (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE)):
             eflagsClearThis |= FLAG_IF
         self.stackPushRegId(CPU_REGISTER_EFLAGS, entrySize)
         self.registers.setEFLAG(eflagsClearThis, False)
