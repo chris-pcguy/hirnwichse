@@ -42,7 +42,7 @@ cdef class MmArea:
         memcpy(<char*>(self.mmAreaData+mmAddr), data, dataSize)
     cdef void mmAreaCopy(self, unsigned long destAddr, unsigned long srcAddr, unsigned long dataSize):
         destAddr -= self.mmBaseAddr
-        srcAddr -= self.mmBaseAddr
+        srcAddr  -= self.mmBaseAddr
         IF STRICT_CHECKS:
             if (self.mmAreaData is None or not dataSize):
                 self.main.printMsg("MmArea::mmAreaCopy: self.mmAreaData is None || not dataSize.")
@@ -50,7 +50,7 @@ cdef class MmArea:
             if (self.mmReadOnly):
                 self.main.exitError("MmArea::mmAreaCopy: mmArea is mmReadOnly, exiting...")
                 return
-        memcpy(<char*>(self.mmAreaData+destAddr), <char*>(self.mmAreaData+srcAddr), dataSize)
+        memmove(<char*>(self.mmAreaData+destAddr), <char*>(self.mmAreaData+srcAddr), dataSize)
     cpdef run(self):
         self.mmAreaData = <char*>malloc(self.mmAreaSize)
         if (self.mmAreaData is None):

@@ -477,7 +477,7 @@ cdef class Opcodes:
         elif (loopType == OPCODE_LOOPNE and oldZF):
             cond = False
         if (cond):
-            countOrNewEip = <unsigned long>(self.registers.regReadUnsigned(self.registers.eipSizeRegId)+rel8)
+            countOrNewEip = <unsigned long>(self.registers.regReadUnsigned(CPU_REGISTER_EIP)+rel8)
             if (self.registers.operSize == OP_SIZE_WORD):
                 countOrNewEip = <unsigned short>countOrNewEip
             self.registers.regWrite(CPU_REGISTER_EIP, countOrNewEip)
@@ -588,7 +588,6 @@ cdef class Opcodes:
         cdef unsigned short dataReg, srcReg, countReg
         cdef unsigned long data, countVal, ediVal
         cdef unsigned long long dataLength
-        cdef bytes memData
         srcReg  = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
         dataReg = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.addrSize)
         countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
@@ -608,8 +607,8 @@ cdef class Opcodes:
             ediVal = <unsigned long>(ediVal-(dataLength-operSize))
         if (self.registers.addrSize == OP_SIZE_WORD):
             ediVal = <unsigned short>ediVal
-        memData = data.to_bytes(length=operSize, byteorder="little")*countVal
-        self.registers.mmWrite(ediVal, memData, dataLength, CPU_SEGMENT_ES, False)
+        self.registers.mmWrite(ediVal, <bytes>data.to_bytes(length=operSize, \
+          byteorder="little")*countVal, dataLength, CPU_SEGMENT_ES, False)
         if (not dfFlag):
             self.registers.regAdd(dataReg, dataLength)
         else:
@@ -849,7 +848,7 @@ cdef class Opcodes:
         offset = self.registers.getCurrentOpcodeAddSigned(offsetSize)
         if (not cond):
             return True
-        newEip = <unsigned long>(self.registers.regReadUnsigned(self.registers.eipSizeRegId)+offset)
+        newEip = <unsigned long>(self.registers.regReadUnsigned(CPU_REGISTER_EIP)+offset)
         if (self.registers.operSize == OP_SIZE_WORD):
             newEip = <unsigned short>newEip
         self.registers.regWrite(CPU_REGISTER_EIP, newEip)
@@ -858,7 +857,7 @@ cdef class Opcodes:
         cdef long offset
         cdef unsigned long newEip
         offset = self.registers.getCurrentOpcodeAddSigned(self.registers.operSize)
-        newEip = <unsigned long>(self.registers.regReadUnsigned(self.registers.eipSizeRegId)+offset)
+        newEip = <unsigned long>(self.registers.regReadUnsigned(CPU_REGISTER_EIP)+offset)
         if (self.registers.operSize == OP_SIZE_WORD):
             newEip = <unsigned short>newEip
         self.stackPushRegId(self.registers.eipSizeRegId, self.registers.operSize)

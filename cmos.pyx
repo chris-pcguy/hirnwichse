@@ -106,7 +106,7 @@ cdef class Cmos:
                 self.main.exitError("inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported. (port: {0:#06x})", dataSize, ioPortAddr)
-        return 0
+        return 0xff
     cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef unsigned char tempIndex
         if (dataSize == OP_SIZE_BYTE):

@@ -1,7 +1,7 @@
 
 from misc cimport Misc
 from libc.stdlib cimport calloc, malloc, free
-from libc.string cimport strncpy, memcpy, memset
+from libc.string cimport strncpy, memcpy, memset, memmove
 
 
 cdef class MmArea:

@@ -152,7 +152,8 @@ cdef class Cpu:
                 cycleInc = self.cycles >> 13
                 if (cycleInc > self.oldCycleInc):
                     self.oldCycleInc = cycleInc
-                    self.main.pyroUI.pumpEvents()
+                    if (self.main.pyroUI is not None):
+                        self.main.pyroUI.pumpEvents()
                 self.doCycle()
         except (SystemExit, KeyboardInterrupt):
             print(exc_info())

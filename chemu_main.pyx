@@ -19,6 +19,8 @@ cdef class ChEmu:
         self.quitEmu = False
         self.exitOnTripleFault = True
         self.exitCode = 0
+        self.pyroURI_UI = None
+        self.pyroUI = None
         register(self.quitFunc)
     cpdef isRunning(self):
         return (not self.quitEmu)
@@ -82,6 +84,10 @@ cdef class ChEmu:
             self.pyroDaemon.requestLoop(self.isRunning)
             while (active_count() > 1 and not self.quitEmu):
                 sleep(5)
+        except KeyboardInterrupt:
+            exit(0)
+        except SystemExit as e:
+            exit(e.code)
         except:
             print(exc_info())
             exit(1)

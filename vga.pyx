@@ -14,6 +14,8 @@ cdef class VRamArea(MmArea):
         # TODO: hardcoded to 80x25
         if (mmAddr < VGA_TEXTMODE_ADDR or mmAddr+dataSize > VGA_TEXTMODE_ADDR+4000):
             return
+        if (self.main.pyroUI is None):
+            return
         if ((<Vga>self.main.platform.vga).getProcessVideoMem() and (<ExtReg>(<Vga>self.main.platform.vga).extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
             mmAddr -= self.mmBaseAddr
             self.handleVRamWrite(mmAddr, dataSize)
@@ -113,6 +115,8 @@ cdef class ExtReg(VGA_REGISTER_RAW):
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_ATTRCTRLREG_AREA_SIZE, vga, main)
+        self.clearFlipFlop()
+    cdef void clearFlipFlop(self):
         self.flipFlop = False
     cdef unsigned long getIndexData(self, unsigned char dataSize):
         cdef unsigned long retVal
@@ -232,10 +236,12 @@ cdef class Vga:
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned long retVal
-        retVal = 0
-        if (ioPortAddr == 0x3c0):
+        retVal = 0xff
+        if (dataSize != OP_SIZE_BYTE):
+            self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+        elif (ioPortAddr == 0x3c0):
             retVal = self.attrctrlreg.getIndex()
-        if (ioPortAddr == 0x3c1):
+        elif (ioPortAddr == 0x3c1):
             retVal = self.attrctrlreg.getData(dataSize)
         elif (ioPortAddr == 0x3c5):
             retVal = self.seq.getData(dataSize)
@@ -250,16 +256,10 @@ cdef class Vga:
         elif (ioPortAddr == 0x3cc):
             retVal = self.extreg.getMiscOutReg()
         elif (ioPortAddr == 0x3da):
-            retVal = 0
+            self.attrctrlreg.clearFlipFlop()
         else:
-            self.main.exitError("inPort: port {0:#04x} not supported. (dataSize byte)", ioPortAddr)
-        if (dataSize == OP_SIZE_BYTE):
-            return retVal&BITMASK_BYTE
-        elif (dataSize == OP_SIZE_WORD):
-            return retVal&BITMASK_WORD
-        else:
-            self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
-        return 0
+            self.main.exitError("inPort: port {0:#04x} isn't supported. (dataSize byte)", ioPortAddr)
+        return retVal&BITMASK_BYTE
     cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x400): # Bochs' Panic Port
@@ -299,24 +299,15 @@ cdef class Vga:
             elif (ioPortAddr == 0x3d5):
                 self.crt.setData(data, dataSize)
             else:
-                self.main.exitError("outPort: port {0:#04x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
+                self.main.exitError("outPort: port {0:#04x} isn't supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
         elif (dataSize == OP_SIZE_WORD):
-            if (ioPortAddr == 0x3c4):
-                self.seq.setIndex(data)
-            elif (ioPortAddr == 0x3c5):
-                self.seq.setData(data, dataSize)
-            elif (ioPortAddr == 0x3ce):
-                self.gdc.setIndex(data)
-            elif (ioPortAddr == 0x3cf):
-                self.gdc.setData(data, dataSize)
-            elif (ioPortAddr == 0x3d4):
-                self.crt.setIndex(data)
-            elif (ioPortAddr == 0x3d5):
-                self.crt.setData(data, dataSize)
+            if (ioPortAddr in (0x3c4, 0x3ce, 0x3d4)):
+                self.outPort(ioPortAddr, data&BITMASK_BYTE, OP_SIZE_BYTE)
+                self.outPort(ioPortAddr+1, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
             else:
-                self.main.exitError("outPort: port {0:#04x} not supported. (dataSize word, data {1:#04x})", ioPortAddr, data)
+                self.main.exitError("outPort: port {0:#04x} isn't supported. (dataSize word, data {1:#04x})", ioPortAddr, data)
         else:
-            self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+            self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} isn't supported.", ioPortAddr, dataSize)
         return
     cdef void VRamAddMemArea(self):
         (<Mm>self.main.mm).mmAddArea(VGA_MEMAREA_ADDR, 0x20000, False, <MmArea>VRamArea)
@@ -329,7 +320,7 @@ cdef class Vga:
         self.extreg.run()
         self.attrctrlreg.run()
         ####
-        if (self.ui):
+        if (self.ui is not None):
             (<PygameUI>self.ui).run()
         #self.main.platform.addReadHandlers((0x3c0, 0x3c1, 0x3c5, 0x3cc, 0x3c8, 0x3da), self)
         #self.main.platform.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, \

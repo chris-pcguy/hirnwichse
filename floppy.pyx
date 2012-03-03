@@ -558,11 +558,10 @@ cdef class FloppyController:
             (<Pic>self.main.platform.pic).lowerIrq(FDC_IRQ)
             self.pendingIrq = False
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        cdef char retVal, drive
-        retVal = 0
+        cdef char drive
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC_CTRL::inPort: PIO mode isn't supported!")
-            return 0
+            return 0xff
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x2): # read dor
                 return self.DOR
@@ -587,8 +586,8 @@ cdef class FloppyController:
             elif (ioPortAddr == 0x5):
                 if ((not (self.msr & FDC_MSR_RQM)) or (not (self.msr & FDC_MSR_DIO))):
                     self.main.printMsg("FDC_CTRL::inPort: controller not ready for reading")
-                    return 0
-                retVal = self.result[0]
+                    return 0xff
+                drive = self.result[0]
                 if (len(self.result) > 1):
                     self.result = self.result[1:]
                 else:
@@ -597,10 +596,10 @@ cdef class FloppyController:
                 self.lowerFloppyIrq()
                 if (not len(self.result)):
                     self.handleIdle()
-                return retVal
+                return drive # previous result[0]
             elif (ioPortAddr == 0x6):
                 ##self.main.debug("FDC_CTRL::inPort: hdc-shared port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
-                return 0 # TODO: 0x3f6/0x376 should be shared with hard disk controller.
+                return 0xff # TODO: 0x3f6/0x376 should be shared with hard disk controller.
             elif (ioPortAddr == 0x7):
                 drive = self.DOR & 0x3
                 if (self.DOR & (1<<(drive+4))):
@@ -610,7 +609,7 @@ cdef class FloppyController:
                 self.main.exitError("FDC_CTRL::inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
         else:
             self.main.exitError("FDC_CTRL::inPort: dataSize {0:d} not supported.", dataSize)
-        return 0
+        return 0xff
     cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC_CTRL::outPort: PIO mode isn't supported!")
