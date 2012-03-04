@@ -1989,7 +1989,7 @@ cdef class Opcodes:
     cdef int interrupt(self, short intNum, long errorCode): # TODO: complete this!
         cdef unsigned char inProtectedMode, entryType, entrySize, \
                               entryNeededDPL, entryPresent, cpl, isSoftInt
-        cdef unsigned short segId, entrySegment
+        cdef unsigned short entrySegment
         cdef unsigned long entryEip, eflagsClearThis
         cdef IdtEntry idtEntry
         isSoftInt = False
@@ -2000,7 +2000,6 @@ cdef class Opcodes:
             eflagsClearThis |= (FLAG_NT | FLAG_VM)
         else:
             eflagsClearThis |= FLAG_AC
-        segId = CPU_SEGMENT_DS
         if (intNum == -1):
             isSoftInt = True
             intNum = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_BYTE)
@@ -2011,6 +2010,7 @@ cdef class Opcodes:
             entryType = idtEntry.entryType
             entryNeededDPL = idtEntry.entryNeededDPL
             entryPresent = idtEntry.entryPresent
+            entrySize = idtEntry.entrySize
             if (entryType == TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE):
                 self.main.exitError("Opcodes::interrupt: task-gates aren't implemented yet.")
                 return True
@@ -2019,12 +2019,6 @@ cdef class Opcodes:
               TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
                 self.main.exitError("Opcodes::interrupt: unknown entryType {0:d}.", entryType)
                 return True
-            if (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, \
-              TABLE_ENTRY_SYSTEM_TYPE_16BIT_TRAP_GATE)):
-                entrySize = OP_SIZE_WORD
-            elif (entryType in (TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE,\
-              TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
-                entrySize = OP_SIZE_DWORD
         else:
             (<Idt>(<Segments>self.registers.segments).idt).getEntryRealMode(intNum, &entrySegment, <unsigned short*>&entryEip)
             if (isSoftInt and ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10))):
@@ -2041,10 +2035,10 @@ cdef class Opcodes:
                 return True
                 #self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
                 #self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
+            entrySegment &= 0xfffc
+            entrySegment |= cpl
         if (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE)):
             eflagsClearThis |= FLAG_IF
-        entrySegment &= 0xfffc
-        entrySegment |= cpl
         self.stackPushRegId(CPU_REGISTER_EFLAGS, entrySize)
         self.registers.setEFLAG(eflagsClearThis, False)
         self.stackPushSegId(CPU_SEGMENT_CS, entrySize)
