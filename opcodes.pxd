@@ -67,8 +67,7 @@ cdef class Opcodes:
     cdef int popfWD(self) except -1
     cdef int stackPopSegId(self, unsigned short segId) except -1
     cdef int stackPopRegId(self, unsigned short regId) except -1
-    cdef unsigned long stackGetValue(self)
-    cdef unsigned long stackPopValue(self)
+    cdef unsigned long stackPopValue(self, unsigned char increaseStackAddr)
     cdef int stackPushValue(self, unsigned long value, unsigned char operSize) except -1
     cdef int stackPushSegId(self, unsigned short segId, unsigned char operSize) except -1
     cdef int stackPushRegId(self, unsigned short regId, unsigned char operSize) except -1

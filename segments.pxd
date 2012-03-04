@@ -12,6 +12,7 @@ cdef class Segment:
     cdef unsigned char isCodeSeg(self)
     cdef unsigned char isSegReadableWritable(self)
     cdef unsigned char isSegConforming(self)
+    cdef unsigned char isSysSeg(self)
     cdef unsigned char getSegDPL(self)
 
 cdef class GdtEntry:
@@ -79,7 +80,7 @@ cdef class Segments:
     cdef unsigned char isInProtectedMode(self)
     cdef unsigned char getA20State(self)
     cdef void setA20State(self, unsigned char state)
-    cdef Segment getSegmentInstance(self, unsigned short segmentId)
+    cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness)
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char isCodeSeg(self, unsigned short num)
     cdef unsigned char isSegReadableWritable(self, unsigned short num)

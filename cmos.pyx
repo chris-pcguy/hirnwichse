@@ -33,16 +33,16 @@ cdef class Cmos:
             extMemSizeInK = (memSizeInK - 1024) # ... extMemSizeInK is all physical memory over 1MB as KB ...
         if (extMemSizeInK > 0xfc00): # ... with an maximal value of 0xfc00 == 63MB extended memory == 64MB physical memory.
             extMemSizeInK = 0xfc00
-        self.writeValue(CMOS_EXT_MEMORY_L, extMemSizeInK&0xff, OP_SIZE_BYTE)
-        self.writeValue(CMOS_EXT_MEMORY_L2, extMemSizeInK&0xff, OP_SIZE_BYTE)
-        self.writeValue(CMOS_EXT_MEMORY_H, (extMemSizeInK>>8)&0xff, OP_SIZE_BYTE)
-        self.writeValue(CMOS_EXT_MEMORY_H2, (extMemSizeInK>>8)&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY_L, <unsigned char>extMemSizeInK, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY_L2, <unsigned char>extMemSizeInK, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY_H, <unsigned char>(extMemSizeInK>>8), OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY_H2, <unsigned char>(extMemSizeInK>>8), OP_SIZE_BYTE)
         if (memSizeInK > 16384):
             extMemSizeIn64K = ((memSizeInK - 16384) // 64)
         if (extMemSizeIn64K > 0xbf00):
             extMemSizeIn64K = 0xbf00
-        self.writeValue(CMOS_EXT_MEMORY2_L, extMemSizeIn64K&0xff, OP_SIZE_BYTE)
-        self.writeValue(CMOS_EXT_MEMORY2_H, (extMemSizeIn64K>>8)&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY2_L, <unsigned char>extMemSizeIn64K, OP_SIZE_BYTE)
+        self.writeValue(CMOS_EXT_MEMORY2_H, <unsigned char>(extMemSizeIn64K>>8), OP_SIZE_BYTE)
         # TODO: set here the physical memory over 4GB if we need it...
         # ... or if we're able to handle it anywhere in the future... oO
         ##self.updateTime()
@@ -90,8 +90,8 @@ cdef class Cmos:
         self.writeValue(CMOS_CENTURY, century, OP_SIZE_BYTE)
     cdef void makeCheckSum(self):
         cdef unsigned short checkSum = (<Misc>self.main.misc).checksum(bytes(self.configSpace.csRead(0x10, 0x1e))) # 0x10..0x2d
-        self.writeValue(CMOS_CHECKSUM_L, checkSum&0xff, OP_SIZE_BYTE)
-        self.writeValue(CMOS_CHECKSUM_H, (checkSum>>8)&0xff, OP_SIZE_BYTE)
+        self.writeValue(CMOS_CHECKSUM_L, <unsigned char>checkSum, OP_SIZE_BYTE)
+        self.writeValue(CMOS_CHECKSUM_H, (checkSum>>8), OP_SIZE_BYTE)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char tempIndex
         if (dataSize == OP_SIZE_BYTE):
@@ -106,7 +106,7 @@ cdef class Cmos:
                 self.main.exitError("inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported. (port: {0:#06x})", dataSize, ioPortAddr)
-        return 0xff
+        return BITMASK_BYTE
     cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         cdef unsigned char tempIndex
         if (dataSize == OP_SIZE_BYTE):

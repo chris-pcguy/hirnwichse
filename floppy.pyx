@@ -561,7 +561,7 @@ cdef class FloppyController:
         cdef char drive
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC_CTRL::inPort: PIO mode isn't supported!")
-            return 0xff
+            return BITMASK_BYTE
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x2): # read dor
                 return self.DOR
@@ -586,7 +586,7 @@ cdef class FloppyController:
             elif (ioPortAddr == 0x5):
                 if ((not (self.msr & FDC_MSR_RQM)) or (not (self.msr & FDC_MSR_DIO))):
                     self.main.printMsg("FDC_CTRL::inPort: controller not ready for reading")
-                    return 0xff
+                    return BITMASK_BYTE
                 drive = self.result[0]
                 if (len(self.result) > 1):
                     self.result = self.result[1:]
@@ -599,7 +599,7 @@ cdef class FloppyController:
                 return drive # previous result[0]
             elif (ioPortAddr == 0x6):
                 ##self.main.debug("FDC_CTRL::inPort: hdc-shared port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
-                return 0xff # TODO: 0x3f6/0x376 should be shared with hard disk controller.
+                return BITMASK_BYTE # TODO: 0x3f6/0x376 should be shared with hard disk controller.
             elif (ioPortAddr == 0x7):
                 drive = self.DOR & 0x3
                 if (self.DOR & (1<<(drive+4))):
@@ -609,7 +609,7 @@ cdef class FloppyController:
                 self.main.exitError("FDC_CTRL::inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
         else:
             self.main.exitError("FDC_CTRL::inPort: dataSize {0:d} not supported.", dataSize)
-        return 0xff
+        return BITMASK_BYTE
     cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC_CTRL::outPort: PIO mode isn't supported!")

@@ -164,7 +164,7 @@ cdef class Vga:
         cdef unsigned long address
         page = self.getCorrectPage(page)
         cursorPos = self.getCursorPosition(page)
-        y, x = (cursorPos>>8)&0xff, cursorPos&0xff
+        y, x = (cursorPos>>8), <unsigned char>cursorPos
         address = self.getAddrOfPos(page, x, y)
         if (c == 0x7): # beep
             pass
@@ -236,7 +236,7 @@ cdef class Vga:
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned long retVal
-        retVal = 0xff
+        retVal = BITMASK_BYTE
         if (dataSize != OP_SIZE_BYTE):
             self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         elif (ioPortAddr == 0x3c0):
@@ -259,7 +259,7 @@ cdef class Vga:
             self.attrctrlreg.setFlipFlop(False)
         else:
             self.main.exitError("inPort: port {0:#04x} isn't supported. (dataSize byte)", ioPortAddr)
-        return retVal&BITMASK_BYTE
+        return <unsigned char>retVal
     cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x400): # Bochs' Panic Port
@@ -302,8 +302,8 @@ cdef class Vga:
                 self.main.exitError("outPort: port {0:#04x} isn't supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
         elif (dataSize == OP_SIZE_WORD):
             if (ioPortAddr in (0x3c4, 0x3ce, 0x3d4)):
-                self.outPort(ioPortAddr, data&BITMASK_BYTE, OP_SIZE_BYTE)
-                self.outPort(ioPortAddr+1, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
+                self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
+                self.outPort(ioPortAddr+1, <unsigned char>(data>>8), OP_SIZE_BYTE)
             else:
                 self.main.exitError("outPort: port {0:#04x} isn't supported. (dataSize word, data {1:#04x})", ioPortAddr, data)
         else:

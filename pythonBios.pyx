@@ -21,10 +21,10 @@ cdef class PythonBios:
         dx = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_DX)
         bx = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_BX)
         bp = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_BP)
-        ah, al = ax>>8, ax&0xff
-        ch, cl = cx>>8, cx&0xff
-        dh, dl = dx>>8, dx&0xff
-        bh, bl = bx>>8, bx&0xff
+        ah, al = ax>>8, <unsigned char>ax
+        ch, cl = cx>>8, <unsigned char>cx
+        dh, dl = dx>>8, <unsigned char>dx
+        bh, bl = bx>>8, <unsigned char>bx
         if (intNum == 0x10): # video; TODO: REWORK THIS AND THE VGA MODULE TOO!!!
             #return False
             currMode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_MODE_ADDR, 1)
@@ -60,7 +60,7 @@ cdef class PythonBios:
                             # ah==0x09: bl for textmode/graphicsmode;; ah==0x0e: bl for textmode
                             if (ah != 0x0e):
                                 cursorPos = (<Vga>self.main.platform.vga).getCursorPosition(bh)
-                                memAddr = (<Vga>self.main.platform.vga).getAddrOfPos(bh, cursorPos&0xff, (cursorPos>>8)&0xff)
+                                memAddr = (<Vga>self.main.platform.vga).getAddrOfPos(bh, <unsigned char>cursorPos, (cursorPos>>8))
                                 #if (currMode in (0x00, 0x01, 0x02, 0x03, 0x07) and ah == 0x09):
                                 if (ah == 0x09):
                                     (<Vga>self.main.platform.vga).writeCharacterTeletype(al, bl, bh, True)

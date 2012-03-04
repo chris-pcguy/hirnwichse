@@ -62,7 +62,7 @@ cdef class GDBStubHandler:
         cdef bytes dataFull, dataChecksum
         if (self.connHandler):
             if (hasattr(self.connHandler, 'request') and self.connHandler.request):
-                dataChecksum = self.byteToHex((<Misc>self.main.misc).checksum(data)&0xff)
+                dataChecksum = self.byteToHex(<unsigned char>(<Misc>self.main.misc).checksum(data))
                 dataFull = b'$'
                 dataFull += data
                 dataFull += b'#'+dataChecksum
@@ -112,7 +112,7 @@ cdef class GDBStubHandler:
                             self.readState = RS_CHKSUM2
                         elif (self.readState == RS_CHKSUM2):
                             self.cmdStrChecksumProof |= int(bytes([c]), 16)
-                            self.cmdStrChecksum = (<Misc>self.main.misc).checksum(self.cmdStr)&0xff
+                            self.cmdStrChecksum = <unsigned char>(<Misc>self.main.misc).checksum(self.cmdStr)
                             if (self.cmdStrChecksum != self.cmdStrChecksumProof):
                                 self.main.printMsg("GDBStubHandler::handleRead: SEND NACK!")
                                 self.sendPacketType(PACKET_NACK)

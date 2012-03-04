@@ -102,7 +102,9 @@ cdef class PygameUI:
             newRect = self.getCharRect(x, y)
             fgColor, bgColor = self.getColor(colors&0xf), self.getColor((colors&0xf0)>>4)
             newBack = self.getBlankChar(bgColor)
-            if (char.isprintable()):
+            # It's not a good idea to render the character if fgColor == bgColor,
+            #   as it wouldn't be readable.
+            if (fgColor != bgColor and char != " " and char != '\x00' and char.isprintable()):
                 #newChar = self.font.render(char, False, fgColor, bgColor)
                 newChar = self.font.render(char, True, fgColor, bgColor)
                 newBack.blit(newChar, ( (0, 0), self.fontSize ))

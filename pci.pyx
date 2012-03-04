@@ -27,10 +27,10 @@ cdef class PciAddress:
         self.calculateAddress(address)
     cdef void calculateAddress(self, unsigned long address):
         self.enableBit = (address&0x80000000)!=0
-        self.bus = (address>>16)&0xff
+        self.bus = <unsigned char>(address>>16)
         self.device = (address>>11)&0x1f
         self.function = (address>>8)&0x7
-        self.register = address&0xff
+        self.register = <unsigned char>address
 
 cdef class PciDevice:
     def __init__(self, PciBus bus, Pci pci, object main):

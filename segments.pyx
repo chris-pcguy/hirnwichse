@@ -68,6 +68,8 @@ cdef class Segment:
     ### if dataseg, return True if writable, else False
     cdef unsigned char isSegReadableWritable(self):
         return self.segIsRW
+    cdef unsigned char isSysSeg(self):
+        return (not (self.accessByte & GDT_ACCESS_NORMAL_SEGMENT))
     cdef unsigned char isSegConforming(self):
         return self.segIsConforming
     cdef unsigned char getSegDPL(self):
@@ -79,23 +81,21 @@ cdef class GdtEntry:
         self.gdt = gdt
         self.parseEntryData(entryData)
     cdef void parseEntryData(self, unsigned long long entryData):
-        self.accessByte = (entryData>>40)&0xff
+        self.accessByte = <unsigned char>(entryData>>40)
         self.flags  = (entryData>>52)&0xf
         self.base  = (entryData>>16)&0xffffff
         self.limit = entryData&0xffff
-        self.base  |= ((entryData>>56)&0xff)<<24
+        self.base  |= (<unsigned char>(entryData>>56))<<24
         self.limit |= ((entryData>>48)&0xf)<<16
-        if (self.flags & GDT_FLAG_SIZE): # segment size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
-            self.segSize = OP_SIZE_DWORD
-        else:
-            self.segSize = OP_SIZE_WORD
-        self.segPresent = (self.accessByte&GDT_ACCESS_PRESENT)!=0
-        self.segIsCodeSeg = (self.accessByte&GDT_ACCESS_EXECUTABLE)!=0
-        self.segIsRW = (self.accessByte&GDT_ACCESS_READABLE_WRITABLE)!=0
-        self.segIsConforming = (self.accessByte&GDT_ACCESS_CONFORMING)!=0
-        self.segDPL = ((self.accessByte&GDT_ACCESS_DPL)>>5)&3
+        # segment size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
+        self.segSize = OP_SIZE_DWORD if (self.flags & GDT_FLAG_SIZE) else OP_SIZE_WORD
+        self.segPresent = (self.accessByte & GDT_ACCESS_PRESENT)!=0
+        self.segIsCodeSeg = (self.accessByte & GDT_ACCESS_EXECUTABLE)!=0
+        self.segIsRW = (self.accessByte & GDT_ACCESS_READABLE_WRITABLE)!=0
+        self.segIsConforming = (self.accessByte & GDT_ACCESS_CONFORMING)!=0
+        self.segDPL = ((self.accessByte & GDT_ACCESS_DPL)>>5)&3
         if (self.flags & GDT_FLAG_LONGMODE): # TODO: long-mode isn't implemented yet...
-            self.gdt.segments.main.exitError("Do you just tried to use long-mode?!? It will take a VERY LONG TIME until it get implemented...")
+            self.gdt.segments.main.exitError("Did you just tried to use long-mode?!? Maybe I'll implement it in a few decades...")
     cdef unsigned char isAddressInLimit(self, unsigned long address, unsigned long size):
         cdef unsigned long limit
         limit = self.limit
@@ -107,7 +107,6 @@ cdef class GdtEntry:
             return False
         return True
 
-
 cdef class IdtEntry:
     def __init__(self, unsigned long long entryData):
         self.parseEntryData(entryData)
@@ -118,10 +117,9 @@ cdef class IdtEntry:
         self.entryType = (entryData>>40)&0x7 # interrupt type
         self.entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
         self.entryPresent = (entryData>>47)&1 # is interrupt present
-        if ((entryData>>43)&1): # interrupt size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
-            self.entrySize = OP_SIZE_DWORD
-        else:
-            self.entrySize = OP_SIZE_WORD
+        # interrupt size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
+        self.entrySize = OP_SIZE_DWORD if ((entryData>>40)&0x8) else OP_SIZE_WORD
+
 
 cdef class Gdt:
     def __init__(self, Segments segments):
@@ -147,9 +145,12 @@ cdef class Gdt:
     cdef unsigned char getSegSize(self, unsigned short num):
         return self.getEntry(num).segSize
     cdef unsigned char getSegType(self, unsigned short num):
-        return ((<Mm>self.segments.main.mm).mmPhyReadValue(num+5, OP_SIZE_BYTE) & (~GDT_ACCESS_PRESENT))
+        return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(num+5, \
+          OP_SIZE_BYTE) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
     cdef void setSegType(self, unsigned short num, unsigned char segmentType):
-        (<Mm>self.segments.main.mm).mmPhyWriteValue(num+5, ((self.getEntry(num).segPresent and GDT_ACCESS_PRESENT) | segmentType), OP_SIZE_BYTE)
+        (<Mm>self.segments.main.mm).mmPhyWriteValue(num+5, (((<Mm>self.segments.main.mm).\
+          mmPhyReadValueUnsigned(num+5, OP_SIZE_BYTE) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
+            (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)), OP_SIZE_BYTE)
     cdef unsigned char isSegPresent(self, unsigned short num):
         return self.getEntry(num).segPresent
     cdef unsigned char isCodeSeg(self, unsigned short num):
@@ -166,15 +167,15 @@ cdef class Gdt:
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment):
         cdef unsigned char cpl
         cdef GdtEntry gdtEntry
-        if (num&0xfff8 == 0 or num > self.tableLimit):
-            if (num&0xfff8 == 0):
+        if (not (num&0xfff8) or num > self.tableLimit):
+            if (not (num&0xfff8)):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             else:
                 raise ChemuException(CPU_EXCEPTION_GP, num)
         cpl = self.segments.cs.segmentIndex&3
         gdtEntry = self.getEntry(num)
         if (not gdtEntry or (isStackSegment and ( num&3 != cpl or \
-          gdtEntry.segDPL != cpl)) or 0):
+          gdtEntry.segDPL != cpl))):# or 0):
             raise ChemuException(CPU_EXCEPTION_GP, num)
         elif (not gdtEntry.segPresent):
             if (isStackSegment):
@@ -216,9 +217,9 @@ cdef class Gdt:
     cdef void checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment):
         cdef unsigned char numSegDPL, cpl
         cdef GdtEntry gdtEntry
-        if (num&0xfff8 == 0 or num > self.tableLimit):
+        if (not (num&0xfff8) or num > self.tableLimit):
             if (loadStackSegment):
-                if (num&0xfff8 == 0):
+                if (not (num&0xfff8)):
                     raise ChemuException(CPU_EXCEPTION_GP, 0)
                 else:
                     raise ChemuException(CPU_EXCEPTION_GP, num)
@@ -241,8 +242,7 @@ cdef class Gdt:
                 raise ChemuException(CPU_EXCEPTION_GP, num)
         else: # not loadStackSegment
             if ( ((not gdtEntry.segIsCodeSeg or not gdtEntry.segIsConforming) and (num&3 > numSegDPL and \
-              cpl > numSegDPL)) or \
-              (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
+              cpl > numSegDPL)) or (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
                 raise ChemuException(CPU_EXCEPTION_GP, num)
 
 
@@ -308,7 +308,7 @@ cdef class Segments:
         return self.A20Active
     cdef void setA20State(self, unsigned char state):
         self.A20Active = state
-    cdef Segment getSegmentInstance(self, unsigned short segmentId):
+    cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness):
         cdef Segment segment
         if (segmentId == CPU_SEGMENT_CS):
             segment = self.cs
@@ -323,9 +323,10 @@ cdef class Segments:
         elif (segmentId == CPU_SEGMENT_SS):
             segment = self.ss
         else:
-            self.main.exitError("invalid segmentId {0:d}", segmentId)
-            raise ValueError("invalid segmentId {0:d}".format(segmentId))
-        if (not segment.isValid):
+            self.main.exitError("Segments::getSegmentInstance: invalid segmentId {0:d}", segmentId)
+            raise ValueError("Segments::getSegmentInstance: invalid segmentId {0:d}".format(segmentId))
+        if (checkForValidness and not segment.isValid):
+            self.main.printMsg("Segments::getSegmentInstance: segment with ID {0:d} isn't valid.", segmentId)
             raise ChemuException(CPU_EXCEPTION_GP, segment.segmentIndex)
         return segment
     cdef GdtEntry getEntry(self, unsigned short num):

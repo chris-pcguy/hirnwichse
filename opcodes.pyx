@@ -452,12 +452,17 @@ cdef class Opcodes:
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         self.main.platform.outPort(ioPortAddr, data, dataSize)
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned long eipVal):
+        cdef unsigned char segType
         cdef GdtEntry gdtEntry
         self.syncProtectedModeState()
         if ((<Segments>self.registers.segments).isInProtectedMode()):
             gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(segVal))
             if (not gdtEntry or not gdtEntry.segPresent):
                 raise ChemuException(CPU_EXCEPTION_NP, segVal)
+            segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
+            if (not (segType & GDT_ACCESS_NORMAL_SEGMENT) and (segType != TABLE_ENTRY_SYSTEM_TYPE_LDT)):
+                self.main.exitError("Opcodes::jumpFarDirect: sysSegType {0:d} isn't supported yet.", segType)
+                return True
         if (method == OPCODE_CALL):
             self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
             self.stackPushRegId(self.registers.eipSizeRegId, self.registers.operSize)
@@ -939,7 +944,7 @@ cdef class Opcodes:
         cpl = self.registers.getCPL()
         regNameId = self.registers.getWordAsDword(CPU_REGISTER_FLAGS, self.registers.operSize)
         oldFlagValue = self.registers.regReadUnsigned(regNameId)
-        flagValue = self.stackPopValue()
+        flagValue = self.stackPopValue(True)
         flagValue &= ~RESERVED_FLAGS_BITMASK
         flagValue |= FLAG_REQUIRED
         if (cpl != 0):
@@ -957,32 +962,26 @@ cdef class Opcodes:
             self.main.exitError("Opcodes::popfWD: VM86-Mode isn't supported yet.")
         return True
     cdef int stackPopSegId(self, unsigned short segId):
-        self.registers.segWrite(segId, <unsigned short>(self.stackPopValue()))
+        self.registers.segWrite(segId, <unsigned short>(self.stackPopValue(True)))
         return True
     cdef int stackPopRegId(self, unsigned short regId):
         cdef unsigned long value
-        value = self.stackPopValue()
+        value = self.stackPopValue(True)
         if (self.registers.getRegSize(regId) == OP_SIZE_WORD):
             value = <unsigned short>value
         self.registers.regWrite(regId, value)
         return True
-    cdef unsigned long stackPopValue(self):
+    cdef unsigned long stackPopValue(self, unsigned char increaseStackAddr):
         cdef unsigned char stackAddrSize
         cdef unsigned short stackRegName
         cdef unsigned long data
         stackAddrSize = self.registers.getSegSize(CPU_SEGMENT_SS)
         stackRegName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
-        data = self.stackGetValue()
-        self.registers.regAdd(stackRegName, self.registers.operSize)
+        data = self.registers.regReadUnsigned(stackRegName)
+        data = self.registers.mmReadValueUnsigned(data, self.registers.operSize, CPU_SEGMENT_SS, False)
+        if (increaseStackAddr):
+            self.registers.regAdd(stackRegName, self.registers.operSize)
         return data
-    cdef unsigned long stackGetValue(self):
-        cdef unsigned char stackAddrSize
-        cdef unsigned short stackRegName
-        cdef unsigned long stackAddr
-        stackAddrSize = self.registers.getSegSize(CPU_SEGMENT_SS)
-        stackRegName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
-        stackAddr = self.registers.regReadUnsigned(stackRegName)
-        return self.registers.mmReadValueUnsigned(stackAddr, self.registers.operSize, CPU_SEGMENT_SS, False)
     cdef int stackPushValue(self, unsigned long value, unsigned char operSize):
         cdef unsigned char stackAddrSize
         cdef unsigned short stackRegName
@@ -1150,29 +1149,29 @@ cdef class Opcodes:
                     elif ((op1 & SELECTOR_USE_LDT) or \
                       ((op1&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit)):
                         raise ChemuException(CPU_EXCEPTION_GP, op1)
-                    segType = (<Gdt>self.registers.segments.gdt).getSegType(op1)
                     if (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
                         raise ChemuException(CPU_EXCEPTION_NP, op1)
                     gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op1))
-                    if (not gdtEntry or (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, \
-                      TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS))):
+                    segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK) if (gdtEntry is not None) else 0
+                    if (not gdtEntry or segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
+                        self.main.printMsg("opcodeGroup0F_00_LTR: segType {0:d} not a TSS. (is gdtEntry None? {1:d})", \
+                          segType, (gdtEntry is None))
                         raise ChemuException(CPU_EXCEPTION_GP, op1)
                     if (segType == TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS):
                         (<Gdt>self.registers.segments.gdt).setSegType(op1, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY)
+                        if (gdtEntry.limit != TSS_MIN_16BIT_HARD_LIMIT):
+                            self.main.printMsg(\
+                              "opcodeGroup0F_00_LTR: tssLimit {0:#06x} != TSS_MIN_16BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
+                              TSS_MIN_16BIT_HARD_LIMIT)
+                            op1 = 0
                     elif (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS):
                         (<Gdt>self.registers.segments.gdt).setSegType(op1, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)
-                    if (gdtEntry.segSize == OP_SIZE_WORD and gdtEntry.limit != TSS_MIN_16BIT_HARD_LIMIT):
-                        self.segments.main.printMsg(\
-                          "opcodeGroup0F_00_LTR: tssLimit {0:#06x} != TSS_MIN_16BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
-                          TSS_MIN_16BIT_HARD_LIMIT)
-                        op1 = 0
-                    elif (gdtEntry.segSize == OP_SIZE_DWORD and gdtEntry.limit < TSS_MIN_32BIT_HARD_LIMIT):
-                        self.segments.main.printMsg(\
-                          "opcodeGroup0F_00_LTR: tssLimit {0:#06x} < TSS_MIN_32BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
-                          TSS_MIN_32BIT_HARD_LIMIT)
-                        op1 = 0
-                    else:
-                        op1 &= 0xfff8
+                        if (gdtEntry.limit < TSS_MIN_32BIT_HARD_LIMIT):
+                            self.main.printMsg(\
+                              "opcodeGroup0F_00_LTR: tssLimit {0:#06x} < TSS_MIN_32BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
+                              TSS_MIN_32BIT_HARD_LIMIT)
+                            op1 = 0
+                    op1 &= 0xfff8
                     (<Segments>self.registers.segments).tr = op1
                     (<Gdt>self.registers.segments.tss).loadTablePosition(gdtEntry.base, gdtEntry.limit)
                     self.main.printMsg("opcodeGroup0F_00_LTR: TR isn't fully supported yet.")
@@ -1776,7 +1775,7 @@ cdef class Opcodes:
         operOpcodeId = (operOpcode>>3)&7
         self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
         if (operOpcodeId == 0): # POP
-            value = self.stackPopValue()
+            value = self.stackPopValue(True)
             self.modRMInstance.modRMSave(self.registers.operSize, value, True, OPCODE_SAVE)
         else:
             self.main.printMsg("popRM16_32: unknown operOpcodeId: {0:d}", operOpcodeId)
@@ -1794,11 +1793,11 @@ cdef class Opcodes:
         cdef unsigned char stackAddrSize
         cdef unsigned short espName
         cdef unsigned long tempEIP
-        stackAddrSize = self.registers.getSegSize(CPU_SEGMENT_SS)
-        espName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
-        tempEIP = self.stackPopValue()
+        tempEIP = self.stackPopValue(True)
         self.registers.regWrite(CPU_REGISTER_EIP, tempEIP)
         if (imm):
+            stackAddrSize = self.registers.getSegSize(CPU_SEGMENT_SS)
+            espName = self.registers.getWordAsDword(CPU_REGISTER_SP, stackAddrSize)
             self.registers.regAdd(espName, imm)
         return True
     cdef int retNearImm(self):
@@ -2006,31 +2005,46 @@ cdef class Opcodes:
             isSoftInt = True
             intNum = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_BYTE)
         if (inProtectedMode):
-            idtEntry = (<IdtEntry>(<Idt>(<Segments>self.registers.segments).idt).getEntry(<unsigned char>intNum))
+            idtEntry = (<IdtEntry>(<Idt>(<Segments>self.registers.segments).idt).getEntry(intNum))
             entrySegment = idtEntry.entrySegment
             entryEip = idtEntry.entryEip
             entryType = idtEntry.entryType
-            entrySize = idtEntry.entrySize
             entryNeededDPL = idtEntry.entryNeededDPL
             entryPresent = idtEntry.entryPresent
+            if (entryType == TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE):
+                self.main.exitError("Opcodes::interrupt: task-gates aren't implemented yet.")
+                return True
+            elif (entryType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, \
+              TABLE_ENTRY_SYSTEM_TYPE_16BIT_TRAP_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE,\
+              TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
+                self.main.exitError("Opcodes::interrupt: unknown entryType {0:d}.", entryType)
+                return True
+            if (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, \
+              TABLE_ENTRY_SYSTEM_TYPE_16BIT_TRAP_GATE)):
+                entrySize = OP_SIZE_WORD
+            elif (entryType in (TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE,\
+              TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
+                entrySize = OP_SIZE_DWORD
         else:
             (<Idt>(<Segments>self.registers.segments).idt).getEntryRealMode(intNum, &entrySegment, <unsigned short*>&entryEip)
             if (isSoftInt and ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10))):
                 if (self.main.platform.pythonBios.interrupt(intNum)):
                     return True
-        self.main.debug("Interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}, AX: {3:#06x}", intNum, entrySegment, entryEip, self.registers.regReadUnsigned(CPU_REGISTER_AX))
+        self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}, AX: {3:#06x}", intNum, entrySegment, entryEip, self.registers.regReadUnsigned(CPU_REGISTER_AX))
         if (inProtectedMode):
             cpl = self.registers.getCPL()
             if ((cpl and cpl > entrySegment&3) or (<Segments>self.registers.segments).getSegDPL(entrySegment)):
-                self.main.exitError("Interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")
+                self.main.exitError("Opcodes::interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")
                 return True
-            entrySegment = ((entrySegment&0xfffc)|(cpl&3))
-            if (cpl&3 != entrySegment&3): # FIXME
-                self.main.printMsg("Opcodes::interrupt: cpl&3 != entrySegment&3. What to do here???")
-                self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
-                self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
+            elif (cpl&3 != entrySegment&3): # FIXME
+                self.main.exitError("Opcodes::interrupt: cpl&3 != entrySegment&3. What to do here???")
+                return True
+                #self.stackPushSegId(CPU_SEGMENT_SS, entrySize)
+                #self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
         if (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE)):
             eflagsClearThis |= FLAG_IF
+        entrySegment &= 0xfffc
+        entrySegment |= cpl
         self.stackPushRegId(CPU_REGISTER_EFLAGS, entrySize)
         self.registers.setEFLAG(eflagsClearThis, False)
         self.stackPushSegId(CPU_SEGMENT_CS, entrySize)
@@ -2051,33 +2065,33 @@ cdef class Opcodes:
     cdef int iret(self):
         cdef GdtEntry gdtEntry
         cdef unsigned char inProtectedMode, cpl
-        cdef unsigned short SSsel, intrSeg
         cdef unsigned long tempEFLAGS, tempEIP, tempCS, eflagsMask
         inProtectedMode = (<Segments>self.registers.segments).isInProtectedMode()
-        if (not inProtectedMode and self.registers.operSize == OP_SIZE_DWORD):
-            tempEIP = self.stackGetValue()
-            if ((tempEIP>>16)):
-                raise ChemuException(CPU_EXCEPTION_GP, 0)
-        intrSeg = self.registers.segRead(CPU_SEGMENT_CS)
-        tempEIP = self.stackPopValue()
-        tempCS = self.stackPopValue()
-        tempEFLAGS = self.stackPopValue()
+        tempEIP = self.stackPopValue(False) # this is here because esp should stay on
+                                            # it's original value in case of an exception.
+        if (not inProtectedMode and self.registers.operSize == OP_SIZE_DWORD and (tempEIP>>16)):
+            raise ChemuException(CPU_EXCEPTION_GP, 0)
+        tempEIP = self.stackPopValue(True)
+        tempCS = self.stackPopValue(True)
+        tempEFLAGS = self.stackPopValue(True)
         if (inProtectedMode):
             if (tempEFLAGS & (FLAG_NT | FLAG_VM)):
                 self.main.exitError("Opcodes::iret: VM86-Mode isn't supported yet.")
+                return True
             if (not (tempCS&0xfff8)):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             if ((tempCS&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit):
-                raise ChemuException(CPU_EXCEPTION_GP, tempCS&0xfff8)
+                raise ChemuException(CPU_EXCEPTION_GP, tempCS)
             cpl = self.registers.getCPL()
             gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(tempCS))
             if (not gdtEntry.segIsCodeSeg or ((tempCS&3) < cpl) or (gdtEntry.segIsConforming and \
               (gdtEntry.segDPL > (tempCS&3)))):
-                raise ChemuException(CPU_EXCEPTION_GP, tempCS&0xfff8)
+                raise ChemuException(CPU_EXCEPTION_GP, tempCS)
             if (not gdtEntry.segPresent):
-                raise ChemuException(CPU_EXCEPTION_NP, tempCS&0xfff8)
+                raise ChemuException(CPU_EXCEPTION_NP, tempCS)
             if ((tempCS&3) > cpl): # outer privilege level
                 self.main.exitError("Opcodes::iret: rpl > cpl. What to do here???")
+                return True
             else: # same privilege level; rpl==cpl
                 if (not gdtEntry.isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
                     raise ChemuException(CPU_EXCEPTION_GP, 0)

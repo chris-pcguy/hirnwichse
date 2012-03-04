@@ -10,7 +10,7 @@ cdef class Parallel:
             pass
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
-        return 0xff
+        return BITMASK_BYTE
     cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             pass

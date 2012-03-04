@@ -97,14 +97,14 @@ cdef class Pit:
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channel = ioPortAddr&3
                 if ((<PitChannel>self.channels[channel]).counterWriteMode == 1): # LSB
-                    retVal = (<PitChannel>self.channels[channel]).counterValue&0xff
+                    retVal = <unsigned char>(<PitChannel>self.channels[channel]).counterValue
                 elif ((<PitChannel>self.channels[channel]).counterWriteMode == 2): # MSB
-                    retVal = ((<PitChannel>self.channels[channel]).counterValue>>8)&0xff
+                    retVal = <unsigned char>((<PitChannel>self.channels[channel]).counterValue>>8)
                 elif ((<PitChannel>self.channels[channel]).counterWriteMode == 3): # LSB;MSB
                     if (not (<PitChannel>self.channels[channel]).counterFlipFlop):
-                        retVal = (<PitChannel>self.channels[channel]).counterValue&0xff
+                        retVal = <unsigned char>(<PitChannel>self.channels[channel]).counterValue
                     else:
-                        retVal = ((<PitChannel>self.channels[channel]).counterValue>>8)&0xff
+                        retVal = <unsigned char>((<PitChannel>self.channels[channel]).counterValue>>8)
                     (<PitChannel>self.channels[channel]).counterFlipFlop = not (<PitChannel>self.channels[channel]).counterFlipFlop
                 else:
                     self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", (<PitChannel>self.channels[channel]).counterWriteMode)
@@ -114,7 +114,7 @@ cdef class Pit:
                 retVal |= (<PitChannel>self.channels[self.channel]).counterWriteMode<<4
                 retVal |= (<PitChannel>self.channels[self.channel]).counterMode<<1
                 retVal |= (<PitChannel>self.channels[self.channel]).counterFormat
-                return retVal&0xff
+                return <unsigned char>retVal
             else:
                 self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
         else:
@@ -127,15 +127,15 @@ cdef class Pit:
                 channel = ioPortAddr&3
                 if ((<PitChannel>self.channels[channel]).counterModeTimer):
                     (<PitChannel>self.channels[channel]).counterModeTimer = None
-                if ((<PitChannel>self.channels[channel]).counterWriteMode == 1): # LSB
-                    (<PitChannel>self.channels[channel]).counterValue = (data&0xff)
-                elif ((<PitChannel>self.channels[channel]).counterWriteMode == 2): # MSB
-                    (<PitChannel>self.channels[channel]).counterValue = ((data&0xff)<<8)
+                if ((<PitChannel>self.channels[channel]).counterWriteMode in (1, 2)): # 1==LSB/2==MSB
+                    (<PitChannel>self.channels[channel]).counterValue = <unsigned char>data
+                    if ((<PitChannel>self.channels[channel]).counterWriteMode == 2): # MSB
+                        (<PitChannel>self.channels[channel]).counterValue <<= 8
                 elif ((<PitChannel>self.channels[channel]).counterWriteMode == 3): # LSB;MSB
                     if (not (<PitChannel>self.channels[channel]).counterFlipFlop):
-                        (<PitChannel>self.channels[channel]).counterValue = ((<PitChannel>self.channels[channel]).counterValue&0xff00)|(data&0xff)
+                        (<PitChannel>self.channels[channel]).counterValue = (((<PitChannel>self.channels[channel]).counterValue&0xff00)|(<unsigned char>data))
                     else:
-                        (<PitChannel>self.channels[channel]).counterValue = ((<PitChannel>self.channels[channel]).counterValue&0xff)|((data&0xff)<<8)
+                        (<PitChannel>self.channels[channel]).counterValue = ((<unsigned char>(<PitChannel>self.channels[channel]).counterValue)|((<unsigned char>data)<<8))
                     (<PitChannel>self.channels[channel]).counterFlipFlop = not (<PitChannel>self.channels[channel]).counterFlipFlop
                 if ((<PitChannel>self.channels[channel]).counterWriteMode in (1, 2)): # LSB or MSB
                     (<PitChannel>self.channels[channel]).counterFlipFlop = False

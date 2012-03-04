@@ -249,11 +249,11 @@ cdef class Registers:
                 return 0
         if ((<Segments>self.segments).isInProtectedMode()):
             (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId == CPU_SEGMENT_SS)
-        segmentInstance = <Segment>(self.segments.getSegmentInstance(segId))
+        segmentInstance = <Segment>(self.segments.getSegmentInstance(segId, False))
         segmentInstance.loadSegment(segValue)
         if (segId == CPU_SEGMENT_CS):
             self.codeSegSize = segmentInstance.getSegSize()
-            self.eipSizeRegId = (self.codeSegSize == OP_SIZE_DWORD and CPU_REGISTER_EIP) or CPU_REGISTER_IP
+            self.eipSizeRegId = CPU_REGISTER_EIP if (self.codeSegSize == OP_SIZE_DWORD) else CPU_REGISTER_IP
         segId = CPU_REG_DATA_OFFSETS[segId]
         # WARNING!!!: NEVER TRY to use 'LITTLE_ENDIAN' as byteorder here, IT WON'T WORK!!!!
         self.regs.csWriteValueBE(segId, segValue, OP_SIZE_WORD)
@@ -588,7 +588,7 @@ cdef class Registers:
     cdef unsigned long mmGetRealAddr(self, unsigned long mmAddr, unsigned short segId, unsigned char allowOverride):
         if (allowOverride and self.segmentOverridePrefix):
             segId = self.segmentOverridePrefix
-        mmAddr = <unsigned long>(((<Segment>(self.segments.getSegmentInstance(segId))).base)+mmAddr)
+        mmAddr = <unsigned long>(((<Segment>(self.segments.getSegmentInstance(segId, True))).base)+mmAddr)
         # TODO: check for limit asf...
         if (not self.segments.isInProtectedMode()):
             if (self.segments.getA20State()): # A20 Active? if True == on, else off
@@ -648,9 +648,9 @@ cdef class Registers:
         self.main.exitError("Registers::mmWriteValueWithOp: unknown valueOp {0:d}.", valueOp)
         return 0
     cdef unsigned char getSegSize(self, unsigned short segId):
-        return (<Segment>(self.segments.getSegmentInstance(segId))).getSegSize()
+        return (<Segment>(self.segments.getSegmentInstance(segId, True))).getSegSize()
     cdef unsigned char isSegPresent(self, unsigned short segId):
-        return (((<Segment>(self.segments.getSegmentInstance(segId))).accessByte & GDT_ACCESS_PRESENT) != 0)
+        return (((<Segment>(self.segments.getSegmentInstance(segId, True))).accessByte & GDT_ACCESS_PRESENT) != 0)
     cdef unsigned char getOpSegSize(self, unsigned short segId):
         segId = <unsigned char>self.getSegSize(segId)
         return <unsigned char>((((segId==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
