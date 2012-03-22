@@ -206,7 +206,7 @@ cdef class Platform:
             if (romMemSize > SIZE_1MB):
                 self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
                 return
-            (<Mm>self.main.mm).mmPhyWrite(mmAddr&0xfffff, (<Mm>self.main.mm).mmPhyRead(mmAddr, romSize), romSize)
+            (<Mm>self.main.mm).mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
     cdef void initDevicesPorts(self):
         self.addReadHandlers((0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
         self.addWriteHandlers((0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)

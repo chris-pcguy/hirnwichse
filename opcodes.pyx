@@ -195,6 +195,9 @@ cdef class Opcodes:
         elif (opcode >= 0x48 and opcode <= 0x4f):
             retVal = self.decReg()
         elif (opcode >= 0x50 and opcode <= 0x57):
+            ##if (self.main.cpu.savedEip == 0x30766a):
+            ##    self.main.cpu.cpuDump()
+            ##    self.main.cpu.debugHalt = True
             retVal = self.pushReg()
         elif (opcode >= 0x58 and opcode <= 0x5f):
             retVal = self.popReg()
@@ -1645,7 +1648,7 @@ cdef class Opcodes:
     cdef int opcodeGroupFF(self):
         cdef unsigned char operOpcode, operOpcodeId
         cdef unsigned short segVal
-        cdef unsigned long op1, eipAddr
+        cdef unsigned long op1
         operOpcode = self.registers.getCurrentOpcodeUnsigned(OP_SIZE_BYTE)
         operOpcodeId = (operOpcode>>3)&7
         self.main.debug("GroupFF: operOpcodeId=={0:d}", operOpcodeId)
@@ -1655,22 +1658,22 @@ cdef class Opcodes:
         elif (operOpcodeId == 1): # 1/DEC
             return self.decFuncRM(self.registers.operSize)
         elif (operOpcodeId == 2): # 2/CALL NEAR
-            eipAddr = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
+            op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             self.stackPushRegId(self.registers.eipSizeRegId, self.registers.operSize)
-            self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
+            self.registers.regWrite(CPU_REGISTER_EIP, op1)
         elif (operOpcodeId == 3): # 3/CALL FAR
             op1 = self.modRMInstance.getRMValueFull(self.registers.addrSize)
-            eipAddr = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
             segVal = self.registers.mmReadValueUnsigned(op1+self.registers.operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
-            self.jumpFarDirect(OPCODE_CALL, segVal, eipAddr)
+            op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+            self.jumpFarDirect(OPCODE_CALL, segVal, op1)
         elif (operOpcodeId == 4): # 4/JMP NEAR
-            eipAddr = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
-            self.registers.regWrite(CPU_REGISTER_EIP, eipAddr)
+            op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
+            self.registers.regWrite(CPU_REGISTER_EIP, op1)
         elif (operOpcodeId == 5): # 5/JMP FAR
             op1 = self.modRMInstance.getRMValueFull(self.registers.addrSize)
-            eipAddr = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
             segVal = self.registers.mmReadValueUnsigned(op1+self.registers.operSize, OP_SIZE_WORD, self.modRMInstance.rmNameSegId, True)
-            return self.jumpFarDirect(OPCODE_JUMP, segVal, eipAddr)
+            op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+            return self.jumpFarDirect(OPCODE_JUMP, segVal, op1)
         elif (operOpcodeId == 6): # 6/PUSH
             op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             return self.stackPushValue(op1, self.registers.operSize)
@@ -1941,6 +1944,8 @@ cdef class Opcodes:
             operOp1  = self.registers.regReadUnsigned(edxReg)<<operSizeInBits
             operOp1 |= self.registers.regReadUnsigned(eaxReg)
             if (not operOp2):
+                #self.main.cpu.cpuDump()
+                #self.main.cpu.debugHalt = True
                 raise ChemuException(CPU_EXCEPTION_DE)
             utemp, tempmod = divmod(operOp1, operOp2)
             if (utemp > <unsigned long>bitMask):

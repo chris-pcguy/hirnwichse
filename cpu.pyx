@@ -134,7 +134,7 @@ cdef class Cpu:
           self.registers.regReadUnsigned(CPU_REGISTER_DR1))
         self.main.printMsg("DR2: {0:#010x}, DR3: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR2), \
           self.registers.regReadUnsigned(CPU_REGISTER_DR3))
-        self.main.printMsg("DR6: {0:#010x}, DR7: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR6), \
+        self.main.printMsg("DR6: {0:#010x}, DR7: {1:#010x}\n\n", self.registers.regReadUnsigned(CPU_REGISTER_DR6), \
           self.registers.regReadUnsigned(CPU_REGISTER_DR7))
     cdef void doInfiniteCycles(self):
         cdef unsigned long long cycleInc

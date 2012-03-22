@@ -94,7 +94,7 @@ cdef class Mm:
         cdef MmArea mmArea
         mmArea = self.mmGetSingleArea(mmAddr, dataSize)
         if (mmArea is None):
-            self.main.printMsg("mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            self.main.exitError("mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             return <bytes>(b'\x00'*dataSize)
         return mmArea.mmAreaRead(mmAddr, dataSize)
     cdef long long mmPhyReadValueSigned(self, unsigned long mmAddr, unsigned char dataSize):
