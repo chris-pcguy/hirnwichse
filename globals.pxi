@@ -9,8 +9,8 @@ DEF OP_SIZE_QWORD = 8
 
 cdef unsigned char BITMASK_BYTE  = 0xff
 cdef unsigned short BITMASK_WORD  = 0xffff
-cdef unsigned long BITMASK_DWORD = 0xffffffff
-cdef unsigned long long BITMASK_QWORD = 0xffffffffffffffff
+cdef unsigned int BITMASK_DWORD = 0xffffffff
+cdef unsigned long int BITMASK_QWORD = 0xffffffffffffffff
 
 
 

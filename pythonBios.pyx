@@ -10,7 +10,7 @@ cdef class PythonBios:
     def __init__(self, object main):
         self.main = main
     cpdef unsigned char interrupt(self, unsigned char intNum):
-        cdef unsigned long memAddr, logicalSector
+        cdef unsigned int memAddr, logicalSector
         cdef unsigned short ax, cx, dx, bx, bp, i, count, cylinder, cursorPos
         cdef unsigned char currMode, ah, al, bh, bl, dh, dl, fdcNum, fdCount, \
                             updateCursor, c, attr, attrInBuf, sector, head, tempByte

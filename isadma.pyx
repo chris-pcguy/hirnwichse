@@ -168,7 +168,7 @@ cdef class IsaDma:
         self.main = main
         self.controller = (IsaDmaController(self, True), IsaDmaController(self, False))
         self.HLDA = self.TC = False
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char ma_sl, channelNum
         ma_sl = (ioPortAddr>=0xc0)
         channelNum = (ioPortAddr>>(1+ma_sl))&3
@@ -203,7 +203,7 @@ cdef class IsaDma:
         else:
             self.main.exitError("ISADma::inPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
         return 0
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef unsigned char ma_sl, channelNum
         ma_sl = (ioPortAddr>=0xc0)
         channelNum = (ioPortAddr>>(1+ma_sl))&3
@@ -254,7 +254,7 @@ cdef class IsaDma:
     cdef unsigned char getTC(self):
         return self.TC
     cdef void setDRQ(self, unsigned char channel, unsigned char val):
-        cdef unsigned long dmaBase, dmaRoof
+        cdef unsigned int dmaBase, dmaRoof
         cdef unsigned char ma_sl
         cdef IsaDmaController currController
         cdef IsaDmaChannel currChannel
@@ -286,7 +286,7 @@ cdef class IsaDma:
     cdef void raiseHLDA(self):
         cdef unsigned char ma_sl, channel, countExpired, i
         cdef unsigned short data
-        cdef unsigned long phyAddr
+        cdef unsigned int phyAddr
         cdef IsaDmaController currController
         cdef IsaDmaChannel currChannel
         ma_sl = channel = countExpired = 0

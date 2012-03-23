@@ -8,7 +8,7 @@ cdef class GDBStubHandler:
     cdef GDBStub gdbStub
     cdef bytes lastReadData, lastWrittenData, cmdStr
     cdef unsigned char cmdStrChecksum, cmdStrChecksumProof, readState, initSent
-    cdef unsigned long cmdStrChecksumIndex, connId
+    cdef unsigned int cmdStrChecksumIndex, connId
     cdef clearData(self)
     cdef sendPacketType(self, bytes packetType)
     cdef putPacket(self, bytes data)

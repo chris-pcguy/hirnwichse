@@ -30,9 +30,9 @@ cdef class PitChannel:
             self.main.printMsg("mode2Func: channelId {0:d}: counterValue{1:d} == 0 or counterMode{2:d} not in (2, 3) .".format(self.channelId, self.counterValue, self.counterMode))
             return
         if (self.counterMode == 2):
-            self.counterValue = <unsigned long>(self.counterValue-1)
+            self.counterValue = <unsigned int>(self.counterValue-1)
         elif (self.counterMode == 3):
-            self.counterValue = <unsigned long>(self.counterValue-2)
+            self.counterValue = <unsigned int>(self.counterValue-2)
         else:
             self.main.exitError("mode2Func: counterMode {0:d} is unknown.", self.counterMode)
         if (not self.counterValue):
@@ -91,7 +91,7 @@ cdef class Pit:
         self.channel = 0
         for channel in self.channels:
             channel.run()
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char channel, retVal
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
@@ -120,7 +120,7 @@ cdef class Pit:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef unsigned char channel, bcd, modeNumber, counterWriteMode
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):

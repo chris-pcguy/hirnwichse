@@ -23,9 +23,9 @@ DEF PCI_HEADER_TYPE_BRIDGE = 1
 
 
 cdef class PciAddress:
-    def __init__(self, unsigned long address):
+    def __init__(self, unsigned int address):
         self.calculateAddress(address)
-    cdef void calculateAddress(self, unsigned long address):
+    cdef void calculateAddress(self, unsigned int address):
         self.enableBit = (address&0x80000000)!=0
         self.bus = <unsigned char>(address>>16)
         self.device = (address>>11)&0x1f
@@ -41,13 +41,13 @@ cdef class PciDevice:
     cdef void reset(self):
         if (self.configSpace is not None):
             self.configSpace.csResetData()
-    cdef unsigned long getData(self, unsigned char function, unsigned char register, unsigned char dataSize):
-        cdef unsigned long bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
+    cdef unsigned int getData(self, unsigned char function, unsigned char register, unsigned char dataSize):
+        cdef unsigned int bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
         if (function != 0):
             self.main.printMsg("PciDevice::getData: function {0:d} != 0.", function)
             return bitMask
         return self.configSpace.csReadValueUnsigned(register, dataSize)
-    cdef void setData(self, unsigned char function, unsigned char register, unsigned long data, unsigned char dataSize):
+    cdef void setData(self, unsigned char function, unsigned char register, unsigned int data, unsigned char dataSize):
         if (function != 0):
             self.main.printMsg("PciDevice::getData: function {0:d} != 0.", function)
             return
@@ -112,10 +112,10 @@ cdef class Pci:
                 if (deviceHandle is not None):
                     return deviceHandle
         return None
-    cdef unsigned long readRegister(self, unsigned long address, unsigned char dataSize):
+    cdef unsigned int readRegister(self, unsigned int address, unsigned char dataSize):
         cdef PciDevice deviceHandle
         cdef PciAddress pciAddressHandle
-        cdef unsigned long bitMask
+        cdef unsigned int bitMask
         bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
         pciAddressHandle = PciAddress(address)
         deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
@@ -124,7 +124,7 @@ cdef class Pci:
                 self.main.printMsg("Pci::readRegister: Warning: tried to read from configSpace without enableBit set.")
             return deviceHandle.getData(pciAddressHandle.function, pciAddressHandle.register, pciAddressHandle.dataSize)
         return bitMask
-    cdef void writeRegister(self, unsigned long address, unsigned long data, unsigned char dataSize):
+    cdef void writeRegister(self, unsigned int address, unsigned int data, unsigned char dataSize):
         cdef PciDevice deviceHandle
         cdef PciAddress pciAddressHandle
         pciAddressHandle = PciAddress(address)
@@ -133,7 +133,7 @@ cdef class Pci:
             if (not pciAddressHandle.enableBit):
                 self.main.printMsg("Pci::writeRegister: Warning: tried to write to configSpace without enableBit set.")
             deviceHandle.setData(pciAddressHandle.function, pciAddressHandle.register, data, dataSize)
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0xcf8):
                 return self.address
@@ -143,7 +143,7 @@ cdef class Pci:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0xcf8):
                 self.address = data

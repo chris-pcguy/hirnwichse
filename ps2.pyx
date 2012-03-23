@@ -95,7 +95,7 @@ cdef class PS2:
             self.irq1Requested = True
             (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
         ###self.activateTimer()
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char retByte = 0
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x64):
@@ -137,7 +137,7 @@ cdef class PS2:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x60):
                 if (not self.needWriteBytes):

@@ -6,7 +6,7 @@ from pic cimport Pic
 
 cdef class FloppyMedia:
     cdef FloppyDrive floppyDrive
-    cdef unsigned long sectors
+    cdef unsigned int sectors
     cdef unsigned char tracks, heads, sectorsPerTrack, mediaType
     cdef void setDataForMedia(self, unsigned char mediaType)
 
@@ -19,13 +19,13 @@ cdef class FloppyDrive:
     cdef bytes filename
     cdef unsigned char driveId, isLoaded, isWriteProtected, DIR, cylinder, head, sector, eot
     cdef unsigned char getIsLoaded(self)
-    cdef unsigned long ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector)
-    cdef unsigned char getDiskType(self, unsigned long size)
+    cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector)
+    cdef unsigned char getDiskType(self, unsigned int size)
     cdef void loadDrive(self, bytes filename)
-    cdef bytes readBytes(self, unsigned long offset, unsigned long size)
-    cdef bytes readSectors(self, unsigned long sector, unsigned long count) # count in sectors
-    cdef void writeBytes(self, unsigned long offset, unsigned long size, bytes data)
-    cdef void writeSectors(self, unsigned long sector, unsigned long count, bytes data)
+    cdef bytes readBytes(self, unsigned int offset, unsigned int size)
+    cdef bytes readSectors(self, unsigned int sector, unsigned int count) # count in sectors
+    cdef void writeBytes(self, unsigned int offset, unsigned int size, bytes data)
+    cdef void writeSectors(self, unsigned int sector, unsigned int count, bytes data)
 
 
 cdef class FloppyController:
@@ -33,10 +33,10 @@ cdef class FloppyController:
     cdef Floppy fdc
     cdef tuple drive
     cdef bytes command, result, fdcBuffer
-    cdef unsigned long fdcBufferIndex
+    cdef unsigned int fdcBufferIndex
     cdef unsigned char controllerId, msr, DOR, st0, st1, st2, st3, TC, resetSensei, pendingIrq, dataRate, multiTrack
     cdef void reset(self, unsigned char hwReset)
-    cdef bytes floppyXfer(self, unsigned char drive, unsigned long sector, unsigned long count, bytes data, unsigned char toFloppy)
+    cdef bytes floppyXfer(self, unsigned char drive, unsigned int sector, unsigned int count, bytes data, unsigned char toFloppy)
     cdef void addCommand(self, unsigned char command)
     cdef inline void addToCommand(self, unsigned char command)
     cdef inline void addToResult(self, unsigned char result)
@@ -55,16 +55,16 @@ cdef class FloppyController:
     cdef unsigned char writeToMem(self)
     cdef void raiseFloppyIrq(self)
     cdef void lowerFloppyIrq(self)
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void run(self)
 
 cdef class Floppy:
     cpdef public object main
     cdef tuple controller
     cdef void setupDMATransfer(self, FloppyController classInstance)
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void run(self)
 
 

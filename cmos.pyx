@@ -14,12 +14,12 @@ cdef class Cmos:
         self.equipmentDefaultValue = value
     cdef unsigned char getEquipmentDefaultValue(self):
         return self.equipmentDefaultValue
-    cdef unsigned long readValue(self, unsigned char index, unsigned char size):
+    cdef unsigned int readValue(self, unsigned char index, unsigned char size):
         return self.configSpace.csReadValueUnsigned(index, size)
-    cdef inline void writeValue(self, unsigned char index, unsigned long value, unsigned char size):
+    cdef inline void writeValue(self, unsigned char index, unsigned int value, unsigned char size):
         self.configSpace.csWriteValue(index, value, size)
     cdef void reset(self):
-        cdef unsigned long long memSizeInK, extMemSizeInK, extMemSizeIn64K
+        cdef unsigned long int memSizeInK, extMemSizeInK, extMemSizeIn64K
         memSizeInK = extMemSizeInK = extMemSizeIn64K = 0
         self.configSpace.csResetData()
         self.writeValue(CMOS_STATUS_REGISTER_B, 0x02, OP_SIZE_BYTE)
@@ -92,7 +92,7 @@ cdef class Cmos:
         cdef unsigned short checkSum = (<Misc>self.main.misc).checksum(bytes(self.configSpace.csRead(0x10, 0x1e))) # 0x10..0x2d
         self.writeValue(CMOS_CHECKSUM_L, <unsigned char>checkSum, OP_SIZE_BYTE)
         self.writeValue(CMOS_CHECKSUM_H, (checkSum>>8), OP_SIZE_BYTE)
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char tempIndex
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x70):
@@ -107,7 +107,7 @@ cdef class Cmos:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported. (port: {0:#06x})", dataSize, ioPortAddr)
         return BITMASK_BYTE
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef unsigned char tempIndex
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data

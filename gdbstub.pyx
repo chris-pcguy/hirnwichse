@@ -144,8 +144,8 @@ cdef class GDBStubHandler:
         return returnValue
     cdef bytes hexToBytes(self, bytes data): # data is bytes, output==bytes
         cdef bytes returnValue = bytes()
-        cdef unsigned long i = 0
-        cdef unsigned long dataLen = len(data)
+        cdef unsigned int i = 0
+        cdef unsigned int dataLen = len(data)
         if ((dataLen % 2) != 0):
             self.main.exitError('GDBStubHandler::hexToBytes: (dataLen % 2) != 0')
         while (i < dataLen):
@@ -159,8 +159,8 @@ cdef class GDBStubHandler:
             self.main.printMsg('GDBStubHandler::handleCommand: unhandled cmd: {0:s}', repr(data))
         self.putPacket(bytes())
     cdef handleCommand(self, bytes data):
-        cdef unsigned long memAddr, memLength, blockSize, regVal
-        cdef signed long threadNum, res_signal, res_thread, signal, thread
+        cdef unsigned int memAddr, memLength, blockSize, regVal
+        cdef signed int threadNum, res_signal, res_thread, signal, thread
         cdef unsigned short regOffset, maxRegNum, currRegNum
         cdef unsigned char cpuType, singleStepOn, res
         cdef list memList, actionList
@@ -258,7 +258,7 @@ cdef class GDBStubHandler:
                         if (len(action)>2):
                             thread = int(action[2:], 16)
                         else:
-                            self.main.printMsg('GDBStubHandler::handleCommand: v: action isn\'t long enough for threadnum')
+                            self.main.printMsg('GDBStubHandler::handleCommand: v: action isn\'t int enough for threadnum')
                     action = action.lower()
                     if (not res or (res == ord(b'c') and action == ord(b's'))):
                         res = action[0]

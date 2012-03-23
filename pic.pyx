@@ -202,7 +202,7 @@ cdef class Pic:
             slave.servicePicChannel()
         master.servicePicChannel()
         return vector
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char channel, oldStep
         if (ioPortAddr in PIC_PIC1_PORTS):
             channel = 0
@@ -223,7 +223,7 @@ cdef class Pic:
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef unsigned char channel, oldStep, cmdByte, specialMask, poll, readOp
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):

@@ -31,9 +31,9 @@ cdef class Opcodes:
         self.main.cpu.cpuHalted = True
     cdef inline void syncProtectedModeState(self):
         (<Segments>self.registers.segments).protectedModeOn = self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PE)
-    cdef long long inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
-    cdef int outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize) except -1
-    cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned long eipVal) except -1
+    cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
+    cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except -1
+    cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal) except -1
     cdef int jumpFarAbsolutePtr(self) except -1
     cdef int loopFunc(self, unsigned char loopType) except -1
     cdef int opcodeR_RM(self, unsigned char opcode, unsigned char operSize) except -1
@@ -67,8 +67,8 @@ cdef class Opcodes:
     cdef int popfWD(self) except -1
     cdef int stackPopSegId(self, unsigned short segId) except -1
     cdef int stackPopRegId(self, unsigned short regId) except -1
-    cdef unsigned long stackPopValue(self, unsigned char increaseStackAddr)
-    cdef int stackPushValue(self, unsigned long value, unsigned char operSize) except -1
+    cdef unsigned int stackPopValue(self, unsigned char increaseStackAddr)
+    cdef int stackPushValue(self, unsigned int value, unsigned char operSize) except -1
     cdef int stackPushSegId(self, unsigned short segId, unsigned char operSize) except -1
     cdef int stackPushRegId(self, unsigned short regId, unsigned char operSize) except -1
     cdef int pushIMM(self, unsigned char immIsByte) except -1
@@ -97,7 +97,7 @@ cdef class Opcodes:
     cdef int lfpFunc(self, unsigned short segId) except -1 # 'load far pointer' function
     cdef int xlatb(self) except -1
     cdef int opcodeGroup2_RM(self, unsigned char operSize) except -1
-    cdef int interrupt(self, signed short intNum, signed long errorCode) except -1 # TODO: complete this!
+    cdef int interrupt(self, signed short intNum, signed int errorCode) except -1 # TODO: complete this!
     cdef int into(self) except -1
     cdef int int3(self) except -1
     cdef int iret(self) except -1
@@ -128,7 +128,7 @@ cdef class Opcodes:
     cdef int setWithCondFunc(self, unsigned char cond) except -1 # if cond==True set 1, else 0
     cdef int arpl(self) except -1
     cdef int bound(self) except -1
-    cdef int btFunc(self, unsigned long offset, unsigned char newValType) except -1
+    cdef int btFunc(self, unsigned int offset, unsigned char newValType) except -1
     cdef void run(self)
     # end of opcodes
 

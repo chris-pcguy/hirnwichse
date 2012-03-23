@@ -45,11 +45,11 @@ cdef class Cpu:
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
             self.asyncEvent = False
         return
-    cdef void exception(self, unsigned char exceptionId, signed long errorCode):
+    cdef void exception(self, unsigned char exceptionId, signed int errorCode):
         self.main.printMsg("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
         if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
-            self.savedEip = <unsigned long>(self.savedEip+1)
+            self.savedEip = <unsigned int>(self.savedEip+1)
         self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
         self.registers.regWrite(CPU_REGISTER_EIP, self.savedEip)
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
@@ -61,7 +61,7 @@ cdef class Cpu:
         self.opcodes.interrupt(exceptionId, -1)
     cpdef handleException(self, object exception):
         cdef unsigned char exceptionId
-        cdef signed long errorCode
+        cdef signed int errorCode
         if (len(exception.args) not in (1, 2)):
             self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', len(exception.args), exitNow=True)
             return
@@ -137,7 +137,7 @@ cdef class Cpu:
         self.main.printMsg("DR6: {0:#010x}, DR7: {1:#010x}\n\n", self.registers.regReadUnsigned(CPU_REGISTER_DR6), \
           self.registers.regReadUnsigned(CPU_REGISTER_DR7))
     cdef void doInfiniteCycles(self):
-        cdef unsigned long long cycleInc
+        cdef unsigned long int cycleInc
         try:
             while (not self.main.quitEmu):
                 if ((self.cpuHalted and self.main.exitIfCpuHalted) or self.main.quitEmu):

@@ -52,8 +52,8 @@ cdef class IsaDma:
     cdef SetHRQ setHRQ
     cdef tuple controller
     cdef unsigned char extPageReg[16], HLDA, TC # extPageReg is unused.
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef unsigned char getTC(self)
     cdef void setDRQ(self, unsigned char channel, unsigned char val)
     cdef void raiseHLDA(self)

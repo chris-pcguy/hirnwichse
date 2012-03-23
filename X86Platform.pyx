@@ -28,7 +28,7 @@ cdef class PortHandler:
 
 
 cdef class Platform:
-    def __init__(self, object main, unsigned long long memSize):
+    def __init__(self, object main, unsigned long int memSize):
         self.main = main
         self.memSize = memSize
         self.copyRomToLowMem = True
@@ -48,7 +48,7 @@ cdef class Platform:
         self.pythonBios = PythonBios(self.main)
     cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject):
         cdef PortHandler port
-        cdef unsigned long i # 'i' can be longer than 65536
+        cdef unsigned int i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None or not len(port.ports)):
@@ -71,7 +71,7 @@ cdef class Platform:
         self.ports.append(port)
     cdef void addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject):
         cdef PortHandler port
-        cdef unsigned long i # 'i' can be longer than 65536
+        cdef unsigned int i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None or not len(port.ports)):
@@ -94,7 +94,7 @@ cdef class Platform:
         self.ports.append(port)
     cdef void delHandlers(self, tuple portNums):
         cdef PortHandler port
-        cdef unsigned long i # 'i' can be longer than 65536
+        cdef unsigned int i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None):
@@ -107,7 +107,7 @@ cdef class Platform:
                 port.ports = tuple(set(port.ports).difference_update(portNums))
     cdef void delReadHandlers(self, tuple portNums):
         cdef PortHandler port
-        cdef unsigned long i # 'i' can be longer than 65536
+        cdef unsigned int i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None):
@@ -123,7 +123,7 @@ cdef class Platform:
                 return
     cdef void delWriteHandlers(self, tuple portNums):
         cdef PortHandler port
-        cdef unsigned long i # 'i' can be longer than 65536
+        cdef unsigned int i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None):
@@ -137,10 +137,10 @@ cdef class Platform:
             elif (set(port.ports).issuperset(portNums)):
                 self.main.printMsg("delWriteHandlers: Don't know what todo here.")
                 return
-    cpdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cpdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef PortHandler port
         cdef unsigned short portNum
-        cdef unsigned long retVal, bitMask
+        cdef unsigned int retVal, bitMask
         try:
             bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
             for port in self.ports:
@@ -157,7 +157,7 @@ cdef class Platform:
         except:
             print(exc_info())
             exit(1)
-    cpdef outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef PortHandler port
         cdef unsigned short portNum
         try:
@@ -166,9 +166,9 @@ cdef class Platform:
             elif (dataSize == OP_SIZE_WORD):
                 data = <unsigned short>data
             elif (dataSize == OP_SIZE_DWORD):
-                data = <unsigned long>data
+                data = <unsigned int>data
             elif (dataSize == OP_SIZE_QWORD):
-                data = <unsigned long long>data
+                data = <unsigned long int>data
             for port in self.ports:
                 if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.outPort is NULL):
                     continue
@@ -181,7 +181,7 @@ cdef class Platform:
         except:
             print(exc_info())
             exit(1)
-    cdef void loadRomToMem(self, bytes romFileName, unsigned long long mmAddr, unsigned long long romSize):
+    cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize):
         cdef object romFp
         cdef bytes romData
         try:
@@ -191,8 +191,8 @@ cdef class Platform:
         finally:
             if (romFp):
                 romFp.close()
-    cdef void loadRom(self, bytes romFileName, unsigned long long mmAddr, unsigned char isRomOptional):
-        cdef unsigned long long romMemSize, romSize, size
+    cdef void loadRom(self, bytes romFileName, unsigned long int mmAddr, unsigned char isRomOptional):
+        cdef unsigned long int romMemSize, romSize, size
         romMemSize = SIZE_64KB
         romSize = stat(romFileName).st_size
         if (not isRomOptional):

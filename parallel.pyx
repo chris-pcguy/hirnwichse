@@ -5,13 +5,13 @@ include "globals.pxi"
 cdef class Parallel:
     def __init__(self, object main):
         self.main = main
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             pass
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return BITMASK_BYTE
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize):
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             pass
         else:

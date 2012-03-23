@@ -5,7 +5,7 @@ from mm cimport ConfigSpace
 
 cdef class PciAddress:
     cdef unsigned char enableBit, bus, device, function, register
-    cdef void calculateAddress(self, unsigned long address)
+    cdef void calculateAddress(self, unsigned int address)
 
 
 cdef class PciDevice:
@@ -14,8 +14,8 @@ cdef class PciDevice:
     cdef PciBus bus
     cdef ConfigSpace configSpace
     cdef void reset(self)
-    cdef unsigned long getData(self, unsigned char function, unsigned char register, unsigned char dataSize)
-    cdef void setData(self, unsigned char function, unsigned char register, unsigned long data, unsigned char dataSize)
+    cdef unsigned int getData(self, unsigned char function, unsigned char register, unsigned char dataSize)
+    cdef void setData(self, unsigned char function, unsigned char register, unsigned int data, unsigned char dataSize)
     cdef void setVendorId(self, unsigned short vendorId)
     cdef void setDeviceId(self, unsigned short deviceId)
     cdef void setClassDevice(self, unsigned short classDevice)
@@ -35,12 +35,12 @@ cdef class PciBus:
 cdef class Pci:
     cpdef object main
     cdef dict busList
-    cdef unsigned long address
+    cdef unsigned int address
     cdef PciDevice getDevice(self, unsigned char bus, unsigned char device)
-    cdef unsigned long readRegister(self, unsigned long address, unsigned char dataSize)
-    cdef void writeRegister(self, unsigned long address, unsigned long data, unsigned char dataSize)
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
+    cdef unsigned int readRegister(self, unsigned int address, unsigned char dataSize)
+    cdef void writeRegister(self, unsigned int address, unsigned int data, unsigned char dataSize)
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void run(self)
 
 

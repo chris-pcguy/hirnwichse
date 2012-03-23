@@ -31,8 +31,8 @@ cdef class Pic:
     cdef void raiseIrq(self, unsigned char irq)
     cdef void lowerIrq(self, unsigned char irq)
     cdef unsigned char IAC(self)
-    cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned long data, unsigned char dataSize)
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void run(self)
 
 
