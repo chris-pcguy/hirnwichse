@@ -23,7 +23,7 @@ cdef class Cpu:
     cdef inline void setINTR(self, unsigned char state)
     cdef inline void setHRQ(self, unsigned char state)
     cdef void handleAsyncEvent(self)
-    cdef void exception(self, unsigned char exceptionId, long errorCode)
+    cdef void exception(self, unsigned char exceptionId, signed long errorCode)
     cpdef handleException(self, object exception)
     cdef unsigned char parsePrefixes(self, unsigned char opcode)
     cpdef cpuDump(self)

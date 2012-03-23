@@ -558,7 +558,7 @@ cdef class FloppyController:
             (<Pic>self.main.platform.pic).lowerIrq(FDC_IRQ)
             self.pendingIrq = False
     cdef unsigned long inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        cdef char drive
+        cdef unsigned char drive
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC_CTRL::inPort: PIO mode isn't supported!")
             return BITMASK_BYTE

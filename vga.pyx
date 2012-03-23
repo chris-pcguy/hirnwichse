@@ -158,7 +158,7 @@ cdef class Vga:
         elif (page > 7):
             self.main.printMsg("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
         return page
-    cdef void writeCharacterTeletype(self, unsigned char c, short attr, unsigned char page, unsigned char updateCursor):
+    cdef void writeCharacterTeletype(self, unsigned char c, signed short attr, unsigned char page, unsigned char updateCursor):
         cdef unsigned char x, y, i
         cdef unsigned short cursorPos
         cdef unsigned long address
@@ -191,7 +191,7 @@ cdef class Vga:
         cursorPos = ((y<<8)|x)
         if (updateCursor):
             self.setCursorPosition(page, cursorPos)
-    cdef void writeCharacter(self, unsigned long address, unsigned char c, short attr):
+    cdef void writeCharacter(self, unsigned long address, unsigned char c, signed short attr):
         if (attr == -1):
             (<Mm>self.main.mm).mmPhyWriteValue(address, c, 1)
             return
@@ -215,7 +215,7 @@ cdef class Vga:
             self.main.printMsg("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
         (<Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page<<1), pos, 2)
-    cdef void scrollUp(self, unsigned char page, short attr, unsigned short lines):
+    cdef void scrollUp(self, unsigned char page, signed short attr, unsigned short lines):
         cdef bytes oldData
         cdef unsigned long oldAddr, dataSize
         self.setProcessVideoMem(False)

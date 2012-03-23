@@ -45,7 +45,7 @@ cdef class Cpu:
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
             self.asyncEvent = False
         return
-    cdef void exception(self, unsigned char exceptionId, long errorCode):
+    cdef void exception(self, unsigned char exceptionId, signed long errorCode):
         self.main.printMsg("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
         if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
@@ -61,7 +61,7 @@ cdef class Cpu:
         self.opcodes.interrupt(exceptionId, -1)
     cpdef handleException(self, object exception):
         cdef unsigned char exceptionId
-        cdef long errorCode
+        cdef signed long errorCode
         if (len(exception.args) not in (1, 2)):
             self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', len(exception.args), exitNow=True)
             return

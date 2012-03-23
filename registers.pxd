@@ -8,7 +8,7 @@ cdef class ModRMClass:
     cdef Registers registers
     cdef unsigned char rm, reg, mod, ss
     cdef unsigned short rmName0, rmName1, rmNameSegId, regName
-    cdef long long rmName2
+    cdef signed long long rmName2
     cdef void modRMOperands(self, unsigned char regSize, unsigned char modRMflags)
     cdef unsigned long getRMValueFull(self, unsigned char rmSize)
     cdef signed long long modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride)
@@ -65,7 +65,7 @@ cdef class Registers:
     cdef void setSZP_C0_O0_A0(self, unsigned long value, unsigned char regSize)
     cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize)
     cdef unsigned char getCond(self, unsigned char index)
-    cdef void setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method)
+    cdef void setFullFlags(self, unsigned long long reg0, unsigned long long reg1, unsigned char regSize, unsigned char method)
     cdef void checkMemAccessRights(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char write)
     cdef unsigned long mmGetRealAddr(self, unsigned long mmAddr, unsigned short segId, unsigned char allowOverride)
     cdef bytes mmRead(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char allowOverride)

@@ -110,11 +110,11 @@ cdef class ModRMClass:
             mmAddr = self.getRMValueFull(self.registers.addrSize)
             returnInt = self.registers.mmReadValueSigned(mmAddr, regSize, self.rmNameSegId, allowOverride)
         if (regSize == OP_SIZE_BYTE):
-            returnInt = <char>returnInt
+            returnInt = <signed char>returnInt
         elif (regSize == OP_SIZE_WORD):
-            returnInt = <short>returnInt
+            returnInt = <signed short>returnInt
         elif (regSize == OP_SIZE_DWORD):
-            returnInt = <long>returnInt
+            returnInt = <signed long>returnInt
         return returnInt
     cdef unsigned long long modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride):
         # NOTE: imm == unsigned ; disp == signed
@@ -146,14 +146,14 @@ cdef class ModRMClass:
         mmAddr = self.getRMValueFull(self.registers.addrSize)
         return self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSegId, allowOverride, valueOp)
     cdef signed long long modRLoadSigned(self, unsigned char regSize):
-        cdef long long retVal
+        cdef signed long long retVal
         retVal = self.registers.regReadSigned(self.regName)
         if (regSize == OP_SIZE_BYTE):
-            retVal = <char>retVal
+            retVal = <signed char>retVal
         elif (regSize == OP_SIZE_WORD):
-            retVal = <short>retVal
+            retVal = <signed short>retVal
         elif (regSize == OP_SIZE_DWORD):
-            retVal = <long>retVal
+            retVal = <signed long>retVal
         return retVal
     cdef unsigned long long modRLoadUnsigned(self, unsigned char regSize):
         cdef unsigned long long retVal
@@ -465,11 +465,11 @@ cdef class Registers:
             return (self.getEFLAG(FLAG_SF_OF_ZF) in (0, FLAG_SF_OF))
         else:
             self.main.exitError("getCond: index {0:#x} invalid.", index)
-    cdef void setFullFlags(self, long long reg0, long long reg1, unsigned char regSize, unsigned char method):
+    cdef void setFullFlags(self, unsigned long long reg0, unsigned long long reg1, unsigned char regSize, unsigned char method):
         cdef unsigned char unsignedOverflow, signedOverflow, isResZero, afFlag, reg0Nibble, reg1Nibble, regSumNibble, carried
         cdef unsigned long bitMaskHalf
         cdef unsigned long long regSumu
-        cdef long long regSum
+        cdef signed long long regSum
         afFlag = carried = False
         bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
 
@@ -527,7 +527,7 @@ cdef class Registers:
             self.setEFLAG(FLAG_SF, regSumu!=0)
         elif (method in (OPCODE_MUL, OPCODE_IMUL)):
             if (regSize == OP_SIZE_BYTE):
-                regSum = <short>((<char>reg0)*(<char>reg1))
+                regSum = <signed short>((<signed char>reg0)*(<signed char>reg1))
                 reg0 = <unsigned char>reg0
                 reg1 = <unsigned char>reg1
                 regSumu = <unsigned char>(reg0*reg1)
@@ -535,7 +535,7 @@ cdef class Registers:
                 if (method == OPCODE_MUL):
                     self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
             elif (regSize == OP_SIZE_WORD):
-                regSum = <long>((<short>reg0)*(<short>reg1))
+                regSum = <signed long>((<signed short>reg0)*(<signed short>reg1))
                 reg0 = <unsigned short>reg0
                 reg1 = <unsigned short>reg1
                 regSumu = <unsigned short>(reg0*reg1)
@@ -543,7 +543,7 @@ cdef class Registers:
                 if (method == OPCODE_MUL):
                     self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
             elif (regSize == OP_SIZE_DWORD):
-                regSum = <long long>((<long>reg0)*(<long>reg1))
+                regSum = <signed long long>((<signed long>reg0)*(<signed long>reg1))
                 reg0 = <unsigned long>reg0
                 reg1 = <unsigned long>reg1
                 regSumu = <unsigned long>(reg0*reg1)
@@ -555,7 +555,7 @@ cdef class Registers:
             self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSum])
             self.setEFLAG(FLAG_ZF, isResZero)
             if (regSize == OP_SIZE_BYTE):
-                regSum = <char>regSum
+                regSum = <signed char>regSum
             self.setEFLAG(FLAG_SF, regSum<0)
     cdef void checkMemAccessRights(self, unsigned long mmAddr, unsigned long dataSize, unsigned short segId, unsigned char write):
         cdef GdtEntry gdtEntry

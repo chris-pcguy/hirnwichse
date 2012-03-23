@@ -97,7 +97,7 @@ cdef class Opcodes:
     cdef int lfpFunc(self, unsigned short segId) except -1 # 'load far pointer' function
     cdef int xlatb(self) except -1
     cdef int opcodeGroup2_RM(self, unsigned char operSize) except -1
-    cdef int interrupt(self, short intNum, long errorCode) except -1 # TODO: complete this!
+    cdef int interrupt(self, signed short intNum, signed long errorCode) except -1 # TODO: complete this!
     cdef int into(self) except -1
     cdef int int3(self) except -1
     cdef int iret(self) except -1
