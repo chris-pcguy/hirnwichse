@@ -27,12 +27,12 @@ cdef class Mm:
     cdef unsigned char mmDelArea(self, unsigned int mmBaseAddr)
     cdef MmArea mmGetSingleArea(self, unsigned int mmAddr, unsigned int dataSize)
     cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)
-    cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize)
-    cdef long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize)
-    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize)
-    cdef void mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize)
-    cdef unsigned long int mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize)
-    cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
+    cpdef object mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize)
+    cpdef object mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize)
+    cpdef object mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize)
+    cpdef object mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize)
+    cpdef object mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize)
+    cpdef object mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
 
 cdef class ConfigSpace:
     cpdef object main

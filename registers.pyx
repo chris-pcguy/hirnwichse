@@ -39,7 +39,7 @@ cdef class ModRMClass:
     def __init__(self, object main, Registers registers):
         self.main = main
         self.registers = registers
-    cdef void modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
+    cpdef object modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
         cdef unsigned char modRMByte, index
         modRMByte = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_BYTE)
         self.rmNameSegId = CPU_SEGMENT_DS
@@ -100,7 +100,7 @@ cdef class ModRMClass:
         if (rmSize == OP_SIZE_WORD):
             return <unsigned short>retAddr
         return retAddr
-    cdef signed long int modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride):
+    cpdef object modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride):
         # NOTE: imm == unsigned ; disp == signed
         cdef unsigned int mmAddr
         cdef signed long int returnInt
@@ -116,7 +116,7 @@ cdef class ModRMClass:
         elif (regSize == OP_SIZE_DWORD):
             returnInt = <signed int>returnInt
         return returnInt
-    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride):
+    cpdef object modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride):
         # NOTE: imm == unsigned ; disp == signed
         cdef unsigned int mmAddr
         cdef unsigned long int returnInt
@@ -132,7 +132,7 @@ cdef class ModRMClass:
         elif (regSize == OP_SIZE_DWORD):
             returnInt = <unsigned int>returnInt
         return returnInt
-    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char allowOverride, unsigned char valueOp):
+    cpdef object modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char allowOverride, unsigned char valueOp):
         # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
         cdef unsigned int mmAddr
         if (regSize == OP_SIZE_BYTE):
@@ -199,20 +199,20 @@ cdef class Registers:
         return (<Segment>(self.segments.cs).segmentIndex&3)
     cdef unsigned char getIOPL(self):
         return (self.getEFLAG(FLAG_IOPL)>>12)&3
-    cdef signed long int getCurrentOpcodeSigned(self, unsigned char numBytes):
+    cpdef signed long int getCurrentOpcodeSigned(self, unsigned char numBytes):
         cdef unsigned int opcodeAddr
         opcodeAddr = self.regReadUnsigned(self.eipSizeRegId)
         return self.mmReadValueSigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
-    cdef unsigned long int getCurrentOpcodeUnsigned(self, unsigned char numBytes):
+    cpdef unsigned long int getCurrentOpcodeUnsigned(self, unsigned char numBytes):
         cdef unsigned int opcodeAddr
         opcodeAddr = self.regReadUnsigned(self.eipSizeRegId)
         return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
-    cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes):
+    cpdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes):
         cdef unsigned int opcodeAddr
         opcodeAddr = self.regReadUnsigned(self.eipSizeRegId)
         self.regWrite(self.eipSizeRegId, <unsigned int>(opcodeAddr+numBytes))
         return self.mmReadValueSigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
-    cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes):
+    cpdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes):
         cdef unsigned int opcodeAddr
         opcodeAddr = self.regReadUnsigned(self.eipSizeRegId)
         self.regWrite(self.eipSizeRegId, <unsigned int>(opcodeAddr+numBytes))
@@ -595,24 +595,24 @@ cdef class Registers:
                 return mmAddr&0x1fffff
             return mmAddr&0xfffff
         return mmAddr
-    cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char allowOverride):
+    cpdef object mmRead(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char allowOverride):
         #self.checkMemAccessRights(mmAddr, dataSize, segId, False)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyRead(mmAddr, dataSize)
-    cdef long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
+    cpdef object mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyReadValueSigned(mmAddr, dataSize)
-    cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
+    cpdef object mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyReadValueUnsigned(mmAddr, dataSize)
-    cdef void mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, unsigned short segId, unsigned char allowOverride):
+    cpdef object mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, unsigned short segId, unsigned char allowOverride):
         #self.checkMemAccessRights(mmAddr, dataSize, segId, True)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         (<Mm>self.main.mm).mmPhyWrite(mmAddr, data, dataSize)
-    cdef unsigned long int mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
+    cpdef object mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyWriteValue(mmAddr, data, dataSize)
-    cdef unsigned long int mmWriteValueWithOp(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
+    cpdef object mmWriteValueWithOp(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
         cdef unsigned char carryOn
         cdef unsigned long int oldData
         if (valueOp == OPCODE_SAVE):

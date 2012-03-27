@@ -52,13 +52,19 @@ cdef class Cpu:
             self.savedEip = <unsigned int>(self.savedEip+1)
         self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
         self.registers.regWrite(CPU_REGISTER_EIP, self.savedEip)
+        #self.main.printMsg("exception: cpu-dump before exception-jump.")
+        #self.cpuDump()
+        #if (self.savedEip == 0x307980):
+        #    self.debugHalt = True
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
             if (errorCode == -1):
                 self.main.exitError("CPU exception: errorCode should be set, is -1.")
                 return
             self.opcodes.interrupt(exceptionId, errorCode)
-            return
-        self.opcodes.interrupt(exceptionId, -1)
+        else:
+            self.opcodes.interrupt(exceptionId, -1)
+        #self.main.printMsg("exception: cpu-dump after exception-jump.")
+        #self.cpuDump()
     cpdef handleException(self, object exception):
         cdef unsigned char exceptionId
         cdef signed int errorCode
@@ -176,6 +182,9 @@ cdef class Cpu:
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         self.registers.readCodeSegSize()
+        #if (self.savedEip == 0x307980):
+        #    self.debugHalt = True
+        #    return
         self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
         try:
             if (not self.opcodes.executeOpcode(self.opcode)):

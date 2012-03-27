@@ -1,7 +1,9 @@
 
 from atexit import register
+from misc import ChemuException
 
 include "globals.pxi"
+include "cpu_globals.pxi"
 
 
 
@@ -27,34 +29,35 @@ cdef class MmArea:
         mmAddr -= self.mmBaseAddr
         IF STRICT_CHECKS:
             if (self.mmAreaData is None or not dataSize):
-                self.main.printMsg("MmArea::mmAreaRead: self.mmAreaData is None || not dataSize.")
-                raise MemoryError()
+                self.main.exitError("MmArea::mmAreaRead: self.mmAreaData is None || not dataSize.")
+                raise SystemExit()
         return self.mmAreaData[mmAddr:mmAddr+dataSize]
     cdef void mmAreaWrite(self, unsigned int mmAddr, char *data, unsigned int dataSize):
         mmAddr -= self.mmBaseAddr
         IF STRICT_CHECKS:
             if (self.mmAreaData is None or not dataSize):
-                self.main.printMsg("MmArea::mmAreaWrite: self.mmAreaData is None || not dataSize.")
-                raise MemoryError()
+                self.main.exitError("MmArea::mmAreaWrite: self.mmAreaData is None || not dataSize.")
+                raise SystemExit()
             if (self.mmReadOnly):
                 self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
-                return
+                raise SystemExit()
         memcpy(<char*>(self.mmAreaData+mmAddr), data, dataSize)
     cdef void mmAreaCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize):
         destAddr -= self.mmBaseAddr
         srcAddr  -= self.mmBaseAddr
         IF STRICT_CHECKS:
             if (self.mmAreaData is None or not dataSize):
-                self.main.printMsg("MmArea::mmAreaCopy: self.mmAreaData is None || not dataSize.")
-                raise MemoryError()
+                self.main.exitError("MmArea::mmAreaCopy: self.mmAreaData is None || not dataSize.")
+                raise SystemExit()
             if (self.mmReadOnly):
                 self.main.exitError("MmArea::mmAreaCopy: mmArea is mmReadOnly, exiting...")
-                return
+                raise SystemExit()
         memmove(<char*>(self.mmAreaData+destAddr), <char*>(self.mmAreaData+srcAddr), dataSize)
     cpdef run(self):
         self.mmAreaData = <char*>malloc(self.mmAreaSize)
         if (self.mmAreaData is None):
-            raise MemoryError()
+            self.main.exitError("MmArea::mmAreaCopy: self.mmAreaData is None.")
+            raise SystemExit()
         self.mmResetAreaData()
         register(self.mmFreeAreaData)
 
@@ -90,25 +93,25 @@ cdef class Mm:
             if (mmAddr >= mmArea.mmBaseAddr and mmAddr+dataSize <= mmArea.mmEndAddr):
                 foundAreas.append(mmArea)
         return foundAreas
-    cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize): # dataSize in bytes
+    cpdef object mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize): # dataSize in bytes
         cdef MmArea mmArea
         mmArea = self.mmGetSingleArea(mmAddr, dataSize)
         if (mmArea is None):
-            self.main.exitError("mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-            return <bytes>(b'\x00'*dataSize)
+            self.main.printMsg("mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            raise ChemuException(CPU_EXCEPTION_GP, 0)
         return mmArea.mmAreaRead(mmAddr, dataSize)
-    cdef long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize):
+    cpdef object mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize):
         return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=True)
-    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize):
+    cpdef object mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize):
         return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=False)
-    cdef void mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize): # dataSize in bytes
+    cpdef object mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize): # dataSize in bytes
         cdef MmArea mmArea
         mmArea = self.mmGetSingleArea(mmAddr, dataSize)
         if (mmArea is None):
-            self.main.exitError("mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-            return
+            self.main.printMsg("mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            raise ChemuException(CPU_EXCEPTION_GP, 0)
         mmArea.mmAreaWrite(mmAddr, data, dataSize)
-    cdef unsigned long int mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize):
+    cpdef object mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data
         elif (dataSize == OP_SIZE_WORD):
@@ -117,7 +120,7 @@ cdef class Mm:
             data = <unsigned int>data
         self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
         return data
-    cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize): # dataSize in bytes
+    cpdef object mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize): # dataSize in bytes
         cdef MmArea mmAreaDest, mmAreaSrc
         mmAreaDest = self.mmGetSingleArea(destAddr, dataSize)
         mmAreaSrc = self.mmGetSingleArea(srcAddr, dataSize)
@@ -141,20 +144,20 @@ cdef class ConfigSpace:
     cdef bytes csRead(self, unsigned int offset, unsigned int size):
         IF STRICT_CHECKS:
             if (self.csData is None or not size or offset+size > self.csSize):
-                self.main.printMsg("ConfigSpace::csRead: self.csData is None || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
-                raise MemoryError()
+                self.main.exitError("ConfigSpace::csRead: self.csData is None || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
+                raise SystemExit()
         return self.csData[offset:offset+size]
     cdef void csWrite(self, unsigned int offset, bytes data, unsigned int size):
         IF STRICT_CHECKS:
             if (self.csData is None or not size or offset+size > self.csSize):
-                self.main.printMsg("ConfigSpace::csWrite: self.csData is None || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
-                raise MemoryError()
+                self.main.exitError("ConfigSpace::csWrite: self.csData is None || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
+                raise SystemExit()
         memcpy(<char*>(self.csData+offset), <char*>data, size)
     cdef void csCopy(self, unsigned int destOffset, unsigned int srcOffset, unsigned int size):
         IF STRICT_CHECKS:
             if (self.csData is None or not size or (destOffset+size > self.csSize) or (srcOffset+size > self.csSize)):
-                self.main.printMsg("ConfigSpace::csCopy: self.csData is None || not size || (destOffset+size > self.csSize) || (srcOffset+size > self.csSize). (destOffset: {0:#06x}, srcOffset: {1:#06x}, size: {2:d})", destOffset, srcOffset, size)
-                raise MemoryError()
+                self.main.exitError("ConfigSpace::csCopy: self.csData is None || not size || (destOffset+size > self.csSize) || (srcOffset+size > self.csSize). (destOffset: {0:#06x}, srcOffset: {1:#06x}, size: {2:d})", destOffset, srcOffset, size)
+                raise SystemExit()
         memcpy(<char*>(self.csData+destOffset), <char*>(self.csData+srcOffset), size)
     cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size):
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)
@@ -189,7 +192,8 @@ cdef class ConfigSpace:
     cpdef run(self):
         self.csData = <char*>malloc(self.csSize)
         if (self.csData is None):
-            raise MemoryError()
+            self.main.exitError("ConfigSpace::run: self.csData is None.")
+            raise SystemExit()
         self.csResetData()
         register(self.csFreeData)
 

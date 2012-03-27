@@ -1672,6 +1672,8 @@ cdef class Opcodes:
             op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
             return self.jumpFarDirect(OPCODE_JUMP, segVal, op1)
         elif (operOpcodeId == 6): # 6/PUSH
+            #if (self.main.cpu.savedEip == 0x307980):
+            #    self.main.cpu.debugHalt = True
             op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             return self.stackPushValue(op1, self.registers.operSize)
         else:
