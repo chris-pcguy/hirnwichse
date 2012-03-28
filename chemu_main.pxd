@@ -8,7 +8,6 @@ from isadma cimport IsaDma, SetHRQ
 
 
 cdef class ChEmu:
-    cpdef public object pyroDaemon, pyroURI_UI, pyroUI
     cpdef object parser, cmdArgs
     cdef public Misc misc
     cdef public Mm mm
@@ -16,7 +15,7 @@ cdef class ChEmu:
     cdef public Cpu cpu
     cdef unsigned char debugEnabled
     cdef public unsigned char quitEmu, exitIfCpuHalted, exitCode, noUI, exitOnTripleFault, forceFloppyDiskType
-    cdef public unsigned long int memSize
+    cdef public unsigned int memSize
     cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename
     cpdef isRunning(self)
     cpdef parseArgs(self)

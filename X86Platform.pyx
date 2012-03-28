@@ -3,7 +3,6 @@ from os import stat
 from os.path import join
 from sys import exc_info, exit
 from time import sleep
-import Pyro4
 
 include "globals.pxi"
 
@@ -28,7 +27,7 @@ cdef class PortHandler:
 
 
 cdef class Platform:
-    def __init__(self, object main, unsigned long int memSize):
+    def __init__(self, object main, unsigned int memSize):
         self.main = main
         self.memSize = memSize
         self.copyRomToLowMem = True
@@ -119,7 +118,7 @@ cdef class Platform:
                     del self.ports[i]
                 return
             elif (set(port.ports).issuperset(portNums)):
-                self.main.printMsg("delReadHandlers: Don't know what todo here.")
+                self.main.notice("delReadHandlers: Don't know what todo here.")
                 return
     cdef void delWriteHandlers(self, tuple portNums):
         cdef PortHandler port
@@ -135,7 +134,7 @@ cdef class Platform:
                     del self.ports[i]
                 return
             elif (set(port.ports).issuperset(portNums)):
-                self.main.printMsg("delWriteHandlers: Don't know what todo here.")
+                self.main.notice("delWriteHandlers: Don't know what todo here.")
                 return
     cpdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef PortHandler port
@@ -152,7 +151,7 @@ cdef class Platform:
                         retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
                         ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
                         return retVal
-            self.main.printMsg("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
+            self.main.notice("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
             return bitMask
         except:
             print(exc_info())
@@ -177,7 +176,7 @@ cdef class Platform:
                         ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
                         port.outPort(port.classObject, ioPortAddr, data, dataSize)
                         return
-            self.main.printMsg("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
+            self.main.notice("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
         except:
             print(exc_info())
             exit(1)
@@ -207,6 +206,25 @@ cdef class Platform:
                 self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
                 return
             (<Mm>self.main.mm).mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
+    cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
+        ### TODO: should 0xf0000-0xfffff be read-only?
+        (<Mm>self.main.mm).mmAreaWrite(mmArea, offset, data, dataSize)
+        if (offset >= VGA_TEXTMODE_ADDR and offset+dataSize <= (VGA_TEXTMODE_ADDR+4000)):
+            self.vga.vgaAreaWrite(mmArea, offset, data, dataSize)
+    cdef void initMemory(self):
+        cdef MmArea biosMmArea
+        cdef unsigned int i
+        (<Mm>self.main.mm).run()
+        for i in range(self.memSize):
+            (<Mm>self.main.mm).mmAddArea(SIZE_1MB*i, False)
+        (<Mm>self.main.mm).mmAddArea(0xfff00000, False)
+        self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
+        if (self.main.vgaBiosFilename):
+            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
+        (<Mm>self.main.mm).mmSetReadOnly(0xfff00000, True)
+        biosMmArea = (<Mm>self.main.mm).mmGetArea(0x0) # this would include the whole first megabyte.
+        biosMmArea.writeClass = self
+        biosMmArea.writeHandler = <MmAreaWriteType>self.systemWriteHandler
     cdef void initDevicesPorts(self):
         self.addReadHandlers((0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
         self.addWriteHandlers((0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)
@@ -248,21 +266,10 @@ cdef class Platform:
         self.serial.run()
         self.gdbstub.run()
         self.pythonBios.run()
-    cpdef initRemotes(self):
-        if (self.main.pyroURI_UI is None):
-            return
-        self.main.pyroUI = Pyro4.core.Proxy(self.main.pyroURI_UI)
-        self.main.pyroUI._pyroOneway.add('pumpEvents')
     cpdef run(self):
         try:
+            self.initMemory()
             self.initDevices()
-            self.initRemotes()
-            (<Mm>self.main.mm).mmAddArea(0, self.memSize, False, <MmArea>MmArea)
-            (<Mm>self.main.mm).mmAddArea(0xfffc0000, 0x40000, False, <MmArea>MmArea)
-            self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
-            if (self.main.vgaBiosFilename):
-                self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
-            (<MmArea>(<Mm>self.main.mm).mmGetSingleArea(0xfffc0000, 0)).mmSetReadOnly(True)
             self.initDevicesPorts()
             self.runDevices()
         except:

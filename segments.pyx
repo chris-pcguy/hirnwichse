@@ -326,7 +326,7 @@ cdef class Segments:
             self.main.exitError("Segments::getSegmentInstance: invalid segmentId {0:d}", segmentId)
             raise ValueError("Segments::getSegmentInstance: invalid segmentId {0:d}".format(segmentId))
         if (checkForValidness and not segment.isValid):
-            self.main.printMsg("Segments::getSegmentInstance: segment with ID {0:d} isn't valid.", segmentId)
+            self.main.notice("Segments::getSegmentInstance: segment with ID {0:d} isn't valid.", segmentId)
             raise ChemuException(CPU_EXCEPTION_GP, segment.segmentIndex)
         return segment
     cdef GdtEntry getEntry(self, unsigned short num):

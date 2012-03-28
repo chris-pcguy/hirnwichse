@@ -13,9 +13,6 @@ cdef class PygameUI:
         self.display, self.screen, self.font = None, None, None
         self.screenSize = self.screenWidth, self.screenHeight = 720, 400 # 640, 400
         self.fontSize = self.fontWidth, self.fontHeight = self.screenWidth//80, self.screenHeight//25
-        self._pyroId = ''
-        self._pyroDaemon = None
-        self.main.pyroURI_UI = self.main.pyroDaemon.register(self)
     cpdef initPygame(self):
         ###print(pygame.init())
         pygame.display.init()
@@ -335,7 +332,7 @@ cdef class PygameUI:
             return 0x69
         elif (key == pygame.K_BREAK):
             return 0x6a
-        self.main.printMsg("keyToScancode: unknown key. (keyId: {0:d}, keyName: {1:s})", key, repr(pygame.key.name(key)))
+        self.main.notice("keyToScancode: unknown key. (keyId: {0:d}, keyName: {1:s})", key, repr(pygame.key.name(key)))
         return 0xff
     cpdef handleEvent(self, object event):
         try:
@@ -348,7 +345,7 @@ cdef class PygameUI:
             elif (event.type == pygame.KEYUP):
                 (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), True)
             else:
-                self.main.printMsg("PygameUI::handleEvent: event.type == {0:d}", event.type)
+                self.main.notice("PygameUI::handleEvent: event.type == {0:d}", event.type)
         except pygame.error:
             print(exc_info())
         except (SystemExit, KeyboardInterrupt):

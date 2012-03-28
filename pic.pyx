@@ -127,7 +127,7 @@ cdef class PicChannel:
         return self.irqBasePort
     cdef void setIrqBasePort(self, unsigned char irqBasePort):
         self.irqBasePort = irqBasePort
-        if (self.irqBasePort % 8):
+        if (self.irqBasePort & 7):
             self.main.exitError("Notice: setIrqBasePort: (self.irqBasePort {0:#04x} MODULO 8) != 0. (channel{1:d})", \
                          irqBasePort, self.master==False)
     cdef void setMasterSlaveMap(self, unsigned char value):
@@ -289,7 +289,7 @@ cdef class Pic:
                 elif (data in (0x02, 0x40)):
                     pass
                 else:
-                    self.main.printMsg("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, oldStep == {2:d}, dataSize == byte).", data, ioPortAddr, oldStep)
+                    self.main.notice("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, oldStep == {2:d}, dataSize == byte).", data, ioPortAddr, oldStep)
             elif (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
                 cmdByte = (<PicChannel>self.channels[channel]).getCmdByte()
                 if (not (<PicChannel>self.channels[channel]).inInit): # set mask if (<PicChannel>self.channels[channel]).inInit is False

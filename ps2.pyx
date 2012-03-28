@@ -50,7 +50,7 @@ cdef class PS2:
             (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
     cdef void appendToOutBytesDoIrq(self, bytes data):
         if (self.outb):
-            self.main.printMsg("KBC::appendToOutBytesDoIrq: self.outb!=0")
+            self.main.notice("KBC::appendToOutBytesDoIrq: self.outb!=0")
             return
         self.appendToOutBytesJustAppend(data)
         self.outb = True
@@ -75,8 +75,8 @@ cdef class PS2:
         else:
             self.main.exitError("setKeyboardRepeatRate: interval {0:d} unknown.", interval)
         # TODO: Set the repeat-rate properly.
-        if (self.main.pyroUI is not None):
-            self.main.pyroUI.setRepeatRate(delay, interval)
+        if (self.main.platform.vga.ui is not None):
+            self.main.platform.vga.ui.setRepeatRate(delay, interval)
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
         cdef unsigned char sc
         cdef bytes scancode
@@ -189,7 +189,7 @@ cdef class PS2:
                     elif (data in (0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd)):
                         self.appendToOutBytes(b'\xfe')
                     else:
-                        self.main.printMsg("outPort: data {0:#04x} is not supported. (port {1:#04x})", data, ioPortAddr)
+                        self.main.notice("outPort: data {0:#04x} is not supported. (port {1:#04x})", data, ioPortAddr)
                     if (self.needWriteBytes > 0):
                         self.lastUsedPort = ioPortAddr
                         self.lastUsedCmd = data
@@ -222,12 +222,12 @@ cdef class PS2:
                         elif (self.lastUsedCmd == 0xed): # port 0x60
                             self.appendToOutBytes(b'\xfa')
                     else:
-                        self.main.printMsg("outPort: data {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
+                        self.main.notice("outPort: data {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
                     self.needWriteBytes -= 1
             elif (ioPortAddr == 0x64):
                 if (data == 0x20): # read keyboard mode
                     if (self.outb):
-                        self.main.printMsg("ERROR: KBC::outPort: Port 0x64, data 0x20: outb is set.")
+                        self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0x20: outb is set.")
                         return
                     self.appendToOutBytesDoIrq(bytes([( \
                     (self.translateScancodes << 6) | \
@@ -237,7 +237,7 @@ cdef class PS2:
                 elif (data == 0x60): # write keyboard mode
                     self.needWriteBytes = 1
                 elif (data in (0xa7, 0xa8, 0xa9)): # 0xa7: disable mouse, 0xa8: enable mouse, 0xa9: test mouse port
-                    self.main.printMsg("PS2::outPort: mouse isn't supported yet. (data: {0:#04x})", data)
+                    self.main.notice("PS2::outPort: mouse isn't supported yet. (data: {0:#04x})", data)
                     self.appendToOutBytes(b'\xfe')
                 elif (data == 0xaa):
                     self.outBuffer = bytes()
@@ -246,7 +246,7 @@ cdef class PS2:
                     self.appendToOutBytesDoIrq(b'\x55')
                 elif (data == 0xab):
                     if (self.outb):
-                        self.main.printMsg("ERROR: KBC::outPort: Port 0x64, data 0xab: outb is set.")
+                        self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0xab: outb is set.")
                         return
                     self.appendToOutBytesDoIrq(b'\x00')
                 elif (data == 0xad): # disable keyboard
@@ -271,7 +271,7 @@ cdef class PS2:
                     pass
                     ##self.main.debug("outPort: ignoring useless command {0:#04x}. (port {1:#04x})", data, ioPortAddr)
                 else:
-                    self.main.printMsg("outPort: data {0:#04x} is not supported. (port {1:#04x})", data, ioPortAddr)
+                    self.main.notice("outPort: data {0:#04x} is not supported. (port {1:#04x})", data, ioPortAddr)
                 if (self.needWriteBytes > 0):
                     self.lastUsedPort = ioPortAddr
                     self.lastUsedCmd = data

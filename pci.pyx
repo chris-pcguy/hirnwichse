@@ -44,12 +44,12 @@ cdef class PciDevice:
     cdef unsigned int getData(self, unsigned char function, unsigned char register, unsigned char dataSize):
         cdef unsigned int bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
         if (function != 0):
-            self.main.printMsg("PciDevice::getData: function {0:d} != 0.", function)
+            self.main.notice("PciDevice::getData: function {0:d} != 0.", function)
             return bitMask
         return self.configSpace.csReadValueUnsigned(register, dataSize)
     cdef void setData(self, unsigned char function, unsigned char register, unsigned int data, unsigned char dataSize):
         if (function != 0):
-            self.main.printMsg("PciDevice::getData: function {0:d} != 0.", function)
+            self.main.notice("PciDevice::getData: function {0:d} != 0.", function)
             return
         self.configSpace.csWriteValue(register, data, dataSize)
     cdef void setVendorId(self, unsigned short vendorId):
@@ -121,7 +121,7 @@ cdef class Pci:
         deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
         if (deviceHandle is not None):
             if (not pciAddressHandle.enableBit):
-                self.main.printMsg("Pci::readRegister: Warning: tried to read from configSpace without enableBit set.")
+                self.main.notice("Pci::readRegister: Warning: tried to read from configSpace without enableBit set.")
             return deviceHandle.getData(pciAddressHandle.function, pciAddressHandle.register, pciAddressHandle.dataSize)
         return bitMask
     cdef void writeRegister(self, unsigned int address, unsigned int data, unsigned char dataSize):
@@ -131,7 +131,7 @@ cdef class Pci:
         deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
         if (deviceHandle is not None):
             if (not pciAddressHandle.enableBit):
-                self.main.printMsg("Pci::writeRegister: Warning: tried to write to configSpace without enableBit set.")
+                self.main.notice("Pci::writeRegister: Warning: tried to write to configSpace without enableBit set.")
             deviceHandle.setData(pciAddressHandle.function, pciAddressHandle.register, data, dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):

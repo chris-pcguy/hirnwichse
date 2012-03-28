@@ -24,10 +24,10 @@ cdef class PitChannel:
         elif (self.channelId == 2 and ((<PS2>self.main.platform.ps2).ppcbT2Nibble & PPCB_T2_ENABLE)):
             (<PS2>self.main.platform.ps2).ppcbT2Done = True
         else:
-            self.main.printMsg("mode0Func: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
+            self.main.notice("mode0Func: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
     cpdef mode2Func(self): # TODO
         if (not self.counterValue or self.counterMode not in (2, 3)):
-            self.main.printMsg("mode2Func: channelId {0:d}: counterValue{1:d} == 0 or counterMode{2:d} not in (2, 3) .".format(self.channelId, self.counterValue, self.counterMode))
+            self.main.notice("mode2Func: channelId {0:d}: counterValue{1:d} == 0 or counterMode{2:d} not in (2, 3) .".format(self.channelId, self.counterValue, self.counterMode))
             return
         if (self.counterMode == 2):
             self.counterValue = <unsigned int>(self.counterValue-1)
@@ -41,7 +41,7 @@ cdef class PitChannel:
         if (self.channelId == 0):# or (self.counterMode == 3 and self.channelId == 2)): # just raise IRQ on channel0
             (<Pic>self.main.platform.pic).raiseIrq(0)
         elif (self.channelId != 2):
-            self.main.printMsg("mode2Func: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
+            self.main.notice("mode2Func: counterMode {0:d} used channelId {1:d}.".format(self.counterMode, self.channelId))
         if (self.counterModeTimer and self.counterMode in (2, 3) and (not self.main.quitEmu)):
             self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
     cpdef runTimer(self):
@@ -167,7 +167,6 @@ cdef class Pit:
                 self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
-        return
     cdef void run(self):
         self.reset()
         #self.main.platform.addHandlers((0x40, 0x41, 0x42, 0x43), self)

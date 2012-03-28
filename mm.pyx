@@ -5,112 +5,129 @@ from misc import ChemuException
 include "globals.pxi"
 include "cpu_globals.pxi"
 
-
-
-
-cdef class MmArea:
-    def __init__(self, Mm mmObj, unsigned int mmBaseAddr, unsigned int mmAreaSize, unsigned char mmReadOnly):
-        self.mm = mmObj
-        self.main = self.mm.main
-        self.mmBaseAddr = mmBaseAddr
-        self.mmAreaSize = mmAreaSize
-        self.mmEndAddr  = (<unsigned long int>self.mmBaseAddr+self.mmAreaSize)
-        self.mmReadOnly = mmReadOnly
-    cdef void mmResetAreaData(self):
-        if (self.mmAreaData is not None):
-            memset(self.mmAreaData, 0x00, self.mmAreaSize)
-    cpdef mmFreeAreaData(self):
-        if (self.mmAreaData is not None):
-            free(self.mmAreaData)
-        self.mmAreaData = None
-    cdef void mmSetReadOnly(self, unsigned char mmReadOnly):
-        self.mmReadOnly = mmReadOnly
-    cdef bytes mmAreaRead(self, unsigned int mmAddr, unsigned int dataSize):
-        mmAddr -= self.mmBaseAddr
-        IF STRICT_CHECKS:
-            if (self.mmAreaData is None or not dataSize):
-                self.main.exitError("MmArea::mmAreaRead: self.mmAreaData is None || not dataSize.")
-                raise SystemExit()
-        return self.mmAreaData[mmAddr:mmAddr+dataSize]
-    cdef void mmAreaWrite(self, unsigned int mmAddr, char *data, unsigned int dataSize):
-        mmAddr -= self.mmBaseAddr
-        IF STRICT_CHECKS:
-            if (self.mmAreaData is None or not dataSize):
-                self.main.exitError("MmArea::mmAreaWrite: self.mmAreaData is None || not dataSize.")
-                raise SystemExit()
-            if (self.mmReadOnly):
-                self.main.exitError("MmArea::mmAreaWrite: mmArea is mmReadOnly, exiting...")
-                raise SystemExit()
-        memcpy(<char*>(self.mmAreaData+mmAddr), data, dataSize)
-    cdef void mmAreaCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize):
-        destAddr -= self.mmBaseAddr
-        srcAddr  -= self.mmBaseAddr
-        IF STRICT_CHECKS:
-            if (self.mmAreaData is None or not dataSize):
-                self.main.exitError("MmArea::mmAreaCopy: self.mmAreaData is None || not dataSize.")
-                raise SystemExit()
-            if (self.mmReadOnly):
-                self.main.exitError("MmArea::mmAreaCopy: mmArea is mmReadOnly, exiting...")
-                raise SystemExit()
-        memmove(<char*>(self.mmAreaData+destAddr), <char*>(self.mmAreaData+srcAddr), dataSize)
-    cpdef run(self):
-        self.mmAreaData = <char*>malloc(self.mmAreaSize)
-        if (self.mmAreaData is None):
-            self.main.exitError("MmArea::mmAreaCopy: self.mmAreaData is None.")
-            raise SystemExit()
-        self.mmResetAreaData()
-        register(self.mmFreeAreaData)
+DEF MM_NUMAREAS = 4096 # remember to change the value in mm.pxd too.
 
 
 cdef class Mm:
     def __init__(self, object main):
         self.main = main
         self.mmAreas = []
-    cdef void mmAddArea(self, unsigned int mmBaseAddr, unsigned int mmAreaSize, unsigned char mmReadOnly, MmArea mmAreaObject):
-        cdef MmArea mmAreaObjectInstance
-        mmAreaObjectInstance = <MmArea>mmAreaObject(self, mmBaseAddr, mmAreaSize, mmReadOnly)
-        mmAreaObjectInstance.run()
-        self.mmAreas.insert(0, mmAreaObjectInstance)
-    cdef unsigned char mmDelArea(self, unsigned int mmBaseAddr):
-        cdef unsigned short i
-        for i in range(len(self.mmAreas)):
-            if (mmBaseAddr == self.mmAreas[i].mmBaseAddr):
-                self.mmAreas[i] = None
-                del self.mmAreas[i]
-                return True
-        return False
-    cdef MmArea mmGetSingleArea(self, unsigned int mmAddr, unsigned int dataSize): # dataSize in bytes
+    cdef MmArea mmAddArea(self, unsigned int start, unsigned char readOnly):
         cdef MmArea mmArea
-        for mmArea in self.mmAreas:
-            if (mmAddr >= mmArea.mmBaseAddr and (<unsigned long int>mmAddr+dataSize) <= mmArea.mmEndAddr):
-                return mmArea
-        return None
-    cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize): # dataSize in bytes
+        mmArea = self.mmGetArea(start)
+        mmArea.start = start
+        mmArea.end  = mmArea.start+SIZE_1MB-1
+        mmArea.readOnly = readOnly
+        if (mmArea.end < mmArea.start):
+            self.main.exitError("Mm::mmAddArea: mem-address overflow.")
+            raise SystemExit()
+        mmArea.data = <char*>malloc(SIZE_1MB)
+        if (mmArea.data is None):
+            self.main.exitError("Mm::mmAddArea: mmArea.data is None.")
+            raise SystemExit()
+        memset(mmArea.data, 0x00, SIZE_1MB)
+        mmArea.readClass  = self
+        mmArea.writeClass = self
+        mmArea.readHandler  = <MmAreaReadType>self.mmAreaRead
+        mmArea.writeHandler = <MmAreaWriteType>self.mmAreaWrite
+        return mmArea
+    cdef unsigned char mmDelArea(self, unsigned int addr):
+        cdef MmArea mmArea = self.mmGetArea(addr)
+        if (mmArea is not None and mmArea.data is not None):
+            free(mmArea.data)
+            mmArea.data = None
+        mmArea = None
+        return True
+    cdef MmArea mmGetArea(self, unsigned int addr):
+        return self.mmAreas[addr >> 20]
+    cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
-        cdef list foundAreas
-        foundAreas = []
-        for mmArea in self.mmAreas:
-            if (mmAddr >= mmArea.mmBaseAddr and mmAddr+dataSize <= mmArea.mmEndAddr):
-                foundAreas.append(mmArea)
-        return foundAreas
-    cpdef object mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize): # dataSize in bytes
+        cdef list mmAreas
+        cdef unsigned int begin, end, count, i
+        mmAreas = []
+        end = (mmAddr+dataSize-1) >> 20
+        begin = (mmAddr) >> 20
+        count = end-begin+1
+        for i in range(count):
+            if (begin+i >= MM_NUMAREAS):
+                break
+            mmArea = self.mmAreas[begin+i]
+            if (mmArea is None):
+                continue
+            mmAreas.append(mmArea)
+        return mmAreas
+    cdef void mmSetReadOnly(self, unsigned int addr, unsigned char readOnly):
+        cdef MmArea mmArea = self.mmGetArea(addr)
+        mmArea.readOnly = readOnly
+    cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
+        IF STRICT_CHECKS:
+            if (mmArea is None or mmArea.data is None or not dataSize):
+                self.main.exitError("Mm::mmAreaRead: mmArea(.data) is None || not dataSize.")
+                raise SystemExit()
+        return mmArea.data[offset:offset+dataSize]
+    cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
+        IF STRICT_CHECKS:
+            if (mmArea is None or mmArea.readOnly or mmArea.data is None or not dataSize):
+                self.main.exitError("Mm::mmAreaWrite: mmArea(.data) is None || mmArea.readOnly || not dataSize.")
+                raise SystemExit()
+        memcpy(<char*>(mmArea.data+offset), data, dataSize)
+    cpdef object mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
-        mmArea = self.mmGetSingleArea(mmAddr, dataSize)
-        if (mmArea is None):
-            self.main.printMsg("mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+        cdef list mmAreas
+        cdef bytes data
+        cdef unsigned int tempAddr, tempSize
+        data = bytes()
+        mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        if (not mmAreas):
+            self.main.notice("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             raise ChemuException(CPU_EXCEPTION_GP, 0)
-        return mmArea.mmAreaRead(mmAddr, dataSize)
+        tempSize = dataSize
+        for mmArea in mmAreas:
+            if (not mmArea.readClass or not mmArea.readHandler):
+                self.main.notice("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
+            tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
+            if (tempAddr+tempSize > SIZE_1MB):
+                tempSize = SIZE_1MB-tempAddr
+            data += mmArea.readHandler(mmArea.readClass, mmArea, tempAddr, tempSize)
+            tempAddr += tempSize
+            if (dataSize < tempSize):
+                break
+            tempSize = dataSize-tempSize
+        ## assume, that mmArea is set to the last entry in mmAreas
+        if (mmAddr+dataSize-1 > mmArea.end):
+            self.main.notice("Mm::mmPhyRead: mmAddr overflow")
+            raise ChemuException(CPU_EXCEPTION_GP, 0)
+        return data
     cpdef object mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize):
         return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=True)
     cpdef object mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize):
         return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=False)
-    cpdef object mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize): # dataSize in bytes
+    cpdef object mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize):
         cdef MmArea mmArea
-        mmArea = self.mmGetSingleArea(mmAddr, dataSize)
-        if (mmArea is None):
-            self.main.printMsg("mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+        cdef list mmAreas
+        cdef unsigned int tempAddr, tempSize
+        mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        if (not mmAreas):
+            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             raise ChemuException(CPU_EXCEPTION_GP, 0)
-        mmArea.mmAreaWrite(mmAddr, data, dataSize)
+        tempSize = dataSize
+        for mmArea in mmAreas:
+            if (not mmArea.writeClass or not mmArea.writeHandler):
+                self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
+            tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
+            if (tempAddr+tempSize > SIZE_1MB):
+                tempSize = SIZE_1MB-tempAddr
+            mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, data, tempSize)
+            tempAddr += tempSize
+            if (dataSize < tempSize):
+                break
+            tempSize = dataSize-tempSize
+        ## assume, that mmArea is set to the last entry in mmAreas
+        if (mmAddr+dataSize-1 > mmArea.end):
+            self.main.notice("Mm::mmPhyWrite: mmAddr overflow")
+            raise ChemuException(CPU_EXCEPTION_GP, 0)
     cpdef object mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data
@@ -120,14 +137,13 @@ cdef class Mm:
             data = <unsigned int>data
         self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
         return data
-    cpdef object mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize): # dataSize in bytes
-        cdef MmArea mmAreaDest, mmAreaSrc
-        mmAreaDest = self.mmGetSingleArea(destAddr, dataSize)
-        mmAreaSrc = self.mmGetSingleArea(srcAddr, dataSize)
-        if (mmAreaDest is None or mmAreaSrc is None or mmAreaDest is not mmAreaSrc):
-            self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
-            return
-        mmAreaDest.mmAreaCopy(destAddr, srcAddr, dataSize)
+    cpdef object mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize):
+        self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
+    cpdef run(self):
+        cdef unsigned int i
+        for i in range(MM_NUMAREAS):
+            self.mmAreas.append(MmArea())
+        ###self.mmAreas = <MmArea*>malloc(MM_NUMAREAS*sizeof(MmArea))
 
 
 cdef class ConfigSpace:

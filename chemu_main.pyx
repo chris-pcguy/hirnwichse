@@ -8,7 +8,6 @@ from argparse import ArgumentParser
 from threading import active_count
 from time import sleep, time
 from atexit import register
-import Pyro4
 
 include "globals.pxi"
 
@@ -19,8 +18,6 @@ cdef class ChEmu:
         self.quitEmu = False
         self.exitOnTripleFault = True
         self.exitCode = 0
-        self.pyroURI_UI = None
-        self.pyroUI = None
         register(self.quitFunc)
     cpdef isRunning(self):
         return (not self.quitEmu)
@@ -47,21 +44,21 @@ cdef class ChEmu:
         self.fdaFilename = self.cmdArgs.fdaFilename.encode() # default: ''
         self.fdbFilename = self.cmdArgs.fdbFilename.encode() # default: ''
         self.forceFloppyDiskType    = self.cmdArgs.forceFloppyDiskType
-        self.memSize = self.cmdArgs.memSize*1024*1024
+        self.memSize = self.cmdArgs.memSize
     cpdef quitFunc(self):
         self.quitEmu = True
-    def exitError(self, str errorStr, *errorStrArguments, unsigned char errorExitCode=1, unsigned char exitNow=False): # this needs to be 'def'
+    def exitError(self, str msg, *msgArgs, unsigned char errorExitCode=1, unsigned char exitNow=False): # this needs to be 'def'
         self.exitCode = errorExitCode
         self.quitFunc()
-        self.printMsg("ERROR: {0:s}".format(errorStr), *errorStrArguments)
+        print("{0:s}: {1:s}".format("ERROR", msg.format(*msgArgs)))
         if (exitNow):
             exit(errorExitCode)
-    def debug(self, str debugStr, *debugStrArguments): # this needs to be 'def'
+    def debug(self, str msg, *msgArgs): # this needs to be 'def'
         if (self.debugEnabled):
-            self.printMsg(debugStr, *debugStrArguments)
-    def printMsg(self, str msgStr, *msgStrArguments): # this needs to be 'def'
-        print(msgStr.format(*msgStrArguments))
-        stdout.flush()  
+            print("{0:s}: {1:s}".format("DEBUG", msg.format(*msgArgs)))
+    def notice(self, str msg, *msgArgs): # this needs to be 'def'
+        print("{0:s}: {1:s}".format("NOTICE", msg.format(*msgArgs)))
+        stdout.flush()
     cpdef runThreadFunc(self):
         self.platform.run()
         (<Pic>self.platform.pic).cpuInstance = self.cpu
@@ -73,15 +70,12 @@ cdef class ChEmu:
         try:
             self.parseArgs()
             self.misc = Misc(self)
-            Pyro4.config.reset(useenvironment=False)
-            Pyro4.config.HMAC_KEY = self.misc.generateString(0x20, 0x7e, 64)
-            Pyro4.config.SOCK_REUSE = True
-            self.pyroDaemon = Pyro4.core.Daemon()
             self.mm = Mm(self)
             self.platform = Platform(self, self.memSize)
             self.cpu = Cpu(self)
             self.misc.createThread(self.runThreadFunc, True)
-            self.pyroDaemon.requestLoop(self.isRunning)
+            #self.runThreadFunc()
+            #self.cpu.run()
             while (active_count() > 1 and not self.quitEmu):
                 sleep(5)
         except KeyboardInterrupt:

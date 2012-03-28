@@ -115,19 +115,19 @@ cdef class FloppyDrive:
         elif (size <= SIZE_2_88M):
             diskType = FLOPPY_DISK_TYPE_2_88M
         else:
-            self.main.printMsg("FloppyDrive::getDiskType: can't assign filesize {0:d} to a type, mark disk as unrecognized", size)
-        self.main.printMsg("FloppyDrive::getDiskType: floppy has disktype {0:d}.", diskType)
+            self.main.notice("FloppyDrive::getDiskType: can't assign filesize {0:d} to a type, mark disk as unrecognized", size)
+        self.main.notice("FloppyDrive::getDiskType: floppy has disktype {0:d}.", diskType)
         return diskType
     cdef void loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType, driveType
         if (not filename or not access(filename, F_OK | R_OK)):
-            self.main.printMsg("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", self.driveId, filename)
+            self.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", self.driveId, filename)
             return
         self.filename = filename
         driveType = self.getDiskType(getsize(self.filename))
         self.media.setDataForMedia(driveType)
         if (driveType == FLOPPY_DISK_TYPE_NONE):
-            self.main.printMsg("FloppyDrive::loadDrive: driveType is DISK_TYPE_NONE")
+            self.main.notice("FloppyDrive::loadDrive: driveType is DISK_TYPE_NONE")
             return
         elif (access(filename, F_OK | R_OK | W_OK)):
             self.fp = open(filename, "r+b")
@@ -138,7 +138,7 @@ cdef class FloppyDrive:
             self.isLoaded = True
             self.isWriteProtected = True
         else:
-            self.main.printMsg("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", self.driveId, filename)
+            self.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", self.driveId, filename)
             return
         if (self.driveId in (0, 1)):
             cmosDiskType = (<Cmos>self.main.platform.cmos).readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
@@ -383,7 +383,7 @@ cdef class FloppyController:
                 self.main.exitError("FDC: read/write: bad drive #{0:d}", drive)
                 return
             if (head != ((self.command[1] >> 2) & 0x1)):
-                self.main.printMsg("FDC ERROR: head number in command[1] doesn't match head field.")
+                self.main.notice("FDC ERROR: head number in command[1] doesn't match head field.")
                 self.st0 = 0x40 | ((<FloppyDrive>self.drive[drive]).head << 2) | drive
                 self.st1 = 0x04
                 self.st2 = 0x00
@@ -402,7 +402,7 @@ cdef class FloppyController:
                 return
 
             if (sector > (<FloppyDrive>self.drive[drive]).media.sectorsPerTrack):
-                self.main.printMsg("FDC: attempt to read/write sector {0:d} past last sector {1:d}.", sector, (<FloppyDrive>self.drive[drive]).media.sectorsPerTrack)
+                self.main.notice("FDC: attempt to read/write sector {0:d} past last sector {1:d}.", sector, (<FloppyDrive>self.drive[drive]).media.sectorsPerTrack)
                 (<FloppyDrive>self.drive[drive]).cylinder = cylinder
                 (<FloppyDrive>self.drive[drive]).head = head
                 (<FloppyDrive>self.drive[drive]).sector = sector
@@ -487,7 +487,7 @@ cdef class FloppyController:
             self.handleResult()
             return
         else:
-            self.main.printMsg("FDC: handleCommand: unknown command {0:#04x}.", cmd)
+            self.main.notice("FDC: handleCommand: unknown command {0:#04x}.", cmd)
             self.clearCommand()
             self.st0 = 0x80
             self.handleResult()
@@ -585,7 +585,7 @@ cdef class FloppyController:
                 return self.msr
             elif (ioPortAddr == 0x5):
                 if ((not (self.msr & FDC_MSR_RQM)) or (not (self.msr & FDC_MSR_DIO))):
-                    self.main.printMsg("FDC_CTRL::inPort: controller not ready for reading")
+                    self.main.notice("FDC_CTRL::inPort: controller not ready for reading")
                     return BITMASK_BYTE
                 drive = self.result[0]
                 if (len(self.result) > 1):

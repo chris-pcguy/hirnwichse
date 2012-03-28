@@ -1,6 +1,6 @@
 
 from misc cimport Misc
-from mm cimport Mm, MmArea
+from mm cimport Mm, MmArea, MmAreaWriteType
 from cmos cimport Cmos
 from isadma cimport IsaDma
 from pic cimport Pic
@@ -41,7 +41,7 @@ cdef class Platform:
     cdef public Cmos cmos
     cdef list ports
     cdef unsigned char copyRomToLowMem
-    cdef unsigned long int memSize
+    cdef unsigned int memSize
     cdef void initDevices(self)
     cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject)
     cdef void addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject)
@@ -52,9 +52,10 @@ cdef class Platform:
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize)
     cdef void loadRom(self, bytes romFileName, unsigned long int mmAddr, unsigned char isRomOptional)
+    cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
+    cdef void initMemory(self)
     cdef void initDevicesPorts(self)
     cdef void runDevices(self)
-    cpdef initRemotes(self)
     cpdef run(self)
 
 

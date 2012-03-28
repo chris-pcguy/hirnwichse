@@ -15,12 +15,9 @@ cdef class Cpu:
     cdef void reset(self):
         self.savedCs  = 0xf000
         self.savedEip = 0xfff0
-        self.cpuHalted = False
-        self.debugHalt = False
-        self.debugSingleStep = False
-        self.INTR = False
-        self.HRQ = False
-        self.cycles = self.oldCycleInc = 0
+        self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = \
+          self.HRQ = False
+        self.cycles = self.oldCycleInc = self.exceptionLevel = 0
         self.registers.reset()
     cdef inline void saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
@@ -46,13 +43,13 @@ cdef class Cpu:
             self.asyncEvent = False
         return
     cdef void exception(self, unsigned char exceptionId, signed int errorCode):
-        self.main.printMsg("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
+        self.main.notice("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
         if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
             self.savedEip = <unsigned int>(self.savedEip+1)
         self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
         self.registers.regWrite(CPU_REGISTER_EIP, self.savedEip)
-        #self.main.printMsg("exception: cpu-dump before exception-jump.")
+        #self.main.notice("exception: cpu-dump before exception-jump.")
         #self.cpuDump()
         #if (self.savedEip == 0x307980):
         #    self.debugHalt = True
@@ -63,7 +60,7 @@ cdef class Cpu:
             self.opcodes.interrupt(exceptionId, errorCode)
         else:
             self.opcodes.interrupt(exceptionId, -1)
-        #self.main.printMsg("exception: cpu-dump after exception-jump.")
+        #self.main.notice("exception: cpu-dump after exception-jump.")
         #self.cpuDump()
     cpdef handleException(self, object exception):
         cdef unsigned char exceptionId
@@ -82,9 +79,9 @@ cdef class Cpu:
             return
         exceptionId = exception.args[0]
         if (exceptionId == CPU_EXCEPTION_UD):
-            self.main.printMsg("CPU::handleException: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
+            self.main.notice("CPU::handleException: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
         else:
-            self.main.printMsg("CPU::handleException: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
+            self.main.notice("CPU::handleException: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
         self.exception(exceptionId, errorCode)
     cdef unsigned char parsePrefixes(self, unsigned char opcode):
         cdef unsigned char count
@@ -116,31 +113,31 @@ cdef class Cpu:
             opcode = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_BYTE)
         return opcode
     cpdef cpuDump(self):
-        self.main.printMsg("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_EAX), \
+        self.main.notice("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_EAX), \
           self.registers.regReadUnsigned(CPU_REGISTER_ECX))
-        self.main.printMsg("EDX: {0:#010x}, EBX: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_EDX), \
+        self.main.notice("EDX: {0:#010x}, EBX: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_EDX), \
           self.registers.regReadUnsigned(CPU_REGISTER_EBX))
-        self.main.printMsg("ESP: {0:#010x}, EBP: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_ESP), \
+        self.main.notice("ESP: {0:#010x}, EBP: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_ESP), \
           self.registers.regReadUnsigned(CPU_REGISTER_EBP))
-        self.main.printMsg("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_ESI), \
+        self.main.notice("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_ESI), \
           self.registers.regReadUnsigned(CPU_REGISTER_EDI))
-        self.main.printMsg("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_EIP), \
+        self.main.notice("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_EIP), \
           self.registers.regReadUnsigned(CPU_REGISTER_EFLAGS))
-        self.main.printMsg("CS: {0:#06x}, SS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_CS), \
+        self.main.notice("CS: {0:#06x}, SS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_CS), \
           self.registers.segRead(CPU_SEGMENT_SS))
-        self.main.printMsg("DS: {0:#06x}, ES: {1:#06x}", self.registers.segRead(CPU_SEGMENT_DS), \
+        self.main.notice("DS: {0:#06x}, ES: {1:#06x}", self.registers.segRead(CPU_SEGMENT_DS), \
           self.registers.segRead(CPU_SEGMENT_ES))
-        self.main.printMsg("FS: {0:#06x}, GS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_FS), \
+        self.main.notice("FS: {0:#06x}, GS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_FS), \
           self.registers.segRead(CPU_SEGMENT_GS))
-        self.main.printMsg("CR0: {0:#010x}, CR2: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_CR0), \
+        self.main.notice("CR0: {0:#010x}, CR2: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_CR0), \
           self.registers.regReadUnsigned(CPU_REGISTER_CR2))
-        self.main.printMsg("CR3: {0:#010x}, CR4: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_CR3), \
+        self.main.notice("CR3: {0:#010x}, CR4: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_CR3), \
           self.registers.regReadUnsigned(CPU_REGISTER_CR4))
-        self.main.printMsg("DR0: {0:#010x}, DR1: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR0), \
+        self.main.notice("DR0: {0:#010x}, DR1: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR0), \
           self.registers.regReadUnsigned(CPU_REGISTER_DR1))
-        self.main.printMsg("DR2: {0:#010x}, DR3: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR2), \
+        self.main.notice("DR2: {0:#010x}, DR3: {1:#010x}", self.registers.regReadUnsigned(CPU_REGISTER_DR2), \
           self.registers.regReadUnsigned(CPU_REGISTER_DR3))
-        self.main.printMsg("DR6: {0:#010x}, DR7: {1:#010x}\n\n", self.registers.regReadUnsigned(CPU_REGISTER_DR6), \
+        self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}\n\n", self.registers.regReadUnsigned(CPU_REGISTER_DR6), \
           self.registers.regReadUnsigned(CPU_REGISTER_DR7))
     cdef void doInfiniteCycles(self):
         cdef unsigned long int cycleInc
@@ -158,8 +155,9 @@ cdef class Cpu:
                 cycleInc = self.cycles >> 13
                 if (cycleInc > self.oldCycleInc):
                     self.oldCycleInc = cycleInc
-                    if (self.main.pyroUI is not None):
-                        self.main.pyroUI.pumpEvents()
+                    if (self.main.platform.vga.ui):
+                        self.main.platform.vga.ui.pumpEvents()
+                    sleep(0.01)
                 self.doCycle()
         except (SystemExit, KeyboardInterrupt):
             print(exc_info())
@@ -188,23 +186,20 @@ cdef class Cpu:
         self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
         try:
             if (not self.opcodes.executeOpcode(self.opcode)):
-                self.main.printMsg("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
+                self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise ChemuException(CPU_EXCEPTION_UD)
         except ChemuException as exception: # exception
-            try:
+            self.exceptionLevel += 1
+            if (self.exceptionLevel == 1):
                 self.handleException(exception) # execute exception handler
-            except ChemuException as exception: # DF double fault
-                try:
-                    raise ChemuException(CPU_EXCEPTION_DF, 0) # exec DF double fault
-                except ChemuException as exception:
-                    try:
-                        self.handleException(exception) # handle DF double fault
-                    except ChemuException as exception: # DF double fault failed! triple fault... reset!
-                        if (self.main.exitOnTripleFault):
-                            self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.", exitNow=True)
-                        else:
-                            self.main.printMsg("CPU::doCycle: TRIPLE FAULT! reset.")
-                            self.cpu.reset()
+            elif (self.exceptionLevel == 2):
+                self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
+            elif (self.exceptionLevel == 3):
+                if (self.main.exitOnTripleFault):
+                    self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.", exitNow=True)
+                else:
+                    self.main.notice("CPU::doCycle: TRIPLE FAULT! reset.")
+                    self.cpu.reset()
         except (SystemExit, KeyboardInterrupt):
             print(exc_info())
             self.main.quitEmu = True

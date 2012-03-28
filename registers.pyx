@@ -338,7 +338,7 @@ cdef class Registers:
             value = <unsigned int>(~value)
             return self.regWrite(regId, value)
         else:
-            self.main.printMsg("REGISTERS::regWriteWithOp: unknown valueOp {0:d}.", valueOp)
+            self.main.notice("REGISTERS::regWriteWithOp: unknown valueOp {0:d}.", valueOp)
     cdef unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state):
         if (state):
             return ( value | <unsigned int>(1<<bit) )

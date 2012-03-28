@@ -19,7 +19,7 @@ cdef class Cmos:
     cdef inline void writeValue(self, unsigned char index, unsigned int value, unsigned char size):
         self.configSpace.csWriteValue(index, value, size)
     cdef void reset(self):
-        cdef unsigned long int memSizeInK, extMemSizeInK, extMemSizeIn64K
+        cdef unsigned int memSizeInK, extMemSizeInK, extMemSizeIn64K
         memSizeInK = extMemSizeInK = extMemSizeIn64K = 0
         self.configSpace.csResetData()
         self.writeValue(CMOS_STATUS_REGISTER_B, 0x02, OP_SIZE_BYTE)
@@ -28,7 +28,7 @@ cdef class Cmos:
         self.writeValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE) # boot from floppy first.
         self.writeValue(CMOS_BASE_MEMORY_L, 0x80, OP_SIZE_BYTE)
         self.writeValue(CMOS_BASE_MEMORY_H, 0x02, OP_SIZE_BYTE)
-        memSizeInK = (self.main.memSize//1024)
+        memSizeInK = (self.main.memSize*1024)
         if (memSizeInK > 1024): # if we have over 1MB physical memory ...
             extMemSizeInK = (memSizeInK - 1024) # ... extMemSizeInK is all physical memory over 1MB as KB ...
         if (extMemSizeInK > 0xfc00): # ... with an maximal value of 0xfc00 == 63MB extended memory == 64MB physical memory.
@@ -117,7 +117,7 @@ cdef class Cmos:
                 tempIndex = self.cmosIndex&0x7f
                 self.writeValue(tempIndex, data, OP_SIZE_BYTE)
                 if (tempIndex == CMOS_STATUS_REGISTER_A):
-                    self.main.printMsg("CMOS::outPort: RTC not supported yet.")
+                    self.main.notice("CMOS::outPort: RTC not supported yet.")
                 elif (tempIndex == CMOS_EXT_MEMORY_L):
                     self.writeValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
                 elif (tempIndex == CMOS_EXT_MEMORY_H):

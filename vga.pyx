@@ -4,45 +4,6 @@ from sys import stdout
 include "globals.pxi"
 
 
-
-cdef class VRamArea(MmArea):
-    def __init__(self, Mm mmObj, unsigned int mmBaseAddr, unsigned int mmAreaSize, unsigned char mmReadOnly):
-        MmArea.__init__(self, mmObj, mmBaseAddr, mmAreaSize, mmReadOnly)
-        self.memBaseAddrTextmodeBaseDiff = VGA_TEXTMODE_ADDR-self.mmBaseAddr
-    cdef void mmAreaWrite(self, unsigned int mmAddr, char *data, unsigned int dataSize): # dataSize(type int) is count in bytes
-        MmArea.mmAreaWrite(self, mmAddr, data, dataSize)
-        # TODO: hardcoded to 80x25
-        if (mmAddr < VGA_TEXTMODE_ADDR or mmAddr+dataSize > VGA_TEXTMODE_ADDR+4000):
-            return
-        if (self.main.pyroUI is None):
-            return
-        if ((<Vga>self.main.platform.vga).getProcessVideoMem() and (<ExtReg>(<Vga>self.main.platform.vga).extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM):
-            mmAddr -= self.mmBaseAddr
-            self.handleVRamWrite(mmAddr, dataSize)
-    cpdef handleVRamWrite(self, unsigned int mmAreaAddr, unsigned int dataSize):
-        cpdef list rectList
-        cpdef unsigned char x, y
-        cpdef bytes charstr
-        rectList = list()
-        if (mmAreaAddr % 2): # odd
-            mmAreaAddr -= 1
-        if (dataSize % 2):
-            dataSize += 1
-        # TODO: hardcoded to 80x25
-        dataSize = min(dataSize, 4000) # 80*25*2
-        while (dataSize > 0):
-            y, x = divmod((mmAreaAddr-self.memBaseAddrTextmodeBaseDiff)//2, 80)
-            charstr = bytes(self.mmAreaData[mmAreaAddr:mmAreaAddr+2])
-            ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
-            rectList.append(self.main.pyroUI.putChar(x, y, chr(charstr[0]), charstr[1]))
-            mmAreaAddr += 2
-            if (dataSize <= 2):
-                break
-            dataSize   -= 2
-        ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
-        self.main.pyroUI.updateScreen(rectList)
-
-
 cdef class VGA_REGISTER_RAW(ConfigSpace):
     def __init__(self, unsigned int registerSize, Vga vga, object main):
         self.vga  = vga
@@ -156,7 +117,7 @@ cdef class Vga:
         if (page == 0xff):
             page = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_PAGE_ADDR, 1)
         elif (page > 7):
-            self.main.printMsg("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
+            self.main.notice("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
         return page
     cdef void writeCharacterTeletype(self, unsigned char c, signed short attr, unsigned char page, unsigned char updateCursor):
         cdef unsigned char x, y, i
@@ -172,7 +133,7 @@ cdef class Vga:
             if (x > 0):
                 x -= 1
         elif (c == 0x9): # TAB == horizontal tabulator
-            for i in range( 8-(x%8) ):
+            for i in range(8 - (x & 7)):
                 self.writeCharacter(address, 0x20, attr) # space
                 x += 1
         elif (c == 0xa): # LF == Newline/Linefeed
@@ -205,14 +166,14 @@ cdef class Vga:
         cdef unsigned short pos
         page = self.getCorrectPage(page)
         if (page > 7):
-            self.main.printMsg("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
+            self.main.notice("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
             return 0
         pos = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURSOR_BASE_ADDR+(page<<1), 2)
         return pos
     cdef void setCursorPosition(self, unsigned char page, unsigned short pos):
         page = self.getCorrectPage(page)
         if (page > 7):
-            self.main.printMsg("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
+            self.main.notice("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
         (<Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page<<1), pos, 2)
     cdef void scrollUp(self, unsigned char page, signed short attr, unsigned short lines):
@@ -234,6 +195,33 @@ cdef class Vga:
         self.setProcessVideoMem(True)
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, 4000)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
+    cdef void vgaAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
+        cpdef list rectList
+        cpdef unsigned char x, y
+        cpdef bytes charstr
+        if (self.ui is None):
+            return
+        if (not ((<Vga>self.main.platform.vga).getProcessVideoMem()) or not ((<ExtReg>(<Vga>\
+          self.main.platform.vga).extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM)):
+            return
+        rectList = list()
+        if (offset % 2): # odd
+            offset -= 1
+        if (dataSize % 2):
+            dataSize += 1
+        # TODO: hardcoded to 80x25
+        dataSize = min(dataSize, 4000) # 80*25*2
+        while (dataSize > 0):
+            y, x = divmod((offset-VGA_TEXTMODE_ADDR)//2, 80)
+            charstr = bytes(mmArea.data[offset:offset+2])
+            ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
+            rectList.append(self.ui.putChar(x, y, chr(charstr[0]), charstr[1]))
+            offset += 2
+            if (dataSize <= 2):
+                break
+            dataSize   -= 2
+        ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
+        self.ui.updateScreen(rectList)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int retVal
         retVal = BITMASK_BYTE
@@ -309,10 +297,7 @@ cdef class Vga:
         else:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} isn't supported.", ioPortAddr, dataSize)
         return
-    cdef void VRamAddMemArea(self):
-        (<Mm>self.main.mm).mmAddArea(VGA_MEMAREA_ADDR, 0x20000, False, <MmArea>VRamArea)
     cdef void run(self):
-        self.VRamAddMemArea()
         self.seq.run()
         self.crt.run()
         self.gdc.run()

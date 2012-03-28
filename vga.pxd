@@ -1,12 +1,6 @@
 
-from mm cimport Mm, MmArea, ConfigSpace
+from mm cimport Mm, MmArea, MmAreaWriteType, ConfigSpace
 from pygameUI cimport PygameUI
-
-
-cdef class VRamArea(MmArea):
-    cdef unsigned int memBaseAddrTextmodeBaseDiff
-    cdef void mmAreaWrite(self, unsigned int mmAddr, char *data, unsigned int dataSize)
-    cpdef handleVRamWrite(self, unsigned int mmAreaAddr, unsigned int dataSize)
 
 
 cdef class VGA_REGISTER_RAW(ConfigSpace):
@@ -74,9 +68,9 @@ cdef class Vga:
     cdef unsigned short getCursorPosition(self, unsigned char page)
     cdef void setCursorPosition(self, unsigned char page, unsigned short pos)
     cdef void scrollUp(self, unsigned char page, signed short attr, unsigned short lines)
+    cdef void vgaAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
-    cdef void VRamAddMemArea(self)
     cdef void run(self)
 
 

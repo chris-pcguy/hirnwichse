@@ -441,7 +441,7 @@ cdef class Opcodes:
         elif (opcode == 0xff):
             retVal = self.opcodeGroupFF()
         else:
-            self.main.printMsg("handler for opcode {0:#06x} wasn't found.", opcode)
+            self.main.notice("handler for opcode {0:#06x} wasn't found.", opcode)
             raise ChemuException(CPU_EXCEPTION_UD) # if opcode wasn't found.
         return retVal
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
@@ -512,9 +512,9 @@ cdef class Opcodes:
             op2 = self.modRMInstance.modRSave(operSize, op2, opcode)
             self.registers.setSZP_C0_O0_A0(op2, operSize)
         elif (opcode == OPCODE_TEST):
-            self.main.printMsg("OPCODE::opcodeR_RM: OPCODE_TEST HAS NO R_RM!!")
+            self.main.notice("OPCODE::opcodeR_RM: OPCODE_TEST HAS NO R_RM!!")
         else:
-            self.main.printMsg("OPCODE::opcodeR_RM: invalid opcode: {0:d}.", opcode)
+            self.main.notice("OPCODE::opcodeR_RM: invalid opcode: {0:d}.", opcode)
         return True
     cdef int opcodeRM_R(self, unsigned char opcode, unsigned char operSize):
         cdef unsigned int op1, op2
@@ -533,7 +533,7 @@ cdef class Opcodes:
         elif (opcode == OPCODE_TEST):
             self.registers.setSZP_C0_O0_A0(op1&op2, operSize)
         else:
-            self.main.printMsg("OPCODE::opcodeRM_R: invalid opcode: {0:d}.", opcode)
+            self.main.notice("OPCODE::opcodeRM_R: invalid opcode: {0:d}.", opcode)
         return True
     cdef int opcodeAxEaxImm(self, unsigned char opcode, unsigned char operSize):
         cdef unsigned short dataReg
@@ -553,7 +553,7 @@ cdef class Opcodes:
         elif (opcode == OPCODE_TEST):
             self.registers.setSZP_C0_O0_A0(op1&op2, operSize)
         else:
-            self.main.printMsg("OPCODE::opcodeRM_R: invalid opcode: {0:d}.", opcode)
+            self.main.notice("OPCODE::opcodeRM_R: invalid opcode: {0:d}.", opcode)
         return True
     cdef int movImmToR(self, unsigned char operSize):
         cdef unsigned char rReg
@@ -567,7 +567,7 @@ cdef class Opcodes:
         elif (operSize == OP_SIZE_DWORD):
             self.registers.regWrite(CPU_REGISTER_DWORD[rReg], src)
         else:
-            self.main.printMsg("OPCODE::movImmToR: unknown operSize: {0:d}.", operSize)
+            self.main.notice("OPCODE::movImmToR: unknown operSize: {0:d}.", operSize)
         return True
     cdef int movRM_R(self, unsigned char operSize):
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
@@ -614,7 +614,7 @@ cdef class Opcodes:
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
         dataLength = (<unsigned long int>countVal*operSize)
         if (dataLength != <unsigned int>dataLength):
-            self.main.printMsg("Opcodes::stosFunc: dataLength overflow.")
+            self.main.notice("Opcodes::stosFunc: dataLength overflow.")
         dataLength = <unsigned int>dataLength
         data = self.registers.regReadUnsigned(srcReg)
         ediVal = self.registers.regReadUnsigned(dataReg)
@@ -648,7 +648,7 @@ cdef class Opcodes:
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
         dataLength = (<unsigned long int>countVal*operSize)
         if (dataLength != <unsigned int>dataLength):
-            self.main.printMsg("Opcodes::movsFunc: dataLength overflow.")
+            self.main.notice("Opcodes::movsFunc: dataLength overflow.")
         dataLength = <unsigned int>dataLength
         esiVal = self.registers.regReadUnsigned(esiReg)
         ediVal = self.registers.regReadUnsigned(ediReg)
@@ -687,7 +687,7 @@ cdef class Opcodes:
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
         dataLength = (<unsigned long int>countVal*operSize)
         if (dataLength != <unsigned int>dataLength):
-            self.main.printMsg("Opcodes::lodsFunc: dataLength overflow.")
+            self.main.notice("Opcodes::lodsFunc: dataLength overflow.")
         dataLength = <unsigned int>dataLength
         if (not dfFlag):
             esiVal = <unsigned int>(self.registers.regAdd(esiReg, dataLength)-operSize)
@@ -1072,7 +1072,7 @@ cdef class Opcodes:
         elif (operOpcodeId == GROUP1_OP_CMP):
             self.registers.setFullFlags(operOp1, operOp2, operSize, OPCODE_SUB)
         else:
-            self.main.printMsg("opcodeGroup1_RM16_32_IMM8: invalid operOpcodeId. {0:d}", operOpcodeId)
+            self.main.notice("opcodeGroup1_RM16_32_IMM8: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
         return True
     cdef int opcodeGroup3_RM_ImmFunc(self, unsigned char operSize):
@@ -1086,7 +1086,7 @@ cdef class Opcodes:
         if (operOpcodeId == 0): # GROUP3_OP_MOV
             self.modRMInstance.modRMSave(operSize, operOp2, True, OPCODE_SAVE)
         else:
-            self.main.printMsg("opcodeGroup3_RM16_32_IMM16_32: invalid operOpcodeId. {0:d}", operOpcodeId)
+            self.main.notice("opcodeGroup3_RM16_32_IMM16_32: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
         return True
     cdef int opcodeGroup0F(self):
@@ -1120,7 +1120,7 @@ cdef class Opcodes:
                 elif (operOpcodeModId == 1): # STR
                     self.modRMInstance.modRMSave(bitSize, (<Segments>\
                       self.registers.segments).tr, True, OPCODE_SAVE)
-                    self.main.printMsg("opcodeGroup0F_00_STR: TR isn't fully supported yet.")
+                    self.main.notice("opcodeGroup0F_00_STR: TR isn't fully supported yet.")
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)
                 if (operOpcodeModId == 2): # LLDT
@@ -1154,27 +1154,27 @@ cdef class Opcodes:
                     gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op1))
                     segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK) if (gdtEntry is not None) else 0
                     if (not gdtEntry or segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
-                        self.main.printMsg("opcodeGroup0F_00_LTR: segType {0:d} not a TSS. (is gdtEntry None? {1:d})", \
+                        self.main.notice("opcodeGroup0F_00_LTR: segType {0:d} not a TSS. (is gdtEntry None? {1:d})", \
                           segType, (gdtEntry is None))
                         raise ChemuException(CPU_EXCEPTION_GP, op1)
                     if (segType == TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS):
                         (<Gdt>self.registers.segments.gdt).setSegType(op1, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY)
                         if (gdtEntry.limit != TSS_MIN_16BIT_HARD_LIMIT):
-                            self.main.printMsg(\
+                            self.main.notice(\
                               "opcodeGroup0F_00_LTR: tssLimit {0:#06x} != TSS_MIN_16BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
                               TSS_MIN_16BIT_HARD_LIMIT)
                             op1 = 0
                     elif (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS):
                         (<Gdt>self.registers.segments.gdt).setSegType(op1, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)
                         if (gdtEntry.limit < TSS_MIN_32BIT_HARD_LIMIT):
-                            self.main.printMsg(\
+                            self.main.notice(\
                               "opcodeGroup0F_00_LTR: tssLimit {0:#06x} < TSS_MIN_32BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
                               TSS_MIN_32BIT_HARD_LIMIT)
                             op1 = 0
                     op1 &= 0xfff8
                     (<Segments>self.registers.segments).tr = op1
                     (<Gdt>self.registers.segments.tss).loadTablePosition(gdtEntry.base, gdtEntry.limit)
-                    self.main.printMsg("opcodeGroup0F_00_LTR: TR isn't fully supported yet.")
+                    self.main.notice("opcodeGroup0F_00_LTR: TR isn't fully supported yet.")
             elif (operOpcodeModId == 4): # VERR
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)
                 self.registers.setEFLAG(FLAG_ZF, (<Segments>self.registers.segments).checkReadAllowed(op1))
@@ -1182,7 +1182,7 @@ cdef class Opcodes:
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)
                 self.registers.setEFLAG(FLAG_ZF, (<Segments>self.registers.segments).checkWriteAllowed(op1))
             else:
-                self.main.printMsg("opcodeGroup0F_00: invalid operOpcodeModId: {0:d}", operOpcodeModId)
+                self.main.notice("opcodeGroup0F_00: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x01): # LGDT/LIDT SGDT/SIDT SMSW/LMSW
             if (cpl != 0):
@@ -1197,34 +1197,34 @@ cdef class Opcodes:
             elif (operOpcodeModId in (4, 6)): # SMSW/LMSW
                 self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             else:
-                self.main.printMsg("Group0F_01: operOpcodeModId not in (0, 1, 2, 3, 4, 6)")
+                self.main.notice("Group0F_01: operOpcodeModId not in (0, 1, 2, 3, 4, 6)")
             mmAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             if (operOpcodeMod == 0xc1): # VMCALL
-                self.main.printMsg("opcodeGroup0F_01: VMCALL isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: VMCALL isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc2): # VMLAUNCH
-                self.main.printMsg("opcodeGroup0F_01: VMLAUNCH isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: VMLAUNCH isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc3): # VMRESUME
-                self.main.printMsg("opcodeGroup0F_01: VMRESUME isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: VMRESUME isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc4): # VMXOFF
-                self.main.printMsg("opcodeGroup0F_01: VMXOFF isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: VMXOFF isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc8): # MONITOR
-                self.main.printMsg("opcodeGroup0F_01: MONITOR isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: MONITOR isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xc9): # MWAIT
-                self.main.printMsg("opcodeGroup0F_01: MWAIT isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: MWAIT isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xd0): # XGETBV
-                self.main.printMsg("opcodeGroup0F_01: XGETBV isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: XGETBV isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xd1): # XSETBV
-                self.main.printMsg("opcodeGroup0F_01: XSETBV isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: XSETBV isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xf9): # RDTSCP
-                self.main.printMsg("opcodeGroup0F_01: RDTSCP isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: RDTSCP isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (operOpcodeModId in (0, 1)): # SGDT/SIDT
                 if (operOpcodeModId == 0): # SGDT
@@ -1258,10 +1258,10 @@ cdef class Opcodes:
                 self.registers.regWrite(CPU_REGISTER_CR0, ((op1&0xfffffff0)|(op2&0xf)))
                 self.syncProtectedModeState()
             elif (operOpcodeModId == 7): # INVLPG
-                self.main.printMsg("opcodeGroup0F_01: INVLPG isn't supported yet.")
+                self.main.notice("opcodeGroup0F_01: INVLPG isn't supported yet.")
                 raise ChemuException(CPU_EXCEPTION_UD)
             else:
-                self.main.printMsg("opcodeGroup0F_01: invalid operOpcodeModId: {0:d}", operOpcodeModId)
+                self.main.notice("opcodeGroup0F_01: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x03): # LSL
             if (not (<Segments>self.registers.segments).isInProtectedMode()):
@@ -1285,10 +1285,10 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
             self.registers.setEFLAG(FLAG_ZF, True)
         elif (operOpcode == 0x05): # LOADALL (286, undocumented)
-            self.main.printMsg("opcodeGroup0F_05: LOADALL 286 opcode isn't supported yet.")
+            self.main.notice("opcodeGroup0F_05: LOADALL 286 opcode isn't supported yet.")
             raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x07): # LOADALL (386, undocumented)
-            self.main.printMsg("opcodeGroup0F_07: LOADALL 386 opcode isn't supported yet.")
+            self.main.notice("opcodeGroup0F_07: LOADALL 386 opcode isn't supported yet.")
             raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode in (0x06, 0x08, 0x09)): # 0x06: CLTS, 0x08: INVD, 0x09: WBINVD
             if (cpl != 0):
@@ -1402,7 +1402,7 @@ cdef class Opcodes:
                 self.registers.regWrite(CPU_REGISTER_EDX, 0x00202020)
             else:
                 if (not (eaxId == 0x0 or eaxIsInvalid)):
-                    self.main.printMsg("CPUID: eaxId {0:#04x} unknown.", eaxId)
+                    self.main.notice("CPUID: eaxId {0:#04x} unknown.", eaxId)
                 self.registers.regWrite(CPU_REGISTER_EAX, 0x5)
                 self.registers.regWrite(CPU_REGISTER_EBX, 0x756e6547)
                 self.registers.regWrite(CPU_REGISTER_EDX, 0x49656e69)
@@ -1547,7 +1547,7 @@ cdef class Opcodes:
             elif (operOpcodeModId == 7): # BTC
                 self.btFunc(op2, BT_COMPLEMENT)
             else:
-                self.main.printMsg("opcodeGroup0F_BA: invalid operOpcodeModId: {0:d}", operOpcodeModId)
+                self.main.notice("opcodeGroup0F_BA: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0xbb): # BTC RM16/32, R16
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
@@ -1573,7 +1573,7 @@ cdef class Opcodes:
             if (operOpcode == 0xb6): # MOVZX R16_32, R/M8
                 op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_BYTE, True)
             else: # MOVSX R16_32, R/M8
-                op2 = <unsigned int>(self.modRMInstance.modRMLoadSigned(OP_SIZE_BYTE, True))
+                op2 = <unsigned int>(<signed char>self.modRMInstance.modRMLoadSigned(OP_SIZE_BYTE, True))
                 if (self.registers.operSize == OP_SIZE_WORD):
                     op2 = <unsigned short>op2
             self.modRMInstance.modRSave(self.registers.operSize, op2, OPCODE_SAVE)
@@ -1617,7 +1617,7 @@ cdef class Opcodes:
                     self.registers.regWrite(CPU_REGISTER_EDX, qop1>>32)
                     self.registers.regWrite(CPU_REGISTER_EAX, <unsigned int>qop1)
             else:
-                self.main.printMsg("opcodeGroup0F_C7: operOpcodeModId {0:d} isn't supported yet.", operOpcodeModId)
+                self.main.notice("opcodeGroup0F_C7: operOpcodeModId {0:d} isn't supported yet.", operOpcodeModId)
                 raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode >= 0xc8 and operOpcode <= 0xcf): # BSWAP R32
             regName  = CPU_REGISTER_DWORD[operOpcode&7]
@@ -1625,7 +1625,7 @@ cdef class Opcodes:
             op1 = (<Misc>self.main.misc).reverseByteOrder(op1, OP_SIZE_DWORD)
             self.registers.regWrite(regName, op1)
         else:
-            self.main.printMsg("opcodeGroup0F: invalid operOpcode. {0:#04x}", operOpcode)
+            self.main.notice("opcodeGroup0F: invalid operOpcode. {0:#04x}", operOpcode)
             return False
         return True
     cdef int opcodeGroupFE(self):
@@ -1639,7 +1639,7 @@ cdef class Opcodes:
         elif (operOpcodeId == 1): # 1/DEC
             return self.decFuncRM(OP_SIZE_BYTE)
         else:
-            self.main.printMsg("opcodeGroupFE: invalid operOpcodeId. {0:d}", operOpcodeId)
+            self.main.notice("opcodeGroupFE: invalid operOpcodeId. {0:d}", operOpcodeId)
             return False
         #return True
     cdef int opcodeGroupFF(self):
@@ -1677,7 +1677,7 @@ cdef class Opcodes:
             op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             return self.stackPushValue(op1, self.registers.operSize)
         else:
-            self.main.printMsg("opcodeGroupFF: invalid operOpcodeId. {0:d}", operOpcodeId)
+            self.main.notice("opcodeGroupFF: invalid operOpcodeId. {0:d}", operOpcodeId)
             return False
         return True
     cdef int incFuncReg(self, unsigned short regId, unsigned char regSize):
@@ -1780,7 +1780,7 @@ cdef class Opcodes:
             value = self.stackPopValue(True)
             self.modRMInstance.modRMSave(self.registers.operSize, value, True, OPCODE_SAVE)
         else:
-            self.main.printMsg("popRM16_32: unknown operOpcodeId: {0:d}", operOpcodeId)
+            self.main.notice("popRM16_32: unknown operOpcodeId: {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
         return True
     cdef int lea(self):
@@ -1987,7 +1987,7 @@ cdef class Opcodes:
             self.registers.regWrite(edxReg, tempmod)
             self.registers.setFullFlags(sop1, operOp2, operSize, OPCODE_DIV)
         else:
-            self.main.printMsg("opcodeGroup2_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
+            self.main.notice("opcodeGroup2_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
         return True
     cdef int interrupt(self, signed short intNum, signed int errorCode): # TODO: complete this!
@@ -2053,12 +2053,12 @@ cdef class Opcodes:
             self.stackPushValue(errorCode, entrySize)
         return True
     cdef int into(self):
-        self.main.printMsg("Opcodes::into: enter function.")
+        self.main.notice("Opcodes::into: enter function.")
         if (self.registers.getEFLAG(FLAG_OF)):
             return self.interrupt(CPU_EXCEPTION_OF, -1)
         return True
     cdef int int3(self):
-        self.main.printMsg("Opcodes::int3: enter function.")
+        self.main.notice("Opcodes::int3: enter function.")
         return self.interrupt(CPU_EXCEPTION_BP, -1)
     cdef int iret(self):
         cdef GdtEntry gdtEntry
@@ -2402,7 +2402,7 @@ cdef class Opcodes:
         elif (operOpcodeId == GROUP4_OP_ROR):
             self.rorFunc(operSize, count)
         else:
-            self.main.printMsg("opcodeGroup4_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
+            self.main.notice("opcodeGroup4_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
         return True
     cdef int sahf(self):

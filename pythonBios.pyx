@@ -70,7 +70,7 @@ cdef class PythonBios:
                                 (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, bh, ah==0x0e)
                         return True
                     else:
-                        self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x0e: currMode {0:d} not supported here. (ax: {1:#04x})", currMode, ax)
+                        self.main.notice("PythonBios::interrupt: int: 0x10 AH: 0x0e: currMode {0:d} not supported here. (ax: {1:#04x})", currMode, ax)
                         return False
                 elif (ah == 0x13): # AH == 0x13
                     if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7)):
@@ -91,27 +91,27 @@ cdef class PythonBios:
                             (<Vga>self.main.platform.vga).setCursorPosition(bh, dx)
                         return True
                     else:
-                        self.main.printMsg("PythonBios::interrupt: int: 0x10 AH: 0x13: currMode {0:d} not supported here. (ax: {1:#06x})", currMode, ax)
+                        self.main.notice("PythonBios::interrupt: int: 0x10 AH: 0x13: currMode {0:d} not supported here. (ax: {1:#06x})", currMode, ax)
                         return False
                 else: # AH
-                    self.main.printMsg("PythonBios::interrupt: int: 0x10: AX {0:#06x} is not supported here. (currMode: {1:d})", ax, currMode)
+                    self.main.notice("PythonBios::interrupt: int: 0x10: AX {0:#06x} is not supported here. (currMode: {1:d})", ax, currMode)
                     return False
             else:
-                self.main.printMsg("PythonBios::interrupt: int: 0x10: currMode {0:d} not supported here. (ax: {1:#06x})", currMode, ax)
+                self.main.notice("PythonBios::interrupt: int: 0x10: currMode {0:d} not supported here. (ax: {1:#06x})", currMode, ax)
                 return False
         elif (intNum == 0x13): # data storage; floppy
             fdcNum = 0
             if (dl in (2, 3)):
                 fdcNum = 1
             if (dl not in (0, 1, 2, 3) or (not (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).isLoaded)):
-                self.main.printMsg("INT_0x13(AX=={0:#06x}): dl({1:#04x}) not in (0, 1, 2, 3) || drive is not loaded.", ax, dl)
+                self.main.notice("INT_0x13(AX=={0:#06x}): dl({1:#04x}) not in (0, 1, 2, 3) || drive is not loaded.", ax, dl)
                 # TODO: set correct error code.
                 ###self.setRetError(True, 0x8000)
                 self.setRetError(True, 0x100)
                 return True
             elif (ah == 0x2):
                 if ( ((cl >> 6)&3 != 0) and not (dl & 0x80) ):
-                    self.main.printMsg("PythonBios::interrupt: cl-bits #6 and/or #7 are set, but floppy was selected.")
+                    self.main.notice("PythonBios::interrupt: cl-bits #6 and/or #7 are set, but floppy was selected.")
                     return False
                 cylinder = (((cl>>6)&3)<<8)|ch
                 head = dh
@@ -165,7 +165,7 @@ cdef class PythonBios:
                 if (ah == 0x41):
                     self.setRetError(True, 0x100)
                     return True
-                self.main.printMsg("PythonBios::interrupt: intNum 0x13 (floppy) ax {0:#06x} not supported yet in PythonBIOS.", ax)
+                self.main.notice("PythonBios::interrupt: intNum 0x13 (floppy) ax {0:#06x} not supported yet in PythonBIOS.", ax)
         return False
     cdef void setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy
         (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, newCF )
