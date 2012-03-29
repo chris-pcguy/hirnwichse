@@ -2025,9 +2025,9 @@ cdef class Opcodes:
                 return True
         else:
             (<Idt>(<Segments>self.registers.segments).idt).getEntryRealMode(intNum, &entrySegment, <unsigned short*>&entryEip)
-            if (isSoftInt and ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10))):
-                if (self.main.platform.pythonBios.interrupt(intNum)):
-                    return True
+            if (isSoftInt and ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10)) and \
+              self.main.platform.pythonBios.interrupt(intNum)):
+                return True
         self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}, AX: {3:#06x}", intNum, entrySegment, entryEip, self.registers.regReadUnsigned(CPU_REGISTER_AX))
         if (inProtectedMode):
             cpl = self.registers.getCPL()

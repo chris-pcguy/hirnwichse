@@ -10,6 +10,7 @@ cdef class Segment:
         self.segments = segments
         self.segmentId = segmentId
         self.isValid = False
+        self.segSize = OP_SIZE_WORD
         self.loadSegment(segmentIndex)
     cdef void loadSegment(self, unsigned short segmentIndex):
         cdef GdtEntry gdtEntry
@@ -17,34 +18,11 @@ cdef class Segment:
         if (not self.segments.isInProtectedMode()):
             self.base = segmentIndex
             self.base <<= 4
-            self.limit = 0xffff
-            self.accessByte = (GDT_ACCESS_PRESENT | GDT_ACCESS_NORMAL_SEGMENT | GDT_ACCESS_READABLE_WRITABLE)
-            if (self.segmentId == CPU_SEGMENT_CS):
-                self.accessByte |= GDT_ACCESS_EXECUTABLE
-                self.segIsCodeSeg = True
-            else:
-                self.segIsCodeSeg = False
-            self.flags = 0
             self.isValid = True
-            self.segSize = OP_SIZE_WORD
-            self.segPresent = True
-            self.segIsRW = True
-            self.segIsConforming = False
-            self.segDPL = 0
             return
         gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segmentIndex))
         if (gdtEntry is None):
-            self.base = 0
-            self.limit = 0
-            self.accessByte = 0
-            self.flags = 0
             self.isValid = False
-            self.segSize = 0
-            self.segPresent = False
-            self.segIsCodeSeg = False
-            self.segIsRW = False
-            self.segIsConforming = False
-            self.segDPL = 0
             return
         self.base = gdtEntry.base
         self.limit = gdtEntry.limit
@@ -114,11 +92,16 @@ cdef class IdtEntry:
         self.entryEip = entryData&0xffff # interrupt eip: lower word
         self.entryEip |= ((entryData>>48)&0xffff)<<16 # interrupt eip: upper word
         self.entrySegment = (entryData>>16)&0xffff # interrupt segment
-        self.entryType = (entryData>>40)&0x7 # interrupt type
+        self.entryType = (entryData>>40)&0xf # interrupt type
         self.entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
         self.entryPresent = (entryData>>47)&1 # is interrupt present
-        # interrupt size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
-        self.entrySize = OP_SIZE_DWORD if ((entryData>>40)&0x8) else OP_SIZE_WORD
+        if (self.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, \
+          TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, \
+          TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE, \
+          TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
+            self.entrySize = OP_SIZE_DWORD
+        else:
+            self.entrySize = OP_SIZE_WORD
 
 
 cdef class Gdt:

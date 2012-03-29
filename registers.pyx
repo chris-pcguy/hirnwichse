@@ -586,14 +586,19 @@ cdef class Registers:
             if ((gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) or not addrInLimit):
                 raise ChemuException(CPU_EXCEPTION_GP, segVal)
     cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
+        cdef Segment segment
         if (allowOverride and self.segmentOverridePrefix):
             segId = self.segmentOverridePrefix
-        mmAddr = <unsigned int>(((<Segment>(self.segments.getSegmentInstance(segId, True))).base)+mmAddr)
+        segment = self.segments.getSegmentInstance(segId, True)
+        mmAddr = <unsigned int>(segment.base+mmAddr)
         # TODO: check for limit asf...
         if (not self.segments.isInProtectedMode()):
             if (self.segments.getA20State()): # A20 Active? if True == on, else off
+                if (segment.segSize != OP_SIZE_WORD or segment.base >= SIZE_1MB):
+                    return mmAddr&0xff1fffff
                 return mmAddr&0x1fffff
-            return mmAddr&0xfffff
+            if (segment.segSize == OP_SIZE_WORD and segment.base < SIZE_1MB):
+                return mmAddr&0xfffff
         return mmAddr
     cpdef object mmRead(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char allowOverride):
         #self.checkMemAccessRights(mmAddr, dataSize, segId, False)

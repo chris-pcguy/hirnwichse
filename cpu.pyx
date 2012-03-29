@@ -196,7 +196,7 @@ cdef class Cpu:
                 self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
             elif (self.exceptionLevel == 3):
                 if (self.main.exitOnTripleFault):
-                    self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.", exitNow=True)
+                    self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.")
                 else:
                     self.main.notice("CPU::doCycle: TRIPLE FAULT! reset.")
                     self.cpu.reset()
