@@ -557,12 +557,12 @@ cdef class Registers:
             if (regSize == OP_SIZE_BYTE):
                 regSum = <signed char>regSum
             self.setEFLAG(FLAG_SF, regSum<0)
-    cdef void checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write):
+    cpdef checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write):
         cdef GdtEntry gdtEntry
         cdef unsigned char addrInLimit
         cdef unsigned short segVal
-        if (not self.segments.isInProtectedMode()):
-            return
+        if (not (<Segments>self.segments).isInProtectedMode()):
+            return True
         segVal = self.segRead(segId)
         if ( (segVal&0xfff8) == 0 ):
             if (segId == CPU_SEGMENT_SS):
@@ -592,7 +592,7 @@ cdef class Registers:
         segment = self.segments.getSegmentInstance(segId, True)
         mmAddr = <unsigned int>(segment.base+mmAddr)
         # TODO: check for limit asf...
-        if (not self.segments.isInProtectedMode()):
+        if (not (<Segments>self.segments).isInProtectedMode()):
             if (self.segments.getA20State()): # A20 Active? if True == on, else off
                 if (segment.segSize != OP_SIZE_WORD or segment.base >= SIZE_1MB):
                     return mmAddr&0xff1fffff
@@ -605,9 +605,11 @@ cdef class Registers:
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyRead(mmAddr, dataSize)
     cpdef object mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
+        #self.checkMemAccessRights(mmAddr, dataSize, segId, False)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyReadValueSigned(mmAddr, dataSize)
     cpdef object mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
+        #self.checkMemAccessRights(mmAddr, dataSize, segId, False)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyReadValueUnsigned(mmAddr, dataSize)
     cpdef object mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, unsigned short segId, unsigned char allowOverride):
@@ -615,6 +617,7 @@ cdef class Registers:
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         (<Mm>self.main.mm).mmPhyWrite(mmAddr, data, dataSize)
     cpdef object mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride):
+        #self.checkMemAccessRights(mmAddr, dataSize, segId, True)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyWriteValue(mmAddr, data, dataSize)
     cpdef object mmWriteValueWithOp(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):

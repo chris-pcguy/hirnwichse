@@ -42,7 +42,7 @@ cdef class Cpu:
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
             self.asyncEvent = False
         return
-    cdef void exception(self, unsigned char exceptionId, signed int errorCode):
+    cpdef exception(self, unsigned char exceptionId, signed int errorCode):
         self.main.notice("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
         if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
@@ -62,6 +62,7 @@ cdef class Cpu:
             self.opcodes.interrupt(exceptionId, -1)
         #self.main.notice("exception: cpu-dump after exception-jump.")
         #self.cpuDump()
+        self.exceptionLevel = 0
     cpdef handleException(self, object exception):
         cdef unsigned char exceptionId
         cdef signed int errorCode
@@ -139,7 +140,7 @@ cdef class Cpu:
           self.registers.regReadUnsigned(CPU_REGISTER_DR3))
         self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}\n\n", self.registers.regReadUnsigned(CPU_REGISTER_DR6), \
           self.registers.regReadUnsigned(CPU_REGISTER_DR7))
-    cdef void doInfiniteCycles(self):
+    cpdef doInfiniteCycles(self):
         cdef unsigned long int cycleInc
         try:
             while (not self.main.quitEmu):
@@ -166,12 +167,12 @@ cdef class Cpu:
         except:
             print(exc_info())
             self.main.exitError('doInfiniteCycles: (else case) exception, exiting...', exitNow=True)
-    cdef void doCycle(self):
+    cpdef doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
             return
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
-        self.cycles += 1
+        self.cycles += CPU_CLOCK_TICK
         self.registers.resetPrefixes()
         #self.saveCurrentInstPointer()
         if (self.asyncEvent):
@@ -207,7 +208,7 @@ cdef class Cpu:
         except:
             print(exc_info())
             self.main.exitError('doCycle: (else case) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
-    cdef void run(self):
+    cpdef run(self):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
         self.opcodes.registers = self.registers

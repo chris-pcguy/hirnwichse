@@ -628,7 +628,7 @@ cdef class Opcodes:
             self.registers.regAdd(dataReg, dataLength)
         else:
             self.registers.regSub(dataReg, dataLength)
-        self.main.cpu.cycles += countVal
+        self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
         return True
@@ -667,7 +667,7 @@ cdef class Opcodes:
         else:
             self.registers.regSub(esiReg, dataLength)
             self.registers.regSub(ediReg, dataLength)
-        self.main.cpu.cycles += countVal
+        self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
         return True
@@ -697,7 +697,7 @@ cdef class Opcodes:
             esiVal = <unsigned short>esiVal
         data = self.registers.mmReadValueUnsigned(esiVal, operSize, CPU_SEGMENT_DS, True)
         self.registers.regWrite(eaxReg, data)
-        self.main.cpu.cycles += countVal
+        self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
         return True
@@ -736,7 +736,7 @@ cdef class Opcodes:
                 break
         self.registers.regWrite(esiReg, esiVal)
         self.registers.regWrite(ediReg, ediVal)
-        self.main.cpu.cycles += countVal-newCount
+        self.main.cpu.cycles += (countVal-newCount) << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, newCount)
         return True
@@ -770,7 +770,7 @@ cdef class Opcodes:
                 newCount = countVal-i-1
                 break
         self.registers.regWrite(ediReg, ediVal)
-        self.main.cpu.cycles += countVal-newCount
+        self.main.cpu.cycles += (countVal-newCount) << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, newCount)
         return True
@@ -818,7 +818,7 @@ cdef class Opcodes:
             if (self.registers.addrSize == OP_SIZE_WORD):
                 esiVal = <unsigned short>esiVal
         self.registers.regWrite(esiReg, esiVal)
-        self.main.cpu.cycles += countVal
+        self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
         return True
@@ -846,7 +846,7 @@ cdef class Opcodes:
             if (self.registers.addrSize == OP_SIZE_WORD):
                 ediVal = <unsigned short>ediVal
         self.registers.regWrite(ediReg, ediVal)
-        self.main.cpu.cycles += countVal
+        self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
         return True
@@ -1990,7 +1990,7 @@ cdef class Opcodes:
             self.main.notice("opcodeGroup2_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
         return True
-    cdef int interrupt(self, signed short intNum, signed int errorCode): # TODO: complete this!
+    cpdef interrupt(self, signed short intNum, signed int errorCode): # TODO: complete this!
         cdef unsigned char inProtectedMode, entryType, entrySize, \
                               entryNeededDPL, entryPresent, cpl, isSoftInt
         cdef unsigned short entrySegment
@@ -2052,15 +2052,13 @@ cdef class Opcodes:
         if (inProtectedMode and errorCode != -1):
             self.stackPushValue(errorCode, entrySize)
         return True
-    cdef int into(self):
-        self.main.notice("Opcodes::into: enter function.")
+    cpdef into(self):
         if (self.registers.getEFLAG(FLAG_OF)):
-            return self.interrupt(CPU_EXCEPTION_OF, -1)
+            raise ChemuException(CPU_EXCEPTION_OF)
         return True
-    cdef int int3(self):
-        self.main.notice("Opcodes::int3: enter function.")
-        return self.interrupt(CPU_EXCEPTION_BP, -1)
-    cdef int iret(self):
+    cpdef int3(self):
+        raise ChemuException(CPU_EXCEPTION_BP)
+    cpdef iret(self):
         cdef GdtEntry gdtEntry
         cdef unsigned char inProtectedMode, cpl
         cdef unsigned int tempEFLAGS, tempEIP, tempCS, eflagsMask

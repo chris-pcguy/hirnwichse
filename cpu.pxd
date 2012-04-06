@@ -24,12 +24,12 @@ cdef class Cpu:
     cdef inline void setINTR(self, unsigned char state)
     cdef inline void setHRQ(self, unsigned char state)
     cdef void handleAsyncEvent(self)
-    cdef void exception(self, unsigned char exceptionId, signed int errorCode)
+    cpdef exception(self, unsigned char exceptionId, signed int errorCode)
     cpdef handleException(self, object exception)
     cdef unsigned char parsePrefixes(self, unsigned char opcode)
     cpdef cpuDump(self)
-    cdef void doInfiniteCycles(self)
-    cdef void doCycle(self)
-    cdef void run(self)
+    cpdef doInfiniteCycles(self)
+    cpdef doCycle(self)
+    cpdef run(self)
 
 

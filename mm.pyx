@@ -75,27 +75,33 @@ cdef class Mm:
         cdef MmArea mmArea
         cdef list mmAreas
         cdef bytes data
-        cdef unsigned int tempAddr, tempSize
-        data = bytes()
+        cdef unsigned int tempAddr, tempSize, tempDataSize
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.notice("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-            raise ChemuException(CPU_EXCEPTION_GP, 0)
-        tempSize = dataSize
+            self.main.debug("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            #raise ChemuException(CPU_EXCEPTION_GP, 0)
+            return b'\xff'*dataSize
+        data = bytes()
+        tempDataSize = dataSize
+        tempSize = min(SIZE_1MB, dataSize)
         for mmArea in mmAreas:
             if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.notice("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-                raise ChemuException(CPU_EXCEPTION_GP, 0)
+                self.main.debug("Mm::mmPhyRead: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+                #raise ChemuException(CPU_EXCEPTION_GP, 0)
+                return b'\xff'*dataSize
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
+            tempSize = min(tempSize, tempDataSize)
             if (tempAddr+tempSize > SIZE_1MB):
-                tempSize = SIZE_1MB-tempAddr
+                tempSize = min(SIZE_1MB-tempAddr, tempDataSize)
             data += mmArea.readHandler(mmArea.readClass, mmArea, tempAddr, tempSize)
-            tempAddr += tempSize
-            if (dataSize < tempSize):
-                break
+            mmAddr += tempSize
+            tempDataSize -= tempSize
             tempSize = dataSize-tempSize
+        if (tempDataSize):
+            self.main.debug("Mm::mmPhyRead: tempDataSize: {0:#06x} is not zero.", tempDataSize)
+            raise ChemuException(CPU_EXCEPTION_GP, 0)
         ## assume, that mmArea is set to the last entry in mmAreas
-        if (mmAddr+dataSize-1 > mmArea.end):
+        if (mmAddr-1 > mmArea.end):
             self.main.notice("Mm::mmPhyRead: mmAddr overflow")
             raise ChemuException(CPU_EXCEPTION_GP, 0)
         return data
@@ -106,26 +112,29 @@ cdef class Mm:
     cpdef object mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize):
         cdef MmArea mmArea
         cdef list mmAreas
-        cdef unsigned int tempAddr, tempSize
+        cdef unsigned int tempAddr, tempSize, tempDataSize
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-            raise ChemuException(CPU_EXCEPTION_GP, 0)
-        tempSize = dataSize
+            self.main.debug("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            #raise ChemuException(CPU_EXCEPTION_GP, 0)
+            return
+        tempDataSize = dataSize
+        tempSize = min(SIZE_1MB, dataSize)
         for mmArea in mmAreas:
             if (not mmArea.writeClass or not mmArea.writeHandler):
-                self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-                raise ChemuException(CPU_EXCEPTION_GP, 0)
+                self.main.debug("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+                #raise ChemuException(CPU_EXCEPTION_GP, 0)
+                return
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
+            tempSize = min(tempSize, tempDataSize)
             if (tempAddr+tempSize > SIZE_1MB):
-                tempSize = SIZE_1MB-tempAddr
+                tempSize = min(SIZE_1MB-tempAddr, tempDataSize)
             mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, data, tempSize)
-            tempAddr += tempSize
-            if (dataSize < tempSize):
-                break
+            mmAddr += tempSize
+            tempDataSize -= tempSize
             tempSize = dataSize-tempSize
         ## assume, that mmArea is set to the last entry in mmAreas
-        if (mmAddr+dataSize-1 > mmArea.end):
+        if (mmAddr-1 > mmArea.end):
             self.main.notice("Mm::mmPhyWrite: mmAddr overflow")
             raise ChemuException(CPU_EXCEPTION_GP, 0)
     cpdef object mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize):
