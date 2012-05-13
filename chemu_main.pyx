@@ -73,11 +73,10 @@ cdef class ChEmu:
             self.mm = Mm(self)
             self.platform = Platform(self, self.memSize)
             self.cpu = Cpu(self)
-            self.misc.createThread(self.runThreadFunc, True)
-            #self.runThreadFunc()
-            #self.cpu.run()
-            while (active_count() > 1 and not self.quitEmu):
-                sleep(5)
+            ##self.misc.createThread(self.runThreadFunc, True)
+            self.runThreadFunc()
+            ##while (active_count() > 1 and not self.quitEmu):
+            ##    sleep(5)
         except KeyboardInterrupt:
             exit(0)
         except SystemExit as e:

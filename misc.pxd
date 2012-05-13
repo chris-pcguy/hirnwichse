@@ -7,7 +7,6 @@ cdef class Misc:
     cdef unsigned long int decToBcd(self, unsigned char dec)
     cdef unsigned long int bcdToDec(self, unsigned char bcd)
     cdef unsigned long int reverseByteOrder(self, unsigned int value, unsigned char valueSize)
-    cdef bytes generateString(self, unsigned char firstChar, unsigned char lastChar, unsigned short stringLen)
     cpdef object createThread(self, object threadFunc, unsigned char startIt)
 
 

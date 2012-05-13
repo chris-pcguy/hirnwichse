@@ -297,7 +297,7 @@ cdef class Vga:
         else:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} isn't supported.", ioPortAddr, dataSize)
         return
-    cdef void run(self):
+    cpdef run(self):
         self.seq.run()
         self.crt.run()
         self.gdc.run()
@@ -306,7 +306,7 @@ cdef class Vga:
         self.attrctrlreg.run()
         ####
         if (self.ui is not None):
-            (<PygameUI>self.ui).run()
+            self.ui.run()
         #self.main.platform.addReadHandlers((0x3c0, 0x3c1, 0x3c5, 0x3cc, 0x3c8, 0x3da), self)
         #self.main.platform.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, \
         #                                     0x3cf, 0x3d4, 0x3d5, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self)

@@ -14,13 +14,13 @@ cdef class Misc:
         self.main = main
     cdef unsigned long int getBitMask80(self, unsigned char maskSize):
         if (maskSize == OP_SIZE_BYTE):
-            return 0x80
+            return 0x80UL
         elif (maskSize == OP_SIZE_WORD):
-            return 0x8000
+            return 0x8000UL
         elif (maskSize == OP_SIZE_DWORD):
-            return 0x80000000
+            return 0x80000000UL
         elif (maskSize == OP_SIZE_QWORD):
-            return 0x8000000000000000
+            return 0x8000000000000000ULL
         else:
             self.main.exitError("Misc::getBitMask80: maskSize {0:d} not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)", maskSize)
         return 0
@@ -54,13 +54,6 @@ cdef class Misc:
         data = value.to_bytes(length=valueSize, byteorder="big")
         value = int.from_bytes(bytes=data, byteorder="little")
         return value
-    cdef bytes generateString(self, unsigned char firstChar, unsigned char lastChar, unsigned short stringLen):
-        cdef unsigned short i
-        cdef bytes returnedString # 'bytes' object
-        returnedString = b''
-        for i in range(stringLen):
-            returnedString += bytes([ randint(firstChar, lastChar) ])
-        return returnedString
     cpdef object createThread(self, object threadFunc, unsigned char startIt):
         cpdef object threadObject
         threadObject = Thread(target=threadFunc)

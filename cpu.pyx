@@ -156,9 +156,6 @@ cdef class Cpu:
                 cycleInc = self.cycles >> 13
                 if (cycleInc > self.oldCycleInc):
                     self.oldCycleInc = cycleInc
-                    if (self.main.platform.vga.ui):
-                        self.main.platform.vga.ui.pumpEvents()
-                    sleep(0.01)
                 self.doCycle()
         except (SystemExit, KeyboardInterrupt):
             print(exc_info())

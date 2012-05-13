@@ -25,8 +25,9 @@ cdef class PS2:
         self.resetInternals(True)
         self.lastUsedPort = 0x64
         self.lastUsedCmd = 0
-        self.ppcbT2Nibble = 0
-        self.ppcbT2Done = False
+        self.ppcbT2Gate = False
+        self.ppcbT2Spkr = False
+        self.ppcbT2Out  = False
         self.kbdClockEnabled = True
         self.irq1Requested = False
         self.allowIrq1 = True
@@ -96,7 +97,8 @@ cdef class PS2:
             (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
         ###self.activateTimer()
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        cdef unsigned char retByte = 0
+        cdef unsigned char retByte
+        retByte = 0
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x64):
                 if (len(self.outBuffer)):
@@ -104,10 +106,10 @@ cdef class PS2:
                     #if (self.allowIrq1): # TODO: delete this again!?!
                     #    self.irq1Requested = True
                     #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
-                return ((0x10) | \
-                       ((self.lastUsedPort!=0x60) << 3) | \
-                       (self.sysf << 2) | \
-                       (self.outb))
+                return (0x10 | \
+                        ((self.lastUsedPort != 0x60) << 3) | \
+                        (self.sysf << 2) | \
+                        self.outb)
             elif (ioPortAddr == 0x60):
                 self.outb = False
                 self.irq1Requested = False
@@ -128,8 +130,9 @@ cdef class PS2:
                 #    self.activateTimer()
                 return retByte
             elif (ioPortAddr == 0x61):
-                return (self.ppcbT2Done and PPCB_T2_DONE) | \
-                       (self.ppcbT2Nibble & 0xf)
+                return ((self.ppcbT2Gate and PPCB_T2_GATE) | \
+                        (self.ppcbT2Spkr and PPCB_T2_SPKR) | \
+                        (self.ppcbT2Out  and PPCB_T2_OUT))
             elif (ioPortAddr == 0x92):
                 return ((<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).getA20State() << 1)
             else:
@@ -276,8 +279,9 @@ cdef class PS2:
                     self.lastUsedPort = ioPortAddr
                     self.lastUsedCmd = data
             elif (ioPortAddr == 0x61):
-                self.ppcbT2Done = (data & PPCB_T2_DONE) != 0
-                self.ppcbT2Nibble = (data & 0xf)
+                self.ppcbT2Gate = (data & PPCB_T2_GATE) != 0
+                self.ppcbT2Spkr = (data & PPCB_T2_SPKR) != 0
+                self.ppcbT2Out  = (data & PPCB_T2_OUT)  != 0
             elif (ioPortAddr == 0x92):
                 (<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).setA20State( (data & PS2_A20) != 0 )
             else:
