@@ -1,5 +1,5 @@
 
-from threading import Thread
+from threading import Thread, Timer
 from random import randint
 
 include "globals.pxi"

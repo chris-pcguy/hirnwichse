@@ -2,7 +2,6 @@
 from os import stat
 from os.path import join
 from sys import exc_info, exit
-from time import sleep
 
 include "globals.pxi"
 

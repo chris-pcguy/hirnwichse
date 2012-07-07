@@ -1,5 +1,7 @@
 
-from time import time, sleep
+from pic cimport Pic
+from ps2 cimport PS2
+from posix.unistd cimport usleep
 
 include "globals.pxi"
 
@@ -14,56 +16,45 @@ cdef class PitChannel:
         self.counterWriteMode = 0 # 1 == LSB ; 2 == MSB ; 3 == LSB;MSB
         self.counterValue = self.counterStartValue = 0
         self.counterFlipFlop = self.timerEnabled = False
-        self.timerThread = None
         self.tempTimerValue = 0.0
     cpdef mode0Func(self):
-        self.main.notice("mode0Func: entered function.")
         self.timerEnabled = False
-        sleep(self.tempTimerValue)
+        usleep(int(self.tempTimerValue))
         if (self.channelId == 0): # just raise IRQ on channel0
             (<Pic>self.main.platform.pic).raiseIrq(0)
         elif (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Gate):
             (<PS2>self.main.platform.ps2).ppcbT2Out = True
         else:
             self.main.notice("mode0Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
-        self.main.notice("mode0Func: left function.")
     cpdef mode2Func(self): # TODO
-        self.main.notice("mode2Func: entered function.")
         if (not self.counterValue or self.counterMode not in (2, 3)):
             self.main.notice("mode2Func: channelId {0:d}: counterValue{1:d} == 0 or counterMode{2:d} not in (2, 3) .", self.channelId, self.counterValue, self.counterMode)
             return
-        self.counterValue = 0
-        if (not self.counterValue):
-            self.counterValue = self.counterStartValue
-            sleep(self.tempTimerValue)
-            if (self.channelId == 0): # just raise IRQ on channel0
-                (<Pic>self.main.platform.pic).raiseIrq(0)
-            elif (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Gate):
-                (<PS2>self.main.platform.ps2).ppcbT2Out = True
-            else:
-                self.main.notice("mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
+        ##self.counterValue = 0
+        ##if (not self.counterValue):
+        self.counterValue = self.counterStartValue
+        usleep(int(self.tempTimerValue))
+        if (self.channelId == 0): # just raise IRQ on channel0
+            (<Pic>self.main.platform.pic).raiseIrq(0)
+        elif (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Gate):
+            (<PS2>self.main.platform.ps2).ppcbT2Out = True
+        else:
+            self.main.notice("mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
         ##if (self.counterModeTimer and self.counterMode in (2, 3) and (not self.main.quitEmu)):
         ##    self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
         ##self.timerEnabled = True
-        self.main.notice("mode2Func: left function.")
     cpdef timerFunc(self): # TODO
-        self.main.notice("timerFunc: entered function. (id: {0:d})", self.channelId)
-        while (not self.main.quitEmu):
-            if (self.timerEnabled):
-                if (self.counterMode == 0):
-                    self.mode0Func()
-                elif (self.counterMode in (2, 3)):
-                    self.mode2Func()
-                else:
-                    self.main.exitError("timerFunc: counterMode {0:d} is unknown.", self.counterMode)
-                    return
+        if (self.timerEnabled):
+            if (self.counterMode == 0):
+                self.mode0Func()
+            elif (self.counterMode in (2, 3)):
+                self.mode2Func()
             else:
-                sleep(0.0001)
-            #if (self.main.platform.vga.ui):
-            #    self.main.platform.vga.ui.pumpEvents()
-        self.main.notice("timerFunc: left function. (id: {0:d})", self.channelId)
+                self.main.exitError("timerFunc: counterMode {0:d} is unknown.", self.counterMode)
+                return
+        #if (self.main.platform.vga.ui):
+        #    self.main.platform.vga.ui.pumpEvents()
     cpdef runTimer(self):
-        self.main.notice("runTimer: entered function. (id: {0:d})", self.channelId)
         if (self.channelId == 1):
             self.main.exitError("PitChannel::runTimer: PIT-Channel 1 is ancient.")
             return
@@ -81,9 +72,9 @@ cdef class PitChannel:
                 return
         self.counterValue = self.counterStartValue
         if (self.counterMode == 0):
-            self.tempTimerValue = 1.0/(1193182.0/self.counterValue)
+            self.tempTimerValue = 1.0/(1.193182/self.counterValue)
         elif (self.counterMode in (2, 3)):
-            self.tempTimerValue = 1193.182/self.counterValue
+            self.tempTimerValue = 1193182000/self.counterValue
         if (self.counterMode not in (0, 2, 3)):
             self.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})", self.counterMode, self.channelId)
             return
@@ -96,9 +87,7 @@ cdef class PitChannel:
         elif (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Gate):
             (<PS2>self.main.platform.ps2).ppcbT2Out = False
         self.timerEnabled = True
-        self.main.notice("runTimer: left function. (id: {0:d})", self.channelId)
-    cpdef run(self):
-        self.timerThread = self.main.misc.createThread(self.timerFunc, True)
+        self.main.misc.createThread(self.timerFunc, True)
 
 cdef class Pit:
     def __init__(self, object main):
@@ -167,7 +156,7 @@ cdef class Pit:
                 if (counterWriteMode == 0):
                     self.main.exitError("outPort: latch-count not supported.")
                     return
-                if (modeNumber in (6,7)):
+                if (modeNumber in (6, 7)):
                     modeNumber -= 4
                 channel = self.channels[channelId]
                 channel.timerEnabled = False
@@ -180,9 +169,7 @@ cdef class Pit:
         else:
             self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
     cpdef run(self):
-        cpdef PitChannel channel
-        for channel in self.channels:
-            channel.run()
+        pass
         #self.main.platform.addHandlers((0x40, 0x41, 0x42, 0x43), self)
 
 

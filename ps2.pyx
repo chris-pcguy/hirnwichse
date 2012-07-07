@@ -25,17 +25,11 @@ cdef class PS2:
         self.resetInternals(True)
         self.lastUsedPort = 0x64
         self.lastUsedCmd = 0
-        self.ppcbT2Gate = False
-        self.ppcbT2Spkr = False
-        self.ppcbT2Out  = False
-        self.kbdClockEnabled = True
-        self.irq1Requested = False
-        self.allowIrq1 = True
-        self.sysf = False
-        self.translateScancodes = True
-        self.scanningEnabled = True
-        self.outb = False
-        self.batInProgress = False
+        self.ppcbT2Gate = self.ppcbT2Spkr = self.ppcbT2Out = False
+        self.irq1Requested = self.sysf = False
+        self.outb = self.batInProgress = False
+        self.kbdClockEnabled = self.allowIrq1 = True
+        self.translateScancodes = self.scanningEnabled = True
         self.timerPending = 0
     cdef void appendToOutBytesJustAppend(self, bytes data):
         self.outBuffer += data

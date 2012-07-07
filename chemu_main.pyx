@@ -5,8 +5,6 @@
 
 from sys import argv, exc_info, exit, stdout
 from argparse import ArgumentParser
-from threading import active_count
-from time import sleep, time
 from atexit import register
 
 include "globals.pxi"
@@ -73,10 +71,7 @@ cdef class ChEmu:
             self.mm = Mm(self)
             self.platform = Platform(self, self.memSize)
             self.cpu = Cpu(self)
-            ##self.misc.createThread(self.runThreadFunc, True)
             self.runThreadFunc()
-            ##while (active_count() > 1 and not self.quitEmu):
-            ##    sleep(5)
         except KeyboardInterrupt:
             exit(0)
         except SystemExit as e:
