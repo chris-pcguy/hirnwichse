@@ -47,6 +47,9 @@ cdef class PythonBios:
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, 80) # number of columns
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BH, (<Vga>self.main.platform.vga).getCorrectPage(0xff))
                 return True
+            elif (ax == 0x1103): # load font.
+                (<Vga>self.main.platform.vga).needLoadFont = True
+                return False
             elif (currMode <= 0x7 or currMode in (0x12, 0x13)):
                 if (ah in (0x09, 0x0a, 0x0e)): # AH in (0x09, 0x0A, 0x0E) / PRINT CHARACTER
                     #if (currMode in (0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x12, 0x13)):
@@ -104,7 +107,10 @@ cdef class PythonBios:
             if (dl in (2, 3)):
                 fdcNum = 1
             if (dl not in (0, 1, 2, 3) or (not (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).isLoaded)):
-                self.main.notice("INT_0x13(AX=={0:#06x}): dl({1:#04x}) not in (0, 1, 2, 3) || drive is not loaded.", ax, dl)
+                if (dl not in (0, 1, 2, 3)):
+                    self.main.notice("INT_0x13(AX=={0:#06x}): drive dl({1:#04x}) is not in (0, 1, 2, 3).", ax, dl)
+                else:
+                    self.main.notice("INT_0x13(AX=={0:#06x}): drive dl({1:#04x}) is not loaded.", ax, dl)
                 # TODO: set correct error code.
                 ###self.setRetError(True, 0x8000)
                 self.setRetError(True, 0x100)

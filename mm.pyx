@@ -5,7 +5,7 @@ from misc import ChemuException
 include "globals.pxi"
 include "cpu_globals.pxi"
 
-DEF MM_NUMAREAS = 4096 # remember to change the value in mm.pxd too.
+DEF MM_NUMAREAS = 4096 # remember to change this in mm.pxd too.
 
 
 cdef class Mm:
@@ -31,13 +31,12 @@ cdef class Mm:
         mmArea.readHandler  = <MmAreaReadType>self.mmAreaRead
         mmArea.writeHandler = <MmAreaWriteType>self.mmAreaWrite
         return mmArea
-    cdef unsigned char mmDelArea(self, unsigned int addr):
+    cdef void mmDelArea(self, unsigned int addr):
         cdef MmArea mmArea = self.mmGetArea(addr)
         if (mmArea is not None and mmArea.data is not None):
             free(mmArea.data)
             mmArea.data = None
         mmArea = None
-        return True
     cdef MmArea mmGetArea(self, unsigned int addr):
         return self.mmAreas[addr >> 20]
     cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize):
@@ -148,6 +147,14 @@ cdef class Mm:
         return data
     cpdef object mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize):
         self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
+    cdef unsigned int mmGetAbsoluteAddressForInterrupt(self, unsigned char intNum):
+        cdef unsigned short seg, offset
+        cdef unsigned int posdata
+        posdata = (<Mm>self.main.mm).mmPhyReadValueUnsigned((intNum*4), 4)
+        offset = posdata&BITMASK_WORD
+        seg = (posdata>>16)&BITMASK_WORD
+        posdata = (seg<<4)+offset
+        return posdata
     cpdef run(self):
         cdef unsigned int i
         for i in range(MM_NUMAREAS):

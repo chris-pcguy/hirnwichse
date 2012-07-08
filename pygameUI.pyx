@@ -1,26 +1,22 @@
 
 from sys import exc_info
 from atexit import register
+import numpy
 import pygame
 
 include "globals.pxi"
-
 
 cdef class PygameUI:
     def __init__(self, object vga, object main):
         self.vga  = vga
         self.main = main
-        self.display, self.screen, self.font = None, None, None
-        self.screenSize = self.screenWidth, self.screenHeight = 720, 400 # 640, 400
-        self.fontSize = self.fontWidth, self.fontHeight = self.screenWidth//80, self.screenHeight//25
+        self.display, self.screen = None, None
+        self.screenSize = 720, 400
     cpdef initPygame(self):
-        ###print(pygame.init())
         pygame.display.init()
-        pygame.font.init()
         pygame.display.set_caption('ChEmu - THE x86 Emulator written in Python. (c) 2011-2012 by Christian Inci')
         self.display = pygame.display.set_mode(self.screenSize)
         self.screen = pygame.Surface(self.screenSize)
-        self.font = pygame.font.SysFont('VeraMono',  self.fontHeight)
         register(self.quitFunc)
         pygame.event.set_blocked([ pygame.ACTIVEEVENT, pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP,\
                                    pygame.JOYAXISMOTION, pygame.JOYBALLMOTION, pygame.JOYHATMOTION, pygame.JOYBUTTONDOWN,\
@@ -28,7 +24,6 @@ cdef class PygameUI:
         self.setRepeatRate(500, 10)
     cpdef quitFunc(self):
         try:
-            pygame.font.quit()
             pygame.display.quit()
         except pygame.error:
             print(exc_info())
@@ -42,7 +37,7 @@ cdef class PygameUI:
         self.main.quitFunc()
     cpdef object getCharRect(self, unsigned char x, unsigned char y):
         try:
-            return pygame.Rect((self.fontWidth*x, self.fontHeight*y), self.fontSize)
+            return pygame.Rect((UI_CHAR_WIDTH*x, self.charSize[1]*y), self.charSize)
         except pygame.error:
             print(exc_info())
         except (SystemExit, KeyboardInterrupt):
@@ -87,24 +82,41 @@ cdef class PygameUI:
             return (0xff, 0xff, 0xff)
         else:
             self.main.exitError('pygameUI: invalid color used. (color: {0:d})', color)
+    cdef unsigned int getColorInteger(self, unsigned char color):
+        cdef unsigned int returnColor = 0x000000ff
+        cdef tuple colorTuple = self.getColor(color)
+        returnColor |= colorTuple[0]<<24
+        returnColor |= colorTuple[1]<<16
+        returnColor |= colorTuple[2]<<8
+        return returnColor
     cpdef object getBlankChar(self, tuple bgColor):
         cpdef object blankSurface
-        blankSurface = pygame.Surface(self.fontSize)
+        blankSurface = pygame.Surface(self.charSize)
         blankSurface.fill(bgColor)
         return blankSurface
-    cpdef object putChar(self, unsigned char x, unsigned char y, str char, unsigned char colors): # returns rect
-        cpdef object newRect, newChar, newBack
+    cpdef object putChar(self, unsigned char x, unsigned char y, unsigned char character, unsigned char colors): # returns rect
+        cpdef object newRect, newBack, newChar, charArray
+        cdef bytes charData
+        cdef list lineData
         cdef tuple fgColor, bgColor
+        cdef unsigned int i, fgColorInteger
         try:
             newRect = self.getCharRect(x, y)
             fgColor, bgColor = self.getColor(colors&0xf), self.getColor((colors&0xf0)>>4)
+            fgColorInteger = self.getColorInteger(colors&0xf)
             newBack = self.getBlankChar(bgColor)
             # It's not a good idea to render the character if fgColor == bgColor,
             #   as it wouldn't be readable.
-            if (fgColor != bgColor and char != " " and char != '\x00' and char.isprintable()):
-                #newChar = self.font.render(char, False, fgColor, bgColor)
-                newChar = self.font.render(char, True, fgColor, bgColor)
-                newBack.blit(newChar, ( (0, 0), self.fontSize ))
+            if (fgColor != bgColor and character != 0x20 and character != 0x00 and chr(character).isprintable()):
+                i = character*self.charSize[1]
+                charData = self.fontData[i:i+self.charSize[1]]
+                charArray = numpy.zeros((self.charSize[1], UI_CHAR_WIDTH), dtype=numpy.uint32)
+                for i in range(len(charData)):
+                    lineData = list('{0:08b}'.format(charData[i]))
+                    charArray[i] = lineData
+                charArray *= fgColorInteger
+                newChar = pygame.surfarray.make_surface(charArray.transpose(None))
+                newBack.blit(newChar, ( (0, 0), self.charSize ))
             self.screen.blit(newBack, newRect)
             return newRect
         except pygame.error:

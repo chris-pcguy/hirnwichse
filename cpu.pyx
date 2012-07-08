@@ -144,7 +144,7 @@ cdef class Cpu:
         cdef unsigned long int cycleInc
         try:
             while (not self.main.quitEmu):
-                if ((self.cpuHalted and self.main.exitIfCpuHalted) or self.main.quitEmu):
+                if (self.cpuHalted and self.main.exitIfCpuHalted):
                     self.main.quitEmu = True
                     return
                 elif ((self.cpuHalted and not self.main.exitIfCpuHalted) or (self.debugHalt and not self.debugSingleStep)):
@@ -156,6 +156,7 @@ cdef class Cpu:
                 cycleInc = self.cycles >> 13
                 if (cycleInc > self.oldCycleInc):
                     self.oldCycleInc = cycleInc
+                    sleep(0.00001) # FIXME: timing issue.
                 self.doCycle()
         except (SystemExit, KeyboardInterrupt):
             print(exc_info())

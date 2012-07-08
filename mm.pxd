@@ -3,7 +3,7 @@ from misc cimport Misc
 from libc.stdlib cimport calloc, malloc, free
 from libc.string cimport strncpy, memcpy, memset, memmove
 
-DEF MM_NUMAREAS = 4096
+DEF MM_NUMAREAS = 4096 # remember to change this in mm.pyx too.
 
 ctypedef bytes (*MmAreaReadType)(self, MmArea, unsigned int, unsigned int)
 ctypedef void (*MmAreaWriteType)(self, MmArea, unsigned int, char *, unsigned int)
@@ -22,7 +22,7 @@ cdef class Mm:
     cpdef object main
     cdef list mmAreas
     cdef MmArea mmAddArea(self, unsigned int mmBaseAddr, unsigned char mmReadOnly)
-    cdef unsigned char mmDelArea(self, unsigned int mmAddr)
+    cdef void mmDelArea(self, unsigned int mmAddr)
     cdef MmArea mmGetArea(self, unsigned int mmAddr)
     cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)
     cdef void mmSetReadOnly(self, unsigned int mmAddr, unsigned char mmReadOnly)
@@ -34,6 +34,7 @@ cdef class Mm:
     cpdef object mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize)
     cpdef object mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize)
     cpdef object mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
+    cdef unsigned int mmGetAbsoluteAddressForInterrupt(self, unsigned char intNum)
     cpdef run(self)
 
 cdef class ConfigSpace:

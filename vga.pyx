@@ -99,6 +99,8 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 cdef class Vga:
     def __init__(self, object main):
         self.main = main
+        self.needLoadFont = True
+        self.fontData = b'\x00'*8192
         self.seq = Sequencer(self, self.main)
         self.crt = CRT(self, self.main)
         self.gdc = GDC(self, self.main)
@@ -109,6 +111,22 @@ cdef class Vga:
         self.ui = None
         if (not self.main.noUI):
             self.ui = PygameUI(self, self.main)
+    cdef void readFontData(self): # TODO
+        cdef unsigned int posdata
+        self.charHeight = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_VIDEO_CHAR_HEIGHT, 2)
+        self.charSize = (UI_CHAR_WIDTH, self.charHeight)
+        self.vgaFontDataSize = 256*self.charHeight
+        posdata = (<Mm>self.main.mm).mmGetAbsoluteAddressForInterrupt(0x43)
+        if (self.charHeight == 8):
+            self.fontData = (<Mm>self.main.mm).mmPhyRead(posdata, 128*self.charHeight)
+            posdata = (<Mm>self.main.mm).mmGetAbsoluteAddressForInterrupt(0x1f)
+            self.fontData += (<Mm>self.main.mm).mmPhyRead(posdata, 128*self.charHeight)
+        else:
+            self.fontData = (<Mm>self.main.mm).mmPhyRead(posdata, self.vgaFontDataSize)
+        self.needLoadFont = False
+        if (self.ui):
+            self.ui.charSize = self.charSize
+            self.ui.fontData = self.fontData
     cdef void setProcessVideoMem(self, unsigned char processVideoMem):
         self.processVideoMem = processVideoMem
     cdef unsigned char getProcessVideoMem(self):
@@ -201,6 +219,8 @@ cdef class Vga:
         cpdef bytes charstr
         if (self.ui is None):
             return
+        if (self.needLoadFont):
+            self.readFontData()
         if (not ((<Vga>self.main.platform.vga).getProcessVideoMem()) or not ((<ExtReg>(<Vga>\
           self.main.platform.vga).extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM)):
             return
@@ -214,13 +234,11 @@ cdef class Vga:
         while (dataSize > 0):
             y, x = divmod((offset-VGA_TEXTMODE_ADDR)//2, 80)
             charstr = bytes(mmArea.data[offset:offset+2])
-            ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
-            rectList.append(self.ui.putChar(x, y, chr(charstr[0]), charstr[1]))
+            rectList.append(self.ui.putChar(x, y, charstr[0], charstr[1]))
             offset += 2
             if (dataSize <= 2):
                 break
             dataSize   -= 2
-        ###if ((<PygameUI>(<Vga>self.main.platform.vga).ui)):
         self.ui.updateScreen(rectList)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int retVal
