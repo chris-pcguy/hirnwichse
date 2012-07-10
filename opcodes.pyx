@@ -1,7 +1,5 @@
 
 from misc import ChemuException
-from sys import exc_info
-
 
 include "globals.pxi"
 include "cpu_globals.pxi"

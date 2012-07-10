@@ -37,7 +37,8 @@ cdef class PciDevice:
         self.bus = bus
         self.pci = pci
         self.main = main
-        self.configSpace = None
+        #self.configSpace = None
+        self.configSpace = ConfigSpace(PCI_DEVICE_CONFIG_SIZE, self.main)
     cdef void reset(self):
         if (self.configSpace is not None):
             self.configSpace.csResetData()
@@ -62,9 +63,8 @@ cdef class PciDevice:
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
     cdef void run(self):
-        self.configSpace = ConfigSpace(PCI_DEVICE_CONFIG_SIZE, self.main)
-        if (self.configSpace is not None):
-            self.configSpace.run()
+        pass
+        #self.configSpace = ConfigSpace(PCI_DEVICE_CONFIG_SIZE, self.main)
 
 cdef class PciBridge(PciDevice):
     def __init__(self, PciBus bus, Pci pci, object main):

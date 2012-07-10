@@ -134,7 +134,6 @@ cdef class Cmos:
         return
     cdef void run(self):
         self.configSpace = ConfigSpace(128, self.main)
-        self.configSpace.run()
         self.reset()
         ##self.updateTime()
         #self.main.platform.addHandlers((0x70, 0x71), self)

@@ -1,8 +1,9 @@
 
-from sys import exc_info, exit
+from sys import exit
 from atexit import register
 from socket import error as SocketError, IPPROTO_TCP, TCP_NODELAY
 from socketserver import BaseRequestHandler, ThreadingMixIn, TCPServer
+from traceback import print_exc
 
 include "globals.pxi"
 include "cpu_globals.pxi"
@@ -294,7 +295,7 @@ class ThreadedTCPRequestHandler(BaseRequestHandler):
                 (<GDBStubHandler>self.gdbHandler).sendInit(GDB_SIGNAL_INT)
                 (<GDBStubHandler>self.gdbHandler).initSent = True
             while (not (<GDBStubHandler>self.gdbHandler).main.quitEmu and (<GDBStubHandler>self.gdbHandler).main.cpu.debugHalt):
-                #(<GDBStubHandler>self.gdbHandler).main.printMsg("handle::read.")
+                #(<GDBStubHandler>self.gdbHandler).main.notice("handle::read.")
                 (<GDBStubHandler>self.gdbHandler).handleRead()
         except (SystemExit, KeyboardInterrupt):
             (<GDBStubHandler>self.gdbHandler).main.quitEmu = True
@@ -321,18 +322,18 @@ cdef class GDBStub:
             self.server.server_activate()
             register(self.quitFunc)
         except SocketError:
-            print(exc_info())
+            print(print_exc())
             self.main.notice("GDBStub::__init__: socket exception.")
             self.server = None
             self.gdbHandler = None
         except (SystemExit, KeyboardInterrupt):
-            print(exc_info())
+            print(print_exc())
             self.main.quitEmu = True
             self.main.notice("GDBStub::__init__: (SystemExit, KeyboardInterrupt) exception.")
             self.server = None
             self.gdbHandler = None
         except:
-            print(exc_info())
+            print(print_exc())
             self.main.notice("GDBStub::__init__: else exception.")
             self.server = None
             self.gdbHandler = None
@@ -348,7 +349,7 @@ cdef class GDBStub:
             if (self.server):
                 self.server.shutdown()
         except:
-            print(exc_info())
+            print(print_exc())
     cpdef run(self):
         try:
             (<Misc>self.main.misc).createThread(self.serveGDBStub, True)

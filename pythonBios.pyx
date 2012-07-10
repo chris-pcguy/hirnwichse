@@ -26,7 +26,7 @@ cdef class PythonBios:
         dh, dl = dx>>8, <unsigned char>dx
         bh, bl = bx>>8, <unsigned char>bx
         if (intNum == 0x10): # video; TODO: REWORK THIS AND THE VGA MODULE TOO!!!
-            #return False
+            return False
             currMode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_MODE_ADDR, 1)
             ##self.main.debug("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
             if (ah == 0x02): # set cursor position
@@ -47,9 +47,6 @@ cdef class PythonBios:
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, 80) # number of columns
                 (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BH, (<Vga>self.main.platform.vga).getCorrectPage(0xff))
                 return True
-            elif (ax == 0x1103): # load font.
-                (<Vga>self.main.platform.vga).needLoadFont = True
-                return False
             elif (currMode <= 0x7 or currMode in (0x12, 0x13)):
                 if (ah in (0x09, 0x0a, 0x0e)): # AH in (0x09, 0x0A, 0x0E) / PRINT CHARACTER
                     #if (currMode in (0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x12, 0x13)):

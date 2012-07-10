@@ -1,5 +1,5 @@
 
-from sys import exc_info
+from traceback import print_exc
 from atexit import register
 import numpy
 import pygame
@@ -10,13 +10,14 @@ cdef class PygameUI:
     def __init__(self, object vga, object main):
         self.vga  = vga
         self.main = main
-        self.display, self.screen = None, None
+        self.screen = None
         self.screenSize = 720, 400
+        self.charSize = (UI_CHAR_WIDTH, 16)
+        self.fontData = b'\x00'*VGA_FONTAREA_SIZE
     cpdef initPygame(self):
         pygame.display.init()
         pygame.display.set_caption('ChEmu - THE x86 Emulator written in Python. (c) 2011-2012 by Christian Inci')
-        self.display = pygame.display.set_mode(self.screenSize)
-        self.screen = pygame.Surface(self.screenSize)
+        self.screen = pygame.display.set_mode(self.screenSize)
         register(self.quitFunc)
         pygame.event.set_blocked([ pygame.ACTIVEEVENT, pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP,\
                                    pygame.JOYAXISMOTION, pygame.JOYBALLMOTION, pygame.JOYHATMOTION, pygame.JOYBUTTONDOWN,\
@@ -26,107 +27,77 @@ cdef class PygameUI:
         try:
             pygame.display.quit()
         except pygame.error:
-            print(exc_info())
+            print(print_exc())
         except (SystemExit, KeyboardInterrupt):
-            print(exc_info())
+            print(print_exc())
             self.main.quitEmu = True
             self.main.exitError('quitFunc: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(exc_info())
+            print(print_exc())
         self.main.quitEmu = True
         self.main.quitFunc()
+    cpdef clearScreen(self):
+        pass
+        #self.screen.fill((0, 0, 0))
     cpdef object getCharRect(self, unsigned char x, unsigned char y):
         try:
-            return pygame.Rect((UI_CHAR_WIDTH*x, self.charSize[1]*y), self.charSize)
+            return pygame.Rect((self.charSize[0]*x, self.charSize[1]*y), self.charSize)
         except pygame.error:
-            print(exc_info())
+            print(print_exc())
         except (SystemExit, KeyboardInterrupt):
-            print(exc_info())
+            print(print_exc())
             self.main.quitEmu = True
             self.main.exitError('getCharRect: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(exc_info())
+            print(print_exc())
         return None
-    cdef tuple getColor(self, unsigned char color):
-        if (color == 0x0): # black
-            return (0, 0, 0)
-        elif (color == 0x1): # blue
-            return (0, 0, 0xa8)
-        elif (color == 0x2): # green
-            return (0, 0xa8, 0)
-        elif (color == 0x3): # cyan
-            return (0, 0xa8, 0xa8)
-        elif (color == 0x4): # red
-            return (0xa8, 0, 0)
-        elif (color == 0x5): # magenta
-            return (0xa8, 0, 0xa8)
-        elif (color == 0x6): # brown
-            return (0xa8, 0x57, 0)
-        elif (color == 0x7): # light gray
-            return (0xa8, 0xa8, 0xa8)
-        elif (color == 0x8): # dark gray
-            return (0x57, 0x57, 0x57)
-        elif (color == 0x9): # light blue
-            return (0x57, 0x57, 0xff)
-        elif (color == 0xa): # light green
-            return (0x57, 0xff, 0x57)
-        elif (color == 0xb): # light cyan
-            return (0x57, 0xff, 0xff)
-        elif (color == 0xc): # light red
-            return (0xff, 0x57, 0x57)
-        elif (color == 0xd): # light magenta
-            return (0xff, 0x57, 0xff)
-        elif (color == 0xe): # yellow
-            return (0xff, 0xff, 0x57)
-        elif (color == 0xf): # white
-            return (0xff, 0xff, 0xff)
-        else:
-            self.main.exitError('pygameUI: invalid color used. (color: {0:d})', color)
-    cdef unsigned int getColorInteger(self, unsigned char color):
-        cdef unsigned int returnColor = 0x000000ff
-        cdef tuple colorTuple = self.getColor(color)
-        returnColor |= colorTuple[0]<<24
-        returnColor |= colorTuple[1]<<16
-        returnColor |= colorTuple[2]<<8
-        return returnColor
     cpdef object getBlankChar(self, tuple bgColor):
         cpdef object blankSurface
         blankSurface = pygame.Surface(self.charSize)
         blankSurface.fill(bgColor)
         return blankSurface
     cpdef object putChar(self, unsigned char x, unsigned char y, unsigned char character, unsigned char colors): # returns rect
-        cpdef object newRect, newBack, newChar, charArray
+        cpdef object newRect, newChar, charArray, testColor
         cdef bytes charData
         cdef list lineData
+        cdef unsigned int i, j
         cdef tuple fgColor, bgColor
-        cdef unsigned int i, fgColorInteger
         try:
             newRect = self.getCharRect(x, y)
-            fgColor, bgColor = self.getColor(colors&0xf), self.getColor((colors&0xf0)>>4)
-            fgColorInteger = self.getColorInteger(colors&0xf)
-            newBack = self.getBlankChar(bgColor)
-            # It's not a good idea to render the character if fgColor == bgColor,
+            fgColor = self.vga.getColor(colors&0xf)
+            colors >>= 4
+            if (self.msbBlink):
+                bgColor = self.vga.getColor(colors&0x7)
+            else:
+                bgColor = self.vga.getColor(colors)
+            charArray = numpy.ones((self.charSize[1], self.charSize[0], 3), dtype=numpy.uint8)
+            charArray *= bgColor
+            # It's not a good idea to render a character if fgColor == bgColor
             #   as it wouldn't be readable.
-            if (fgColor != bgColor and character != 0x20 and character != 0x00 and chr(character).isprintable()):
+            if (fgColor != bgColor):
                 i = character*self.charSize[1]
                 charData = self.fontData[i:i+self.charSize[1]]
-                charArray = numpy.zeros((self.charSize[1], UI_CHAR_WIDTH), dtype=numpy.uint32)
                 for i in range(len(charData)):
-                    lineData = list('{0:08b}'.format(charData[i]))
-                    charArray[i] = lineData
-                charArray *= fgColorInteger
-                newChar = pygame.surfarray.make_surface(charArray.transpose(None))
-                newBack.blit(newChar, ( (0, 0), self.charSize ))
-            self.screen.blit(newBack, newRect)
+                    j = charData[i]
+                    if (self.replicate8Bit and (character&0xe0==0xc0)):
+                        j = (j << 1) | (j&1)
+                    else:
+                        j <<= 1
+                    lineData = list('{0:09b}'.format(j))
+                    for j in range(len(lineData)):
+                        if (int(lineData[j])):
+                            charArray[i][j] = fgColor
+            newChar = pygame.surfarray.make_surface(charArray.transpose((1, 0, 2)))
+            self.screen.blit(newChar, newRect)
             return newRect
         except pygame.error:
-            print(exc_info())
+            print(print_exc())
         except (SystemExit, KeyboardInterrupt):
-            print(exc_info())
+            print(print_exc())
             self.main.quitEmu = True
             self.main.exitError('putChar: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(exc_info())
+            print(print_exc())
     cpdef setRepeatRate(self, unsigned short delay, unsigned short interval):
         pygame.key.set_repeat(delay, interval)
     cdef unsigned char keyToScancode(self, unsigned short key):
@@ -359,26 +330,27 @@ cdef class PygameUI:
             else:
                 self.main.notice("PygameUI::handleEvent: event.type == {0:d}", event.type)
         except pygame.error:
-            print(exc_info())
+            print(print_exc())
         except (SystemExit, KeyboardInterrupt):
-            print(exc_info())
+            print(print_exc())
             self.main.quitEmu = True
             self.main.exitError('handleEvent: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(exc_info())
+            print(print_exc())
     cpdef updateScreen(self, list rectList):
         try:
-            if (self.display and self.screen and not self.main.quitEmu):
-                self.display.blit(self.screen, ((0, 0), self.screenSize))
-            pygame.display.update(rectList)
+            if (len(rectList) > 0):
+                pygame.display.update(rectList)
+            else:
+                pygame.display.update()
         except pygame.error:
-            print(exc_info())
+            print(print_exc())
         except (SystemExit, KeyboardInterrupt):
-            print(exc_info())
+            print(print_exc())
             self.main.quitEmu = True
             self.main.exitError('updateScreen: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(exc_info())
+            print(print_exc())
     cpdef handleEvents(self):
         cpdef object event
         cpdef list eventList
@@ -390,13 +362,13 @@ cdef class PygameUI:
                     self.handleEvent(event)
                 pygame.time.delay(200)
         except pygame.error:
-            print(exc_info())
+            print(print_exc())
         except (SystemExit, KeyboardInterrupt):
-            print(exc_info())
+            print(print_exc())
             self.main.quitEmu = True
             self.main.exitError('handleEvents: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(exc_info())
+            print(print_exc())
     cpdef pumpEvents(self):
         try:
             pygame.event.pump()

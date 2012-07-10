@@ -179,6 +179,7 @@ cdef class ModRMClass:
 cdef class Registers:
     def __init__(self, object main):
         self.main = main
+        self.regs = ConfigSpace(CPU_REGISTER_LENGTH, self.main)
     cdef void reset(self):
         self.regs.csResetData()
         self.operSize = self.addrSize = 0
@@ -677,9 +678,9 @@ cdef class Registers:
         opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
         addrSize[0] = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef void run(self):
-        self.regs = ConfigSpace(CPU_REGISTER_LENGTH, self.main)
+        #self.regs = ConfigSpace(CPU_REGISTER_LENGTH, self.main)
         self.segments = Segments(self.main)
-        self.regs.run()
+        #self.regs.run()
         self.segments.run()
 
 

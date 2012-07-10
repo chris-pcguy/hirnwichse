@@ -1,7 +1,8 @@
 
 from os import stat
 from os.path import join
-from sys import exc_info, exit
+from sys import exit
+from traceback import print_exc
 
 include "globals.pxi"
 
@@ -153,7 +154,7 @@ cdef class Platform:
             self.main.notice("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
             return bitMask
         except:
-            print(exc_info())
+            print(print_exc())
             exit(1)
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef PortHandler port
@@ -177,7 +178,7 @@ cdef class Platform:
                         return
             self.main.notice("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
         except:
-            print(exc_info())
+            print(print_exc())
             exit(1)
     cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize):
         cdef object romFp
@@ -208,12 +209,13 @@ cdef class Platform:
     cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         ### TODO: should 0xf0000-0xfffff be read-only?
         (<Mm>self.main.mm).mmAreaWrite(mmArea, offset, data, dataSize)
-        if (offset >= VGA_TEXTMODE_ADDR and offset+dataSize <= (VGA_TEXTMODE_ADDR+4000)):
-            self.vga.vgaAreaWrite(mmArea, offset, data, dataSize)
+        if (offset >= self.vga.videoMemBase and (offset+dataSize) <= (self.vga.videoMemBase+self.vga.videoMemSize)):
+            self.vga.vgaAreaWrite(mmArea, offset, dataSize)
+        #elif (offset >= 0xf0000 and (offset+dataSize) <= (0x100000)):
+        #    self.main.notice("X86Platform::systemWriteHandler: BIOS area (0xf0000-0xfffff) should be read-only.")
     cdef void initMemory(self):
         cdef MmArea biosMmArea
         cdef unsigned int i
-        (<Mm>self.main.mm).run()
         for i in range(self.memSize):
             (<Mm>self.main.mm).mmAddArea(SIZE_1MB*i, False)
         (<Mm>self.main.mm).mmAddArea(0xfff00000, False)
@@ -237,9 +239,9 @@ cdef class Platform:
         self.addWriteHandlers(DMA_SLAVE_CONTROLLER_PORTS, self.isadma, <OutPort>self.isadma.outPort)
         self.addWriteHandlers(DMA_EXT_PAGE_REG_PORTS, self.isadma, <OutPort>self.isadma.outPort)
         self.addWriteHandlers(PCI_CONTROLLER_PORTS, self.pci, <OutPort>self.pci.outPort)
-        self.addReadHandlers((0x3c0, 0x3c1, 0x3c5, 0x3cc, 0x3c7, 0x3c8, 0x3c9, 0x3da), self.vga, <InPort>self.vga.inPort)
-        self.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, \
-                               0x3cf, 0x3d4, 0x3d5, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self.vga, <OutPort>self.vga.outPort)
+        self.addReadHandlers((0x1ce, 0x1cf, 0x3b4, 0x3b5, 0x3ba, 0x3c0, 0x3c1, 0x3c5, 0x3cc, 0x3c7, 0x3c8, 0x3c9, 0x3ca, 0x3d4, 0x3d5, 0x3da), self.vga, <InPort>self.vga.inPort)
+        self.addWriteHandlers((0x1ce, 0x1cf, 0x3b4, 0x3b5, 0x3ba, 0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ca, 0x3ce, \
+                               0x3cf, 0x3d4, 0x3d5, 0x3da, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self.vga, <OutPort>self.vga.outPort)
         self.addReadHandlers((0x60, 0x61, 0x64, 0x92), self.ps2, <InPort>self.ps2.inPort)
         self.addReadHandlers((0x40, 0x41, 0x42, 0x43), self.pit, <InPort>self.pit.inPort)
         self.addWriteHandlers((0x60, 0x61, 0x64, 0x92), self.ps2, <OutPort>self.ps2.outPort)
@@ -272,7 +274,7 @@ cdef class Platform:
             self.initDevicesPorts()
             self.runDevices()
         except:
-            print(exc_info())
+            print(print_exc())
             exit(1)
 
 

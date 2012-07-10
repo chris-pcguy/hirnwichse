@@ -28,37 +28,89 @@ cdef class VGA_REGISTER_RAW(ConfigSpace):
 cdef class CRT(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_CRT_AREA_SIZE, vga, main)
+        self.protectRegisters = False
+    cdef void setData(self, unsigned int data, unsigned char dataSize):
+        cdef unsigned short index = self.getIndex()
+        if (self.protectRegisters):
+            if (index >= 0x00 and index <= 0x06):
+                return
+            elif (index == 0x07):
+                data = (self.getData(dataSize)&(~VGA_CRT_OFREG_LC8))|(data&VGA_CRT_OFREG_LC8)
+        VGA_REGISTER_RAW.setData(self, data, dataSize)
+        if (index == 0x11):
+            self.protectRegisters = (data&VGA_CRT_PROTECT_REGISTERS) != 0
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_DAC_AREA_SIZE, vga, main)
         self.readIndex = self.writeIndex = 0
+        self.readCycle = self.writeCycle = 0
         self.mask = 0xff
+        self.state = 0x01
     cdef unsigned short getReadIndex(self):
         return self.readIndex
     cdef unsigned short getWriteIndex(self):
         return self.writeIndex
     cdef void setReadIndex(self, unsigned short index):
         self.readIndex = index
+        self.readCycle = 0
+        self.state = 0x03
     cdef void setWriteIndex(self, unsigned short index):
         self.writeIndex = index
+        self.writeCycle = 0
+        self.state = 0x00
     cdef unsigned int getData(self, unsigned char dataSize):
         cdef unsigned int retData
-        retData = self.csReadValueUnsigned(self.readIndex, dataSize)
-        self.readIndex += dataSize
+        if (dataSize != 1):
+            self.main.exitError("DAC::getData: dataSize != 1 (dataSize: {0:d})", dataSize)
+        if (self.state == 0x03):
+            retData = self.csReadValueUnsigned((self.readIndex*3)+self.readCycle, 1)
+            self.readCycle += 1
+            if (self.readCycle >= 3):
+                self.readCycle = 0
+                self.readIndex += 1
+        else:
+            retData = 0x3f
         return retData
     cdef void setData(self, unsigned int data, unsigned char dataSize):
-        self.csWriteValue(self.writeIndex, data, dataSize)
-        self.writeIndex += dataSize
+        if (dataSize != 1):
+            self.main.exitError("DAC::setData: dataSize != 1 (dataSize: {0:d})", dataSize)
+        elif (data >= 0x40):
+            self.main.exitError("DAC::setData: data >= 0x40 (data: {0:#04x})", data)
+        self.csWriteValue((self.writeIndex*3)+self.writeCycle, data&0x3f, 1)
+        self.writeCycle += 1
+        if (self.writeCycle >= 3):
+            self.writeCycle = 0
+            self.writeIndex += 1
     cdef unsigned char getMask(self):
         return self.mask
+    cdef unsigned char getState(self):
+        return self.state
     cdef void setMask(self, unsigned char value):
         self.mask = value
+        if (self.mask != 0xff):
+            self.main.notice("DAC::setMask: mask == {0:#04x}", self.mask)
 
 
 cdef class GDC(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_GDC_AREA_SIZE, vga, main)
+    cdef void setData(self, unsigned int data, unsigned char dataSize):
+        VGA_REGISTER_RAW.setData(self, data, dataSize)
+        if (self.getIndex() == VGA_GDC_MISC_GREG_INDEX):
+            if ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_A0000_128K):
+                self.vga.videoMemBase = 0xa0000
+                self.vga.videoMemSize = 0x20000
+            elif ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_A0000_64K):
+                self.vga.videoMemBase = 0xa0000
+                self.vga.videoMemSize = 0x10000
+            elif ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_B0000_32K):
+                self.vga.videoMemBase = 0xb0000
+                self.vga.videoMemSize = 0x08000
+            elif ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_B8000_32K):
+                self.vga.videoMemBase = 0xb8000
+                self.vga.videoMemSize = 0x08000
+            self.vga.needLoadFont = True
 
 cdef class Sequencer(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
@@ -67,7 +119,9 @@ cdef class Sequencer(VGA_REGISTER_RAW):
 cdef class ExtReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_EXTREG_AREA_SIZE, vga, main)
-        self.miscOutReg = VGA_EXTREG_PROCESS_RAM
+        self.miscOutReg = VGA_EXTREG_PROCESS_RAM | VGA_EXTREG_COLOR_MODE
+    cdef unsigned char getColorEmulation(self):
+        return (self.miscOutReg & VGA_EXTREG_COLOR_MODE) != 0
     cdef unsigned char getMiscOutReg(self):
         return self.miscOutReg
     cdef void setMiscOutReg(self, unsigned char value):
@@ -76,31 +130,47 @@ cdef class ExtReg(VGA_REGISTER_RAW):
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_ATTRCTRLREG_AREA_SIZE, vga, main)
+        self.videoEnabled = True
+        self.csWriteValue(VGA_ATTRCTRLREG_CONTROL_REG_INDEX, VGA_ATTRCTRLREG_CONTROL_REG_LGE, 1)
         self.setFlipFlop(False)
+    cdef void setIndex(self, unsigned short index):
+        cdef unsigned char prevVideoEnabled = self.videoEnabled
+        VGA_REGISTER_RAW.setIndex(self, index&0x1f)
+        self.videoEnabled = (index & VGA_ATTRCTRLREG_VIDEO_ENABLED) != 0
+        if (not self.videoEnabled):
+            if (self.vga.ui):
+                self.vga.ui.clearScreen()
+        elif (not prevVideoEnabled):
+            if (self.vga.ui):
+                self.vga.ui.updateScreen([])
     cdef void setFlipFlop(self, unsigned char flipFlop):
         self.flipFlop = flipFlop
-    cdef unsigned int getIndexData(self, unsigned char dataSize):
-        cdef unsigned int retVal
-        if (not self.flipFlop):
-            retVal = self.getIndex()
-        else:
-            retVal = self.getData(dataSize)
-        self.setFlipFlop(not self.flipFlop)
-        return retVal
     cdef void setIndexData(self, unsigned int data, unsigned char dataSize):
         if (not self.flipFlop):
             self.setIndex(data)
         else:
             self.setData(data, dataSize)
         self.setFlipFlop(not self.flipFlop)
-
+    cdef unsigned int getData(self, unsigned char dataSize):
+        cdef unsigned short index = self.getIndex()
+        cdef unsigned int data = VGA_REGISTER_RAW.getData(self, dataSize)
+        return data
+    cdef void setData(self, unsigned int data, unsigned char dataSize):
+        cdef unsigned short index = self.getIndex()
+        VGA_REGISTER_RAW.setData(self, data, dataSize)
+        if ((index >= 0x00 and index <= 0x0f) and data >= 0x40):
+            self.main.exitError("AttrCtrlReg::setData: palette_access: data >= 0x40 (data: {0:#04x})", data)
+        elif (self.vga.ui and index == VGA_ATTRCTRLREG_CONTROL_REG_INDEX):
+            self.vga.ui.replicate8Bit = (data&VGA_ATTRCTRLREG_CONTROL_REG_LGE) != 0
+            self.vga.ui.msbBlink = (data&VGA_ATTRCTRLREG_CONTROL_REG_BLINK) != 0
 
 
 cdef class Vga:
     def __init__(self, object main):
         self.main = main
-        self.needLoadFont = True
-        self.fontData = b'\x00'*8192
+        self.videoMemBase = 0xb8000
+        self.videoMemSize = 0x08000
+        self.needLoadFont = False
         self.seq = Sequencer(self, self.main)
         self.crt = CRT(self, self.main)
         self.gdc = GDC(self, self.main)
@@ -111,22 +181,30 @@ cdef class Vga:
         self.ui = None
         if (not self.main.noUI):
             self.ui = PygameUI(self, self.main)
+    cpdef tuple getColor(self, unsigned char color): # ARGB
+        cdef unsigned char red, green, blue
+        if (color >= 0x10):
+            self.main.exitError("Vga::getColor: color_1 >= 0x10 (color_1=={0:#04x})", color)
+            return (0, 0, 0)
+        color = self.attrctrlreg.csReadValueUnsigned(color, 1)
+        if (color >= 0x40):
+            self.main.exitError("Vga::getColor: color_2 >= 0x40 (color_2=={0:#04x})", color)
+            return (0, 0, 0)
+        red, green, blue = self.dac.csRead(color*3, 3)
+        red <<= 2
+        green <<= 2
+        blue <<= 2
+        return (red, green, blue)
     cdef void readFontData(self): # TODO
+        cdef unsigned char charHeight
         cdef unsigned int posdata
-        self.charHeight = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_VIDEO_CHAR_HEIGHT, 2)
-        self.charSize = (UI_CHAR_WIDTH, self.charHeight)
-        self.vgaFontDataSize = 256*self.charHeight
+        if (self.ui is None):
+            return
+        charHeight = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_VIDEO_CHAR_HEIGHT, 2)
+        self.ui.charSize = (UI_CHAR_WIDTH, charHeight)
         posdata = (<Mm>self.main.mm).mmGetAbsoluteAddressForInterrupt(0x43)
-        if (self.charHeight == 8):
-            self.fontData = (<Mm>self.main.mm).mmPhyRead(posdata, 128*self.charHeight)
-            posdata = (<Mm>self.main.mm).mmGetAbsoluteAddressForInterrupt(0x1f)
-            self.fontData += (<Mm>self.main.mm).mmPhyRead(posdata, 128*self.charHeight)
-        else:
-            self.fontData = (<Mm>self.main.mm).mmPhyRead(posdata, self.vgaFontDataSize)
+        self.ui.fontData = (<Mm>self.main.mm).mmPhyRead(posdata, VGA_FONTAREA_SIZE)
         self.needLoadFont = False
-        if (self.ui):
-            self.ui.charSize = self.charSize
-            self.ui.fontData = self.fontData
     cdef void setProcessVideoMem(self, unsigned char processVideoMem):
         self.processVideoMem = processVideoMem
     cdef unsigned char getProcessVideoMem(self):
@@ -135,7 +213,7 @@ cdef class Vga:
         if (page == 0xff):
             page = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_PAGE_ADDR, 1)
         elif (page > 7):
-            self.main.notice("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
+            self.main.exitError("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
         return page
     cdef void writeCharacterTeletype(self, unsigned char c, signed short attr, unsigned char page, unsigned char updateCursor):
         cdef unsigned char x, y, i
@@ -179,19 +257,19 @@ cdef class Vga:
         cdef unsigned int offset
         page = self.getCorrectPage(page)
         offset = ((y*80)+x)<<1
-        return ((VGA_TEXTMODE_ADDR+(0x1000*page))+offset)
+        return ((self.videoMemBase+(0x1000*page))+offset)
     cdef unsigned short getCursorPosition(self, unsigned char page): # returns y, x
         cdef unsigned short pos
         page = self.getCorrectPage(page)
         if (page > 7):
-            self.main.notice("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
+            self.main.exitError("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
             return 0
         pos = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURSOR_BASE_ADDR+(page<<1), 2)
         return pos
     cdef void setCursorPosition(self, unsigned char page, unsigned short pos):
         page = self.getCorrectPage(page)
         if (page > 7):
-            self.main.notice("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
+            self.main.exitError("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
         (<Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page<<1), pos, 2)
     cdef void scrollUp(self, unsigned char page, signed short attr, unsigned short lines):
@@ -213,38 +291,44 @@ cdef class Vga:
         self.setProcessVideoMem(True)
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, 4000)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
-    cdef void vgaAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
+    cpdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         cpdef list rectList
         cpdef unsigned char x, y
-        cpdef bytes charstr
         if (self.ui is None):
             return
         if (self.needLoadFont):
             self.readFontData()
-        if (not ((<Vga>self.main.platform.vga).getProcessVideoMem()) or not ((<ExtReg>(<Vga>\
-          self.main.platform.vga).extreg).getMiscOutReg()&VGA_EXTREG_PROCESS_RAM)):
+        if (not (self.getProcessVideoMem()) or not (self.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM)):
+            return
+        if (self.videoMemBase != 0xb8000): # only text-mode is supported yet.
             return
         rectList = list()
-        if (offset % 2): # odd
-            offset -= 1
-        if (dataSize % 2):
-            dataSize += 1
+        offset &= 0xffffe
         # TODO: hardcoded to 80x25
         dataSize = min(dataSize, 4000) # 80*25*2
         while (dataSize > 0):
-            y, x = divmod((offset-VGA_TEXTMODE_ADDR)//2, 80)
-            charstr = bytes(mmArea.data[offset:offset+2])
-            rectList.append(self.ui.putChar(x, y, charstr[0], charstr[1]))
-            offset += 2
+            y, x = divmod((offset-self.videoMemBase)//2, 80)
+            rectList.append(self.ui.putChar(x, y, mmArea.data[offset], mmArea.data[offset+1]))
             if (dataSize <= 2):
                 break
-            dataSize   -= 2
+            offset   += 2
+            dataSize -= 2
         self.ui.updateScreen(rectList)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int retVal
         retVal = BITMASK_BYTE
         if (dataSize != OP_SIZE_BYTE):
+            if (dataSize == OP_SIZE_WORD and ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
+                return BITMASK_WORD
             self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+        elif (ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
+            return BITMASK_BYTE
+        elif ((ioPortAddr >= 0x3b0 and ioPortAddr <= 0x3bf) and self.extreg.getColorEmulation()):
+            self.main.notice("Vga::inPort: Trying to use mono-ports while being in color-mode.")
+            return BITMASK_BYTE
+        elif ((ioPortAddr >= 0x3d0 and ioPortAddr <= 0x3df) and not self.extreg.getColorEmulation()):
+            self.main.notice("Vga::inPort: Trying to use color-ports while being in mono-mode.")
+            return BITMASK_BYTE
         elif (ioPortAddr == 0x3c0):
             retVal = self.attrctrlreg.getIndex()
         elif (ioPortAddr == 0x3c1):
@@ -254,32 +338,32 @@ cdef class Vga:
         elif (ioPortAddr == 0x3c6):
             retVal = self.dac.getMask()
         elif (ioPortAddr == 0x3c7):
-            retVal = self.dac.getReadIndex()
+            retVal = self.dac.getState()
         elif (ioPortAddr == 0x3c8):
             retVal = self.dac.getWriteIndex()
         elif (ioPortAddr == 0x3c9):
             retVal = self.dac.getData(dataSize)
         elif (ioPortAddr == 0x3cc):
             retVal = self.extreg.getMiscOutReg()
-        elif (ioPortAddr == 0x3da):
+        elif (ioPortAddr in (0x3b4, 0x3d4)):
+            retVal = self.crt.getIndex()
+        elif (ioPortAddr in (0x3b5, 0x3d5)):
+            retVal = self.crt.getData(dataSize)
+        elif (ioPortAddr in (0x3ba, 0x3ca, 0x3da)):
             self.attrctrlreg.setFlipFlop(False)
         else:
             self.main.exitError("inPort: port {0:#04x} isn't supported. (dataSize byte)", ioPortAddr)
         return <unsigned char>retVal
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr == 0x400): # Bochs' Panic Port
-                stdout.write(chr(data))
-                stdout.flush()
-            elif (ioPortAddr == 0x401): # Bochs' Panic Port2
-                stdout.write(chr(data))
-                stdout.flush()
-            elif (ioPortAddr in (0x402,0x500,0x504)): # Bochs' Info Port
-                stdout.write(chr(data))
-                stdout.flush()
-            elif (ioPortAddr == 0x403): # Bochs' Debug Port
-                stdout.write(chr(data))
-                stdout.flush()
+            if ((ioPortAddr >= 0x3b0 and ioPortAddr <= 0x3bf) and self.extreg.getColorEmulation()):
+                self.main.notice("Vga::outPort: Trying to use mono-ports while being in color-mode.")
+                return
+            elif ((ioPortAddr >= 0x3d0 and ioPortAddr <= 0x3df) and not self.extreg.getColorEmulation()):
+                self.main.notice("Vga::outPort: Trying to use color-ports while being in mono-mode.")
+                return
+            elif (ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
+                return
             elif (ioPortAddr == 0x3c0):
                 self.attrctrlreg.setIndexData(data, dataSize)
             elif (ioPortAddr == 0x3c2):
@@ -300,14 +384,30 @@ cdef class Vga:
                 self.gdc.setIndex(data)
             elif (ioPortAddr == 0x3cf):
                 self.gdc.setData(data, dataSize)
-            elif (ioPortAddr == 0x3d4):
+            elif (ioPortAddr in (0x3b4, 0x3d4)):
                 self.crt.setIndex(data)
-            elif (ioPortAddr == 0x3d5):
+            elif (ioPortAddr in (0x3b5, 0x3d5)):
                 self.crt.setData(data, dataSize)
+            elif (ioPortAddr in (0x3ba, 0x3ca, 0x3da)):
+                return
+            elif (ioPortAddr == 0x400): # Bochs' Panic Port
+                stdout.write(chr(data))
+                stdout.flush()
+            elif (ioPortAddr == 0x401): # Bochs' Panic Port2
+                stdout.write(chr(data))
+                stdout.flush()
+            elif (ioPortAddr in (0x402,0x500,0x504)): # Bochs' Info Port
+                stdout.write(chr(data))
+                stdout.flush()
+            elif (ioPortAddr == 0x403): # Bochs' Debug Port
+                stdout.write(chr(data))
+                stdout.flush()
             else:
                 self.main.exitError("outPort: port {0:#04x} isn't supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
         elif (dataSize == OP_SIZE_WORD):
-            if (ioPortAddr in (0x3c4, 0x3ce, 0x3d4)):
+            if (ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
+                return
+            elif (ioPortAddr in (0x3b4, 0x3c4, 0x3ce, 0x3d4)):
                 self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
                 self.outPort(ioPortAddr+1, <unsigned char>(data>>8), OP_SIZE_BYTE)
             else:
@@ -316,17 +416,7 @@ cdef class Vga:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} isn't supported.", ioPortAddr, dataSize)
         return
     cpdef run(self):
-        self.seq.run()
-        self.crt.run()
-        self.gdc.run()
-        self.dac.run()
-        self.extreg.run()
-        self.attrctrlreg.run()
-        ####
         if (self.ui is not None):
             self.ui.run()
-        #self.main.platform.addReadHandlers((0x3c0, 0x3c1, 0x3c5, 0x3cc, 0x3c8, 0x3da), self)
-        #self.main.platform.addWriteHandlers((0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ce, \
-        #                                     0x3cf, 0x3d4, 0x3d5, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self)
 
 

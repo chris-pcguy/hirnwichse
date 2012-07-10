@@ -1,6 +1,6 @@
 
 from time import sleep
-from sys import exc_info
+from traceback import print_exc
 from misc import ChemuException
 
 
@@ -156,14 +156,14 @@ cdef class Cpu:
                 cycleInc = self.cycles >> 13
                 if (cycleInc > self.oldCycleInc):
                     self.oldCycleInc = cycleInc
-                    sleep(0.00001) # FIXME: timing issue.
+                    sleep(0.000001) # FIXME: HACK: timing issue.
                 self.doCycle()
         except (SystemExit, KeyboardInterrupt):
-            print(exc_info())
+            print(print_exc())
             self.main.quitEmu = True
             self.main.exitError('doInfiniteCycles: (SystemExit, KeyboardInterrupt) exception, exiting...', exitNow=True)
         except:
-            print(exc_info())
+            print(print_exc())
             self.main.exitError('doInfiniteCycles: (else case) exception, exiting...', exitNow=True)
     cpdef doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
@@ -200,11 +200,11 @@ cdef class Cpu:
                     self.main.notice("CPU::doCycle: TRIPLE FAULT! reset.")
                     self.cpu.reset()
         except (SystemExit, KeyboardInterrupt):
-            print(exc_info())
+            print(print_exc())
             self.main.quitEmu = True
             self.main.exitError('doCycle: (SystemExit, KeyboardInterrupt) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
         except:
-            print(exc_info())
+            print(print_exc())
             self.main.exitError('doCycle: (else case) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
     cpdef run(self):
         self.registers = Registers(self.main)

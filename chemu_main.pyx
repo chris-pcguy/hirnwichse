@@ -3,9 +3,10 @@
 #cython: wraparound=False
 
 
-from sys import argv, exc_info, exit, stdout
+from sys import argv, exit, stdout
 from argparse import ArgumentParser
 from atexit import register
+from traceback import print_exc
 
 include "globals.pxi"
 
@@ -68,7 +69,7 @@ cdef class ChEmu:
         try:
             self.parseArgs()
             self.misc = Misc(self)
-            self.mm = Mm(self)
+            self.mm = Mm(self, self.memSize)
             self.platform = Platform(self, self.memSize)
             self.cpu = Cpu(self)
             self.runThreadFunc()
@@ -77,7 +78,7 @@ cdef class ChEmu:
         except SystemExit as e:
             exit(e.code)
         except:
-            print(exc_info())
+            print(print_exc())
             exit(1)
         ###
 

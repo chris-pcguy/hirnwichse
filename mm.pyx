@@ -5,13 +5,16 @@ from misc import ChemuException
 include "globals.pxi"
 include "cpu_globals.pxi"
 
-DEF MM_NUMAREAS = 4096 # remember to change this in mm.pxd too.
-
+DEF MM_NUMAREAS = 4096
 
 cdef class Mm:
-    def __init__(self, object main):
+    def __init__(self, object main, unsigned int memSize):
+        cdef unsigned int i
         self.main = main
+        self.memSize = memSize
         self.mmAreas = []
+        for i in range(MM_NUMAREAS):
+            self.mmAreas.append(MmArea())
     cdef MmArea mmAddArea(self, unsigned int start, unsigned char readOnly):
         cdef MmArea mmArea
         mmArea = self.mmGetArea(start)
@@ -38,7 +41,10 @@ cdef class Mm:
             mmArea.data = None
         mmArea = None
     cdef MmArea mmGetArea(self, unsigned int addr):
-        return self.mmAreas[addr >> 20]
+        addr >>= 20
+        if (addr >= MM_NUMAREAS):
+            return None
+        return self.mmAreas[addr]
     cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
         cdef list mmAreas
@@ -155,17 +161,18 @@ cdef class Mm:
         seg = (posdata>>16)&BITMASK_WORD
         posdata = (seg<<4)+offset
         return posdata
-    cpdef run(self):
-        cdef unsigned int i
-        for i in range(MM_NUMAREAS):
-            self.mmAreas.append(MmArea())
-        ###self.mmAreas = <MmArea*>malloc(MM_NUMAREAS*sizeof(MmArea))
 
 
 cdef class ConfigSpace:
     def __init__(self, unsigned int csSize, object main):
         self.csSize = csSize
         self.main = main
+        self.csData = <char*>malloc(self.csSize)
+        if (self.csData is None):
+            self.main.exitError("ConfigSpace::run: self.csData is None.")
+            raise SystemExit()
+        self.csResetData()
+        register(self.csFreeData)
     cdef void csResetData(self):
         if (self.csData is not None):
             memset(self.csData, 0x00, self.csSize)
@@ -221,13 +228,6 @@ cdef class ConfigSpace:
         return self.csWriteValue(offset, <unsigned long int>(self.csReadValueUnsigned(offset, size)+data), size)
     cdef unsigned long int csSubValue(self, unsigned int offset, unsigned long int data, unsigned char size):
         return self.csWriteValue(offset, <unsigned long int>(self.csReadValueUnsigned(offset, size)-data), size)
-    cpdef run(self):
-        self.csData = <char*>malloc(self.csSize)
-        if (self.csData is None):
-            self.main.exitError("ConfigSpace::run: self.csData is None.")
-            raise SystemExit()
-        self.csResetData()
-        register(self.csFreeData)
 
 
 
