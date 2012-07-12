@@ -20,6 +20,7 @@ DEF PCI_VENDOR_ID_INTEL   = 0x8086
 DEF PCI_DEVICE_ID_INTEL_430FX = 0x122d
 
 DEF PCI_HEADER_TYPE_BRIDGE = 1
+DEF PCI_RESET_VALUE = 0x02
 
 
 cdef class PciAddress:
@@ -100,7 +101,8 @@ cdef class PciBus:
 cdef class Pci:
     def __init__(self, object main):
         self.main = main
-        self.address = 0
+        self.pciReset = False
+        self.address = self.elcr1 = self.elcr2 = 0
         self.busList = {0x00: PciBus(self, self.main)}
     cdef PciDevice getDevice(self, unsigned char busIndex, unsigned char deviceIndex):
         cdef PciBus busHandle
@@ -135,9 +137,15 @@ cdef class Pci:
             deviceHandle.setData(pciAddressHandle.function, pciAddressHandle.register, data, dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
-            if (ioPortAddr == 0xcf8):
+            if (ioPortAddr == 0x4d0):
+                return self.elcr1
+            elif (ioPortAddr == 0x4d1):
+                return self.elcr2
+            elif (ioPortAddr == 0xcf8):
                 return self.address
-            if (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
+            elif (ioPortAddr == 0xcf9):
+                return (self.pciReset and PCI_RESET_VALUE)
+            elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
                 return self.readRegister((self.address&0xfffffffc)+(ioPortAddr&3), dataSize)
             self.main.exitError("inPort: port {0:#04x} is not supported. (dataSize {1:d})", ioPortAddr, dataSize)
         else:
@@ -145,8 +153,25 @@ cdef class Pci:
         return 0
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
-            if (ioPortAddr == 0xcf8):
+            if (ioPortAddr == 0x4d0):
+                data &= 0xf8
+                if (data != self.elcr1):
+                    self.elcr1 = data
+                    (<Pic>self.main.platform.pic).setMode(0, self.elcr1)
+            elif (ioPortAddr == 0x4d1):
+                data &= 0xde
+                if (data != self.elcr2):
+                    self.elcr2 = data
+                    (<Pic>self.main.platform.pic).setMode(1, self.elcr2)
+            elif (ioPortAddr == 0xcf8):
                 self.address = data
+            elif (ioPortAddr == 0xcf9):
+                self.pciReset = (data & PCI_RESET_VALUE) != 0
+                if (data & 0x04):
+                    if (self.pciReset):
+                        self.main.reset(True)
+                    else:
+                        self.main.reset(False)
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
                 self.writeRegister((self.address&0xfffffffc)+(ioPortAddr&3), data, dataSize)
             else:

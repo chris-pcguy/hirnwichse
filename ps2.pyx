@@ -85,11 +85,11 @@ cdef class PS2:
                 self.appendToOutBytesJustAppend( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
         else:
             self.appendToOutBytesJustAppend(scancode)
-        self.outb = True
-        if (self.allowIrq1 and self.kbdClockEnabled):
-            self.irq1Requested = True
-            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
-        ###self.activateTimer()
+        #self.outb = True
+        #if (self.allowIrq1 and self.kbdClockEnabled):
+        #    self.irq1Requested = True
+        #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+        self.activateTimer()
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char retByte
         retByte = 0
@@ -321,10 +321,10 @@ cdef class PS2:
                 if (retVal&1):
                     (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
             else:
-                if (len(self.outBuffer)):
-                    sleep(0.02)
-                else:
-                    sleep(1)
+                #if (len(self.outBuffer)):
+                #    sleep(0.02)
+                #else:
+                sleep(1)
     cpdef initThread(self):
         self.main.misc.createThread(self.timerFunc, True)
     cpdef run(self):

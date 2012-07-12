@@ -43,6 +43,7 @@ cdef class Platform:
     cdef unsigned char copyRomToLowMem
     cdef unsigned int memSize
     cdef void initDevices(self)
+    cdef void resetDevices(self)
     cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject)
     cdef void addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject)
     cdef void delHandlers(self, tuple portNums)

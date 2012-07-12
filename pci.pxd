@@ -1,6 +1,7 @@
 
 from misc cimport Misc
 from mm cimport ConfigSpace
+from pic cimport Pic
 
 
 cdef class PciAddress:
@@ -35,6 +36,7 @@ cdef class PciBus:
 cdef class Pci:
     cpdef object main
     cdef dict busList
+    cdef unsigned char pciReset, elcr1, elcr2
     cdef unsigned int address
     cdef PciDevice getDevice(self, unsigned char bus, unsigned char device)
     cdef unsigned int readRegister(self, unsigned int address, unsigned char dataSize)

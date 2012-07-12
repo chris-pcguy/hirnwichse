@@ -153,7 +153,7 @@ cdef class Cpu:
                         continue
                     sleep(0.2)
                     continue
-                cycleInc = self.cycles >> 13
+                cycleInc = self.cycles >> 14
                 if (cycleInc > self.oldCycleInc):
                     self.oldCycleInc = cycleInc
                     sleep(0.000001) # FIXME: HACK: timing issue.

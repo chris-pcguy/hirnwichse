@@ -65,6 +65,10 @@ cdef class ChEmu:
         (<IsaDma>self.platform.isadma).cpuInstance = self.cpu
         (<IsaDma>self.platform.isadma).setHRQ = <SetHRQ>self.cpu.setHRQ
         self.cpu.run()
+    cpdef reset(self, unsigned char resetHardware):
+        self.cpu.reset()
+        if (resetHardware):
+            self.platform.resetDevices()
     cpdef run(self):
         try:
             self.parseArgs()

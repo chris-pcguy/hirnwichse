@@ -156,6 +156,8 @@ cdef class Pic:
     def __init__(self, object main):
         self.main = main
         self.channels = (PicChannel(self, self.main, True), PicChannel(self, self.main, False))
+    cdef void setMode(self, unsigned char channel, unsigned char edgeLevel):
+        (<PicChannel>self.channels[channel]).edgeLevel = edgeLevel
     cdef void raiseIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
         if (irq > 15):

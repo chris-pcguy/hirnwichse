@@ -57,9 +57,9 @@ cdef class PygameUI:
         blankSurface.fill(bgColor)
         return blankSurface
     cpdef object putChar(self, unsigned char x, unsigned char y, unsigned char character, unsigned char colors): # returns rect
-        cpdef object newRect, newChar, charArray, testColor
+        cpdef object newRect, newChar, charArray
         cdef bytes charData
-        cdef list lineData
+        cdef str lineData
         cdef unsigned int i, j
         cdef tuple fgColor, bgColor
         try:
@@ -83,7 +83,7 @@ cdef class PygameUI:
                         j = (j << 1) | (j&1)
                     else:
                         j <<= 1
-                    lineData = list('{0:09b}'.format(j))
+                    lineData = '{0:09b}'.format(j)
                     for j in range(len(lineData)):
                         if (int(lineData[j])):
                             charArray[i][j] = fgColor
@@ -356,11 +356,11 @@ cdef class PygameUI:
         cpdef list eventList
         try:
             while (not self.main.quitEmu):
-                ##event = pygame.event.wait()
-                eventList = pygame.event.get()
-                for event in eventList:
-                    self.handleEvent(event)
-                pygame.time.delay(200)
+                event = pygame.event.wait()
+                #eventList = pygame.event.get()
+                #for event in eventList:
+                self.handleEvent(event)
+                #pygame.time.delay(200)
         except pygame.error:
             print(print_exc())
         except (SystemExit, KeyboardInterrupt):

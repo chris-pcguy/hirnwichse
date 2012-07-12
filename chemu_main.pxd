@@ -21,6 +21,7 @@ cdef class ChEmu:
     cpdef parseArgs(self)
     cpdef quitFunc(self)
     cpdef runThreadFunc(self)
+    cpdef reset(self, unsigned char resetHardware)
     cpdef run(self)
 
 

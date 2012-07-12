@@ -45,6 +45,19 @@ cdef class Platform:
         self.serial   = Serial(self.main)
         self.gdbstub  = GDBStub(self.main)
         self.pythonBios = PythonBios(self.main)
+    cdef void resetDevices(self):
+        self.cmos.reset()
+        self.pic.reset()
+        self.isadma.reset()
+        self.pci.reset()
+        self.ps2.reset()
+        self.vga.reset()
+        self.pit.reset()
+        self.floppy.reset()
+        self.parallel.reset()
+        self.serial.reset()
+        self.gdbstub.reset()
+        self.pythonBios.reset()
     cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject):
         cdef PortHandler port
         cdef unsigned int i # 'i' can be longer than 65536

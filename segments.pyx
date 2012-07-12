@@ -165,6 +165,7 @@ cdef class Gdt:
                 raise ChemuException(CPU_EXCEPTION_SS, num)
             else:
                 raise ChemuException(CPU_EXCEPTION_NP, num)
+        return True
     cdef unsigned char checkReadAllowed(self, unsigned short num): # for VERR
         cdef unsigned char rpl
         cdef GdtEntry gdtEntry

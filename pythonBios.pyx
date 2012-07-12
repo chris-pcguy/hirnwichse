@@ -26,7 +26,7 @@ cdef class PythonBios:
         dh, dl = dx>>8, <unsigned char>dx
         bh, bl = bx>>8, <unsigned char>bx
         if (intNum == 0x10): # video; TODO: REWORK THIS AND THE VGA MODULE TOO!!!
-            return False
+            #return False
             currMode = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_MODE_ADDR, 1)
             ##self.main.debug("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
             if (ah == 0x02): # set cursor position

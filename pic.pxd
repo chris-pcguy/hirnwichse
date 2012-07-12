@@ -28,6 +28,7 @@ cdef class Pic:
     cdef object cpuInstance
     cdef SetINTR setINTR
     cdef tuple channels
+    cdef void setMode(self, unsigned char channel, unsigned char edgeLevel)
     cdef void raiseIrq(self, unsigned char irq)
     cdef void lowerIrq(self, unsigned char irq)
     cdef unsigned char IAC(self)
