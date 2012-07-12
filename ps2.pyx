@@ -2,6 +2,7 @@
 # This file contains code from The Bochs Project. Thanks to them!
 
 from time import sleep
+from traceback import print_exc
 
 include "globals.pxi"
 include "kb_scancodes.pxi"
@@ -328,8 +329,11 @@ cdef class PS2:
     cpdef initThread(self):
         self.main.misc.createThread(self.timerFunc, True)
     cpdef run(self):
-        self.initDevice()
-        self.initThread()
-        #self.main.platform.addHandlers((0x60, 0x61, 0x64, 0x92), self)
+        try:
+            self.initDevice()
+            self.initThread()
+        except:
+            print_exc()
+            self.main.exitError('run: exception, exiting...')
 
 

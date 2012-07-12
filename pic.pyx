@@ -60,7 +60,7 @@ cdef class PicChannel:
         if (highestPriority > 7):
             highestPriority = 0
         irq = highestPriority
-        while (True):
+        while (not self.main.quitEmu):
             if (self.isr & (1<<irq)):
                 self.isr &= ~(1<<irq)
                 break
@@ -79,7 +79,7 @@ cdef class PicChannel:
         maxIrq = highestPriority
         if (not self.specialMask):
             if (self.isr):
-                while (not (self.isr & (1 << maxIrq)) ):
+                while (not (self.isr & (1 << maxIrq)) and not self.main.quitEmu):
                     maxIrq += 1
                     if (maxIrq > 7):
                         maxIrq = 0
@@ -90,13 +90,13 @@ cdef class PicChannel:
         unmaskedRequests = self.irr & (~self.imr)
         if (unmaskedRequests):
             irq = highestPriority
-            while (True):
+            while (not self.main.quitEmu):
                 if ( not (self.specialMask and ((self.isr >> irq) & 0x01)) ):
                     if (unmaskedRequests & (1 << irq)):
                         self.intr = True
                         self.irq = irq
                         if (self.master):
-                            if (self.pic.cpuInstance is not None and self.pic.setINTR is not NULL):
+                            if (self.pic.cpuInstance and self.pic.setINTR is not NULL):
                                 self.pic.setINTR(self.pic.cpuInstance, True)
                         else:
                             self.pic.raiseIrq(2)
@@ -176,7 +176,7 @@ cdef class Pic:
         cdef PicChannel master, slave
         cdef unsigned char vector
         master, slave = self.channels
-        if (self.cpuInstance is not None and self.setINTR is not NULL):
+        if (self.cpuInstance and self.setINTR is not NULL):
             self.setINTR(self.cpuInstance, False)
         master.intr = False
         if (not master.irr):

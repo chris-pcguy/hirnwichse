@@ -38,10 +38,9 @@ cdef class PciDevice:
         self.bus = bus
         self.pci = pci
         self.main = main
-        #self.configSpace = None
         self.configSpace = ConfigSpace(PCI_DEVICE_CONFIG_SIZE, self.main)
     cdef void reset(self):
-        if (self.configSpace is not None):
+        if (self.configSpace):
             self.configSpace.csResetData()
     cdef unsigned int getData(self, unsigned char function, unsigned char register, unsigned char dataSize):
         cdef unsigned int bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
@@ -85,14 +84,14 @@ cdef class PciBus:
     cdef PciDevice getDeviceByIndex(self, unsigned char index):
         cdef PciDevice deviceHandle
         deviceHandle = self.deviceList.get(index)
-        if (deviceHandle is not None):
+        if (deviceHandle):
             return deviceHandle
         return None
     cdef void run(self):
         cdef unsigned char deviceIndex
         cdef PciDevice deviceHandle
         for deviceIndex, deviceHandle in self.deviceList.items():
-            if (deviceHandle is not None):
+            if (deviceHandle):
                 deviceHandle.run()
     ####
 
@@ -108,10 +107,10 @@ cdef class Pci:
         cdef PciBus busHandle
         cdef PciDevice deviceHandle
         busHandle = self.busList.get(busIndex)
-        if (busHandle is not None):
+        if (busHandle):
             if (hasattr(busHandle, 'getDeviceByIndex')):
                 deviceHandle = busHandle.getDeviceByIndex(deviceIndex)
-                if (deviceHandle is not None):
+                if (deviceHandle):
                     return deviceHandle
         return None
     cdef unsigned int readRegister(self, unsigned int address, unsigned char dataSize):
@@ -121,7 +120,7 @@ cdef class Pci:
         bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
         pciAddressHandle = PciAddress(address)
         deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
-        if (deviceHandle is not None):
+        if (deviceHandle):
             if (not pciAddressHandle.enableBit):
                 self.main.notice("Pci::readRegister: Warning: tried to read from configSpace without enableBit set.")
             return deviceHandle.getData(pciAddressHandle.function, pciAddressHandle.register, pciAddressHandle.dataSize)
@@ -131,7 +130,7 @@ cdef class Pci:
         cdef PciAddress pciAddressHandle
         pciAddressHandle = PciAddress(address)
         deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
-        if (deviceHandle is not None):
+        if (deviceHandle):
             if (not pciAddressHandle.enableBit):
                 self.main.notice("Pci::writeRegister: Warning: tried to write to configSpace without enableBit set.")
             deviceHandle.setData(pciAddressHandle.function, pciAddressHandle.register, data, dataSize)
@@ -183,7 +182,7 @@ cdef class Pci:
         cdef unsigned char busIndex
         cdef PciBus busHandle
         for busIndex, busHandle in self.busList.items():
-            if (busHandle is not None):
+            if (busHandle):
                 busHandle.run()
 
 

@@ -1,4 +1,5 @@
 
+from sys import exit
 from traceback import print_exc
 from atexit import register
 import numpy
@@ -25,31 +26,20 @@ cdef class PygameUI:
         self.setRepeatRate(500, 10)
     cpdef quitFunc(self):
         try:
+            self.main.quitFunc()
             pygame.display.quit()
-        except pygame.error:
-            print(print_exc())
-        except (SystemExit, KeyboardInterrupt):
-            print(print_exc())
-            self.main.quitEmu = True
-            self.main.exitError('quitFunc: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(print_exc())
-        self.main.quitEmu = True
-        self.main.quitFunc()
+            print_exc()
+            self.main.exitError('quitFunc: exception, exiting...')
     cpdef clearScreen(self):
         pass
         #self.screen.fill((0, 0, 0))
     cpdef object getCharRect(self, unsigned char x, unsigned char y):
         try:
             return pygame.Rect((self.charSize[0]*x, self.charSize[1]*y), self.charSize)
-        except pygame.error:
-            print(print_exc())
-        except (SystemExit, KeyboardInterrupt):
-            print(print_exc())
-            self.main.quitEmu = True
-            self.main.exitError('getCharRect: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(print_exc())
+            print_exc()
+            self.main.exitError('getCharRect: exception, exiting...')
         return None
     cpdef object getBlankChar(self, tuple bgColor):
         cpdef object blankSurface
@@ -88,16 +78,13 @@ cdef class PygameUI:
                         if (int(lineData[j])):
                             charArray[i][j] = fgColor
             newChar = pygame.surfarray.make_surface(charArray.transpose((1, 0, 2)))
-            self.screen.blit(newChar, newRect)
+            if (self.screen):
+                self.screen.blit(newChar, newRect)
             return newRect
-        except pygame.error:
-            print(print_exc())
-        except (SystemExit, KeyboardInterrupt):
-            print(print_exc())
-            self.main.quitEmu = True
-            self.main.exitError('putChar: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(print_exc())
+            print_exc()
+            self.main.exitError('putChar: exception, exiting...')
+        return None
     cpdef setRepeatRate(self, unsigned short delay, unsigned short interval):
         pygame.key.set_repeat(delay, interval)
     cdef unsigned char keyToScancode(self, unsigned short key):
@@ -318,64 +305,44 @@ cdef class PygameUI:
         self.main.notice("keyToScancode: unknown key. (keyId: {0:d}, keyName: {1:s})", key, repr(pygame.key.name(key)))
         return 0xff
     cpdef handleEvent(self, object event):
-        try:
-            if (event.type == pygame.QUIT):
-                self.quitFunc()
-            elif (event.type == pygame.VIDEOEXPOSE):
-                self.updateScreen(list())
-            elif (event.type == pygame.KEYDOWN):
-                (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), False)
-            elif (event.type == pygame.KEYUP):
-                (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), True)
-            else:
-                self.main.notice("PygameUI::handleEvent: event.type == {0:d}", event.type)
-        except pygame.error:
-            print(print_exc())
-        except (SystemExit, KeyboardInterrupt):
-            print(print_exc())
-            self.main.quitEmu = True
-            self.main.exitError('handleEvent: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
-        except:
-            print(print_exc())
+        if (event.type == pygame.QUIT):
+            self.quitFunc()
+            exit(1)
+        elif (event.type == pygame.VIDEOEXPOSE):
+            self.updateScreen(list())
+        elif (event.type == pygame.KEYDOWN):
+            (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), False)
+        elif (event.type == pygame.KEYUP):
+            (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), True)
+        else:
+            self.main.notice("PygameUI::handleEvent: event.type == {0:d}", event.type)
     cpdef updateScreen(self, list rectList):
         try:
             if (len(rectList) > 0):
                 pygame.display.update(rectList)
             else:
                 pygame.display.update()
-        except pygame.error:
-            print(print_exc())
-        except (SystemExit, KeyboardInterrupt):
-            print(print_exc())
-            self.main.quitEmu = True
-            self.main.exitError('updateScreen: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
         except:
-            print(print_exc())
+            print_exc()
+            self.main.exitError('updateScreen: exception, exiting...')
     cpdef handleEvents(self):
         cpdef object event
-        cpdef list eventList
         try:
             while (not self.main.quitEmu):
                 event = pygame.event.wait()
-                #eventList = pygame.event.get()
-                #for event in eventList:
                 self.handleEvent(event)
                 #pygame.time.delay(200)
-        except pygame.error:
-            print(print_exc())
         except (SystemExit, KeyboardInterrupt):
-            print(print_exc())
-            self.main.quitEmu = True
-            self.main.exitError('handleEvents: (SystemExit, KeyboardInterrupt) exception, exiting...)', exitNow=True)
+            self.quitFunc()
         except:
-            print(print_exc())
-    cpdef pumpEvents(self):
-        try:
-            pygame.event.pump()
-        except pygame.error:
-            self.main.quitEmu = True
+            print_exc()
+            self.main.exitError('handleEvents: exception, exiting...')
     cpdef run(self):
-        self.initPygame()
-        (<Misc>self.main.misc).createThread(self.handleEvents, True)
+        try:
+            self.initPygame()
+            (<Misc>self.main.misc).createThread(self.handleEvents, True)
+        except:
+            print_exc()
+            self.main.exitError('run: exception, exiting...')
 
 

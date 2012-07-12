@@ -167,7 +167,7 @@ cdef class Platform:
             self.main.notice("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
             return bitMask
         except:
-            print(print_exc())
+            print_exc()
             exit(1)
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef PortHandler port
@@ -191,7 +191,7 @@ cdef class Platform:
                         return
             self.main.notice("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
         except:
-            print(print_exc())
+            print_exc()
             exit(1)
     cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize):
         cdef object romFp
@@ -287,7 +287,7 @@ cdef class Platform:
             self.initDevicesPorts()
             self.runDevices()
         except:
-            print(print_exc())
+            print_exc()
             exit(1)
 
 

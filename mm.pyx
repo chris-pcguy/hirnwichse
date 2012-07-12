@@ -36,7 +36,7 @@ cdef class Mm:
         return mmArea
     cdef void mmDelArea(self, unsigned int addr):
         cdef MmArea mmArea = self.mmGetArea(addr)
-        if (mmArea is not None and mmArea.data is not None):
+        if (mmArea and mmArea.data):
             free(mmArea.data)
             mmArea.data = None
         mmArea = None
@@ -75,7 +75,8 @@ cdef class Mm:
             if (mmArea is None or mmArea.readOnly or mmArea.data is None or not dataSize):
                 self.main.exitError("Mm::mmAreaWrite: mmArea(.data) is None || mmArea.readOnly || not dataSize.")
                 raise SystemExit()
-        memcpy(<char*>(mmArea.data+offset), data, dataSize)
+        with nogil:
+            memcpy(<char*>(mmArea.data+offset), data, dataSize)
     cpdef object mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
         cdef list mmAreas
@@ -174,10 +175,10 @@ cdef class ConfigSpace:
         self.csResetData()
         register(self.csFreeData)
     cdef void csResetData(self):
-        if (self.csData is not None):
+        if (self.csData):
             memset(self.csData, 0x00, self.csSize)
     cpdef csFreeData(self):
-        if (self.csData is not None):
+        if (self.csData):
             free(self.csData)
         self.csData = None
     cdef bytes csRead(self, unsigned int offset, unsigned int size):

@@ -149,7 +149,7 @@ cdef class GDBStubHandler:
         cdef unsigned int dataLen = len(data)
         if ((dataLen % 2) != 0):
             self.main.exitError('GDBStubHandler::hexToBytes: (dataLen % 2) != 0')
-        while (i < dataLen):
+        while (i < dataLen and not self.main.quitEmu):
             returnValue += self.hexToByte(data[i:i+2])
             i += 2
         return returnValue
@@ -186,9 +186,7 @@ cdef class GDBStubHandler:
         elif (data == b'?'):
             self.sendInit(GDB_SIGNAL_TRAP)
         elif (data == b'k'):
-            self.main.quitFunc()
-            self.main.exitError("GDBStubHandler::handleCommand: Terminated by GDBStub.", errorExitCode=0, exitNow=False)
-            self.gdbStub.server.shutdown()
+            self.main.exitError("GDBStubHandler::handleCommand: Terminated by GDBStub.")
             return
         elif (data == b'D'):
             self.main.cpu.debugSingleStep = False
@@ -198,7 +196,7 @@ cdef class GDBStubHandler:
             currRegNum = 0
             maxRegNum = GDB_NUM_REGISTERS
             hexToSend = bytes()
-            while (currRegNum < maxRegNum):
+            while (currRegNum < maxRegNum and not self.main.quitEmu):
                 regOffset = ((CPU_MIN_REGISTER//5)+currRegNum)*8
                 currData = (<ConfigSpace>self.main.cpu.registers.regs).csRead(regOffset+4, OP_SIZE_DWORD)
                 hexToSend += self.bytesToHex(bytes(currData[::-1]))
@@ -210,7 +208,7 @@ cdef class GDBStubHandler:
             currRegNum = 0
             maxRegNum = GDB_NUM_REGISTERS
             data = data[1:]
-            while (currRegNum < maxRegNum):
+            while (currRegNum < maxRegNum and not self.main.quitEmu):
                 dataOffset = currRegNum*8
                 if (currRegNum*5 >= CPU_MAX_REGISTER_WO_CR):
                     break
@@ -228,7 +226,7 @@ cdef class GDBStubHandler:
             memAddr = int(memList[0], 16)
             memLength = int(memList[1], 16)
             hexToSend = bytes()
-            while (memLength != 0):
+            while (memLength != 0 and not self.main.quitEmu):
                 blockSize = min(memLength, MAX_PACKET_DATA_SIZE)
                 if ((<Mm>self.main.mm).mmGetArea(memAddr)):
                     currData = (<Mm>self.main.mm).mmPhyRead(memAddr, blockSize)
@@ -284,10 +282,14 @@ cdef class GDBStubHandler:
 
 class ThreadedTCPRequestHandler(BaseRequestHandler):
     def handle(self):
-        self.gdbHandler = (<GDBStubHandler>self.server.gdbHandler)
-        (<GDBStubHandler>self.gdbHandler).connHandler = self
-        (<GDBStubHandler>self.gdbHandler).connId += 1
         try:
+            if (not self.server):
+                return
+            self.gdbHandler = (<GDBStubHandler>self.server.gdbHandler)
+            if (not self.gdbHandler):
+                return
+            (<GDBStubHandler>self.gdbHandler).connHandler = self
+            (<GDBStubHandler>self.gdbHandler).connId += 1
             (<GDBStubHandler>self.gdbHandler).main.cpu.debugHalt = True
             (<GDBStubHandler>self.gdbHandler).main.cpu.debugSingleStep = False
             (<GDBStubHandler>self.gdbHandler).clearData()
@@ -297,9 +299,10 @@ class ThreadedTCPRequestHandler(BaseRequestHandler):
             while (not (<GDBStubHandler>self.gdbHandler).main.quitEmu and (<GDBStubHandler>self.gdbHandler).main.cpu.debugHalt):
                 #(<GDBStubHandler>self.gdbHandler).main.notice("handle::read.")
                 (<GDBStubHandler>self.gdbHandler).handleRead()
-        except (SystemExit, KeyboardInterrupt):
-            (<GDBStubHandler>self.gdbHandler).main.quitEmu = True
-            (<GDBStubHandler>self.gdbHandler).gdbStub.server.shutdown()
+        except:
+            print_exc()
+            (<GDBStubHandler>self.gdbHandler).gdbStub.quitFunc()
+            
 
 
 class ThreadedTCPServer(ThreadingMixIn, TCPServer):
@@ -315,47 +318,38 @@ cdef class GDBStub:
         try:
             self.server = ThreadedTCPServer((GDBSTUB_HOST, GDBSTUB_PORT), ThreadedTCPRequestHandler, bind_and_activate=False)
             self.gdbHandler = GDBStubHandler(self.main, self)
+            if (not self.server or not self.gdbHandler):
+                return
             self.server.gdbHandler = self.gdbHandler
             self.server.allow_reuse_address = True
-            self.server.socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
+            if (self.server.socket):
+                self.server.socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
             self.server.server_bind()
             self.server.server_activate()
             register(self.quitFunc)
-        except SocketError:
-            print(print_exc())
-            self.main.notice("GDBStub::__init__: socket exception.")
-            self.server = None
-            self.gdbHandler = None
-        except (SystemExit, KeyboardInterrupt):
-            print(print_exc())
-            self.main.quitEmu = True
-            self.main.notice("GDBStub::__init__: (SystemExit, KeyboardInterrupt) exception.")
-            self.server = None
-            self.gdbHandler = None
         except:
-            print(print_exc())
-            self.main.notice("GDBStub::__init__: else exception.")
-            self.server = None
-            self.gdbHandler = None
+            print_exc()
+            self.main.notice("GDBStub::__init__: exception.")
+            self.quitFunc()
     cpdef quitFunc(self):
         if (self.server):
             self.server.shutdown()
+        self.server = None
+        self.gdbHandler = None
+        self.main.quitFunc()
     cpdef serveGDBStub(self):
         try:
             if (self.server):
                 self.server.serve_forever()
-        except (SystemExit, KeyboardInterrupt):
-            self.main.quitEmu = True
-            if (self.server):
-                self.server.shutdown()
         except:
-            print(print_exc())
+            print_exc()
+            self.quitFunc()
     cpdef run(self):
         try:
             (<Misc>self.main.misc).createThread(self.serveGDBStub, True)
-        except (SystemExit, KeyboardInterrupt):
-            self.main.quitEmu = True
-            exit(self.main.exitCode)
+        except:
+            print_exc()
+            self.quitFunc()
 
 
 

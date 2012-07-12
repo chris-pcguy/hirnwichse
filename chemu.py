@@ -1,6 +1,8 @@
 #!/usr/bin/env python3.2
 #cython: boundscheck=False
 #cython: wraparound=False
+#cython: cdivision=True
+#cython: cdivision_warnings=True
 
 from sys import exit
 from pyximport import install
@@ -15,10 +17,10 @@ if (__name__ == '__main__'):
     try:
         chemu_class = ChEmu()
         chemu_class.run()
-    except (SystemExit, KeyboardInterrupt):
+    except (KeyboardInterrupt, SystemExit):
         exit(0)
     except:
-        print(print_exc())
+        print_exc()
         exit(1)
 
 

@@ -16,10 +16,7 @@ cdef class ChEmu:
     def __init__(self):
         self.quitEmu = False
         self.exitOnTripleFault = True
-        self.exitCode = 0
         register(self.quitFunc)
-    cpdef isRunning(self):
-        return (not self.quitEmu)
     cpdef parseArgs(self):
         self.parser = ArgumentParser(description='ChEmu: a x86 emulator in python.')
         self.parser.add_argument('--biosFilename', dest='biosFilename', action='store', type=str, default='bios.bin', help='bios filename')
@@ -46,17 +43,15 @@ cdef class ChEmu:
         self.memSize = self.cmdArgs.memSize
     cpdef quitFunc(self):
         self.quitEmu = True
-    def exitError(self, str msg, *msgArgs, unsigned char errorExitCode=1, unsigned char exitNow=False): # this needs to be 'def'
-        self.exitCode = errorExitCode
+    def exitError(self, str msg, *msgArgs): # this needs to be 'def'
+        print("ERROR: " + msg.format(*msgArgs))
         self.quitFunc()
-        print("{0:s}: {1:s}".format("ERROR", msg.format(*msgArgs)))
-        if (exitNow):
-            exit(errorExitCode)
+        #exit(1)
     def debug(self, str msg, *msgArgs): # this needs to be 'def'
         if (self.debugEnabled):
-            print("{0:s}: {1:s}".format("DEBUG", msg.format(*msgArgs)))
+            print("DEBUG: " + msg.format(*msgArgs))
     def notice(self, str msg, *msgArgs): # this needs to be 'def'
-        print("{0:s}: {1:s}".format("NOTICE", msg.format(*msgArgs)))
+        print("NOTICE: " + msg.format(*msgArgs))
         stdout.flush()
     cpdef runThreadFunc(self):
         self.platform.run()
@@ -77,12 +72,8 @@ cdef class ChEmu:
             self.platform = Platform(self, self.memSize)
             self.cpu = Cpu(self)
             self.runThreadFunc()
-        except KeyboardInterrupt:
-            exit(0)
-        except SystemExit as e:
-            exit(e.code)
         except:
-            print(print_exc())
+            print_exc()
             exit(1)
         ###
 

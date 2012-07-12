@@ -52,8 +52,6 @@ cdef class PitChannel:
             else:
                 self.main.exitError("timerFunc: counterMode {0:d} is unknown.", self.counterMode)
                 return
-        #if (self.main.platform.vga.ui):
-        #    self.main.platform.vga.ui.pumpEvents()
     cpdef runTimer(self):
         if (self.channelId == 1):
             self.main.exitError("PitChannel::runTimer: PIT-Channel 1 is ancient.")
@@ -87,7 +85,8 @@ cdef class PitChannel:
         elif (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Gate):
             (<PS2>self.main.platform.ps2).ppcbT2Out = False
         self.timerEnabled = True
-        self.main.misc.createThread(self.timerFunc, True)
+        if (self.timerEnabled and not self.main.quitEmu):
+            self.main.misc.createThread(self.timerFunc, True)
 
 cdef class Pit:
     def __init__(self, object main):

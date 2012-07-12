@@ -50,7 +50,7 @@ cdef class Cmos:
         cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century
         self.oldDt = self.dt
         self.dt = gmtime()
-        if (self.oldDt is not None and self.dt is not None and self.dt == self.oldDt):
+        if (self.oldDt and self.dt and self.dt == self.oldDt):
             return
         statusb = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
         second  = self.dt.tm_sec

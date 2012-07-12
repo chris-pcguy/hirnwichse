@@ -1,4 +1,5 @@
 
+from sys import exit
 from time import sleep
 from traceback import print_exc
 from misc import ChemuException
@@ -67,16 +68,16 @@ cdef class Cpu:
         cdef unsigned char exceptionId
         cdef signed int errorCode
         if (len(exception.args) not in (1, 2)):
-            self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', len(exception.args), exitNow=True)
+            self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', len(exception.args))
             return
         errorCode = -1
         if (len(exception.args) == 2):
             if (not isinstance(exception.args[1], int)):
-                self.main.exitError('ERROR: errorCode not a int; type is {0:s}', type(exception.args[1]), exitNow=True)
+                self.main.exitError('ERROR: errorCode not a int; type is {0:s}', type(exception.args[1]))
                 return
             errorCode = exception.args[1]
         if (not isinstance(exception.args[0], int)):
-            self.main.exitError('ERROR: exceptionId not a int; type is {0:s}', type(exception.args[0]), exitNow=True)
+            self.main.exitError('ERROR: exceptionId not a int; type is {0:s}', type(exception.args[0]))
             return
         exceptionId = exception.args[0]
         if (exceptionId == CPU_EXCEPTION_UD):
@@ -87,7 +88,7 @@ cdef class Cpu:
     cdef unsigned char parsePrefixes(self, unsigned char opcode):
         cdef unsigned char count
         count = 0
-        while (opcode in OPCODE_PREFIXES):
+        while (opcode in OPCODE_PREFIXES and not self.main.quitEmu):
             count += 1
             if (count >= 16):
                 raise ChemuException(CPU_EXCEPTION_UD)
@@ -145,7 +146,8 @@ cdef class Cpu:
         try:
             while (not self.main.quitEmu):
                 if (self.cpuHalted and self.main.exitIfCpuHalted):
-                    self.main.quitEmu = True
+                    self.main.quitFunc()
+                    exit(1)
                     return
                 elif ((self.cpuHalted and not self.main.exitIfCpuHalted) or (self.debugHalt and not self.debugSingleStep)):
                     if (self.asyncEvent):
@@ -158,13 +160,9 @@ cdef class Cpu:
                     self.oldCycleInc = cycleInc
                     sleep(0.000001) # FIXME: HACK: timing issue.
                 self.doCycle()
-        except (SystemExit, KeyboardInterrupt):
-            print(print_exc())
-            self.main.quitEmu = True
-            self.main.exitError('doInfiniteCycles: (SystemExit, KeyboardInterrupt) exception, exiting...', exitNow=True)
         except:
-            print(print_exc())
-            self.main.exitError('doInfiniteCycles: (else case) exception, exiting...', exitNow=True)
+            print_exc()
+            self.main.exitError('doInfiniteCycles: exception, exiting...')
     cpdef doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
             return
@@ -199,13 +197,9 @@ cdef class Cpu:
                 else:
                     self.main.notice("CPU::doCycle: TRIPLE FAULT! reset.")
                     self.cpu.reset()
-        except (SystemExit, KeyboardInterrupt):
-            print(print_exc())
-            self.main.quitEmu = True
-            self.main.exitError('doCycle: (SystemExit, KeyboardInterrupt) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
         except:
-            print(print_exc())
-            self.main.exitError('doCycle: (else case) exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode, exitNow=True)
+            print_exc()
+            self.main.exitError('doCycle: exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
     cpdef run(self):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)

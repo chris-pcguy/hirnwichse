@@ -1150,7 +1150,7 @@ cdef class Opcodes:
                     if (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
                         raise ChemuException(CPU_EXCEPTION_NP, op1)
                     gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op1))
-                    segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK) if (gdtEntry is not None) else 0
+                    segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK) if (gdtEntry) else 0
                     if (not gdtEntry or segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
                         self.main.notice("opcodeGroup0F_00_LTR: segType {0:d} not a TSS. (is gdtEntry None? {1:d})", \
                           segType, (gdtEntry is None))

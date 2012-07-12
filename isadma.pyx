@@ -134,7 +134,7 @@ cdef class IsaDmaController:
             return
         if ((self.statusReg & 0xf0) == 0):
             if (not self.master):
-                if (self.isadma.cpuInstance is not None and self.isadma.setHRQ is not NULL):
+                if (self.isadma.cpuInstance and self.isadma.setHRQ is not NULL):
                     self.isadma.setHRQ(self.isadma.cpuInstance, False)
             else:
                 self.isadma.setDRQ(4, False)
@@ -142,7 +142,7 @@ cdef class IsaDmaController:
         for channel in range(4):
             if ((self.statusReg & (1 << (channel+4))) and (not (<IsaDmaChannel>self.channel[channel]).channelMasked)):
                 if (not self.master):
-                    if (self.isadma.cpuInstance is not None and self.isadma.setHRQ is not NULL):
+                    if (self.isadma.cpuInstance and self.isadma.setHRQ is not NULL):
                         self.isadma.setHRQ(self.isadma.cpuInstance, True)
                 else:
                     self.isadma.setDRQ(4, True)
@@ -311,7 +311,7 @@ cdef class IsaDma:
                 currChannel.currentCount = currChannel.baseCount
 
         if (currChannel.transferDirection == 1): # IODEV -> MEM
-            if (currChannel.dmaMemActionInstance is not None and currChannel.writeToMem is not NULL):
+            if (currChannel.dmaMemActionInstance and currChannel.writeToMem is not NULL):
                 data = <unsigned short>currChannel.writeToMem(currChannel.dmaMemActionInstance)
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
@@ -321,13 +321,13 @@ cdef class IsaDma:
             (<Mm>self.main.mm).mmPhyWriteValue(phyAddr, data, ma_sl+1)
         elif (currChannel.transferDirection == 2): # MEM -> IODEV
             data = (<Mm>self.main.mm).mmPhyReadValueUnsigned(phyAddr, ma_sl+1)
-            if (currChannel.dmaMemActionInstance is not None and currChannel.readFromMem is not NULL):
+            if (currChannel.dmaMemActionInstance and currChannel.readFromMem is not NULL):
                 currChannel.readFromMem(currChannel.dmaMemActionInstance, data)
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaRead handler for channel {0:d}", channel)
                 return
         elif (currChannel.transferDirection == 0): # Verify
-            if (currChannel.dmaMemActionInstance is not None and currChannel.writeToMem is not NULL):
+            if (currChannel.dmaMemActionInstance and currChannel.writeToMem is not NULL):
                 data = <unsigned short>currChannel.writeToMem(currChannel.dmaMemActionInstance)
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
@@ -339,7 +339,7 @@ cdef class IsaDma:
         if (countExpired):
             self.TC = False
             self.HLDA = False
-            if (self.cpuInstance is not None and self.setHRQ is not NULL):
+            if (self.cpuInstance and self.setHRQ is not NULL):
                 self.setHRQ(self.cpuInstance, False)
             (<IsaDmaChannel>(<IsaDmaController>self.controller[ma_sl]).channel[channel]).DACK = False
             if (not ma_sl):

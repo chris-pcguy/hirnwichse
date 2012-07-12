@@ -198,7 +198,7 @@ cdef class Vga:
     cdef void readFontData(self): # TODO
         cdef unsigned char charHeight
         cdef unsigned int posdata
-        if (self.ui is None):
+        if (not self.ui):
             return
         charHeight = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_VIDEO_CHAR_HEIGHT, 2)
         self.ui.charSize = (UI_CHAR_WIDTH, charHeight)
@@ -294,7 +294,7 @@ cdef class Vga:
     cpdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         cpdef list rectList
         cpdef unsigned char x, y
-        if (self.ui is None):
+        if (not self.ui):
             return
         if (self.needLoadFont):
             self.readFontData()
@@ -306,7 +306,7 @@ cdef class Vga:
         offset &= 0xffffe
         # TODO: hardcoded to 80x25
         dataSize = min(dataSize, 4000) # 80*25*2
-        while (dataSize > 0):
+        while (dataSize > 0 and not self.main.quitEmu):
             y, x = divmod((offset-self.videoMemBase)//2, 80)
             rectList.append(self.ui.putChar(x, y, mmArea.data[offset], mmArea.data[offset+1]))
             if (dataSize <= 2):
@@ -416,7 +416,7 @@ cdef class Vga:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} isn't supported.", ioPortAddr, dataSize)
         return
     cpdef run(self):
-        if (self.ui is not None):
+        if (self.ui):
             self.ui.run()
 
 
