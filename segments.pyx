@@ -308,7 +308,7 @@ cdef class Segments:
             segment = self.ss
         else:
             self.main.exitError("Segments::getSegmentInstance: invalid segmentId {0:d}", segmentId)
-            raise ValueError("Segments::getSegmentInstance: invalid segmentId {0:d}".format(segmentId))
+            return None
         if (checkForValidness and not segment.isValid):
             self.main.notice("Segments::getSegmentInstance: segment with ID {0:d} isn't valid.", segmentId)
             raise ChemuException(CPU_EXCEPTION_GP, segment.segmentIndex)
