@@ -68,8 +68,8 @@ cdef class ChEmu:
         try:
             self.parseArgs()
             self.misc = Misc(self)
-            self.mm = Mm(self, self.memSize)
-            self.platform = Platform(self, self.memSize)
+            self.mm = Mm(self)
+            self.platform = Platform(self)
             self.cpu = Cpu(self)
             self.runThreadFunc()
         except:

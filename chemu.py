@@ -3,6 +3,7 @@
 #cython: wraparound=False
 #cython: cdivision=True
 #cython: cdivision_warnings=True
+#cython: profiling=False
 
 from sys import exit
 from pyximport import install

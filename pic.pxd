@@ -24,7 +24,7 @@ cdef class PicChannel:
     cdef void run(self)
 
 cdef class Pic:
-    cpdef public object main
+    cpdef object main
     cdef object cpuInstance
     cdef SetINTR setINTR
     cdef tuple channels

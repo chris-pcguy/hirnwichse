@@ -27,9 +27,8 @@ cdef class PortHandler:
 
 
 cdef class Platform:
-    def __init__(self, object main, unsigned int memSize):
+    def __init__(self, object main):
         self.main = main
-        self.memSize = memSize
         self.copyRomToLowMem = True
         self.ports  = list()
     cdef void initDevices(self):
@@ -229,7 +228,9 @@ cdef class Platform:
     cdef void initMemory(self):
         cdef MmArea biosMmArea
         cdef unsigned int i
-        for i in range(self.memSize):
+        if (not self.main or not self.main.mm or not self.main.memSize):
+            return
+        for i in range(self.main.memSize):
             (<Mm>self.main.mm).mmAddArea(SIZE_1MB*i, False)
         (<Mm>self.main.mm).mmAddArea(0xfff00000, False)
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)

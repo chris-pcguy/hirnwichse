@@ -13,8 +13,7 @@ cdef class ChEmu:
     cdef public Mm mm
     cdef public Platform platform
     cdef public Cpu cpu
-    cdef unsigned char debugEnabled
-    cdef public unsigned char quitEmu, exitIfCpuHalted, noUI, exitOnTripleFault, forceFloppyDiskType
+    cdef public unsigned char quitEmu, debugEnabled, exitIfCpuHalted, noUI, exitOnTripleFault, forceFloppyDiskType
     cdef public unsigned int memSize
     cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename
     cpdef parseArgs(self)

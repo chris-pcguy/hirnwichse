@@ -12,7 +12,7 @@ cdef class FloppyMedia:
 
 
 cdef class FloppyDrive:
-    cpdef public object main
+    cpdef object main
     cpdef object fp
     cdef FloppyController controller
     cdef FloppyMedia media
@@ -29,7 +29,7 @@ cdef class FloppyDrive:
 
 
 cdef class FloppyController:
-    cpdef public object main
+    cpdef object main
     cdef Floppy fdc
     cdef tuple drive
     cdef bytes command, result, fdcBuffer
@@ -60,7 +60,7 @@ cdef class FloppyController:
     cdef void run(self)
 
 cdef class Floppy:
-    cpdef public object main
+    cpdef object main
     cdef tuple controller
     cdef void setupDMATransfer(self, FloppyController classInstance)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)

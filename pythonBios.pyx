@@ -51,23 +51,19 @@ cdef class PythonBios:
                 if (ah in (0x09, 0x0a, 0x0e)): # AH in (0x09, 0x0A, 0x0E) / PRINT CHARACTER
                     #if (currMode in (0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x12, 0x13)):
                     if (currMode in (0x0, 0x1, 0x2, 0x3, 0x7, 0x12, 0x13)):
-                        count = 1
-                        if (ah == 0x0e):
-                            bh = 0xff # according to vgabios, AH:0x0e must print on the current page (0xff)!!
-                        else:
-                            count = cx
+                        count = cx if (ah != 0x0e) else 1
                         for i in range(count):
                             # ah==0x09: bl for textmode/graphicsmode;; ah==0x0e: bl for textmode
-                            if (ah != 0x0e):
-                                cursorPos = (<Vga>self.main.platform.vga).getCursorPosition(bh)
-                                memAddr = (<Vga>self.main.platform.vga).getAddrOfPos(bh, <unsigned char>cursorPos, (cursorPos>>8))
+                            if (ah == 0x0e):
+                                (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, 0xff, ah==0x0e)
+                            else:
+                                #cursorPos = (<Vga>self.main.platform.vga).getCursorPosition(bh)
+                                #memAddr = (<Vga>self.main.platform.vga).getAddrOfPos(bh, <unsigned char>cursorPos, (cursorPos>>8))
                                 #if (currMode in (0x00, 0x01, 0x02, 0x03, 0x07) and ah == 0x09):
                                 if (ah == 0x09):
                                     (<Vga>self.main.platform.vga).writeCharacterTeletype(al, bl, bh, True)
                                 else:
                                     (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, bh, True)
-                            else:
-                                (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, bh, ah==0x0e)
                         return True
                     else:
                         self.main.notice("PythonBios::interrupt: int: 0x10 AH: 0x0e: currMode {0:d} not supported here. (ax: {1:#04x})", currMode, ax)

@@ -6,7 +6,7 @@ from cpu cimport Cpu
 
 
 cdef class PS2:
-    cpdef public object main
+    cpdef object main
     cdef public unsigned char ppcbT2Gate, ppcbT2Spkr, ppcbT2Out, kbdClockEnabled
     cdef unsigned char lastUsedPort, lastUsedCmd, needWriteBytes, irq1Requested, allowIrq1, sysf, \
                         translateScancodes, currentScancodesSet, scanningEnabled, outb, batInProgress, timerPending

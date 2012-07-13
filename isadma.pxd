@@ -8,7 +8,7 @@ ctypedef void (*SetHRQ)(self, unsigned char)
 
 
 cdef class IsaDmaChannel:
-    cpdef public object main
+    cpdef object main
     cdef object dmaMemActionInstance
     cdef ReadFromMem readFromMem
     cdef WriteToMem writeToMem
@@ -20,7 +20,7 @@ cdef class IsaDmaChannel:
     ###
 
 cdef class IsaDmaController:
-    cpdef public object main
+    cpdef object main
     cdef IsaDma isadma
     cdef tuple channel
     cdef unsigned char flipFlop, firstChannel, master, ctrlDisabled, cmdReg, statusReg
@@ -43,7 +43,7 @@ cdef class IsaDmaController:
     cdef void run(self)
 
 cdef class IsaDma:
-    cpdef public object main
+    cpdef object main
     cdef object cpuInstance
     cdef SetHRQ setHRQ
     cdef tuple controller

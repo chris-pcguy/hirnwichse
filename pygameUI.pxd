@@ -4,7 +4,7 @@ from ps2 cimport PS2
 
 
 cdef class PygameUI:
-    cpdef public object main, vga
+    cpdef object main, vga
     cpdef object screen
     cdef bytes fontData
     cdef tuple screenSize, charSize

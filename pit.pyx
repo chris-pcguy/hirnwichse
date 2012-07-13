@@ -94,8 +94,8 @@ cdef class Pit:
         self.channels = (PitChannel(self.main, self, 0), PitChannel(self.main, self, 1),\
                          PitChannel(self.main, self, 2)) # channel 0-2
     cpdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        cpdef PitChannel channel
-        cpdef unsigned char channelId, retVal
+        cdef PitChannel channel
+        cdef unsigned char channelId, retVal
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
@@ -122,8 +122,8 @@ cdef class Pit:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return 0
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
-        cpdef PitChannel channel
-        cpdef unsigned char channelId, bcd, modeNumber, counterWriteMode
+        cdef PitChannel channel
+        cdef unsigned char channelId, bcd, modeNumber, counterWriteMode
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3

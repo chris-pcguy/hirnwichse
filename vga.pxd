@@ -53,7 +53,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 
 cdef class Vga:
     cpdef object main
-    cpdef public PygameUI ui
+    cpdef PygameUI ui
     cdef unsigned char needLoadFont
     cdef unsigned long videoMemBase, videoMemSize
     cdef Sequencer seq
@@ -63,7 +63,7 @@ cdef class Vga:
     cdef ExtReg extreg
     cdef AttrCtrlReg attrctrlreg
     cdef unsigned char processVideoMem
-    cpdef tuple getColor(self, unsigned char color) # ARGB
+    cpdef tuple getColor(self, unsigned char color) # RGB
     cdef void readFontData(self)
     cdef void setProcessVideoMem(self, unsigned char processVideoMem)
     cdef unsigned char getProcessVideoMem(self)

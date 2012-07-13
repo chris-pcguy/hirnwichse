@@ -7,10 +7,9 @@ include "cpu_globals.pxi"
 DEF MM_NUMAREAS = 4096
 
 cdef class Mm:
-    def __init__(self, object main, unsigned int memSize):
+    def __init__(self, object main):
         cdef unsigned int i
         self.main = main
-        self.memSize = memSize
         self.mmAreas = []
         for i in range(MM_NUMAREAS):
             self.mmAreas.append(MmArea())

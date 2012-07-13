@@ -61,75 +61,69 @@ cdef class GDBStubHandler:
         #self.connHandler.request.flush()
     cdef putPacket(self, bytes data):
         cdef bytes dataFull, dataChecksum
-        if (self.connHandler):
-            if (hasattr(self.connHandler, 'request') and self.connHandler.request):
-                dataChecksum = self.byteToHex(<unsigned char>(<Misc>self.main.misc).checksum(data))
-                dataFull = b'$'
-                dataFull += data
-                dataFull += b'#'+dataChecksum
-                self.lastWrittenData = data
-                self.connHandler.request.send(dataFull)
-                #self.connHandler.request.flush()
-            else:
-                self.main.notice('GDBStubHandler::putPacket: connHandler.request is None.')
+        if (self.connHandler and self.connHandler.request):
+            dataChecksum = self.byteToHex(<unsigned char>(<Misc>self.main.misc).checksum(data))
+            dataFull = b'$'
+            dataFull += data
+            dataFull += b'#'+dataChecksum
+            self.lastWrittenData = data
+            self.connHandler.request.send(dataFull)
+            #self.connHandler.request.flush()
         else:
-            self.main.notice('GDBStubHandler::putPacket: connHandler is None.')
+            self.main.notice('GDBStubHandler::putPacket: connHandler[.request] is None.')
 
     cdef handleRead(self):
         cdef bytes tempStr
         cdef unsigned char c
-        if (self.connHandler):
-            if (hasattr(self.connHandler, 'request') and self.connHandler.request):
-                while (not self.main.quitEmu and self.main.cpu.debugHalt):
-                    tempStr = self.connHandler.request.recv(MAX_PACKET_SIZE)
-                    if (len(self.lastWrittenData)):
-                        if (tempStr.startswith(b'-')):
-                            self.main.notice("GDBStubHandler::handleRead: GOT NACK!!")
-                            self.putPacket(self.lastWrittenData)
+        if (self.connHandler and self.connHandler.request):
+            while (not self.main.quitEmu and self.main.cpu.debugHalt):
+                tempStr = self.connHandler.request.recv(MAX_PACKET_SIZE)
+                if (len(self.lastWrittenData)):
+                    if (tempStr.startswith(b'-')):
+                        self.main.notice("GDBStubHandler::handleRead: GOT NACK!!")
+                        self.putPacket(self.lastWrittenData)
+                        self.clearData()
+                        return
+                    elif (tempStr.startswith(b'+')):
+                        ##self.main.debug("GDBStubHandler::handleRead: got ack.")
+                        self.lastWrittenData = bytes()
+                        if (len(tempStr) >= 2):
+                            tempStr = tempStr[1:]
+                self.clearData()
+                #else:
+                #    self.main.notice("handleRead: tempStr doesn't start with b'-' or b'+'. (tempStr: {0:s})", repr(tempStr))
+                self.lastReadData = tempStr
+                for c in self.lastReadData:
+                    #self.main.notice("c: {0:#04x}, readState: {1:#04x}", c, self.readState)
+                    if (self.readState == RS_IDLE):
+                        if (c == ord(b'$')):
+                            self.readState = RS_GETLINE
+                            self.cmdStr = self.lastWrittenData = bytes()
+                    elif (self.readState == RS_GETLINE):
+                        if (c == ord(b'#')):
+                            self.readState = RS_CHKSUM1
+                            continue
+                        self.cmdStr += bytes([c])
+                    elif (self.readState == RS_CHKSUM1):
+                        self.cmdStrChecksumProof = int(bytes([c]), 16)<<4
+                        self.readState = RS_CHKSUM2
+                    elif (self.readState == RS_CHKSUM2):
+                        self.cmdStrChecksumProof |= int(bytes([c]), 16)
+                        self.cmdStrChecksum = <unsigned char>(<Misc>self.main.misc).checksum(self.cmdStr)
+                        if (self.cmdStrChecksum != self.cmdStrChecksumProof):
+                            self.main.notice("GDBStubHandler::handleRead: SEND NACK!")
+                            self.sendPacketType(PACKET_NACK)
                             self.clearData()
                             return
-                        elif (tempStr.startswith(b'+')):
-                            ##self.main.debug("GDBStubHandler::handleRead: got ack.")
-                            self.lastWrittenData = bytes()
-                            if (len(tempStr) >= 2):
-                                tempStr = tempStr[1:]
-                    self.clearData()
-                    #else:
-                    #    self.main.notice("handleRead: tempStr doesn't start with b'-' or b'+'. (tempStr: {0:s})", repr(tempStr))
-                    self.lastReadData = tempStr
-                    for c in self.lastReadData:
-                        #self.main.notice("c: {0:#04x}, readState: {1:#04x}", c, self.readState)
-                        if (self.readState == RS_IDLE):
-                            if (c == ord(b'$')):
-                                self.readState = RS_GETLINE
-                                self.cmdStr = self.lastWrittenData = bytes()
-                        elif (self.readState == RS_GETLINE):
-                            if (c == ord(b'#')):
-                                self.readState = RS_CHKSUM1
-                                continue
-                            self.cmdStr += bytes([c])
-                        elif (self.readState == RS_CHKSUM1):
-                            self.cmdStrChecksumProof = int(bytes([c]), 16)<<4
-                            self.readState = RS_CHKSUM2
-                        elif (self.readState == RS_CHKSUM2):
-                            self.cmdStrChecksumProof |= int(bytes([c]), 16)
-                            self.cmdStrChecksum = <unsigned char>(<Misc>self.main.misc).checksum(self.cmdStr)
-                            if (self.cmdStrChecksum != self.cmdStrChecksumProof):
-                                self.main.notice("GDBStubHandler::handleRead: SEND NACK!")
-                                self.sendPacketType(PACKET_NACK)
-                                self.clearData()
-                                return
-                            ##self.main.debug("GDBStubHandler::handleRead: send ack.")
-                            self.sendPacketType(PACKET_ACK)
-                            self.handleCommand(self.cmdStr)
-                            self.clearData()
-                            return
-                        else:
-                            self.main.notice("GDBStubHandler::handleRead: unknown case.")
-            else:
-                self.main.notice('GDBStubHandler::handleRead: connHandler.request is None.')
+                        ##self.main.debug("GDBStubHandler::handleRead: send ack.")
+                        self.sendPacketType(PACKET_ACK)
+                        self.handleCommand(self.cmdStr)
+                        self.clearData()
+                        return
+                    else:
+                        self.main.notice("GDBStubHandler::handleRead: unknown case.")
         else:
-            self.main.notice('GDBStubHandler::handleRead: connHandler is None.')
+            self.main.notice('GDBStubHandler::handleRead: connHandler[.request] is None.')
     cdef bytes byteToHex(self, unsigned char data): # data is unsigned char, output==bytes
         cdef bytes returnValue = '{0:02x}'.format(data).encode()
         return returnValue

@@ -181,7 +181,7 @@ cdef class Vga:
         self.ui = None
         if (not self.main.noUI):
             self.ui = PygameUI(self, self.main)
-    cpdef tuple getColor(self, unsigned char color): # ARGB
+    cpdef tuple getColor(self, unsigned char color): # RGB
         cdef unsigned char red, green, blue
         if (color >= 0x10):
             self.main.exitError("Vga::getColor: color_1 >= 0x10 (color_1=={0:#04x})", color)
@@ -292,8 +292,8 @@ cdef class Vga:
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, 4000)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
     cpdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
-        cpdef list rectList
-        cpdef unsigned char x, y
+        cdef list rectList
+        cdef unsigned char x, y
         if (not self.ui):
             return
         if (self.needLoadFont):
