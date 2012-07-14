@@ -211,11 +211,11 @@ cdef class Vga:
         return self.processVideoMem
     cdef unsigned char getCorrectPage(self, unsigned char page):
         if (page == 0xff):
-            page = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_PAGE_ADDR, 1)
+            page = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_ACTUAL_PAGE_ADDR, 1)
         elif (page > 7):
             self.main.exitError("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
         return page
-    cdef void writeCharacterTeletype(self, unsigned char c, signed short attr, unsigned char page, unsigned char updateCursor):
+    cdef void writeCharacterTeletype(self, unsigned char c, signed short attr, unsigned char page):
         cdef unsigned char x, y, i
         cdef unsigned short cursorPos
         cdef unsigned int address
@@ -239,25 +239,40 @@ cdef class Vga:
         else:
             self.writeCharacter(address, c, attr)
             x += 1
-        if (x == 80):
-            x = 0
+        if (x >= 80):
+            x -= 80
             y += 1
-        if (y == 25):
+        if (y >= 25):
             self.scrollUp(page, attr, 1)
-            y -= 1
+            y = 24
         cursorPos = ((y<<8)|x)
-        if (updateCursor):
-            self.setCursorPosition(page, cursorPos)
+        self.setCursorPosition(page, cursorPos)
+    cdef void writeCharacterNoTeletype(self, unsigned char c, signed short attr, unsigned char page, unsigned short count):
+        cdef unsigned char x, y
+        cdef unsigned short cursorPos
+        cdef unsigned int address
+        page = self.getCorrectPage(page)
+        cursorPos = self.getCursorPosition(page)
+        x, y = <unsigned char>cursorPos, (cursorPos>>8)
+        for i in range(count):
+            address = self.getAddrOfPos(page, x, y)
+            self.writeCharacter(address, c, attr)
+            x += 1
+            if (x >= 80):
+                x -= 80
+                y += 1
     cdef void writeCharacter(self, unsigned int address, unsigned char c, signed short attr):
         if (attr == -1):
             (<Mm>self.main.mm).mmPhyWriteValue(address, c, 1)
             return
         (<Mm>self.main.mm).mmPhyWriteValue(address, ((<unsigned short>attr<<8)|c), 2)
     cdef unsigned int getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
+        cdef unsigned short pageSize
         cdef unsigned int offset
         page = self.getCorrectPage(page)
+        pageSize = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_PAGE_SIZE_ADDR, 2)
         offset = ((y*80)+x)<<1
-        return ((self.videoMemBase+(0x1000*page))+offset)
+        return ((self.videoMemBase+(pageSize*page))+offset)
     cdef unsigned short getCursorPosition(self, unsigned char page): # returns y, x
         cdef unsigned short pos
         page = self.getCorrectPage(page)
