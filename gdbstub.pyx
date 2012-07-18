@@ -212,7 +212,7 @@ cdef class GDBStubHandler:
                     self.main.exitError("GDBStubHandler::handleCommand: len(currData)!=4; currData isn't DWORD.")
                     return
                 regVal = int.from_bytes(bytes=currData, byteorder="little", signed=False)
-                self.main.cpu.registers.regs.csWriteValueBE(regOffset, regVal, OP_SIZE_QWORD)
+                (<ConfigSpace>self.main.cpu.registers.regs).csWriteValueBE(regOffset, regVal, OP_SIZE_QWORD)
                 currRegNum += 1
             self.putPacket(b'OK')
         elif (data.startswith(b'm')):

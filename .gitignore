@@ -1,5 +1,7 @@
 __pycache__
+bios
 bochsrc
 chemuprof*
-*.pyc
 memdump*
+*.log
+*.pyc

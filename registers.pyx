@@ -186,7 +186,8 @@ cdef class Registers:
         self.resetPrefixes()
         self.segments.reset()
         self.regWrite(CPU_REGISTER_EFLAGS, 0x2)
-        self.regWrite(CPU_REGISTER_CR0, 0x40000014)
+        #self.regWrite(CPU_REGISTER_CR0, 0x40000014)
+        self.regWrite(CPU_REGISTER_CR0, 0x60000010)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
         self.regWrite(CPU_REGISTER_EIP, 0xfff0)
     cdef void resetPrefixes(self):
@@ -436,10 +437,9 @@ cdef class Registers:
         else:
             self.main.exitError("getCond: index {0:#x} invalid.", index)
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method):
-        cdef unsigned char unsignedOverflow, signedOverflow, isResZero, afFlag, reg0Nibble, reg1Nibble, regSumNibble, carried
+        cdef unsigned char unsignedOverflow, signedOverflow, afFlag, reg0Nibble, regSumuNibble, carried
         cdef unsigned int bitMaskHalf
         cdef unsigned long int regSumu
-        cdef signed long int regSum
         afFlag = carried = False
         bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
 
@@ -452,14 +452,14 @@ cdef class Registers:
                 regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
                 regSumu = <unsigned short>regSumu
-            isResZero = regSumu==0
-            unsignedOverflow = (regSumu < reg0 or regSumu < reg1)
+            elif (regSize == OP_SIZE_DWORD):
+                regSumu = <unsigned int>regSumu
+            unsignedOverflow = (regSumu < reg0 or regSumu < reg1) != 0
             self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
-            self.setEFLAG(FLAG_ZF, isResZero)
+            self.setEFLAG(FLAG_ZF, regSumu==0)
             reg0Nibble = reg0&0xf
-            reg1Nibble = reg1&0xf
-            regSumNibble = regSumu&0xf
-            if ((carried and regSumNibble<=reg0Nibble) or regSumNibble<reg0Nibble):
+            regSumuNibble = regSumu&0xf
+            if ((not carried and regSumuNibble<reg0Nibble) or (carried and regSumuNibble<=reg0Nibble)):
                 afFlag = True
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
@@ -467,7 +467,7 @@ cdef class Registers:
             signedOverflow = ( ((not reg0 and not reg1) and regSumu) or ((reg0 and reg1) and not regSumu) ) != 0
             self.setEFLAG(FLAG_AF, afFlag)
             self.setEFLAG(FLAG_CF, unsignedOverflow)
-            self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
+            self.setEFLAG(FLAG_OF, signedOverflow)
             self.setEFLAG(FLAG_SF, regSumu!=0)
         elif (method in (OPCODE_SUB, OPCODE_SBB)):
             if (method == OPCODE_SBB and self.getEFLAG(FLAG_CF)):
@@ -478,55 +478,42 @@ cdef class Registers:
                 regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
                 regSumu = <unsigned short>regSumu
-            isResZero = regSumu==0
-            unsignedOverflow = ((not carried and regSumu > reg0) or (carried and regSumu >= reg0))
+            elif (regSize == OP_SIZE_DWORD):
+                regSumu = <unsigned int>regSumu
+            unsignedOverflow = ((not carried and regSumu > reg0) or (carried and regSumu >= reg0)) != 0
             self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
-            self.setEFLAG(FLAG_ZF, isResZero)
+            self.setEFLAG(FLAG_ZF, regSumu==0)
             reg0Nibble = reg0&0xf
-            reg1Nibble = reg1&0xf
-            regSumNibble = regSumu&0xf
-            if ((carried and regSumNibble>=reg0Nibble) or regSumNibble>reg0Nibble):
+            regSumuNibble = regSumu&0xf
+            if ((not carried and regSumuNibble>reg0Nibble) or (carried and regSumuNibble>=reg0Nibble)):
                 afFlag = True
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
             regSumu &= bitMaskHalf
             signedOverflow = ( ((reg0 and not reg1) and not regSumu) or ((not reg0 and reg1) and regSumu) ) != 0
             self.setEFLAG(FLAG_AF, afFlag)
-            self.setEFLAG(FLAG_CF, unsignedOverflow )
-            self.setEFLAG(FLAG_OF, (not isResZero and signedOverflow))
+            self.setEFLAG(FLAG_CF, unsignedOverflow)
+            self.setEFLAG(FLAG_OF, signedOverflow)
             self.setEFLAG(FLAG_SF, regSumu!=0)
         elif (method in (OPCODE_MUL, OPCODE_IMUL)):
             if (regSize == OP_SIZE_BYTE):
-                regSum = <signed short>((<signed char>reg0)*(<signed char>reg1))
                 reg0 = <unsigned char>reg0
                 reg1 = <unsigned char>reg1
                 regSumu = <unsigned char>(reg0*reg1)
-                isResZero = (<unsigned short>regSum)==0
-                if (method == OPCODE_MUL):
-                    self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
             elif (regSize == OP_SIZE_WORD):
-                regSum = <signed int>((<signed short>reg0)*(<signed short>reg1))
                 reg0 = <unsigned short>reg0
                 reg1 = <unsigned short>reg1
                 regSumu = <unsigned short>(reg0*reg1)
-                isResZero = (<unsigned int>regSum)==0
-                if (method == OPCODE_MUL):
-                    self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
             elif (regSize == OP_SIZE_DWORD):
-                regSum = <signed long int>((<signed int>reg0)*(<signed int>reg1))
                 reg0 = <unsigned int>reg0
                 reg1 = <unsigned int>reg1
                 regSumu = <unsigned int>(reg0*reg1)
-                isResZero = (<unsigned long int>regSum)==0
-                if (method == OPCODE_MUL):
-                    self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
-            if (method == OPCODE_IMUL):
-                self.setEFLAG(FLAG_CF | FLAG_OF, (regSumu>>(regSize<<3))!=0)
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSum])
-            self.setEFLAG(FLAG_ZF, isResZero)
-            if (regSize == OP_SIZE_BYTE):
-                regSum = <signed char>regSum
-            self.setEFLAG(FLAG_SF, regSum<0)
+            self.setEFLAG(FLAG_AF, False)
+            self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
+            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
+            self.setEFLAG(FLAG_ZF, regSumu==0)
+            regSumu &= bitMaskHalf
+            self.setEFLAG(FLAG_SF, regSumu!=0)
     cpdef checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write):
         cdef GdtEntry gdtEntry
         cdef unsigned char addrInLimit

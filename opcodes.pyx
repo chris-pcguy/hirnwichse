@@ -193,9 +193,6 @@ cdef class Opcodes:
         elif (opcode >= 0x48 and opcode <= 0x4f):
             retVal = self.decReg()
         elif (opcode >= 0x50 and opcode <= 0x57):
-            ##if (self.main.cpu.savedEip == 0x30766a):
-            ##    self.main.cpu.cpuDump()
-            ##    self.main.cpu.debugHalt = True
             retVal = self.pushReg()
         elif (opcode >= 0x58 and opcode <= 0x5f):
             retVal = self.popReg()
@@ -633,8 +630,8 @@ cdef class Opcodes:
     cdef int movsFunc(self, unsigned char operSize):
         cdef unsigned char dfFlag
         cdef unsigned short esiReg, ediReg, countReg
-        cdef unsigned int countVal, esiVal, ediVal
-        cdef unsigned long int dataLength
+        cdef unsigned int countVal, esiVal, ediVal, i
+        cdef unsigned long int dataLength, esiFull, ediFull
         esiReg  = self.registers.getWordAsDword(CPU_REGISTER_SI, self.registers.addrSize)
         ediReg  = self.registers.getWordAsDword(CPU_REGISTER_DI, self.registers.addrSize)
         countReg = self.registers.getWordAsDword(CPU_REGISTER_CX, self.registers.addrSize)
@@ -650,21 +647,37 @@ cdef class Opcodes:
         dataLength = <unsigned int>dataLength
         esiVal = self.registers.regReadUnsigned(esiReg)
         ediVal = self.registers.regReadUnsigned(ediReg)
-        if (dfFlag):
-            esiVal = <unsigned int>(esiVal-(dataLength-operSize))
-            ediVal = <unsigned int>(ediVal-(dataLength-operSize))
         if (self.registers.addrSize == OP_SIZE_WORD):
             esiVal = <unsigned short>esiVal
             ediVal = <unsigned short>ediVal
-        esiVal = self.registers.mmGetRealAddr(esiVal, CPU_SEGMENT_DS, True)
-        ediVal = self.registers.mmGetRealAddr(ediVal, CPU_SEGMENT_ES, False)
-        (<Mm>self.main.mm).mmPhyCopy(ediVal, esiVal, dataLength)
-        if (not dfFlag):
-            self.registers.regAdd(esiReg, dataLength)
-            self.registers.regAdd(ediReg, dataLength)
+        esiFull = self.registers.mmGetRealAddr(esiVal, CPU_SEGMENT_DS, True)
+        ediFull = self.registers.mmGetRealAddr(ediVal, CPU_SEGMENT_ES, False)
+        if ((ediFull >= esiFull) and (ediFull < esiFull+dataLength)): # are these addresses overlapping? true if they do
+            for i in range(countVal):
+                self.registers.mmWrite(ediVal, self.registers.mmRead(esiVal, operSize, CPU_SEGMENT_DS, True), operSize, CPU_SEGMENT_ES, False)
+                if (not dfFlag):
+                    esiVal = <unsigned int>(esiVal+operSize)
+                    ediVal = <unsigned int>(ediVal+operSize)
+                else:
+                    esiVal = <unsigned int>(esiVal-operSize)
+                    ediVal = <unsigned int>(ediVal-operSize)
+                if (self.registers.addrSize == OP_SIZE_WORD):
+                    esiVal = <unsigned short>esiVal
+                    ediVal = <unsigned short>ediVal
+            self.registers.regWrite(esiReg, esiVal)
+            self.registers.regWrite(ediReg, ediVal)
         else:
-            self.registers.regSub(esiReg, dataLength)
-            self.registers.regSub(ediReg, dataLength)
+            if (dfFlag):
+                esiFull = <unsigned int>(esiFull-(dataLength-operSize))
+                ediFull = <unsigned int>(ediFull-(dataLength-operSize))
+            (<Mm>self.main.mm).mmPhyCopy(ediFull, esiFull, dataLength)
+            if (not dfFlag):
+                self.registers.regAdd(esiReg, dataLength)
+                self.registers.regAdd(ediReg, dataLength)
+            else:
+                self.registers.regSub(esiReg, dataLength)
+                self.registers.regSub(ediReg, dataLength)
+
         self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWrite(countReg, 0)
@@ -715,6 +728,9 @@ cdef class Opcodes:
         esiVal = self.registers.regReadUnsigned(esiReg)
         ediVal = self.registers.regReadUnsigned(ediReg)
         for i in range(countVal):
+            if (self.registers.addrSize == OP_SIZE_WORD):
+                esiVal = <unsigned short>esiVal
+                ediVal = <unsigned short>ediVal
             src1 = self.registers.mmReadValueUnsigned(esiVal, operSize, CPU_SEGMENT_DS, True)
             src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, CPU_SEGMENT_ES, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
@@ -724,14 +740,14 @@ cdef class Opcodes:
             else:
                 esiVal = <unsigned int>(esiVal-operSize)
                 ediVal = <unsigned int>(ediVal-operSize)
-            if (self.registers.addrSize == OP_SIZE_WORD):
-                esiVal = <unsigned short>esiVal
-                ediVal = <unsigned short>ediVal
             zfFlag = self.registers.getEFLAG(FLAG_ZF)!=0
             if ((self.registers.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or \
               (self.registers.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 newCount = countVal-i-1
                 break
+        if (self.registers.addrSize == OP_SIZE_WORD):
+            esiVal = <unsigned short>esiVal
+            ediVal = <unsigned short>ediVal
         self.registers.regWrite(esiReg, esiVal)
         self.registers.regWrite(ediReg, ediVal)
         self.main.cpu.cycles += (countVal-newCount) << CPU_CLOCK_TICK_SHIFT
@@ -754,19 +770,21 @@ cdef class Opcodes:
         ediVal = self.registers.regReadUnsigned(ediReg)
         src1 = self.registers.regReadUnsigned(eaxReg)
         for i in range(countVal):
+            if (self.registers.addrSize == OP_SIZE_WORD):
+                ediVal = <unsigned short>ediVal
             src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, CPU_SEGMENT_ES, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
             if (not dfFlag):
                 ediVal = <unsigned int>(ediVal+operSize)
             else:
                 ediVal = <unsigned int>(ediVal-operSize)
-            if (self.registers.addrSize == OP_SIZE_WORD):
-                ediVal = <unsigned short>ediVal
             zfFlag = self.registers.getEFLAG(FLAG_ZF)!=0
             if ((self.registers.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or \
               (self.registers.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 newCount = countVal-i-1
                 break
+        if (self.registers.addrSize == OP_SIZE_WORD):
+            ediVal = <unsigned short>ediVal
         self.registers.regWrite(ediReg, ediVal)
         self.main.cpu.cycles += (countVal-newCount) << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
@@ -807,14 +825,16 @@ cdef class Opcodes:
         ioPort = self.registers.regReadUnsigned(CPU_REGISTER_DX)
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
         for i in range(countVal):
+            if (self.registers.addrSize == OP_SIZE_WORD):
+                esiVal = <unsigned short>esiVal
             value = self.registers.mmReadValueUnsigned(esiVal, operSize, CPU_SEGMENT_DS, True)
             self.outPort(ioPort, value, operSize)
             if (not dfFlag):
                 esiVal = <unsigned int>(esiVal+operSize)
             else:
                 esiVal = <unsigned int>(esiVal-operSize)
-            if (self.registers.addrSize == OP_SIZE_WORD):
-                esiVal = <unsigned short>esiVal
+        if (self.registers.addrSize == OP_SIZE_WORD):
+            esiVal = <unsigned short>esiVal
         self.registers.regWrite(esiReg, esiVal)
         self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
@@ -835,14 +855,16 @@ cdef class Opcodes:
         ediVal = self.registers.regReadUnsigned(ediReg)
         ioPort = self.registers.regReadUnsigned(CPU_REGISTER_DX)
         for i in range(countVal):
+            if (self.registers.addrSize == OP_SIZE_WORD):
+                ediVal = <unsigned short>ediVal
             value = self.inPort(ioPort, operSize)
             self.registers.mmWriteValue(ediVal, value, operSize, CPU_SEGMENT_ES, False)
             if (not dfFlag):
                 ediVal = <unsigned int>(ediVal+operSize)
             else:
                 ediVal = <unsigned int>(ediVal-operSize)
-            if (self.registers.addrSize == OP_SIZE_WORD):
-                ediVal = <unsigned short>ediVal
+        if (self.registers.addrSize == OP_SIZE_WORD):
+            ediVal = <unsigned short>ediVal
         self.registers.regWrite(ediReg, ediVal)
         self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
@@ -1042,7 +1064,7 @@ cdef class Opcodes:
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         operOp1 = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         if (operSize != OP_SIZE_BYTE and immIsByte):
-            operOp2 = <unsigned int>(self.registers.getCurrentOpcodeAddSigned(OP_SIZE_BYTE)) # operImm8 sign-extended to destsize
+            operOp2 = <unsigned int>self.registers.getCurrentOpcodeAddSigned(OP_SIZE_BYTE) # operImm8 sign-extended to destsize
             if (operSize == OP_SIZE_WORD):
                 operOp2 = <unsigned short>operOp2
         else:
@@ -1320,8 +1342,7 @@ cdef class Opcodes:
                 op1 = self.registers.regReadUnsigned(CPU_REGISTER_CR0) # op1 == old CR0
                 if (op2 & CR0_FLAG_PG):
                     self.main.exitError("opcodeGroup0F_22: Paging IS NOT SUPPORTED yet.")
-                if (((op2 & CR0_FLAG_PG) and not (op1 & CR0_FLAG_PE)) or \
-                  (not (op2 & CR0_FLAG_CD) and (op1 & CR0_FLAG_NW))):
+                if ((op2 & CR0_FLAG_PG) and not (op1 & CR0_FLAG_PE)):
                     raise ChemuException(CPU_EXCEPTION_GP, 0)
             elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
                 if (op2 & CR4_FLAG_VME):
@@ -1528,7 +1549,7 @@ cdef class Opcodes:
             op2 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             op2 = bin(op2).count('1')
             self.modRMInstance.modRSave(self.registers.operSize, op2, OPCODE_SAVE)
-            self.registers.setEFLAG(FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | FLAG_OF, False)
+            self.registers.setEFLAG(FLAG_CF | FLAG_PF | FLAG_AF | FLAG_SF | FLAG_OF, False)
             self.registers.setEFLAG(FLAG_ZF, not op2)
         elif (operOpcode == 0xba): # BT/BTS/BTR/BTC RM16/32 IMM8
             operOpcodeMod = self.registers.getCurrentOpcodeUnsigned(OP_SIZE_BYTE)
@@ -1670,8 +1691,6 @@ cdef class Opcodes:
             op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
             return self.jumpFarDirect(OPCODE_JUMP, segVal, op1)
         elif (operOpcodeId == 6): # 6/PUSH
-            #if (self.main.cpu.savedEip == 0x307980):
-            #    self.main.cpu.debugHalt = True
             op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             return self.stackPushValue(op1, self.registers.operSize)
         else:
@@ -1912,15 +1931,15 @@ cdef class Opcodes:
             if (not operOp2):
                 raise ChemuException(CPU_EXCEPTION_DE)
             temp, tempmod = divmod(op1Word, operOp2)
-            if (temp > <unsigned char>bitMask):
+            if (temp != temp&bitMask):
                 raise ChemuException(CPU_EXCEPTION_DE)
             self.registers.regWrite(CPU_REGISTER_AL, <unsigned char>temp)
             self.registers.regWrite(CPU_REGISTER_AH, <unsigned char>tempmod)
-            self.registers.setFullFlags(op1Word, operOp2, operSize, OPCODE_DIV)
         elif (operSize == OP_SIZE_BYTE and operOpcodeId == GROUP2_OP_IDIV):
-            bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
             sop1  = self.registers.regReadSigned(CPU_REGISTER_AX)
             sop2  = self.modRMInstance.modRMLoadSigned(operSize, True)
+            if (sop1 == 0x8000):
+                raise ChemuException(CPU_EXCEPTION_DE)
             operOp2 = abs(sop2)
             if (not operOp2):
                 raise ChemuException(CPU_EXCEPTION_DE)
@@ -1930,22 +1949,19 @@ cdef class Opcodes:
                     temp = -temp
             else:
                 temp, tempmod = divmod(sop1, sop2)
-            if (((temp >= <unsigned char>bitMaskHalf) or (temp < -(<signed short>bitMaskHalf)))):
+            if (<signed short>temp != <signed char>temp):
                 raise ChemuException(CPU_EXCEPTION_DE)
             self.registers.regWrite(CPU_REGISTER_AL, <unsigned char>temp)
             self.registers.regWrite(CPU_REGISTER_AH, <unsigned char>tempmod)
-            self.registers.setFullFlags(sop1, operOp2, operSize, OPCODE_DIV)
         elif (operOpcodeId == GROUP2_OP_DIV):
             eaxReg = self.registers.getWordAsDword(CPU_REGISTER_AX, operSize)
             edxReg = self.registers.getWordAsDword(CPU_REGISTER_DX, operSize)
             operOp1  = self.registers.regReadUnsigned(edxReg)<<operSizeInBits
             operOp1 |= self.registers.regReadUnsigned(eaxReg)
             if (not operOp2):
-                #self.main.cpu.cpuDump()
-                #self.main.cpu.debugHalt = True
                 raise ChemuException(CPU_EXCEPTION_DE)
             utemp, tempmod = divmod(operOp1, operOp2)
-            if (utemp > <unsigned int>bitMask):
+            if (utemp != utemp&bitMask):
                 raise ChemuException(CPU_EXCEPTION_DE)
             if (operSize == OP_SIZE_WORD):
                 utemp = <unsigned short>utemp
@@ -1955,7 +1971,6 @@ cdef class Opcodes:
                 tempmod = <unsigned int>tempmod
             self.registers.regWrite(eaxReg, utemp)
             self.registers.regWrite(edxReg, tempmod)
-            self.registers.setFullFlags(operOp1, operOp2, operSize, OPCODE_DIV)
         elif (operOpcodeId == GROUP2_OP_IDIV):
             bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
             doubleBitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize<<1)
@@ -1963,6 +1978,8 @@ cdef class Opcodes:
             edxReg = self.registers.getWordAsDword(CPU_REGISTER_DX, operSize)
             operOp1 = self.registers.regReadUnsigned(edxReg)<<operSizeInBits
             operOp1 |= self.registers.regReadUnsigned(eaxReg)
+            if (operOp1 == doubleBitMaskHalf):
+                raise ChemuException(CPU_EXCEPTION_DE)
             if (operOp1 & doubleBitMaskHalf):
                 sop1 = operOp1-doubleBitMaskHalf
                 sop1 -= doubleBitMaskHalf
@@ -1983,7 +2000,6 @@ cdef class Opcodes:
                 tempmod = <unsigned int>tempmod
             self.registers.regWrite(eaxReg, temp)
             self.registers.regWrite(edxReg, tempmod)
-            self.registers.setFullFlags(sop1, operOp2, operSize, OPCODE_DIV)
         else:
             self.main.notice("opcodeGroup2_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
@@ -2240,11 +2256,8 @@ cdef class Opcodes:
         if (operSize == OP_SIZE_WORD):
             dest = <unsigned short>dest
         self.modRMInstance.modRMSave(operSize, dest, True, OPCODE_SAVE)
-        if (count == 1):
-            newOF = (((dest&bitMaskHalf)!=0)^newCF)
-            self.registers.setEFLAG(FLAG_OF, newOF)
-        else:
-            self.registers.setEFLAG(FLAG_OF, False)
+        newOF = (((dest&bitMaskHalf)!=0)^newCF)
+        self.registers.setEFLAG(FLAG_OF, newOF)
         self.registers.setEFLAG(FLAG_CF, newCF)
         self.registers.setEFLAG(FLAG_AF, False)
         self.registers.setSZP(dest, operSize)

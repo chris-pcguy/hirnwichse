@@ -9,7 +9,7 @@ cdef class Cmos:
         self.main = main
         self.dt = self.oldDt = None
         self.cmosIndex = 0
-        self.equipmentDefaultValue = 0xc
+        self.equipmentDefaultValue = 0x0
     cdef inline void setEquipmentDefaultValue(self, unsigned char value):
         self.equipmentDefaultValue = value
     cdef unsigned char getEquipmentDefaultValue(self):
