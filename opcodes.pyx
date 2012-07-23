@@ -1354,8 +1354,8 @@ cdef class Opcodes:
         elif (operOpcode == 0x31): # RDTSC
             if (not self.registers.getFlag(CPU_REGISTER_CR4, CR4_FLAG_TSD) or \
               not cpl or not (<Segments>self.registers.segments).isInProtectedMode()):
-                self.registers.regWrite(CPU_REGISTER_EAX, <unsigned int>self.main.cpu.cycles)
-                self.registers.regWrite(CPU_REGISTER_EDX, <unsigned int>(self.main.cpu.cycles>>32))
+                self.registers.regWrite(CPU_REGISTER_EAX, <unsigned int>(self.main.cpu.cycles&BITMASK_DWORD))
+                self.registers.regWrite(CPU_REGISTER_EDX, <unsigned int>((self.main.cpu.cycles>>32)&BITMASK_DWORD))
             else:
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         elif (operOpcode == 0x38): # MOVBE
