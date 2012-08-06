@@ -1,7 +1,7 @@
 
 from misc cimport Misc
 from mm cimport Mm, ConfigSpace
-from segments cimport Segment, GdtEntry, Gdt, Idt, Segments
+from segments cimport Segment, GdtEntry, Gdt, Idt, Paging, Segments
 
 cdef class ModRMClass:
     cpdef object main

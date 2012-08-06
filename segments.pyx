@@ -95,13 +95,10 @@ cdef class IdtEntry:
         self.entryType = (entryData>>40)&0xf # interrupt type
         self.entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
         self.entryPresent = (entryData>>47)&1 # is interrupt present
-        if (self.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, \
+        self.entrySize = OP_SIZE_DWORD if (self.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, \
           TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, \
           TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE, \
-          TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
-            self.entrySize = OP_SIZE_DWORD
-        else:
-            self.entrySize = OP_SIZE_WORD
+          TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)) else OP_SIZE_WORD
 
 
 cdef class Gdt:
@@ -255,7 +252,7 @@ cdef class Idt:
     cdef unsigned char getEntryNeededDPL(self, unsigned char num):
         return self.getEntry(num).entryNeededDPL
     cdef unsigned char getEntrySize(self, unsigned char num):
-        # interrupt size: 1==32bit; 0==16bit; return 4 for 32bit, 2 for 16bit
+        # interrupt size: 1==32bit==return 4; 0==16bit==return 2
         return self.getEntry(num).entrySize
     cdef void getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip):
         cdef unsigned short offset
@@ -276,7 +273,47 @@ cdef class Tss:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
 
-
+cdef class Paging:
+    def __init__(self, Segments segments):
+        self.segments = segments
+        self.invalidateTables(0)
+    cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress):
+        self.pageDirectoryBaseAddress = pageDirectoryBaseAddress
+        self.pageDirectoryEntry = self.pageTableEntry = 0
+    cdef void readAddresses(self, unsigned int virtualAddress):
+        cdef unsigned short pageOffset
+        cdef unsigned int pageDirectoryOffset, pageTableOffset
+        pageDirectoryOffset = (virtualAddress>>22)*4
+        pageTableOffset = ((virtualAddress>>12)&0x3ff)*4
+        pageOffset = virtualAddress&0xfff
+        self.pageDirectoryEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(self.pageDirectoryBaseAddress+pageDirectoryOffset, 4) # page directory
+        if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4mb page
+            # size is 4mb if CR4/PSE is set
+            # size is 2mb if CR4/PAE is set
+            # I don't know which size is used if both, CR4/PSE && CR4/PAE, are set
+            self.main.exitError("Paging::getPhysicalAddress: 4mb pages are UNSUPPORTED yet.")
+            return
+        self.pageTableEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned((self.pageDirectoryEntry&0xfffff000)+pageTableOffset, 4) # page table
+    cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress):
+        self.readAddresses(virtualAddress)
+        if (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE):
+            return True
+        return False
+    cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress):
+        self.readAddresses(virtualAddress)
+        if (self.pageDirectoryEntry&PAGE_EVERY_RING and self.pageTableEntry&PAGE_EVERY_RING):
+            return True
+        return False
+    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress):
+        cdef unsigned short pageOffset
+        cdef unsigned int pageDirectoryOffset, pageTableOffset
+        pageDirectoryOffset = (virtualAddress>>22)*4
+        pageTableOffset = ((virtualAddress>>12)&0x3ff)*4
+        pageOffset = virtualAddress&0xfff
+        self.readAddresses(virtualAddress)
+        (<Mm>self.segments.main.mm).mmPhyWriteValue(self.pageDirectoryBaseAddress+pageDirectoryOffset, (self.pageDirectoryEntry | PAGE_WAS_USED), 4) # page directory
+        (<Mm>self.segments.main.mm).mmPhyWriteValue((self.pageDirectoryEntry&0xfffff000)+pageTableOffset, (self.pageTableEntry | PAGE_WAS_USED), 4) # page table
+        return (self.pageTableEntry&0xfffff000)+pageOffset
 
 cdef class Segments:
     def __init__(self, object main):
@@ -285,9 +322,11 @@ cdef class Segments:
     cdef void reset(self):
         self.ldtr = self.tr = 0
         self.A20Active = True # enable A20-line by default.
-        self.protectedModeOn = False
+        self.protectedModeOn = self.pagingOn = False
     cdef unsigned char isInProtectedMode(self):
         return self.protectedModeOn
+    cdef unsigned char isPagingOn(self):
+        return self.pagingOn
     cdef unsigned char getA20State(self):
         return self.A20Active
     cdef void setA20State(self, unsigned char state):
@@ -355,6 +394,7 @@ cdef class Segments:
         self.ldt = Gdt(self)
         self.idt = Idt(self)
         self.tss = Tss(self)
+        self.paging = Paging(self)
         self.cs = Segment(self, CPU_SEGMENT_CS, 0)
         self.ds = Segment(self, CPU_SEGMENT_DS, 0)
         self.es = Segment(self, CPU_SEGMENT_ES, 0)

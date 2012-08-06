@@ -5,6 +5,8 @@ include "globals.pxi"
 cdef class Parallel:
     def __init__(self, object main):
         self.main = main
+    cdef void reset(self):
+        pass
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             pass

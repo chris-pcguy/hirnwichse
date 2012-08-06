@@ -68,16 +68,27 @@ cdef class Tss:
     cdef void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit)
     cdef void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit)
 
+cdef class Paging:
+    cdef Segments segments
+    cdef unsigned int pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
+    cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress)
+    cdef void readAddresses(self, unsigned int virtualAddress)
+    cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress)
+    cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress)
+    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress)
+    
 cdef class Segments:
     cpdef object main
     cdef Gdt gdt, ldt
     cdef Idt idt
     cdef Tss tss
+    cdef Paging paging
     cdef Segment cs, ds, es, fs, gs, ss
-    cdef unsigned char A20Active, protectedModeOn
+    cdef unsigned char A20Active, protectedModeOn, pagingOn
     cdef unsigned short ldtr, tr
     cdef void reset(self)
     cdef unsigned char isInProtectedMode(self)
+    cdef unsigned char isPagingOn(self)
     cdef unsigned char getA20State(self)
     cdef void setA20State(self, unsigned char state)
     cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness)

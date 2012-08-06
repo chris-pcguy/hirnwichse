@@ -1,5 +1,5 @@
 
-cdef class Serial:
+cdef class Ata:
     cpdef object main
     cdef void reset(self)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)

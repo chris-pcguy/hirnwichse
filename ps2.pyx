@@ -76,21 +76,23 @@ cdef class PS2:
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
         cdef unsigned char sc
         cdef bytes scancode
-        ##self.main.debug("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        ###self.main.debug("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         if ((not self.kbdClockEnabled) or (not self.scanningEnabled) or (keyId == 0xff)):
             return
-        ##self.main.debug("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        ###self.main.debug("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         scancode = SCANCODES[keyId][self.currentScancodesSet][keyUp]
         if (self.translateScancodes):
             for sc in scancode:
-                self.appendToOutBytesJustAppend( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
+                #self.appendToOutBytesJustAppend( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
+                self.appendToOutBytesImm( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
         else:
-            self.appendToOutBytesJustAppend(scancode)
-        #self.outb = True
-        #if (self.allowIrq1 and self.kbdClockEnabled):
-        #    self.irq1Requested = True
-        #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
-        self.activateTimer()
+            #self.appendToOutBytesJustAppend(scancode)
+            self.appendToOutBytesImm(scancode)
+        ##self.outb = True
+        ##if (self.allowIrq1 and self.kbdClockEnabled):
+        ##    self.irq1Requested = True
+        ##    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+        #self.activateTimer()
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char retByte
         retByte = 0
@@ -258,6 +260,7 @@ cdef class PS2:
                     outputByte = ((self.irq1Requested << 4) | ((<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).getA20State() << 1) | 0x01)
                     self.appendToOutBytesDoIrq(bytes([outputByte]))
                 elif (data == 0xd1):
+                #elif (data >= 0xd1 and data <= 0xd4):
                     self.needWriteBytes = 1
                 elif (data == 0xdd):
                     (<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).setA20State( False )

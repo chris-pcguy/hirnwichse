@@ -452,7 +452,7 @@ cdef class Opcodes:
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal):
         cdef unsigned char segType
         cdef GdtEntry gdtEntry
-        self.syncProtectedModeState()
+        self.syncCR0State()
         if ((<Segments>self.registers.segments).isInProtectedMode()):
             gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(segVal))
             if (not gdtEntry or not gdtEntry.segPresent):
@@ -1276,10 +1276,9 @@ cdef class Opcodes:
                     self.main.exitError("opcodeGroup0F_01: LMSW: try to switch to real mode from protected mode.")
                     return True
                 self.registers.regWrite(CPU_REGISTER_CR0, ((op1&0xfffffff0)|(op2&0xf)))
-                self.syncProtectedModeState()
+                self.syncCR0State()
             elif (operOpcodeModId == 7): # INVLPG
-                self.main.notice("opcodeGroup0F_01: INVLPG isn't supported yet.")
-                raise ChemuException(CPU_EXCEPTION_UD)
+                (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsigned(CPU_REGISTER_CR3))
             else:
                 self.main.notice("opcodeGroup0F_01: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise ChemuException(CPU_EXCEPTION_UD)
@@ -1340,14 +1339,16 @@ cdef class Opcodes:
             op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_DWORD, True)
             if (self.modRMInstance.regName == CPU_REGISTER_CR0):
                 op1 = self.registers.regReadUnsigned(CPU_REGISTER_CR0) # op1 == old CR0
-                if (op2 & CR0_FLAG_PG):
-                    self.main.exitError("opcodeGroup0F_22: Paging IS NOT SUPPORTED yet.")
-                if ((op2 & CR0_FLAG_PG) and not (op1 & CR0_FLAG_PE)):
+                if (op1 & CR0_FLAG_ET):
+                    op2 |= CR0_FLAG_ET
+                if ((op2 & CR0_FLAG_PG) and not (op2 & CR0_FLAG_PE)):
                     raise ChemuException(CPU_EXCEPTION_GP, 0)
             elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
                 if (op2 & CR4_FLAG_VME):
                     self.main.exitError("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT SUPPORTED yet.")
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
+            if (self.modRMInstance.regName == CPU_REGISTER_CR3):
+                (<Paging>self.registers.segments.paging).invalidateTables(op2)
         elif (operOpcode == 0x23): # MOV DRn, R32
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_DREG)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, self.modRMInstance.modRMLoadUnsigned(OP_SIZE_DWORD, True), OPCODE_SAVE)
@@ -1826,7 +1827,7 @@ cdef class Opcodes:
     cdef int retFar(self, unsigned short imm):
         cdef unsigned char stackAddrSize
         cdef unsigned short espName
-        self.syncProtectedModeState()
+        self.syncCR0State()
         self.stackPopRegId(CPU_REGISTER_EIP)
         self.stackPopSegId(CPU_SEGMENT_CS)
         if (imm):

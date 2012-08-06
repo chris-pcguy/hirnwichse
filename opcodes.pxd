@@ -1,7 +1,7 @@
 
 from misc cimport Misc
-from segments cimport Segments, Gdt, Idt, IdtEntry, GdtEntry
-from registers cimport Registers, ModRMClass
+from segments cimport GdtEntry, IdtEntry, Gdt, Idt, Paging, Segments
+from registers cimport ModRMClass, Registers
 from mm cimport Mm
 
 include "cpu_globals.pxi"
@@ -29,8 +29,9 @@ cdef class Opcodes:
         self.registers.setEFLAG(FLAG_CF, not self.registers.getEFLAG(FLAG_CF))
     cdef inline void hlt(self):
         self.main.cpu.cpuHalted = True
-    cdef inline void syncProtectedModeState(self):
+    cdef inline void syncCR0State(self):
         (<Segments>self.registers.segments).protectedModeOn = self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PE)
+        (<Segments>self.registers.segments).pagingOn = self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PG)
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except -1
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal) except -1

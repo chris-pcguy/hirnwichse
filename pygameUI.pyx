@@ -214,7 +214,8 @@ cdef class PygameUI:
             return 0x3d
         elif (key == pygame.K_SEMICOLON):
             return 0x3e
-        elif (key == pygame.K_EQUALS):
+        #elif (key == pygame.K_EQUALS):
+        elif (key == pygame.K_PLUS):
             return 0x3f
         elif (key == pygame.K_LEFTBRACKET):
             return 0x40

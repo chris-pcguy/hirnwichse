@@ -2,7 +2,7 @@
 include "globals.pxi"
 
 
-cdef class Serial:
+cdef class Ata:
     def __init__(self, object main):
         self.main = main
     cdef void reset(self):

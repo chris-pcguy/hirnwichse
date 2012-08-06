@@ -64,12 +64,14 @@ cdef class Mm:
         mmArea.readOnly = readOnly
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         if (not mmArea or not mmArea.data or not dataSize):
-            self.main.exitError("Mm::mmAreaRead: not mmArea(.data) || not dataSize.")
+            self.main.exitError("Mm::mmAreaRead: not mmArea(.data) || not dataSize. (address: {0:#010x}, dataSize: {1:d})", \
+              mmArea.start+offset, dataSize)
             return b'\xff'*dataSize
         return mmArea.data[offset:offset+dataSize]
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         if (not mmArea or mmArea.readOnly or not mmArea.data or not dataSize):
-            self.main.exitError("Mm::mmAreaWrite: not mmArea(.data) || mmArea.readOnly || not dataSize.")
+            self.main.exitError("Mm::mmAreaWrite: not mmArea(.data) || mmArea.readOnly || not dataSize. (address: {0:#010x}, dataSize: {1:d}, readOnly: {2:d})", \
+              mmArea.start+offset, dataSize, mmArea.readOnly)
             return
         with nogil:
             memcpy(<char*>(mmArea.data+offset), data, dataSize)

@@ -234,6 +234,7 @@ cdef class Registers:
         elif (regId in CPU_REGISTER_QWORD):
             return OP_SIZE_QWORD
         self.main.exitError("regId is unknown! ({0:d})", regId)
+        return 0
     cdef unsigned short segRead(self, unsigned short segId):
         IF STRICT_CHECKS:
             if (not segId or not (segId in CPU_REGISTER_SREG)):
@@ -344,6 +345,7 @@ cdef class Registers:
             return self.regWrite(regId, value)
         else:
             self.main.notice("REGISTERS::regWriteWithOp: unknown valueOp {0:d}.", valueOp)
+        return 0
     cdef unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state):
         if (state):
             return ( value | <unsigned int>(1<<bit) )
@@ -402,6 +404,7 @@ cdef class Registers:
             raise ChemuException(CPU_EXCEPTION_UD)
         return regName
     cdef unsigned char getCond(self, unsigned char index):
+        cdef unsigned int flags
         if (index == 0x0): # O
             return self.getEFLAG(FLAG_OF)!=0
         elif (index == 0x1): # NO
@@ -431,7 +434,8 @@ cdef class Registers:
         elif (index == 0xd): # NL
             return (self.getEFLAG(FLAG_SF_OF) in (0, FLAG_SF_OF))
         elif (index == 0xe): # LE
-            return (self.getEFLAG(FLAG_ZF)!=0 or ((self.getEFLAG(FLAG_SF_OF) in (FLAG_SF, FLAG_OF))) )
+            flags = self.getEFLAG(FLAG_SF_OF_ZF)
+            return ( ((flags&FLAG_ZF)!=0) or ((flags&FLAG_SF_OF) not in (0, FLAG_SF_OF)) )
         elif (index == 0xf): # NLE
             return (self.getEFLAG(FLAG_SF_OF_ZF) in (0, FLAG_SF_OF))
         else:
@@ -534,11 +538,12 @@ cdef class Registers:
                 raise ChemuException(CPU_EXCEPTION_NP, segVal)
         addrInLimit = gdtEntry.isAddressInLimit(mmAddr, dataSize)
         if (write):
-            if ((gdtEntry.segIsCodeSeg or not gdtEntry.segIsRW) or not addrInLimit):
+            if ((gdtEntry.segIsCodeSeg or not gdtEntry.segIsRW) or not addrInLimit or ((<Segments>self.segments).isPagingOn() and not (<Paging>(<Segments>self.segments).paging).writeAccessAllowed(mmAddr))):
                 if (segId == CPU_SEGMENT_SS):
                     raise ChemuException(CPU_EXCEPTION_SS, segVal)
                 else:
                     raise ChemuException(CPU_EXCEPTION_GP, segVal)
+            return True
         else:
             if ((gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) or not addrInLimit):
                 raise ChemuException(CPU_EXCEPTION_GP, segVal)
