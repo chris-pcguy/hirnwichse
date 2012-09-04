@@ -165,7 +165,7 @@ cdef class Platform:
                         retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
                         ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
                         return retVal
-            self.main.notice("Notice: inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
+            self.main.notice("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
             return bitMask
         except:
             print_exc()
@@ -190,7 +190,7 @@ cdef class Platform:
                         ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
                         port.outPort(port.classObject, ioPortAddr, data, dataSize)
                         return
-            self.main.notice("Notice: outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
+            self.main.notice("outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
         except:
             print_exc()
             exit(1)

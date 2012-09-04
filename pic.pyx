@@ -86,7 +86,7 @@ cdef class PicChannel:
                 if (maxIrq == highestPriority):
                     return
                 if (maxIrq > 7):
-                    self.main.exitError("PicChannel::servicePicChannel: error: maxIrq > 7")
+                    self.main.exitError("PicChannel::servicePicChannel: maxIrq > 7")
         unmaskedRequests = self.irr & (~self.imr)
         if (unmaskedRequests):
             irq = highestPriority
@@ -128,7 +128,7 @@ cdef class PicChannel:
     cdef void setIrqBasePort(self, unsigned char irqBasePort):
         self.irqBasePort = irqBasePort
         if (self.irqBasePort & 7):
-            self.main.exitError("Notice: setIrqBasePort: (self.irqBasePort {0:#04x} MODULO 8) != 0. (channel{1:d})", \
+            self.main.exitError("setIrqBasePort: (self.irqBasePort {0:#04x} MODULO 8) != 0. (channel{1:d})", \
                          irqBasePort, self.master==False)
     cdef void setMasterSlaveMap(self, unsigned char value):
         if (self.master):
@@ -138,7 +138,7 @@ cdef class PicChannel:
     cdef void setFlags(self, unsigned char flags):
         self.autoEOI = (flags&2)!=0
         if (not (flags & PIC_FLAG_80x86)):
-            self.main.exitError("Warning: setFlags: flags {0:#04x}, PIC_FLAG_80x86 not set! (channel{1:d})", flags, self.master==False)
+            self.main.exitError("setFlags: flags {0:#04x}, PIC_FLAG_80x86 not set! (channel{1:d})", flags, self.master==False)
     cdef void setNeededRegister(self, unsigned char needRegister):
         self.needRegister = needRegister
     cdef unsigned char getNeededRegister(self):

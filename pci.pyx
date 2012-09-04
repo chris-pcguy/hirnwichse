@@ -21,6 +21,8 @@ DEF PCI_DEVICE_ID_INTEL_440FX = 0x1237
 DEF PCI_HEADER_TYPE_BRIDGE = 1
 DEF PCI_RESET_VALUE = 0x02
 
+cdef unsigned int PCI_MEM_BASE = 0xe0000000
+
 
 cdef class PciAddress:
     def __init__(self, unsigned int address):
