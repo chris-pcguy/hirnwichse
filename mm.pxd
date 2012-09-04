@@ -20,6 +20,7 @@ cdef class Mm:
     cpdef object main
     cdef list mmAreas
     cdef MmArea mmAddArea(self, unsigned int mmBaseAddr, unsigned char mmReadOnly)
+    cdef void mmClearArea(self, MmArea mmArea, unsigned char clearByte)
     cdef void mmDelArea(self, unsigned int mmAddr)
     cdef MmArea mmGetArea(self, unsigned int mmAddr)
     cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)

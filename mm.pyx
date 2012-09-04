@@ -26,12 +26,17 @@ cdef class Mm:
         if (not mmArea.data):
             self.main.exitError("Mm::mmAddArea: not mmArea.data.")
             return None
-        memset(mmArea.data, 0x00, SIZE_1MB)
+        self.mmClearArea(mmArea, 0x00)
         mmArea.readClass  = self
         mmArea.writeClass = self
         mmArea.readHandler  = <MmAreaReadType>self.mmAreaRead
         mmArea.writeHandler = <MmAreaWriteType>self.mmAreaWrite
         return mmArea
+    cdef void mmClearArea(self, MmArea mmArea, unsigned char clearByte):
+        if (not mmArea or not mmArea.data):
+            self.main.exitError("Mm::mmAddArea: not mmArea or not mmArea.data.")
+            return
+        memset(mmArea.data, clearByte, SIZE_1MB)
     cdef void mmDelArea(self, unsigned int addr):
         cdef MmArea mmArea = self.mmGetArea(addr)
         if (mmArea and mmArea.data):

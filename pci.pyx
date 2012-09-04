@@ -2,8 +2,7 @@
 
 include "globals.pxi"
 
-DEF PCI_DEVICE_CONFIG_SIZE  = 256
-DEF PCIE_DEVICE_CONFIG_SIZE = 4096
+DEF PCI_DEVICE_CONFIG_SIZE = 4096
 
 DEF PCI_VENDOR_ID = 0x00
 DEF PCI_DEVICE_ID = 0x02
@@ -26,6 +25,8 @@ DEF PCI_RESET_VALUE = 0x02
 cdef class PciAddress:
     def __init__(self, unsigned int address):
         self.calculateAddress(address)
+    cdef unsigned int getMmAddress(self):
+        return (PCI_MEM_BASE | (self.bus<<20) | (self.device<<15) | (self.function<<12) | (self.register))
     cdef void calculateAddress(self, unsigned int address):
         self.enableBit = (address>>31)
         self.bus = <unsigned char>(address>>16)
@@ -34,31 +35,25 @@ cdef class PciAddress:
         self.register = <unsigned char>address
 
 cdef class PciDevice:
-    def __init__(self, PciBus bus, Pci pci, object main):
+    def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):
         self.bus = bus
         self.pci = pci
         self.main = main
-        self.configSpace = ConfigSpace(PCI_DEVICE_CONFIG_SIZE, self.main)
+        self.deviceIndex = deviceIndex
     cdef void reset(self):
-        if (self.configSpace):
-            self.configSpace.csResetData()
-    cdef unsigned int getData(self, unsigned char function, unsigned char register, unsigned char dataSize):
-        cdef unsigned int bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
-        if (function != 0):
-            self.main.notice("PciDevice::getData: function {0:d} != 0.", function)
-            return bitMask
-        return self.configSpace.csReadValueUnsigned(register, dataSize)
-    cdef void setData(self, unsigned char function, unsigned char register, unsigned int data, unsigned char dataSize):
-        if (function != 0):
-            self.main.notice("PciDevice::getData: function {0:d} != 0.", function)
-            return
-        self.configSpace.csWriteValue(register, data, dataSize)
+        pass
+    cdef inline unsigned int getMmAddress(self, unsigned char bus, unsigned char device, unsigned char function, unsigned short register):
+        return (PCI_MEM_BASE | (bus<<20) | ((device&0x1f)<<15) | ((function&0x7)<<12) | (register))
+    cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize):
+        return (<Mm>self.main.mm).mmPhyReadValueUnsigned(mmAddress, dataSize)
+    cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
+        (<Mm>self.main.mm).mmPhyWriteValue(mmAddress, data, dataSize)
     cdef void setVendorId(self, unsigned short vendorId):
-        self.setData(0, PCI_VENDOR_ID, vendorId, OP_SIZE_WORD)
+        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_VENDOR_ID), vendorId, OP_SIZE_WORD)
     cdef void setDeviceId(self, unsigned short deviceId):
-        self.setData(0, PCI_DEVICE_ID, deviceId, OP_SIZE_WORD)
+        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_DEVICE_ID), deviceId, OP_SIZE_WORD)
     cdef void setClassDevice(self, unsigned short classDevice):
-        self.setData(0, PCI_CLASS_DEVICE, classDevice, OP_SIZE_WORD)
+        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_CLASS_DEVICE), classDevice, OP_SIZE_WORD)
     cdef void setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId):
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
@@ -66,20 +61,21 @@ cdef class PciDevice:
         pass
 
 cdef class PciBridge(PciDevice):
-    def __init__(self, PciBus bus, Pci pci, object main):
-        PciDevice.__init__(self, bus, pci, main)
+    def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):
+        PciDevice.__init__(self, bus, pci, main, deviceIndex)
     cdef void run(self):
         PciDevice.run(self)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
         self.setClassDevice(PCI_CLASS_BRIDGE_HOST)
-        self.setData(0, PCI_PRIMARY_BUS, 0, OP_SIZE_BYTE)
-        self.setData(0, PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
+        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_PRIMARY_BUS), 0, OP_SIZE_BYTE)
+        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_HEADER_TYPE), PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
 
 cdef class PciBus:
-    def __init__(self, Pci pci, object main):
+    def __init__(self, Pci pci, object main, unsigned char busIndex):
         self.pci = pci
         self.main = main
-        self.deviceList = {0x00: PciBridge(self, self.pci, self.main)}
+        self.busIndex = busIndex
+        self.deviceList = {0x00: PciBridge(self, self.pci, self.main, 0)}
     cdef PciDevice getDeviceByIndex(self, unsigned char index):
         cdef PciDevice deviceHandle
         deviceHandle = self.deviceList.get(index)
@@ -89,6 +85,9 @@ cdef class PciBus:
     cdef void run(self):
         cdef unsigned char deviceIndex
         cdef PciDevice deviceHandle
+        cdef MmArea mmArea
+        mmArea = (<Mm>self.main.mm).mmAddArea((PCI_MEM_BASE|(<unsigned int>self.busIndex<<20)), False)
+        (<Mm>self.main.mm).mmClearArea(mmArea, 0xff)
         for deviceIndex, deviceHandle in self.deviceList.items():
             if (deviceHandle):
                 deviceHandle.run()
@@ -101,7 +100,7 @@ cdef class Pci:
         self.main = main
         self.pciReset = False
         self.address = self.elcr1 = self.elcr2 = 0
-        self.busList = {0x00: PciBus(self, self.main)}
+        self.busList = {0x00: PciBus(self, self.main, 0)}
     cdef PciDevice getDevice(self, unsigned char busIndex, unsigned char deviceIndex):
         cdef PciBus busHandle
         cdef PciDevice deviceHandle
@@ -119,8 +118,8 @@ cdef class Pci:
         deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
         if (deviceHandle):
             if (not pciAddressHandle.enableBit):
-                self.main.notice("Pci::readRegister: Warning: tried to read from configSpace without enableBit set.")
-            return deviceHandle.getData(pciAddressHandle.function, pciAddressHandle.register, dataSize)
+                self.main.notice("Pci::readRegister: Warning: tried to read without enableBit set.")
+            return deviceHandle.getData(pciAddressHandle.getMmAddress(), dataSize)
         bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
         return bitMask
     cdef void writeRegister(self, unsigned int address, unsigned int data, unsigned char dataSize):
@@ -130,8 +129,8 @@ cdef class Pci:
         deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
         if (deviceHandle):
             if (not pciAddressHandle.enableBit):
-                self.main.notice("Pci::writeRegister: Warning: tried to write to configSpace without enableBit set.")
-            deviceHandle.setData(pciAddressHandle.function, pciAddressHandle.register, data, dataSize)
+                self.main.notice("Pci::writeRegister: Warning: tried to write without enableBit set.")
+            deviceHandle.setData(pciAddressHandle.getMmAddress(), data, dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0x4d0):
