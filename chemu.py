@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.2
+#!/usr/bin/env python3
 #cython: boundscheck=False
 #cython: wraparound=False
 #cython: cdivision=True

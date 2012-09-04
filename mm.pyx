@@ -77,16 +77,16 @@ cdef class Mm:
             memcpy(<char*>(mmArea.data+offset), data, dataSize)
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
-        cdef unsigned int tempAddr, tempSize, tempDataSize = dataSize
+        cdef unsigned int tempAddr, tempSize, origMmAddr = mmAddr, tempDataSize = dataSize
         cdef bytes data = bytes()
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            self.main.debug("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
             return b'\xff'*dataSize
         tempSize = min(SIZE_1MB, dataSize)
         for mmArea in mmAreas:
             if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyRead: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+                self.main.debug("Mm::mmPhyRead: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
                 return b'\xff'*dataSize
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             tempSize = min(tempSize, tempDataSize)
@@ -97,7 +97,7 @@ cdef class Mm:
             tempDataSize -= tempSize
             tempSize = dataSize-tempSize
         if (tempDataSize):
-            self.main.exitError("Mm::mmPhyRead: tempDataSize: {0:#06x} is not zero.", tempDataSize)
+            self.main.exitError("Mm::mmPhyRead: tempDataSize: {0:#06x} is not zero. (mmAddr: {1:#010x}, dataSize: {2:d})", tempDataSize, origMmAddr, dataSize)
             return b'\xff'*dataSize
         ## assume, that mmArea is set to the last entry in mmAreas
         if (mmAddr-1 > mmArea.end):
@@ -111,15 +111,15 @@ cdef class Mm:
     cdef void mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize):
         cdef MmArea mmArea
         cdef list mmAreas
-        cdef unsigned int tempAddr, tempSize, tempDataSize = dataSize
+        cdef unsigned int tempAddr, tempSize, origMmAddr = mmAddr, tempDataSize = dataSize
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            self.main.debug("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
             return
         tempSize = min(SIZE_1MB, dataSize)
         for mmArea in mmAreas:
             if (not mmArea.writeClass or not mmArea.writeHandler):
-                self.main.debug("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+                self.main.debug("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
                 return
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             tempSize = min(tempSize, tempDataSize)
@@ -130,7 +130,7 @@ cdef class Mm:
             tempDataSize -= tempSize
             tempSize = dataSize-tempSize
         if (tempDataSize):
-            self.main.exitError("Mm::mmPhyWrite: tempDataSize: {0:#06x} is not zero.", tempDataSize)
+            self.main.exitError("Mm::mmPhyWrite: tempDataSize: {0:#06x} is not zero. (mmAddr: {1:#010x}, dataSize: {2:d})", tempDataSize, origMmAddr, dataSize)
         ## assume, that mmArea is set to the last entry in mmAreas
         if (mmAddr-1 > mmArea.end):
             self.main.exitError("Mm::mmPhyWrite: mmAddr overflow")
