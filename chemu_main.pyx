@@ -27,6 +27,8 @@ cdef class ChEmu:
         self.parser.add_argument('--debug', dest='debugEnabled', action='store_true', default=False, help='Debug.')
         self.parser.add_argument('--fdaFilename', dest='fdaFilename', action='store', type=str, default='floppy0.img', help='fdaFilename')
         self.parser.add_argument('--fdbFilename', dest='fdbFilename', action='store', type=str, default='floppy1.img', help='fdbFilename')
+        self.parser.add_argument('--hdaFilename', dest='hdaFilename', action='store', type=str, default='hd0.img', help='hdaFilename')
+        self.parser.add_argument('--hdbFilename', dest='hdbFilename', action='store', type=str, default='hd1.img', help='hdbFilename')
         self.parser.add_argument('--noUI', dest='noUI', action='store_true', default=False, help='Disable UI.')
         self.parser.add_argument('--forceFloppyDiskType', dest='forceFloppyDiskType', action='store', type=int, default=4, help='Force FloppyDiskType: 0==auto detect; 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
         self.cmdArgs = self.parser.parse_args(argv[1:])
@@ -39,6 +41,8 @@ cdef class ChEmu:
         self.vgaBiosFilename = self.cmdArgs.vgaBiosFilename.encode() # filename, default: 'vgabios.bin'
         self.fdaFilename = self.cmdArgs.fdaFilename.encode() # default: ''
         self.fdbFilename = self.cmdArgs.fdbFilename.encode() # default: ''
+        self.hdaFilename = self.cmdArgs.hdaFilename.encode() # default: ''
+        self.hdbFilename = self.cmdArgs.hdbFilename.encode() # default: ''
         self.forceFloppyDiskType    = self.cmdArgs.forceFloppyDiskType
         self.memSize = self.cmdArgs.memSize
     cpdef quitFunc(self):

@@ -1,6 +1,6 @@
 
 from os import access, F_OK, R_OK, W_OK
-from os.path import exists, getsize
+from os.path import getsize
 
 # This file contains (much) code from the Bochs Emulator (c) by it's developers
 
@@ -96,8 +96,6 @@ cdef class FloppyDrive:
         self.isWriteProtected = True
         self.DIR = 0
         self.cylinder = self.head = self.sector = self.eot = 0
-    cdef unsigned char getIsLoaded(self):
-        return self.isLoaded
     cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector):
         return (cylinder*self.media.heads*self.media.sectorsPerTrack)+(head*self.media.sectorsPerTrack)+(sector-1)
     cdef unsigned char getDiskType(self, unsigned int size):
@@ -645,8 +643,8 @@ cdef class FloppyController:
         if (self.controllerId == 0):
             if (self.main.fdaFilename): (<FloppyDrive>self.drive[0]).loadDrive(self.main.fdaFilename)
             if (self.main.fdbFilename): (<FloppyDrive>self.drive[1]).loadDrive(self.main.fdbFilename)
-            fdaLoaded = (<FloppyDrive>self.drive[0]).getIsLoaded()
-            fdbLoaded = (<FloppyDrive>self.drive[1]).getIsLoaded()
+            fdaLoaded = (<FloppyDrive>self.drive[0]).isLoaded
+            fdbLoaded = (<FloppyDrive>self.drive[1]).isLoaded
             cmosVal = (<Cmos>self.main.platform.cmos).readValue(CMOS_EQUIPMENT_BYTE, OP_SIZE_BYTE)
             if (fdaLoaded or fdbLoaded):
                 cmosVal |= 0x1

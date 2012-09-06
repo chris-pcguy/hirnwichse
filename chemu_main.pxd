@@ -15,7 +15,7 @@ cdef class ChEmu:
     cdef public Cpu cpu
     cdef public unsigned char quitEmu, debugEnabled, exitIfCpuHalted, noUI, exitOnTripleFault, forceFloppyDiskType
     cdef public unsigned int memSize
-    cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename
+    cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename
     cpdef parseArgs(self)
     cpdef quitFunc(self)
     cpdef runThreadFunc(self)
