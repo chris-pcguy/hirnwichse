@@ -16,11 +16,11 @@ cdef class PythonBios:
                             updateCursor, c, attr, attrInBuf, sector, head, tempByte
         cdef bytes data
         #return False
-        ax = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_AX)
-        cx = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_CX)
-        dx = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_DX)
-        bx = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_BX)
-        bp = (<Registers>self.main.cpu.registers).regReadUnsigned(CPU_REGISTER_BP)
+        ax = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_AX)
+        cx = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_CX)
+        dx = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_DX)
+        bx = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_BX)
+        bp = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_BP)
         ah, al = ax>>8, <unsigned char>ax
         ch, cl = cx>>8, <unsigned char>cx
         dh, dl = dx>>8, <unsigned char>dx
@@ -35,17 +35,17 @@ cdef class PythonBios:
             elif (ah == 0x03): # get cursor position
                 dx = (<Vga>self.main.platform.vga).getCursorPosition(bh)
                 cx = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURSOR_TYPE_ADDR, 2)
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DX, dx)
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, cx)
+                (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_DX, dx)
+                (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_CX, cx)
                 return True
             elif (ah == 0x06): # scroll up
                 (<Vga>self.main.platform.vga).scrollUp(0xff, bh, al)
                 return True
             elif (ah == 0x0f): # get currMode; write it to AL
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AL, (currMode|\
+                (<Registers>self.main.cpu.registers).regWriteLowByte(CPU_REGISTER_AL, (currMode|\
                     ((<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_VIDEO_CTL_ADDR, 1)&0x80)))
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AH, 80) # number of columns
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BH, (<Vga>self.main.platform.vga).getCorrectPage(0xff))
+                (<Registers>self.main.cpu.registers).regWriteHighByte(CPU_REGISTER_AH, 80) # number of columns
+                (<Registers>self.main.cpu.registers).regWriteHighByte(CPU_REGISTER_BH, (<Vga>self.main.platform.vga).getCorrectPage(0xff))
                 return True
             elif (currMode <= 0x7 or currMode in (0x12, 0x13)):
                 if (ah in (0x09, 0x0a, 0x0e)): # AH in (0x09, 0x0A, 0x0E) / PRINT CHARACTER
@@ -128,18 +128,18 @@ cdef class PythonBios:
                 if ((fdCount & 0x0f) != 0):
                     fdCount += 1
                 if (dl > 1):
-                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_AX, 0)
-                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BX, 0)
-                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, 0)
-                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DX, fdCount)
+                    (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_AX, 0)
+                    (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_BX, 0)
+                    (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_CX, 0)
+                    (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_DX, fdCount)
                     (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_ES, 0)
-                    (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DI, 0)
+                    (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_DI, 0)
                     (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, True)
                     return True
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DH, \
+                (<Registers>self.main.cpu.registers).regWriteHighByte(CPU_REGISTER_DH, \
                     ((<FloppyMedia>(<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).heads-1))
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DL, fdCount)
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_CX, \
+                (<Registers>self.main.cpu.registers).regWriteLowByte(CPU_REGISTER_DL, fdCount)
+                (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_CX, \
                     ((<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).tracks<<8) | \
                     (<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).sectorsPerTrack)))
                 # fdCount is fdType here.
@@ -148,10 +148,10 @@ cdef class PythonBios:
                     fdCount >>= 4
                 elif (dl == 1):
                     fdCount &= 0x0f
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_BX, fdCount)
+                (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_BX, fdCount)
                 memAddr = (<Mm>self.main.mm).mmPhyReadValueUnsigned((0x78), OP_SIZE_DWORD) # INT 0x1E: 0x78==OFFSET; 0x7A==SEGMENT
                 (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_ES, (memAddr>>16))
-                (<Registers>self.main.cpu.registers).regWrite(CPU_REGISTER_DI, <unsigned short>memAddr)
+                (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_DI, <unsigned short>memAddr)
                 self.setRetError(False, 0)
                 return True
             elif (not (dl & 0x80)):
@@ -162,7 +162,7 @@ cdef class PythonBios:
         return False
     cdef void setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy
         (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, newCF )
-        (<Registers>self.main.cpu.registers).regWrite( CPU_REGISTER_AX, ax )
+        (<Registers>self.main.cpu.registers).regWriteWord( CPU_REGISTER_AX, ax )
         (<Mm>self.main.mm).mmPhyWriteValue(DISKETTE_RET_STATUS_ADDR, ax>>8, OP_SIZE_BYTE)
     cdef void run(self):
         pass

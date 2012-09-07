@@ -191,9 +191,8 @@ cdef class GDBStubHandler:
             maxRegNum = GDB_NUM_REGISTERS
             hexToSend = bytes()
             while (currRegNum < maxRegNum and not self.main.quitEmu):
-                regOffset = ((CPU_MIN_REGISTER//5)+currRegNum)*8
-                currData = (<ConfigSpace>self.main.cpu.registers.regs).csRead(regOffset+4, OP_SIZE_DWORD)
-                hexToSend += self.bytesToHex(bytes(currData[::-1]))
+                currData = (<Registers>self.main.cpu.registers).regReadUnsignedDword(currRegNum).to_bytes(OP_SIZE_DWORD, 'little')
+                hexToSend += self.bytesToHex(currData)
                 currRegNum += 1
             if (len(hexToSend) != SEND_REGHEX_SIZE):
                 self.main.notice('GDBStubHandler::handleCommand: hexToSend_len({0:d}) != SEND_REGHEX_SIZE({1:d})', len(hexToSend), SEND_REGHEX_SIZE)
@@ -203,16 +202,15 @@ cdef class GDBStubHandler:
             maxRegNum = GDB_NUM_REGISTERS
             data = data[1:]
             while (currRegNum < maxRegNum and not self.main.quitEmu):
-                dataOffset = currRegNum*8
-                if (currRegNum*5 >= CPU_MAX_REGISTER_WO_CR):
+                if (currRegNum >= CPU_REGISTERS):
                     break
-                regOffset = ((CPU_MIN_REGISTER//5)+currRegNum)*8
+                dataOffset = currRegNum*8
                 currData = self.hexToBytes(data[dataOffset:dataOffset+8]) # currData is bytes/DWORD
                 if (len(currData) != 4):
                     self.main.exitError("GDBStubHandler::handleCommand: len(currData)!=4; currData isn't DWORD.")
                     return
                 regVal = int.from_bytes(bytes=currData, byteorder="little", signed=False)
-                (<ConfigSpace>self.main.cpu.registers.regs).csWriteValueBE(regOffset, regVal, OP_SIZE_QWORD)
+                (<Registers>self.main.cpu.registers).regWriteDword(currRegNum, regVal)
                 currRegNum += 1
             self.putPacket(b'OK')
         elif (data.startswith(b'm')):

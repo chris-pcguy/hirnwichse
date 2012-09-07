@@ -1,7 +1,7 @@
 
 from misc cimport Misc
-from mm cimport Mm, ConfigSpace
-
+from mm cimport Mm
+from registers cimport Registers
 
 cdef class GDBStubHandler:
     cpdef object main, connHandler

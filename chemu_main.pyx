@@ -25,6 +25,7 @@ cdef class ChEmu:
         self.parser.add_argument('-L', dest='romPath', action='store', type=str, default='./bios', help='romPath')
         self.parser.add_argument('-x', dest='exitIfCpuHalted', action='store_true', default=False, help='Exit if CPU if halted')
         self.parser.add_argument('--debug', dest='debugEnabled', action='store_true', default=False, help='Debug.')
+        self.parser.add_argument('--debugHalt', dest='debugHalt', action='store_true', default=False, help='Start with halted CPU')
         self.parser.add_argument('--fdaFilename', dest='fdaFilename', action='store', type=str, default='floppy0.img', help='fdaFilename')
         self.parser.add_argument('--fdbFilename', dest='fdbFilename', action='store', type=str, default='floppy1.img', help='fdbFilename')
         self.parser.add_argument('--hdaFilename', dest='hdaFilename', action='store', type=str, default='hd0.img', help='hdaFilename')
@@ -35,6 +36,7 @@ cdef class ChEmu:
 
         self.exitIfCpuHalted = self.cmdArgs.exitIfCpuHalted
         self.debugEnabled    = self.cmdArgs.debugEnabled
+        self.debugHalt    = self.cmdArgs.debugHalt
         self.noUI    = self.cmdArgs.noUI
         self.romPath = self.cmdArgs.romPath.encode() # default: './bios'
         self.biosFilename = self.cmdArgs.biosFilename.encode() # filename, default: 'bios.bin'

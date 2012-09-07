@@ -30,8 +30,8 @@ cdef class Opcodes:
     cdef inline void hlt(self):
         self.main.cpu.cpuHalted = True
     cdef inline void syncCR0State(self):
-        (<Segments>self.registers.segments).protectedModeOn = self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PE)
-        (<Segments>self.registers.segments).pagingOn = self.registers.getFlag(CPU_REGISTER_CR0, CR0_FLAG_PG)
+        (<Segments>self.registers.segments).protectedModeOn = self.registers.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE)
+        (<Segments>self.registers.segments).pagingOn = self.registers.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PG)
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except -1
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal) except -1
@@ -67,7 +67,7 @@ cdef class Opcodes:
     cdef int pushfWD(self) except -1
     cdef int popfWD(self) except -1
     cdef int stackPopSegId(self, unsigned short segId) except -1
-    cdef int stackPopRegId(self, unsigned short regId) except -1
+    cdef int stackPopRegId(self, unsigned short regId, unsigned char regSize) except -1
     cdef unsigned int stackPopValue(self, unsigned char increaseStackAddr)
     cdef int stackPushValue(self, unsigned int value, unsigned char operSize) except -1
     cdef int stackPushSegId(self, unsigned short segId, unsigned char operSize) except -1
@@ -120,7 +120,7 @@ cdef class Opcodes:
     cdef int opcodeGroup4_RM(self, unsigned char operSize, unsigned char method) except -1
     cdef int sahf(self) except -1
     cdef int lahf(self) except -1
-    cdef int xchgFuncReg(self, unsigned short regName, unsigned short regName2) except -1
+    cdef int xchgFuncReg(self, unsigned short regName, unsigned short regName2, unsigned char regSize) except -1
     cdef int xchgReg(self) except -1
     cdef int xchgR_RM(self, unsigned char operSize) except -1
     cdef int enter(self) except -1
