@@ -569,7 +569,7 @@ cdef class Opcodes:
         if (operSize == OP_SIZE_BYTE and rReg <= 0x3):
             self.registers.regWriteLowByte(rReg, src)
         elif (operSize == OP_SIZE_BYTE and rReg >= 0x4):
-            self.registers.regWriteHighByte(rReg-4, src)
+            self.registers.regWriteHighByte(rReg&3, src)
         elif (operSize == OP_SIZE_WORD):
             self.registers.regWriteWord(rReg, src)
         elif (operSize == OP_SIZE_DWORD):

@@ -53,7 +53,7 @@ cdef class ModRMClass:
         if (self.mod == 3): # if mod==3, then: reg is source ; rm is dest
             self.regSize = regSize
             if (regSize == OP_SIZE_BYTE):
-                self.rmName0 = CPU_MODRM_8BIT[self.rm]
+                self.rmName0 = self.rm&3
             else:
                 self.rmName0 = self.rm # rm
         else:
@@ -672,7 +672,7 @@ cdef class Registers:
             regName = CPU_REGISTER_DREG[reg]
         else:
             if (operSize == OP_SIZE_BYTE):
-                regName = CPU_MODRM_8BIT[reg]
+                regName = reg&3
             else:
                 regName = reg
         if (regName == CPU_REGISTER_NONE):
