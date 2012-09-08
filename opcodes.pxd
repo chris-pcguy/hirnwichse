@@ -47,16 +47,30 @@ cdef class Opcodes:
     cdef int movSREG_RM16(self) except -1
     cdef int movAxMoffs(self, unsigned char operSize) except -1
     cdef int movMoffsAx(self, unsigned char operSize) except -1
+    cdef int stosFuncWord(self, unsigned char operSize) except -1
+    cdef int stosFuncDword(self, unsigned char operSize) except -1
     cdef int stosFunc(self, unsigned char operSize) except -1
+    cdef int movsFuncWord(self, unsigned char operSize) except -1
+    cdef int movsFuncDword(self, unsigned char operSize) except -1
     cdef int movsFunc(self, unsigned char operSize) except -1
+    cdef int lodsFuncWord(self, unsigned char operSize) except -1
+    cdef int lodsFuncDword(self, unsigned char operSize) except -1
     cdef int lodsFunc(self, unsigned char operSize) except -1
+    cdef int cmpsFuncWord(self, unsigned char operSize) except -1
+    cdef int cmpsFuncDword(self, unsigned char operSize) except -1
     cdef int cmpsFunc(self, unsigned char operSize) except -1
+    cdef int scasFuncWord(self, unsigned char operSize) except -1
+    cdef int scasFuncDword(self, unsigned char operSize) except -1
     cdef int scasFunc(self, unsigned char operSize) except -1
     cdef int inAxImm8(self, unsigned char operSize) except -1
     cdef int inAxDx(self, unsigned char operSize) except -1
     cdef int outImm8Ax(self, unsigned char operSize) except -1
     cdef int outDxAx(self, unsigned char operSize) except -1
+    cdef int outsFuncWord(self, unsigned char operSize) except -1
+    cdef int outsFuncDword(self, unsigned char operSize) except -1
     cdef int outsFunc(self, unsigned char operSize) except -1
+    cdef int insFuncWord(self, unsigned char operSize) except -1
+    cdef int insFuncDword(self, unsigned char operSize) except -1
     cdef int insFunc(self, unsigned char operSize) except -1
     cdef int jcxzShort(self) except -1
     cdef int jumpShort(self, unsigned char offsetSize, unsigned char cond) except -1
@@ -120,7 +134,8 @@ cdef class Opcodes:
     cdef int opcodeGroup4_RM(self, unsigned char operSize, unsigned char method) except -1
     cdef int sahf(self) except -1
     cdef int lahf(self) except -1
-    cdef int xchgFuncReg(self, unsigned short regName, unsigned short regName2, unsigned char regSize) except -1
+    cdef int xchgFuncRegWord(self, unsigned short regName, unsigned short regName2) except -1
+    cdef int xchgFuncRegDword(self, unsigned short regName, unsigned short regName2) except -1
     cdef int xchgReg(self) except -1
     cdef int xchgR_RM(self, unsigned char operSize) except -1
     cdef int enter(self) except -1
