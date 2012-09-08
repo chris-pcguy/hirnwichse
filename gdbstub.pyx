@@ -141,8 +141,8 @@ cdef class GDBStubHandler:
         cdef bytes returnValue = bytes()
         cdef unsigned int i = 0
         cdef unsigned int dataLen = len(data)
-        if ((dataLen % 2) != 0):
-            self.main.exitError('GDBStubHandler::hexToBytes: (dataLen % 2) != 0')
+        if ((dataLen & 1) == 1):
+            self.main.exitError('GDBStubHandler::hexToBytes: (dataLen & 1) == 1')
         while (i < dataLen and not self.main.quitEmu):
             returnValue += self.hexToByte(data[i:i+2])
             i += 2

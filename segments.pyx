@@ -120,17 +120,16 @@ cdef class Gdt:
         if (not num):
             ##self.segments.main.debug("GDT::getEntry: num == 0!")
             return None
-        entryData = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(self.tableBase+num, 8)
+        entryData = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(self.tableBase+num)
         return GdtEntry(self, entryData)
     cdef unsigned char getSegSize(self, unsigned short num):
         return self.getEntry(num).segSize
     cdef unsigned char getSegType(self, unsigned short num):
-        return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(num+5, \
-          OP_SIZE_BYTE) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
+        return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsignedByte(num+5) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
     cdef void setSegType(self, unsigned short num, unsigned char segmentType):
-        (<Mm>self.segments.main.mm).mmPhyWriteValue(num+5, (((<Mm>self.segments.main.mm).\
-          mmPhyReadValueUnsigned(num+5, OP_SIZE_BYTE) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
-            (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)), OP_SIZE_BYTE)
+        (<Mm>self.segments.main.mm).mmPhyWriteValueByte(num+5, (((<Mm>self.segments.main.mm).\
+          mmPhyReadValueUnsignedByte(num+5) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
+            (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)))
     cdef unsigned char isSegPresent(self, unsigned short num):
         return self.getEntry(num).segPresent
     cdef unsigned char isCodeSeg(self, unsigned short num):
@@ -246,7 +245,7 @@ cdef class Idt:
     cdef IdtEntry getEntry(self, unsigned char num):
         if (not self.tableLimit):
             self.segments.main.exitError("Idt::getEntry: tableLimit is zero.")
-        return IdtEntry(<unsigned long int>(<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(self.tableBase+(num*8), 8))
+        return IdtEntry(<unsigned long int>(<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(self.tableBase+(num*8)))
     cdef unsigned char isEntryPresent(self, unsigned char num):
         return self.getEntry(num).entryPresent
     cdef unsigned char getEntryNeededDPL(self, unsigned char num):
@@ -257,8 +256,8 @@ cdef class Idt:
     cdef void getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip):
         cdef unsigned short offset
         offset = num*4 # Don't use ConfigSpace here.
-        entryEip[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset, 2)
-        entrySegment[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(offset+2, 2)
+        entryEip[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedWord(offset)
+        entrySegment[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedWord(offset+2)
 
 
 
@@ -286,14 +285,14 @@ cdef class Paging:
         pageDirectoryOffset = (virtualAddress>>22)*4
         pageTableOffset = ((virtualAddress>>12)&0x3ff)*4
         pageOffset = virtualAddress&0xfff
-        self.pageDirectoryEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned(self.pageDirectoryBaseAddress+pageDirectoryOffset, 4) # page directory
+        self.pageDirectoryEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress+pageDirectoryOffset) # page directory
         if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4mb page
             # size is 4mb if CR4/PSE is set
             # size is 2mb if CR4/PAE is set
             # I don't know which size is used if both, CR4/PSE && CR4/PAE, are set
             self.main.exitError("Paging::getPhysicalAddress: 4mb pages are UNSUPPORTED yet.")
             return
-        self.pageTableEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsigned((self.pageDirectoryEntry&0xfffff000)+pageTableOffset, 4) # page table
+        self.pageTableEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword((self.pageDirectoryEntry&0xfffff000)+pageTableOffset) # page table
     cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress):
         self.readAddresses(virtualAddress)
         if (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE):
@@ -311,8 +310,8 @@ cdef class Paging:
         pageTableOffset = ((virtualAddress>>12)&0x3ff)*4
         pageOffset = virtualAddress&0xfff
         self.readAddresses(virtualAddress)
-        (<Mm>self.segments.main.mm).mmPhyWriteValue(self.pageDirectoryBaseAddress+pageDirectoryOffset, (self.pageDirectoryEntry | PAGE_WAS_USED), 4) # page directory
-        (<Mm>self.segments.main.mm).mmPhyWriteValue((self.pageDirectoryEntry&0xfffff000)+pageTableOffset, (self.pageTableEntry | PAGE_WAS_USED), 4) # page table
+        (<Mm>self.segments.main.mm).mmPhyWriteValueDword(self.pageDirectoryBaseAddress+pageDirectoryOffset, (self.pageDirectoryEntry | PAGE_WAS_USED)) # page directory
+        (<Mm>self.segments.main.mm).mmPhyWriteValueDword((self.pageDirectoryEntry&0xfffff000)+pageTableOffset, (self.pageTableEntry | PAGE_WAS_USED)) # page table
         return (self.pageTableEntry&0xfffff000)+pageOffset
 
 cdef class Segments:

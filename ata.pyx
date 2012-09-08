@@ -123,8 +123,10 @@ cdef class AtaController:
                 else:
                     ret = (self.driveBusy << 7) | (self.driveReady << 6) | (self.seekComplete << 4) | (self.drq << 3) | \
                         (self.err)
-                    if (self.irq):
-                        (<Pic>self.main.platform.pic).lowerIrq(self.irq)
+                if (ioPortAddr == 0x7 and self.irq):
+                    (<Pic>self.main.platform.pic).lowerIrq(self.irq)
+            elif (ioPortAddr == 0x1ff or ioPortAddr == 0x207):
+                return BITMASK_BYTE
             else:
                 self.main.notice("AtaController::inPort: controllerId: {0:d}; ioPortAddr: {1:#06x}; dataSize: {2:d}", self.controllerId, ioPortAddr, dataSize)
         else:

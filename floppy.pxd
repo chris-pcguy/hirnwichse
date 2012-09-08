@@ -1,5 +1,6 @@
 
 from cmos cimport Cmos
+from ata cimport Ata
 from isadma cimport IsaDma, IsaDmaChannel, ReadFromMem, WriteToMem
 from pic cimport Pic
 

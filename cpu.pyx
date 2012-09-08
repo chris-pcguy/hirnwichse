@@ -107,7 +107,7 @@ cdef class Cpu:
                 self.registers.repPrefix = opcode
             ### TODO: I don't think, that we ever need lockPrefix.
             ##elif (opcode == OPCODE_PREFIX_LOCK):
-            opcode = self.registers.getCurrentOpcodeAddUnsigned(OP_SIZE_BYTE)
+            opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
         return opcode
     cpdef cpuDump(self):
         self.main.notice("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EAX), \
