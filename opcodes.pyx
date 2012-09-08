@@ -2450,12 +2450,12 @@ cdef class Opcodes:
         return True
     cdef int leave(self):
         cdef unsigned char stackAddrSize
-        stackAddrSize = self.registers.getSegSize(CPU_SEGMENT_SS)
+        stackAddrSize = self.registers.getAddrSegSize(CPU_SEGMENT_SS)
         if (stackAddrSize == OP_SIZE_WORD):
             self.registers.regWriteWord(CPU_REGISTER_SP, self.registers.regReadUnsignedWord(CPU_REGISTER_BP))
         elif (stackAddrSize == OP_SIZE_DWORD):
             self.registers.regWriteDword(CPU_REGISTER_ESP, self.registers.regReadUnsignedDword(CPU_REGISTER_EBP))
-        self.stackPopRegId(CPU_REGISTER_BP, OP_SIZE_WORD)
+        self.stackPopRegId(CPU_REGISTER_EBP, self.registers.operSize)
         return True
     cdef int cmovFunc(self, unsigned char cond): # R16, R/M 16; R32, R/M 32
         self.movR_RM(self.registers.operSize, cond)
