@@ -240,6 +240,9 @@ cdef class Platform:
             self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
         (<Mm>self.main.mm).mmSetReadOnly(0xfff00000, True)
         biosMmArea = (<Mm>self.main.mm).mmGetArea(0x0) # this would include the whole first megabyte.
+        if (biosMmArea is None or not biosMmArea.valid):
+            self.main.exitError("X86Platform::initMemory: biosMmArea is invalid!")
+            return
         biosMmArea.writeClass = self
         biosMmArea.writeHandler = <MmAreaWriteType>self.systemWriteHandler
     cdef void initDevicesPorts(self):

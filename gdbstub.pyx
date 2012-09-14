@@ -160,6 +160,7 @@ cdef class GDBStubHandler:
         cdef unsigned char cpuType, singleStepOn, res
         cdef list memList, actionList
         cdef bytes currData, hexToSend, action
+        cdef MmArea mmArea
         if (not len(data)):
             self.main.notice("INFO: GDBStubHandler::handleCommand: data is empty, don't do anything.")
             return
@@ -220,7 +221,8 @@ cdef class GDBStubHandler:
             hexToSend = bytes()
             while (memLength != 0 and not self.main.quitEmu):
                 blockSize = min(memLength, MAX_PACKET_DATA_SIZE)
-                if ((<Mm>self.main.mm).mmGetArea(memAddr)):
+                mmArea = (<Mm>self.main.mm).mmGetArea(memAddr)
+                if (mmArea is not None and mmArea.valid):
                     currData = (<Mm>self.main.mm).mmPhyRead(memAddr, blockSize)
                 else:
                     currData = b'\x00'*blockSize

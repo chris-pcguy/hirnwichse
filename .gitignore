@@ -2,6 +2,7 @@ __pycache__
 bios
 bochsrc*
 memdump*
+*.bak
 *.log
 *.pyc
 *.sh

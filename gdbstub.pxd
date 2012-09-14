@@ -1,6 +1,6 @@
 
 from misc cimport Misc
-from mm cimport Mm
+from mm cimport Mm, MmArea
 from registers cimport Registers
 
 cdef class GDBStubHandler:
