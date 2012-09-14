@@ -190,8 +190,8 @@ cdef class AtaController:
         if (self.controllerId == 0):
             if (self.main.hdaFilename): (<AtaDrive>self.drive[0]).loadDrive(self.main.hdaFilename)
             if (self.main.hdbFilename): (<AtaDrive>self.drive[1]).loadDrive(self.main.hdbFilename)
-            fdaLoaded = (<AtaDrive>self.drive[0]).getIsLoaded()
-            fdbLoaded = (<AtaDrive>self.drive[1]).getIsLoaded()
+            hdaLoaded = (<AtaDrive>self.drive[0]).isLoaded
+            hdbLoaded = (<AtaDrive>self.drive[1]).isLoaded
             #cmosVal = (<Cmos>self.main.platform.cmos).readValue(CMOS_EQUIPMENT_BYTE, OP_SIZE_BYTE)
             #if (fdaLoaded or fdbLoaded):
             #    cmosVal |= 0x1
@@ -229,6 +229,8 @@ cdef class Ata:
         elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
             (<AtaController>self.controller[3]).outPort(ioPortAddr-ATA4_BASE, data, dataSize)
     cdef void run(self):
-        pass
+        cdef AtaController controller
+        for controller in self.controller:
+            controller.run()
 
 

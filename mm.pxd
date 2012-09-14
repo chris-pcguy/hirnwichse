@@ -7,12 +7,12 @@ ctypedef bytes (*MmAreaReadType)(self, MmArea, unsigned int, unsigned int)
 ctypedef void (*MmAreaWriteType)(self, MmArea, unsigned int, char *, unsigned int)
 
 cdef class MmArea:
-    cdef unsigned char readOnly
+    cdef unsigned char readOnly, valid
     cdef unsigned int start, end
     cdef char *data
     cdef object readClass
-    cdef MmAreaReadType readHandler
     cdef object writeClass
+    cdef MmAreaReadType readHandler
     cdef MmAreaWriteType writeHandler
 
 

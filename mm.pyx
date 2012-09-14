@@ -6,6 +6,11 @@ include "cpu_globals.pxi"
 
 DEF MM_NUMAREAS = 4096
 
+cdef class MmArea:
+    def __init__(self):
+        self.valid = False
+        self.data = NULL
+
 cdef class Mm:
     def __init__(self, object main):
         cdef unsigned int i
@@ -16,6 +21,7 @@ cdef class Mm:
     cdef MmArea mmAddArea(self, unsigned int start, unsigned char readOnly):
         cdef MmArea mmArea
         mmArea = self.mmGetArea(start)
+        mmArea.valid = True
         mmArea.start = start
         mmArea.end  = mmArea.start+SIZE_1MB-1
         mmArea.readOnly = readOnly
@@ -23,7 +29,7 @@ cdef class Mm:
             self.main.exitError("Mm::mmAddArea: mem-address overflow.")
             return None
         mmArea.data = <char*>malloc(SIZE_1MB)
-        if (not mmArea.data):
+        if (mmArea.data is NULL):
             self.main.exitError("Mm::mmAddArea: not mmArea.data.")
             return None
         self.mmClearArea(mmArea, 0x00)
@@ -33,16 +39,16 @@ cdef class Mm:
         mmArea.writeHandler = <MmAreaWriteType>self.mmAreaWrite
         return mmArea
     cdef void mmClearArea(self, MmArea mmArea, unsigned char clearByte):
-        if (not mmArea or not mmArea.data):
-            self.main.exitError("Mm::mmAddArea: not mmArea or not mmArea.data.")
+        if (not mmArea.valid or mmArea.data is NULL):
+            self.main.exitError("Mm::mmClearArea: not mmArea or not mmArea.data.")
             return
         memset(mmArea.data, clearByte, SIZE_1MB)
     cdef void mmDelArea(self, unsigned int addr):
         cdef MmArea mmArea = self.mmGetArea(addr)
-        if (mmArea and mmArea.data):
+        if (mmArea.valid and mmArea.data is not NULL):
             free(mmArea.data)
-            mmArea.data = None
-        mmArea = None
+            mmArea.data = NULL
+        mmArea.valid = False
     cdef MmArea mmGetArea(self, unsigned int addr):
         addr >>= 20
         if (addr >= MM_NUMAREAS):
@@ -51,16 +57,17 @@ cdef class Mm:
     cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
         cdef list mmAreas
-        cdef unsigned int begin, end, count, i
+        cdef unsigned short begin, end, count, i
         mmAreas = []
         end = (mmAddr+dataSize-1) >> 20
         begin = (mmAddr) >> 20
         count = end-begin+1
+        if (begin+count > MM_NUMAREAS):
+            self.main.notice("Mm::mmGetAreas: begin+count >= MM_NUMAREAS")
+            return mmAreas
         for i in range(count):
-            if (begin+i >= MM_NUMAREAS):
-                break
             mmArea = self.mmAreas[begin+i]
-            if (not mmArea):
+            if (not mmArea.valid):
                 continue
             mmAreas.append(mmArea)
         return mmAreas
@@ -68,13 +75,13 @@ cdef class Mm:
         cdef MmArea mmArea = self.mmGetArea(addr)
         mmArea.readOnly = readOnly
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
-        if (not mmArea or not mmArea.data or not dataSize):
+        if (not mmArea.valid or mmArea.data is NULL or not dataSize):
             self.main.exitError("Mm::mmAreaRead: not mmArea(.data) || not dataSize. (address: {0:#010x}, dataSize: {1:d})", \
               mmArea.start+offset, dataSize)
             return b'\xff'*dataSize
         return mmArea.data[offset:offset+dataSize]
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
-        if (not mmArea or mmArea.readOnly or not mmArea.data or not dataSize):
+        if (not mmArea.valid or mmArea.readOnly or mmArea.data is NULL or not dataSize):
             self.main.exitError("Mm::mmAreaWrite: not mmArea(.data) || mmArea.readOnly || not dataSize. (address: {0:#010x}, dataSize: {1:d}, readOnly: {2:d})", \
               mmArea.start+offset, dataSize, mmArea.readOnly)
             return
@@ -86,12 +93,12 @@ cdef class Mm:
         cdef bytes data = bytes()
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
+            self.main.notice("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
             return b'\xff'*dataSize
         tempSize = min(SIZE_1MB, dataSize)
         for mmArea in mmAreas:
-            if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyRead: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyRead: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
                 return b'\xff'*dataSize
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             tempSize = min(tempSize, tempDataSize)
@@ -116,11 +123,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyReadValueSignedByte: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
+            self.main.notice("Mm::mmPhyReadValueSignedByte: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyReadValueSignedByte: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyReadValueSignedByte: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             data = int.from_bytes(<bytes>(mmArea.readHandler(mmArea.readClass, mmArea, tempAddr, dataSize)), byteorder="little", signed=True)
@@ -133,11 +140,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyReadValueSignedWord: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
+            self.main.notice("Mm::mmPhyReadValueSignedWord: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyReadValueSignedWord: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyReadValueSignedWord: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
@@ -152,11 +159,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyReadValueSignedDword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
+            self.main.notice("Mm::mmPhyReadValueSignedDword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyReadValueSignedDword: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyReadValueSignedDword: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
@@ -171,11 +178,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyReadValueSignedQword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
+            self.main.notice("Mm::mmPhyReadValueSignedQword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyReadValueSignedQword: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyReadValueSignedQword: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
@@ -191,11 +198,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyReadValueUnsignedByte: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
+            self.main.notice("Mm::mmPhyReadValueUnsignedByte: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyReadValueUnsignedByte: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyReadValueUnsignedByte: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             data = int.from_bytes(<bytes>(mmArea.readHandler(mmArea.readClass, mmArea, tempAddr, dataSize)), byteorder="little", signed=False)
@@ -208,11 +215,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyReadValueUnsignedWord: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
+            self.main.notice("Mm::mmPhyReadValueUnsignedWord: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyReadValueUnsignedWord: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyReadValueUnsignedWord: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
@@ -222,16 +229,16 @@ cdef class Mm:
         return data
     cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr):
         cdef MmArea mmArea
-        cdef unsigned int data = BITMASK_DWORD
+        cdef unsigned int data = <unsigned int>BITMASK_DWORD
         cdef unsigned char dataSize = OP_SIZE_DWORD
         cdef unsigned int tempAddr
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyReadValueUnsignedDword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
+            self.main.notice("Mm::mmPhyReadValueUnsignedDword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyReadValueUnsignedDword: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyReadValueUnsignedDword: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
@@ -241,16 +248,16 @@ cdef class Mm:
         return data
     cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr):
         cdef MmArea mmArea
-        cdef unsigned long int data = BITMASK_QWORD
+        cdef unsigned long int data = <unsigned long int>BITMASK_QWORD
         cdef unsigned char dataSize = OP_SIZE_QWORD
         cdef unsigned int tempAddr
         cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyReadValueUnsignedQword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
+            self.main.notice("Mm::mmPhyReadValueUnsignedQword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.readClass or not mmArea.readHandler):
-                self.main.debug("Mm::mmPhyReadValueUnsignedQword: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyReadValueUnsignedQword: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
@@ -266,12 +273,12 @@ cdef class Mm:
         cdef unsigned int tempAddr, tempSize, origMmAddr = mmAddr, tempDataSize = dataSize
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
+            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
             return
         tempSize = min(SIZE_1MB, dataSize)
         for mmArea in mmAreas:
-            if (not mmArea.writeClass or not mmArea.writeHandler):
-                self.main.debug("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
                 return
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             tempSize = min(tempSize, tempDataSize)
@@ -293,11 +300,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.writeClass or not mmArea.writeHandler):
-                self.main.debug("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
@@ -310,11 +317,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.writeClass or not mmArea.writeHandler):
-                self.main.debug("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
@@ -329,11 +336,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.writeClass or not mmArea.writeHandler):
-                self.main.debug("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
@@ -348,11 +355,11 @@ cdef class Mm:
         cdef unsigned int tempAddr
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (not mmAreas):
-            self.main.debug("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             return data
         for mmArea in mmAreas:
-            if (not mmArea.writeClass or not mmArea.writeHandler):
-                self.main.debug("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
+            if (not mmArea.valid):
+                self.main.notice("Mm::mmPhyWrite: mmArea not found! #2 (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return data
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
@@ -372,12 +379,9 @@ cdef class Mm:
     cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize):
         self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
     cdef unsigned int mmGetAbsoluteAddressForInterrupt(self, unsigned char intNum):
-        cdef unsigned short seg, offset
         cdef unsigned int posdata
         posdata = (<Mm>self.main.mm).mmPhyReadValueUnsigned((<unsigned short>intNum*4), 4)
-        offset = posdata
-        seg = (posdata>>16)
-        posdata = (seg<<4)+offset
+        posdata = (((posdata>>12)&0xffff0)+(<unsigned short>posdata))
         return posdata
 
 

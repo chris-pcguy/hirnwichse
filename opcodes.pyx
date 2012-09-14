@@ -338,7 +338,8 @@ cdef class Opcodes:
         elif (opcode == 0xcb):
             retVal = self.retFar(0)
         elif (opcode == 0xcc):
-            retVal = self.int3()
+            retVal = True
+            raise ChemuException(CPU_EXCEPTION_BP)
         elif (opcode == 0xcd):
             retVal = self.interrupt(-1, -1)
         elif (opcode == 0xce):
@@ -363,9 +364,9 @@ cdef class Opcodes:
         elif (opcode == 0xd7):
             retVal = self.xlatb()
         elif (opcode >= 0xd8 and opcode <= 0xdf):
-            if (self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR) == 0):
+            if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)):
                 raise ChemuException(CPU_EXCEPTION_UD)
-            elif (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS)) != 0):
+            elif (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS))):
                 raise ChemuException(CPU_EXCEPTION_NM)
             raise ChemuException(CPU_EXCEPTION_UD)
         elif (opcode == 0xe0):
@@ -449,6 +450,7 @@ cdef class Opcodes:
             if (self.registers.getCPL() > self.registers.getIOPL()):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         self.main.platform.outPort(ioPortAddr, data, dataSize)
+        return True
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal):
         cdef unsigned char segType
         cdef GdtEntry gdtEntry
@@ -1183,7 +1185,7 @@ cdef class Opcodes:
         else:
             flagValue &= ~(FLAG_VIP | FLAG_VIF | FLAG_RF)
         self.registers.regWrite(CPU_REGISTER_FLAGS, flagValue, self.registers.operSize)
-        if (self.registers.getEFLAG(FLAG_VM)!=0):
+        if (self.registers.getEFLAG(FLAG_VM)):
             self.main.exitError("Opcodes::popfWD: VM86-Mode isn't supported yet.")
         return True
     cdef int stackPopSegId(self, unsigned short segId):
@@ -1411,7 +1413,7 @@ cdef class Opcodes:
             operOpcodeMod = self.registers.getCurrentOpcodeUnsignedByte()
             operOpcodeModId = (operOpcodeMod>>3)&7
             self.main.debug("Group0F_01: operOpcodeModId=={0:d}", operOpcodeModId)
-            if (operOpcodeModId in (0, 1, 2, 3)): # SGDT/SIDT LGDT/LIDT
+            if (operOpcodeModId in (0, 1, 2, 3, 7)): # SGDT/SIDT LGDT/LIDT INVLPG
                 self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
                 if (self.modRMInstance.mod == 3):
                     raise ChemuException(CPU_EXCEPTION_UD)
@@ -1479,6 +1481,7 @@ cdef class Opcodes:
                 self.registers.regWriteDword(CPU_REGISTER_CR0, ((op1&0xfffffff0)|(op2&0xf)))
                 self.syncCR0State()
             elif (operOpcodeModId == 7): # INVLPG
+                # TODO: Don't invalidate everything!
                 (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsignedDword(CPU_REGISTER_CR3))
             else:
                 self.main.notice("opcodeGroup0F_01: invalid operOpcodeModId: {0:d}", operOpcodeModId)
@@ -1497,7 +1500,7 @@ cdef class Opcodes:
                 self.registers.setEFLAG(FLAG_ZF, False)
                 return True  
             op1 = gdtEntry.limit
-            if ((gdtEntry.flags & GDT_FLAG_USE_4K) != 0):
+            if ((gdtEntry.flags & GDT_FLAG_USE_4K)):
                 op1 <<= 12
                 op1 |= 0xfff
             if (self.registers.operSize == OP_SIZE_WORD):
@@ -1556,8 +1559,8 @@ cdef class Opcodes:
         elif (operOpcode == 0x31): # RDTSC
             if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_TSD) or \
               not cpl or not (<Segments>self.registers.segments).isInProtectedMode()):
-                self.registers.regWriteDword(CPU_REGISTER_EAX, <unsigned int>(self.main.cpu.cycles&BITMASK_DWORD))
-                self.registers.regWriteDword(CPU_REGISTER_EDX, <unsigned int>((self.main.cpu.cycles>>32)&BITMASK_DWORD))
+                self.registers.regWriteDword(CPU_REGISTER_EAX, <unsigned int>(self.main.cpu.cycles&<unsigned int>BITMASK_DWORD))
+                self.registers.regWriteDword(CPU_REGISTER_EDX, <unsigned int>((self.main.cpu.cycles>>32)&<unsigned int>BITMASK_DWORD))
             else:
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         elif (operOpcode == 0x38): # MOVBE
@@ -1860,8 +1863,7 @@ cdef class Opcodes:
             return self.decFuncRM(OP_SIZE_BYTE)
         else:
             self.main.notice("opcodeGroupFE: invalid operOpcodeId. {0:d}", operOpcodeId)
-            return False
-        #return True
+        return False
     cdef int opcodeGroupFF(self):
         cdef unsigned char operOpcode, operOpcodeId
         cdef unsigned short segVal
@@ -2020,8 +2022,10 @@ cdef class Opcodes:
         return self.retNear(imm)
     cdef int retFar(self, unsigned short imm):
         cdef unsigned char stackAddrSize
+        cdef unsigned int tempEIP
         self.syncCR0State()
-        self.stackPopRegId(CPU_REGISTER_EIP, OP_SIZE_DWORD)
+        tempEIP = self.stackPopValue(True)
+        self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
         self.stackPopSegId(CPU_SEGMENT_CS)
         if (imm):
             stackAddrSize = self.registers.getAddrSegSize(CPU_SEGMENT_SS)
@@ -2187,7 +2191,7 @@ cdef class Opcodes:
             self.main.notice("opcodeGroup2_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
         return True
-    cpdef interrupt(self, signed short intNum, signed int errorCode): # TODO: complete this!
+    cdef int interrupt(self, signed short intNum, signed int errorCode): # TODO: complete this!
         cdef unsigned char inProtectedMode, entryType, entrySize, \
                               entryNeededDPL, entryPresent, cpl, isSoftInt
         cdef unsigned short entrySegment
@@ -2249,13 +2253,11 @@ cdef class Opcodes:
         if (inProtectedMode and errorCode != -1):
             self.stackPushValue(errorCode, entrySize)
         return True
-    cpdef into(self):
+    cdef int into(self):
         if (self.registers.getEFLAG(FLAG_OF)):
             raise ChemuException(CPU_EXCEPTION_OF)
         return True
-    cpdef int3(self):
-        raise ChemuException(CPU_EXCEPTION_BP)
-    cpdef iret(self):
+    cdef int iret(self):
         cdef GdtEntry gdtEntry
         cdef unsigned char inProtectedMode, cpl
         cdef unsigned int tempEFLAGS, tempEIP, tempCS, eflagsMask
@@ -2720,13 +2722,11 @@ cdef class Opcodes:
             offset &= operSizeInBits-1
             value = self.modRMInstance.modRLoadUnsigned(self.registers.operSize)
             state = self.registers.valGetBit(value, offset)
-            self.registers.setEFLAG(FLAG_CF, state)
         else: # memory operand
             address = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             address += (self.registers.operSize * (offset // operSizeInBits))
             value = self.registers.mmReadValueUnsigned(address, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
             state = self.registers.valGetBit(value, offset)
-            self.registers.setEFLAG(FLAG_CF, state)
         if (newValType != BT_NONE):
             if (newValType == BT_COMPLEMENT):
                 state = not state
@@ -2736,10 +2736,12 @@ cdef class Opcodes:
                 state = True
             else:
                 self.main.exitError("btFunc: unknown newValType: {0:d}", newValType)
+            self.registers.setEFLAG(FLAG_CF, state)
             value = self.registers.valSetBit(value, offset, state)
             if (self.modRMInstance.mod == 3): # register operand
-                self.modRMInstance.modRSave(self.registers.operSize, value, OPCODE_SAVE)
+                self.modRMInstance.modRMSave(self.registers.operSize, state, True, OPCODE_SAVE)
             else: # memory operands
+                self.main.notice("test_1: ATTENTION: this is (most possibly) a WRONG IMPLEMENTATION of btFunc!!! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 self.registers.mmWriteValue(address, value, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
         return True
     cdef void run(self):

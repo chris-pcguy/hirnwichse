@@ -26,7 +26,7 @@ cdef class PciDevice:
     cdef void run(self)
 
 cdef class PciBridge(PciDevice):
-    pass
+    cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize)
 
 cdef class PciBus:
     cpdef object main

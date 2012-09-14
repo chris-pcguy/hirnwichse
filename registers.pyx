@@ -584,7 +584,7 @@ cdef class Registers:
         elif (index == 0x2): # B
             return self.getEFLAG(FLAG_CF)
         elif (index == 0x3): # NB
-            return self.getEFLAG(FLAG_CF)==0
+            return not self.getEFLAG(FLAG_CF)
         elif (index == 0x4): # E
             return self.getEFLAG(FLAG_ZF)!=0
         elif (index == 0x5): # NE
@@ -618,7 +618,6 @@ cdef class Registers:
         cdef unsigned long int regSumu
         afFlag = carried = False
         bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
-
         if (method in (OPCODE_ADD, OPCODE_ADC)):
             if (method == OPCODE_ADC and self.getEFLAG(FLAG_CF)):
                 carried = True
@@ -628,8 +627,6 @@ cdef class Registers:
                 regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
                 regSumu = <unsigned short>regSumu
-            elif (regSize == OP_SIZE_DWORD):
-                regSumu = <unsigned int>regSumu
             unsignedOverflow = (regSumu < reg0 or regSumu < reg1) != 0
             self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
             self.setEFLAG(FLAG_ZF, regSumu==0)
@@ -654,8 +651,6 @@ cdef class Registers:
                 regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
                 regSumu = <unsigned short>regSumu
-            elif (regSize == OP_SIZE_DWORD):
-                regSumu = <unsigned int>regSumu
             unsignedOverflow = ((not carried and regSumu > reg0) or (carried and regSumu >= reg0)) != 0
             self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
             self.setEFLAG(FLAG_ZF, regSumu==0)
@@ -731,8 +726,10 @@ cdef class Registers:
                 if (segment.segSize != OP_SIZE_WORD or segment.base >= SIZE_1MB):
                     return mmAddr&0xff1fffff
                 return mmAddr&0x1fffff
-            if (segment.segSize == OP_SIZE_WORD and segment.base < SIZE_1MB):
+            elif (segment.segSize == OP_SIZE_WORD and segment.base < SIZE_1MB):
                 return mmAddr&0xfffff
+        elif ((<Segments>self.segments).isPagingOn()):
+            return (<Paging>(<Segments>self.segments).paging).getPhysicalAddress(mmAddr)
         return mmAddr
     cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char allowOverride):
         #self.checkMemAccessRights(mmAddr, dataSize, segId, False)

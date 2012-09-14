@@ -8,6 +8,9 @@ DEF PCI_VENDOR_ID = 0x00
 DEF PCI_DEVICE_ID = 0x02
 DEF PCI_CLASS_DEVICE = 0x0a
 DEF PCI_HEADER_TYPE = 0x0e
+DEF PCI_BIST = 0xf
+DEF PCI_BRIDGE_MEM_BASE = 0x20
+DEF PCI_BRIDGE_MEM_LIMIT = 0x22
 
 DEF PCI_PRIMARY_BUS = 0x18
 DEF PCI_SECONDARY_BUS = 0x19
@@ -65,6 +68,13 @@ cdef class PciDevice:
 cdef class PciBridge(PciDevice):
     def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):
         PciDevice.__init__(self, bus, pci, main, deviceIndex)
+    cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
+        #cdef unsigned int addr, limit
+        PciDevice.setData(self, mmAddress, data, dataSize)
+        #if (((mmAddress&0xff) == PCI_BRIDGE_MEM_LIMIT and dataSize == 2) or ((mmAddress&0xff) == PCI_BRIDGE_MEM_BASE and dataSize == 4)):
+        #    addr = <unsigned int>self.getData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_BRIDGE_MEM_BASE), OP_SIZE_WORD)<<16
+        #    limit = <unsigned int>self.getData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_BRIDGE_MEM_LIMIT), OP_SIZE_WORD)<<16
+        #    
     cdef void run(self):
         PciDevice.run(self)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)

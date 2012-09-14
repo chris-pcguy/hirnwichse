@@ -1,16 +1,18 @@
 
 
-DEF STRICT_CHECKS = 1
+DEF STRICT_CHECKS = 0
 
 DEF OP_SIZE_BYTE  = 1
 DEF OP_SIZE_WORD  = 2
 DEF OP_SIZE_DWORD = 4
 DEF OP_SIZE_QWORD = 8
 
-cdef unsigned char BITMASK_BYTE  = 0xff
-cdef unsigned short BITMASK_WORD  = 0xffff
-cdef unsigned int BITMASK_DWORD = 0xffffffff
-cdef unsigned long int BITMASK_QWORD = 0xffffffffffffffff
+DEF BITMASK_BYTE  = 0xffUL
+DEF BITMASK_WORD  = 0xffffUL
+#DEF BITMASK_DWORD = 0xffffffffUL
+#DEF BITMASK_QWORD = 0xffffffffffffffffULL
+cdef unsigned int BITMASK_DWORD = 0xffffffffUL
+cdef unsigned long int BITMASK_QWORD = 0xffffffffffffffffULL
 
 
 

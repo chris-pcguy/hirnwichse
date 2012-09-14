@@ -31,7 +31,7 @@ cdef class Opcodes:
         self.main.cpu.cpuHalted = True
     cdef inline void syncCR0State(self):
         (<Segments>self.registers.segments).protectedModeOn = self.registers.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE)
-        (<Segments>self.registers.segments).pagingOn = self.registers.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PG)
+        (<Segments>self.registers.segments).pagingOn = self.registers.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PG)!=0
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except -1
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal) except -1
@@ -112,10 +112,9 @@ cdef class Opcodes:
     cdef int lfpFunc(self, unsigned short segId) except -1 # 'load far pointer' function
     cdef int xlatb(self) except -1
     cdef int opcodeGroup2_RM(self, unsigned char operSize) except -1
-    cpdef interrupt(self, signed short intNum, signed int errorCode) # TODO: complete this!
-    cpdef into(self)
-    cpdef int3(self)
-    cpdef iret(self)
+    cdef int interrupt(self, signed short intNum, signed int errorCode) except -1 # TODO: complete this!
+    cdef int into(self) except -1
+    cdef int iret(self) except -1
     cdef int aad(self) except -1
     cdef int aam(self) except -1
     cdef int aaa(self) except -1
