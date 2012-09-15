@@ -18,7 +18,7 @@ cdef class PygameUI:
     cpdef setRepeatRate(self, unsigned short delay, unsigned short interval)
     cdef unsigned char keyToScancode(self, unsigned short key)
     cpdef handleEvent(self, object event)
-    cpdef updateScreen(self, list rectList)
+    cpdef updateScreen(self, tuple rectList)
     cpdef handleEvents(self)
     cpdef run(self)
 

@@ -3,8 +3,10 @@ from misc cimport Misc
 from mm cimport Mm
 from segments cimport Segment, GdtEntry, Gdt, Idt, Paging, Segments
 
-include "cpu_globals.pxi"
-
+# sync these with cpu_globals.pxi:
+DEF CPU_REGISTERS = 27
+DEF FLAG_CF = 0x1
+DEF CPU_REGISTER_EFLAGS = 9
 
 cdef:
     struct byteStruct:
@@ -249,24 +251,21 @@ cdef class Registers:
     cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
     cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
     cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef void mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned char mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned char mmWriteValueByte(self, unsigned int mmAddr, unsigned char data, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned short mmWriteValueWord(self, unsigned int mmAddr, unsigned short data, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned int mmWriteValueDword(self, unsigned int mmAddr, unsigned int data, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned long int mmWriteValueQword(self, unsigned int mmAddr, unsigned long int data, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned long int mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned char mmWriteValueWord(self, unsigned int mmAddr, unsigned short data, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned char mmWriteValueDword(self, unsigned int mmAddr, unsigned int data, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned char mmWriteValueQword(self, unsigned int mmAddr, unsigned long int data, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned char mmWriteValueWithOpByte(self, unsigned int mmAddr, unsigned char data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
     cdef unsigned short mmWriteValueWithOpWord(self, unsigned int mmAddr, unsigned short data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
     cdef unsigned int mmWriteValueWithOpDword(self, unsigned int mmAddr, unsigned int data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
     cdef unsigned long int mmWriteValueWithOpQword(self, unsigned int mmAddr, unsigned long int data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
-    cdef unsigned long int mmWriteValueWithOp(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
     cdef unsigned char getSegSize(self, unsigned short segId)
     cdef unsigned char isSegPresent(self, unsigned short segId)
-    cdef unsigned char getOpSegSize(self, unsigned short segId)
     cdef unsigned char getAddrSegSize(self, unsigned short segId)
     cdef unsigned char getOpCodeSegSize(self)
     cdef unsigned char getAddrCodeSegSize(self)
-    cdef void getOpAddrSegSize(self, unsigned short segId, unsigned char *opSize, unsigned char *addrSize)
     cdef void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize)
     cdef void run(self)
 

@@ -264,6 +264,7 @@ cdef class Opcodes:
         elif (opcode == 0x9a):
             retVal = self.callPtr16_32()
         elif (opcode == 0x9b): # WAIT/FWAIT
+            self.main.notice("Opcodes::executeOpcode: WAIT/FWAIT: TODO!")
             if (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_MP | \
               CR0_FLAG_TS)) ==  (CR0_FLAG_MP | CR0_FLAG_TS)):
                 raise ChemuException(CPU_EXCEPTION_NM)
@@ -338,6 +339,7 @@ cdef class Opcodes:
         elif (opcode == 0xcb):
             retVal = self.retFar(0)
         elif (opcode == 0xcc):
+            self.main.notice("Opcodes::executeOpcode: INT3 (Opcode 0xcc): TODO!")
             retVal = True
             raise ChemuException(CPU_EXCEPTION_BP)
         elif (opcode == 0xcd):
@@ -359,11 +361,13 @@ cdef class Opcodes:
         elif (opcode == 0xd5):
             retVal = self.aad()
         elif (opcode == 0xd6):
+            self.main.notice("Opcodes::executeOpcode: undef_no_UD! (Opcode 0xd6)")
             pass ### undefNoUD
             retVal = True
         elif (opcode == 0xd7):
             retVal = self.xlatb()
         elif (opcode >= 0xd8 and opcode <= 0xdf):
+            self.main.notice("Opcodes::executeOpcode: FPU Opcodes: TODO!")
             if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)):
                 raise ChemuException(CPU_EXCEPTION_UD)
             elif (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS))):
@@ -402,6 +406,7 @@ cdef class Opcodes:
         elif (opcode == 0xef):
             retVal = self.outDxAx(self.registers.operSize)
         elif (opcode == 0xf1):
+            self.main.notice("Opcodes::executeOpcode: undef_no_UD! (Opcode 0xf1)")
             pass ### undefNoUD
             retVal = True
         elif (opcode == 0xf4):
@@ -589,8 +594,8 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(operSize, self.modRMInstance.modRMLoadUnsigned(operSize, True), OPCODE_SAVE)
         return True
     cdef int movRM16_SREG(self):
-        self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_SREG)
-        self.modRMInstance.modRMSave(OP_SIZE_WORD, self.registers.segRead(self.modRMInstance.regName), True, OPCODE_SAVE)
+        self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_SREG)
+        self.modRMInstance.modRMSave(self.registers.operSize, self.registers.segRead(self.modRMInstance.regName), True, OPCODE_SAVE)
         return True
     cdef int movSREG_RM16(self):
         self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_SREG)
@@ -1231,7 +1236,7 @@ cdef class Opcodes:
     cdef int pushIMM(self, unsigned char immIsByte):
         cdef unsigned int value
         if (immIsByte):
-            value = <unsigned int>(self.registers.getCurrentOpcodeAddSignedByte())
+            value = <unsigned int>self.registers.getCurrentOpcodeAddSignedByte()
         else:
             value = self.registers.getCurrentOpcodeAddUnsigned(self.registers.operSize)
         if (self.registers.operSize == OP_SIZE_WORD):
@@ -1519,6 +1524,7 @@ cdef class Opcodes:
             if (operOpcode == 0x06): # CLTS
                 self.registers.regAndDword(CPU_REGISTER_CR0, <unsigned int>(~CR0_FLAG_TS))
         elif (operOpcode == 0x0b): # UD2
+            self.main.notice("Opcodes::opcodeGroup0F: UD2!")
             raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x20): # MOV R32, CRn
             if (cpl != 0):
@@ -1547,12 +1553,17 @@ cdef class Opcodes:
                     op2 |= CR0_FLAG_ET
                 if ((op2 & CR0_FLAG_PG) and not (op2 & CR0_FLAG_PE)):
                     raise ChemuException(CPU_EXCEPTION_GP, 0)
-            elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
-                if (op2 & CR4_FLAG_VME):
-                    self.main.exitError("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT SUPPORTED yet.")
+                (<Segments>self.registers.segments).pagingOn = (op2 & CR0_FLAG_PG)!=0
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
             if (self.modRMInstance.regName == CPU_REGISTER_CR3):
                 (<Paging>self.registers.segments.paging).invalidateTables(op2)
+            elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
+                if (op2 & CR4_FLAG_VME):
+                    self.main.exitError("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT SUPPORTED yet.")
+                elif (op2 & CR4_FLAG_PSE):
+                    self.main.exitError("opcodeGroup0F_22: PSE (page-size extension) IS NOT SUPPORTED yet.")
+                elif (op2 & CR4_FLAG_PAE):
+                    self.main.exitError("opcodeGroup0F_22: PAE (physical-address extension) IS NOT SUPPORTED yet.")
         elif (operOpcode == 0x23): # MOV DRn, R32
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_DREG)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, self.modRMInstance.modRMLoadUnsigned(OP_SIZE_DWORD, True), OPCODE_SAVE)
@@ -1747,6 +1758,7 @@ cdef class Opcodes:
         elif (operOpcode == 0xb5): # LGS
             self.lfpFunc(CPU_SEGMENT_GS)
         elif (operOpcode == 0xb8): # POPCNT R16/32 RM16/32
+            self.main.notice("Opcodes::opcodeGroup0F: POPCNT: TODO!")
             if (self.registers.repPrefix):
                 raise ChemuException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
@@ -2254,57 +2266,80 @@ cdef class Opcodes:
             self.stackPushValue(errorCode, entrySize)
         return True
     cdef int into(self):
+        self.main.notice("Opcodes::into: TODO!")
         if (self.registers.getEFLAG(FLAG_OF)):
             raise ChemuException(CPU_EXCEPTION_OF)
         return True
     cdef int iret(self):
-        cdef GdtEntry gdtEntry
+        cdef GdtEntry gdtEntryCS, gdtEntrySS
         cdef unsigned char inProtectedMode, cpl
-        cdef unsigned int tempEFLAGS, tempEIP, tempCS, eflagsMask
+        cdef unsigned short tempCS, tempSS, i
+        cdef unsigned int tempEFLAGS, tempEIP, tempESP, eflagsMask = 0
         inProtectedMode = (<Segments>self.registers.segments).isInProtectedMode()
         tempEIP = self.stackPopValue(False) # this is here because esp should stay on
                                             # it's original value in case of an exception.
         if (not inProtectedMode and self.registers.operSize == OP_SIZE_DWORD and (tempEIP>>16)):
             raise ChemuException(CPU_EXCEPTION_GP, 0)
         tempEIP = self.stackPopValue(True)
-        tempCS = self.stackPopValue(True)
+        tempCS = <unsigned short>self.stackPopValue(True)
         tempEFLAGS = self.stackPopValue(True)
         if (inProtectedMode):
-            if (tempEFLAGS & (FLAG_NT | FLAG_VM)):
+            if (tempEFLAGS & FLAG_VM):
                 self.main.exitError("Opcodes::iret: VM86-Mode isn't supported yet.")
+                return True
+            elif (tempEFLAGS & FLAG_NT):
+                self.main.exitError("Opcodes::iret: Nested-Task-Flag isn't supported yet.")
                 return True
             if (not (tempCS&0xfff8)):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             if ((tempCS&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit):
                 raise ChemuException(CPU_EXCEPTION_GP, tempCS)
             cpl = self.registers.getCPL()
-            gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(tempCS))
-            if (not gdtEntry.segIsCodeSeg or ((tempCS&3) < cpl) or (gdtEntry.segIsConforming and \
-              (gdtEntry.segDPL > (tempCS&3)))):
+            gdtEntryCS = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(tempCS))
+            if (not gdtEntryCS.segIsCodeSeg or ((tempCS&3) < cpl) or (gdtEntryCS.segIsConforming and \
+              (gdtEntryCS.segDPL > (tempCS&3)))):
                 raise ChemuException(CPU_EXCEPTION_GP, tempCS)
-            if (not gdtEntry.segPresent):
+            if (not gdtEntryCS.segPresent):
                 raise ChemuException(CPU_EXCEPTION_NP, tempCS)
-            if ((tempCS&3) > cpl): # outer privilege level
-                self.main.exitError("Opcodes::iret: rpl > cpl. What to do here???")
-                return True
-            else: # same privilege level; rpl==cpl
-                if (not gdtEntry.isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
+            if ((tempCS&3) > cpl): # outer privilege level; rpl > cpl
+                #self.main.notice("Opcodes::iret: rpl > cpl. What to do here???")
+                tempESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
+                tempSS = self.registers.segRead(CPU_SEGMENT_SS)
+                if (not (tempSS&0xfff8)):
                     raise ChemuException(CPU_EXCEPTION_GP, 0)
-                self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
-                self.registers.segWrite(CPU_SEGMENT_CS, tempCS)
-                eflagsMask = FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | \
-                             FLAG_TF | FLAG_DF | FLAG_OF | FLAG_NT
+                if ((tempSS&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit):
+                    raise ChemuException(CPU_EXCEPTION_GP, tempSS)
+                gdtEntrySS = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(tempSS))
+                if (not gdtEntrySS.isAddressInLimit(tempESP, \
+                  ((self.registers.operSize == OP_SIZE_DWORD and OP_SIZE_QWORD) or OP_SIZE_DWORD))): # TODO: should i keep it in this order?
+                    raise ChemuException(CPU_EXCEPTION_SS, 0)
+                if ((tempCS&3 != tempSS&3) or (not gdtEntrySS.segIsRW) or (gdtEntrySS.segDPL != tempCS&3)):
+                    raise ChemuException(CPU_EXCEPTION_GP, tempSS)
+                if (not gdtEntrySS.segPresent):
+                    raise ChemuException(CPU_EXCEPTION_SS, tempSS)
+                eflagsMask |= FLAG_VM
+            if (not gdtEntryCS.isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
+            self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
+            self.registers.segWrite(CPU_SEGMENT_CS, tempCS)
+            eflagsMask |= FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | \
+                          FLAG_TF | FLAG_DF | FLAG_OF | FLAG_NT
+            if (self.registers.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
+                eflagsMask |= FLAG_RF | FLAG_AC | FLAG_ID
+            if (cpl <= self.registers.getIOPL()):
+                eflagsMask |= FLAG_IF
+            if (not cpl): # cpl == 0
+                eflagsMask |= FLAG_IOPL
                 if (self.registers.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
-                    eflagsMask |= FLAG_RF | FLAG_AC | FLAG_ID
-                if (cpl < self.registers.getIOPL()):
-                    eflagsMask |= FLAG_IF
-                if (not cpl):
-                    eflagsMask |= FLAG_IOPL
-                    if (self.registers.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
-                        eflagsMask |= FLAG_VIF | FLAG_VIP
-                tempEFLAGS &= eflagsMask
-                tempEFLAGS |= FLAG_REQUIRED
-                self.registers.regWriteDword(CPU_REGISTER_EFLAGS, tempEFLAGS)
+                    eflagsMask |= FLAG_VIF | FLAG_VIP
+            tempEFLAGS &= eflagsMask
+            tempEFLAGS |= FLAG_REQUIRED
+            self.registers.regWriteDword(CPU_REGISTER_EFLAGS, tempEFLAGS)
+            if ((tempCS&3) == cpl): # same privilege level; rpl==cpl
+                cpl = self.registers.getCPL()
+                for i in (CPU_SEGMENT_DS, CPU_SEGMENT_ES, CPU_SEGMENT_FS, CPU_SEGMENT_GS):
+                    if (((not self.registers.segments.isCodeSeg(i)) or (not self.registers.segments.isSegConforming(i))) and (cpl > self.registers.segments.getSegDPL(i))): # TODO: is this correct? (Intel, use fucking parentheses!!)
+                        self.registers.segWrite(i, 0)
         else:
             if (self.registers.operSize == OP_SIZE_DWORD):
                 tempEFLAGS = (tempEFLAGS & 0x257fd5)
@@ -2639,35 +2674,35 @@ cdef class Opcodes:
         self.modRMInstance.modRMSave(operSize, op1, True, OPCODE_SAVE)
         return True
     cdef int enter(self):
-        cdef unsigned char stackSize, nestingLevel, i
+        cdef unsigned char stackAddrSize, nestingLevel, i
         cdef unsigned short sizeOp
         cdef unsigned int frameTemp, temp
         sizeOp = self.registers.getCurrentOpcodeAddUnsignedWord()
         nestingLevel = self.registers.getCurrentOpcodeAddUnsignedByte()
         nestingLevel &= 0x1f
-        stackSize = self.registers.getOpSegSize(CPU_SEGMENT_SS)
-        self.stackPushRegId(CPU_REGISTER_BP, stackSize)
-        if (stackSize == OP_SIZE_WORD):
+        stackAddrSize = self.registers.getAddrSegSize(CPU_SEGMENT_SS)
+        self.stackPushRegId(CPU_REGISTER_BP, stackAddrSize)
+        if (stackAddrSize == OP_SIZE_WORD):
             frameTemp = self.registers.regReadUnsignedWord(CPU_REGISTER_SP)
             if (nestingLevel > 1):
                 for i in range(nestingLevel-1):
-                    self.registers.regSubWord(CPU_REGISTER_BP, stackSize)
+                    self.registers.regSubWord(CPU_REGISTER_BP, stackAddrSize)
                     temp = self.registers.mmReadValueUnsigned(self.registers.regReadUnsignedWord(CPU_REGISTER_BP), \
-                      stackSize, CPU_SEGMENT_SS, False)
-                    self.stackPushValue(temp, stackSize)
+                      stackAddrSize, CPU_SEGMENT_SS, False)
+                    self.stackPushValue(temp, stackAddrSize)
             if (nestingLevel >= 1):
-                self.stackPushValue(frameTemp, stackSize)
+                self.stackPushValue(frameTemp, stackAddrSize)
             self.registers.regWriteWord(CPU_REGISTER_BP, frameTemp)
             self.registers.regSubWord(CPU_REGISTER_SP, sizeOp)
-        elif (stackSize == OP_SIZE_DWORD):
+        elif (stackAddrSize == OP_SIZE_DWORD):
             frameTemp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
             for i in range(nestingLevel-1):
-                self.registers.regSubDword(CPU_REGISTER_EBP, stackSize)
+                self.registers.regSubDword(CPU_REGISTER_EBP, stackAddrSize)
                 temp = self.registers.mmReadValueUnsigned(self.registers.regReadUnsignedDword(CPU_REGISTER_EBP), \
-                  stackSize, CPU_SEGMENT_SS, False)
-                self.stackPushValue(temp, stackSize)
+                  stackAddrSize, CPU_SEGMENT_SS, False)
+                self.stackPushValue(temp, stackAddrSize)
             if (nestingLevel >= 1):
-                self.stackPushValue(frameTemp, stackSize)
+                self.stackPushValue(frameTemp, stackAddrSize)
             self.registers.regWriteDword(CPU_REGISTER_EBP, frameTemp)
             self.registers.regSubDword(CPU_REGISTER_ESP, sizeOp)
         return True
@@ -2681,6 +2716,7 @@ cdef class Opcodes:
         self.stackPopRegId(CPU_REGISTER_EBP, self.registers.operSize)
         return True
     cdef int cmovFunc(self, unsigned char cond): # R16, R/M 16; R32, R/M 32
+        self.main.notice("Opcodes::cmovFunc: TODO!")
         self.movR_RM(self.registers.operSize, cond)
         return True
     cdef int setWithCondFunc(self, unsigned char cond): # if cond==True set 1, else 0
@@ -2689,6 +2725,7 @@ cdef class Opcodes:
         return True
     cdef int arpl(self):
         cdef unsigned short op1, op2
+        self.main.notice("Opcodes::arpl: TODO!")
         if (not (<Segments>self.registers.segments).isInProtectedMode()):
             raise ChemuException(CPU_EXCEPTION_UD)
         self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
@@ -2703,6 +2740,7 @@ cdef class Opcodes:
     cdef int bound(self):
         cdef unsigned int returnInt
         cdef signed int index, lowerBound, upperBound
+        self.main.notice("Opcodes::bound: TODO!")
         self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
         if (self.modRMInstance.mod == 3):
             raise ChemuException(CPU_EXCEPTION_UD)

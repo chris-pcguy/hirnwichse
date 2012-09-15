@@ -153,7 +153,7 @@ cdef class Cpu:
                 cycleInc = self.cycles >> 14
                 if (cycleInc > self.oldCycleInc):
                     self.oldCycleInc = cycleInc
-                    sleep(0.000001) # FIXME: HACK: timing issue.
+                    sleep(0.000001) # FIXME: HACK: TODO: timing issue.
                 self.doCycle()
         except:
             print_exc()
@@ -173,8 +173,23 @@ cdef class Cpu:
             self.opcode = self.parsePrefixes(self.opcode)
         self.registers.readCodeSegSize()
         self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-        if (self.main.debugEnabled):
-            self.cpuDump()
+        #if (self.main.debugEnabled):
+        #    self.cpuDump()
+        #if (self.savedEip == 0x1000c1 and self.savedCs == 0x0010):
+        #    self.cpuDump()
+        #    #self.main.exitError("CPU::doCycle: dumped! exit.")
+        #elif (self.savedEip == 0x104416 and self.savedCs == 0x0020):
+        #    self.cpuDump()
+        #elif (self.savedEip == 0x104418 and self.savedCs == 0x0020):
+        #    self.cpuDump()
+        #elif (self.savedEip == 0x2039 and self.savedCs == 0x0020):
+        #    self.cpuDump()
+        #elif (self.savedEip == 0x203b and self.savedCs == 0x0020):
+        #    self.cpuDump()
+        #elif (self.savedEip == 0x10237a and self.savedCs == 0x0020):
+        #    self.cpuDump()
+        #elif (self.savedEip == 0x10237e and self.savedCs == 0x0020):
+        #    self.cpuDump()
         try:
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)

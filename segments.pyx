@@ -243,9 +243,13 @@ cdef class Idt:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
     cdef IdtEntry getEntry(self, unsigned char num):
+        cdef IdtEntry idtEntry
         if (not self.tableLimit):
             self.segments.main.exitError("Idt::getEntry: tableLimit is zero.")
-        return IdtEntry(<unsigned long int>(<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(self.tableBase+(num*8)))
+        idtEntry = IdtEntry(<unsigned long int>(<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(self.tableBase+(num*8)))
+        if (idtEntry.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
+            self.segments.main.notice("Idt::getEntry: entryType is LDT or TSS. (is this allowed?)")
+        return idtEntry
     cdef unsigned char isEntryPresent(self, unsigned char num):
         return self.getEntry(num).entryPresent
     cdef unsigned char getEntryNeededDPL(self, unsigned char num):

@@ -14,10 +14,12 @@ cdef class MmArea:
 cdef class Mm:
     def __init__(self, object main):
         cdef unsigned int i
+        cdef list mmAreas
         self.main = main
-        self.mmAreas = []
+        mmAreas = []
         for i in range(MM_NUMAREAS):
-            self.mmAreas.append(MmArea())
+            mmAreas.append(MmArea())
+        self.mmAreas = tuple(mmAreas)
     cdef MmArea mmAddArea(self, unsigned int start, unsigned char readOnly):
         cdef MmArea mmArea
         mmArea = self.mmGetArea(start)
@@ -28,7 +30,8 @@ cdef class Mm:
         if (mmArea.end < mmArea.start):
             self.main.exitError("Mm::mmAddArea: mem-address overflow.")
             return None
-        mmArea.data = <char*>malloc(SIZE_1MB)
+        if (mmArea.data is NULL):
+            mmArea.data = <char*>malloc(SIZE_1MB)
         if (mmArea.data is NULL):
             self.main.exitError("Mm::mmAddArea: not mmArea.data.")
             return None
@@ -38,11 +41,6 @@ cdef class Mm:
         mmArea.readHandler  = <MmAreaReadType>self.mmAreaRead
         mmArea.writeHandler = <MmAreaWriteType>self.mmAreaWrite
         return mmArea
-    cdef void mmClearArea(self, MmArea mmArea, unsigned char clearByte):
-        if (not mmArea.valid or mmArea.data is NULL):
-            self.main.exitError("Mm::mmClearArea: not mmArea or not mmArea.data.")
-            return
-        memset(mmArea.data, clearByte, SIZE_1MB)
     cdef void mmDelArea(self, unsigned int addr):
         cdef MmArea mmArea = self.mmGetArea(addr)
         if (mmArea.valid and mmArea.data is not NULL):
@@ -54,10 +52,10 @@ cdef class Mm:
         if (addr >= MM_NUMAREAS):
             return None
         return self.mmAreas[addr]
-    cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize):
+    cdef tuple mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
-        cdef list mmAreas
         cdef unsigned short begin, end, count, i
+        cdef list mmAreas
         mmAreas = []
         end = (mmAddr+dataSize-1) >> 20
         begin = (mmAddr) >> 20
@@ -73,7 +71,7 @@ cdef class Mm:
             mmAreas.append(mmArea)
         if (mmArea is None):
             return None
-        return mmAreas
+        return tuple(mmAreas)
     cdef void mmSetReadOnly(self, unsigned int addr, unsigned char readOnly):
         cdef MmArea mmArea = self.mmGetArea(addr)
         if (mmArea is None or not mmArea.valid):
@@ -97,7 +95,7 @@ cdef class Mm:
         cdef MmArea mmArea
         cdef unsigned int tempAddr, tempSize, origMmAddr = mmAddr, tempDataSize = dataSize
         cdef bytes data = bytes()
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyRead: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
             return b'\xff'*dataSize
@@ -124,7 +122,7 @@ cdef class Mm:
         cdef signed char data = <signed char>BITMASK_BYTE
         cdef unsigned char dataSize = OP_SIZE_BYTE
         cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyReadValueSignedByte: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
@@ -138,7 +136,7 @@ cdef class Mm:
         cdef signed short data = <signed short>BITMASK_WORD
         cdef unsigned char dataSize = OP_SIZE_WORD
         cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyReadValueSignedWord: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
@@ -154,7 +152,7 @@ cdef class Mm:
         cdef signed int data = <signed int>BITMASK_DWORD
         cdef unsigned char dataSize = OP_SIZE_DWORD
         cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyReadValueSignedDword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
@@ -170,7 +168,7 @@ cdef class Mm:
         cdef signed long int data = <signed long int>BITMASK_QWORD
         cdef unsigned char dataSize = OP_SIZE_QWORD
         cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyReadValueSignedQword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
@@ -187,9 +185,9 @@ cdef class Mm:
         cdef MmArea mmArea
         cdef unsigned char data = BITMASK_BYTE, dataSize = OP_SIZE_BYTE
         cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
-            self.main.notice("Mm::mmPhyReadValueUnsignedByte: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
+            self.main.notice("Mm::mmPhyReadValueUnsignedByte: mmArea not found! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
             return data
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
@@ -201,7 +199,7 @@ cdef class Mm:
         cdef unsigned short data = BITMASK_WORD
         cdef unsigned char dataSize = OP_SIZE_WORD
         cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyReadValueUnsignedWord: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
@@ -217,7 +215,7 @@ cdef class Mm:
         cdef unsigned int data = <unsigned int>BITMASK_DWORD
         cdef unsigned char dataSize = OP_SIZE_DWORD
         cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyReadValueUnsignedDword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
@@ -233,7 +231,7 @@ cdef class Mm:
         cdef unsigned long int data = <unsigned long int>BITMASK_QWORD
         cdef unsigned char dataSize = OP_SIZE_QWORD
         cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
+        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyReadValueUnsignedQword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
             return data
@@ -246,14 +244,14 @@ cdef class Mm:
         return data
     cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize):
         return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=False)
-    cdef void mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize):
+    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize):
         cdef MmArea mmArea
-        cdef list mmAreas
         cdef unsigned int tempAddr, tempSize, origMmAddr = mmAddr, tempDataSize = dataSize
+        cdef tuple mmAreas
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
-            return
+            return False
         tempSize = min(SIZE_1MB, dataSize)
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
@@ -266,80 +264,82 @@ cdef class Mm:
             tempSize = dataSize-tempSize
         if (tempDataSize):
             self.main.exitError("Mm::mmPhyWrite: tempDataSize: {0:#06x} is not zero. (mmAddr: {1:#010x}, dataSize: {2:d})", tempDataSize, origMmAddr, dataSize)
+            return False
         ## assume, that mmArea is set to the last entry in mmAreas
         if (mmAddr-1 > mmArea.end):
             self.main.exitError("Mm::mmPhyWrite: mmAddr overflow")
+            return False
+        return True
     cdef unsigned char mmPhyWriteValueByte(self, unsigned int mmAddr, unsigned char data):
         cdef MmArea mmArea
-        cdef list mmAreas
         cdef unsigned char dataSize = OP_SIZE_BYTE
         cdef unsigned int tempAddr
+        cdef tuple mmAreas
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-            return data
+            return False
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
-            return data
-        return data
-    cdef unsigned short mmPhyWriteValueWord(self, unsigned int mmAddr, unsigned short data):
+            return True
+        return False
+    cdef unsigned char mmPhyWriteValueWord(self, unsigned int mmAddr, unsigned short data):
         cdef MmArea mmArea
-        cdef list mmAreas
         cdef unsigned char dataSize = OP_SIZE_WORD
         cdef unsigned int tempAddr
+        cdef tuple mmAreas
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-            return data
+            return False
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
                 return self.mmPhyWriteValue(mmAddr, data, dataSize)
             mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
-            return data
-        return data
-    cdef unsigned int mmPhyWriteValueDword(self, unsigned int mmAddr, unsigned int data):
+            return True
+        return False
+    cdef unsigned char mmPhyWriteValueDword(self, unsigned int mmAddr, unsigned int data):
         cdef MmArea mmArea
-        cdef list mmAreas
         cdef unsigned char dataSize = OP_SIZE_DWORD
         cdef unsigned int tempAddr
+        cdef tuple mmAreas
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-            return data
+            return False
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
                 return self.mmPhyWriteValue(mmAddr, data, dataSize)
             mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
-            return data
-        return data
-    cdef unsigned long int mmPhyWriteValueQword(self, unsigned int mmAddr, unsigned long int data):
+            return True
+        return False
+    cdef unsigned char mmPhyWriteValueQword(self, unsigned int mmAddr, unsigned long int data):
         cdef MmArea mmArea
-        cdef list mmAreas
         cdef unsigned char dataSize = OP_SIZE_QWORD
         cdef unsigned int tempAddr
+        cdef tuple mmAreas
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):
             self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-            return data
+            return False
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
                 return self.mmPhyWriteValue(mmAddr, data, dataSize)
             mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
-            return data
-        return data
-    cdef unsigned long int mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize):
+            return True
+        return False
+    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data
         elif (dataSize == OP_SIZE_WORD):
             data = <unsigned short>data
         elif (dataSize == OP_SIZE_DWORD):
             data = <unsigned int>data
-        self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
-        return data
+        return self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
     cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize):
         self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
     cdef unsigned int mmGetAbsoluteAddressForInterrupt(self, unsigned char intNum):

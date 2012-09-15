@@ -142,7 +142,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
                 self.vga.ui.clearScreen()
         elif (not prevVideoEnabled):
             if (self.vga.ui):
-                self.vga.ui.updateScreen([])
+                self.vga.ui.updateScreen(tuple())
     cdef void setFlipFlop(self, unsigned char flipFlop):
         self.flipFlop = flipFlop
     cdef void setIndexData(self, unsigned int data, unsigned char dataSize):
@@ -198,11 +198,11 @@ cdef class Vga:
     cdef void readFontData(self): # TODO
         cdef unsigned char charHeight
         cdef unsigned int posdata
-        if (not self.ui):
+        if (not self.ui or not self.needLoadFont):
             return
         charHeight = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_VIDEO_CHAR_HEIGHT, 2)
-        self.ui.charSize = (UI_CHAR_WIDTH, charHeight)
         posdata = (<Mm>self.main.mm).mmGetAbsoluteAddressForInterrupt(0x43)
+        self.ui.charSize = (UI_CHAR_WIDTH, charHeight)
         self.ui.fontData = (<Mm>self.main.mm).mmPhyRead(posdata, VGA_FONTAREA_SIZE)
         self.needLoadFont = False
     cdef void setProcessVideoMem(self, unsigned char processVideoMem):
@@ -306,17 +306,17 @@ cdef class Vga:
         self.setProcessVideoMem(True)
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, 4000)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
-    cpdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
+    cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         cdef list rectList
         cdef unsigned char x, y
         if (not self.ui):
             return
-        if (self.needLoadFont):
-            self.readFontData()
         if (not (self.getProcessVideoMem()) or not (self.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM)):
             return
         if (self.videoMemBase != 0xb8000): # only text-mode is supported yet.
             return
+        if (self.needLoadFont):
+            self.readFontData()
         rectList = list()
         offset &= 0xffffe
         # TODO: hardcoded to 80x25
@@ -328,7 +328,7 @@ cdef class Vga:
                 break
             offset   += 2
             dataSize -= 2
-        self.ui.updateScreen(rectList)
+        self.ui.updateScreen(tuple(rectList))
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int retVal
         retVal = BITMASK_BYTE

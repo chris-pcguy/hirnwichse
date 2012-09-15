@@ -51,10 +51,8 @@ cdef class GDBStubHandler:
         self.lastWrittenData = bytes()
         self.clearData()
     cdef clearData(self):
-        self.lastReadData = bytes()
-        self.cmdStr = bytes()
-        self.cmdStrChecksum = 0
-        self.cmdStrChecksumProof = 0
+        self.lastReadData = self.cmdStr = bytes()
+        self.cmdStrChecksum = self.cmdStrChecksumProof = 0
         self.readState = RS_IDLE
     cdef sendPacketType(self, bytes packetType):
         self.connHandler.request.send(packetType)
@@ -307,8 +305,7 @@ class ThreadedTCPServer(ThreadingMixIn, TCPServer):
 cdef class GDBStub:
     def __init__(self, object main):
         self.main = main
-        self.server = None
-        self.gdbHandler = None
+        self.server = self.gdbHandler = None
         try:
             self.server = ThreadedTCPServer((GDBSTUB_HOST, GDBSTUB_PORT), ThreadedTCPRequestHandler, bind_and_activate=False)
             self.gdbHandler = GDBStubHandler(self.main, self)
@@ -324,12 +321,11 @@ cdef class GDBStub:
         except:
             print_exc()
             self.main.notice("GDBStub::__init__: exception.")
-            self.quitFunc()
+            self.server = self.gdbHandler = None
     cpdef quitFunc(self):
         if (self.server):
             self.server.shutdown()
-        self.server = None
-        self.gdbHandler = None
+        self.server = self.gdbHandler = None
         self.main.quitFunc()
     cpdef serveGDBStub(self):
         try:

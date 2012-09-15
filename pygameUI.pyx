@@ -310,14 +310,14 @@ cdef class PygameUI:
             self.quitFunc()
             exit(1)
         elif (event.type == pygame.VIDEOEXPOSE):
-            self.updateScreen(list())
+            self.updateScreen(tuple())
         elif (event.type == pygame.KEYDOWN):
             (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), False)
         elif (event.type == pygame.KEYUP):
             (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key), True)
         else:
             self.main.notice("PygameUI::handleEvent: event.type == {0:d}", event.type)
-    cpdef updateScreen(self, list rectList):
+    cpdef updateScreen(self, tuple rectList):
         try:
             if (len(rectList) > 0):
                 pygame.display.update(rectList)

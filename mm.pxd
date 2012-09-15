@@ -6,6 +6,8 @@ from libc.string cimport strncpy, memcpy, memset, memmove
 ctypedef bytes (*MmAreaReadType)(self, MmArea, unsigned int, unsigned int)
 ctypedef void (*MmAreaWriteType)(self, MmArea, unsigned int, char *, unsigned int)
 
+DEF SIZE_1MB = 0x100000 # sync this with globals.pxi
+
 cdef class MmArea:
     cdef unsigned char readOnly, valid
     cdef unsigned int start, end
@@ -18,12 +20,13 @@ cdef class MmArea:
 
 cdef class Mm:
     cpdef object main
-    cdef list mmAreas
+    cdef tuple mmAreas
     cdef MmArea mmAddArea(self, unsigned int mmBaseAddr, unsigned char mmReadOnly)
-    cdef void mmClearArea(self, MmArea mmArea, unsigned char clearByte)
+    cdef inline void mmClearArea(self, MmArea mmArea, unsigned char clearByte):
+        memset(mmArea.data, clearByte, SIZE_1MB)
     cdef void mmDelArea(self, unsigned int mmAddr)
     cdef MmArea mmGetArea(self, unsigned int mmAddr)
-    cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)
+    cdef tuple mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)
     cdef void mmSetReadOnly(self, unsigned int mmAddr, unsigned char mmReadOnly)
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
@@ -38,12 +41,12 @@ cdef class Mm:
     cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr)
     cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr)
     cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize)
-    cdef void mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize)
+    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize)
     cdef unsigned char mmPhyWriteValueByte(self, unsigned int mmAddr, unsigned char data)
-    cdef unsigned short mmPhyWriteValueWord(self, unsigned int mmAddr, unsigned short data)
-    cdef unsigned int mmPhyWriteValueDword(self, unsigned int mmAddr, unsigned int data)
-    cdef unsigned long int mmPhyWriteValueQword(self, unsigned int mmAddr, unsigned long int data)
-    cdef unsigned long int mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize)
+    cdef unsigned char mmPhyWriteValueWord(self, unsigned int mmAddr, unsigned short data)
+    cdef unsigned char mmPhyWriteValueDword(self, unsigned int mmAddr, unsigned int data)
+    cdef unsigned char mmPhyWriteValueQword(self, unsigned int mmAddr, unsigned long int data)
+    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize)
     cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
     cdef unsigned int mmGetAbsoluteAddressForInterrupt(self, unsigned char intNum)
 
