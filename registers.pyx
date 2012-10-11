@@ -232,12 +232,14 @@ cdef class Registers:
     cdef void resetPrefixes(self):
         self.operandSizePrefix = self.addressSizePrefix = False
         self.segmentOverridePrefix = self.repPrefix = 0
-    cdef void readCodeSegSize(self):
-        self.getOpAddrCodeSegSize(&self.operSize, &self.addrSize)
     cdef unsigned char getCPL(self):
+        cdef Segment cs
         if (not (<Segments>self.segments).isInProtectedMode()):
             return 0
-        return (<Segment>(self.segments.cs).segmentIndex&3)
+        cs = self.segments.cs
+        if (cs.isRMSeg):
+            return 0
+        return (cs.segmentIndex&3)
     cdef unsigned char getIOPL(self):
         return (self.getEFLAG(FLAG_IOPL)>>12)&3
     cdef signed char getCurrentOpcodeSignedByte(self):
@@ -337,24 +339,24 @@ cdef class Registers:
         return self.mmReadValueUnsignedByte(retAddr[0], CPU_SEGMENT_CS, False)
     cdef unsigned short segRead(self, unsigned short segId):
         IF STRICT_CHECKS:
-            if (not segId or not (segId in CPU_REGISTER_SREG)):
+            if (not segId or (segId not in CPU_REGISTER_SREG)):
                 self.main.exitError("segRead: segId is not a segment! ({0:d})", segId)
                 return 0
-        return self.regs[segId]._union.word._union.rx
+        return self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue):
         cdef Segment segmentInstance
         IF STRICT_CHECKS:
-            if (not segId or not (segId in CPU_REGISTER_SREG)):
+            if (not segId or (segId not in CPU_REGISTER_SREG)):
                 self.main.exitError("segWrite: segId is not a segment! ({0:d})", segId)
                 return 0
         if ((<Segments>self.segments).isInProtectedMode()):
             (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId == CPU_SEGMENT_SS)
-        segmentInstance = <Segment>(self.segments.getSegmentInstance(segId, False))
+        segmentInstance = self.segments.getSegmentInstance(segId, False)
         segmentInstance.loadSegment(segValue)
         if (segId == CPU_SEGMENT_CS):
             self.codeSegSize = segmentInstance.getSegSize()
             self.eipSize = OP_SIZE_QWORD
-        self.regs[segId]._union.word._union.rx = segValue
+        self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
         return segValue
     cdef signed long int regReadSigned(self, unsigned short regId, unsigned char regSize):
         if (regSize == OP_SIZE_BYTE):
@@ -542,26 +544,16 @@ cdef class Registers:
         elif (regSize == OP_SIZE_QWORD):
             return self.regWriteWithOpQword(regId, value, valueOp)
         return 0
-    cdef unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state):
-        if (state):
-            return ( value | <unsigned int>(1<<bit) )
-        return ( value & <unsigned int>(~(1<<bit)) )
-    cdef unsigned int setEFLAG(self, unsigned int flags, unsigned char flagState):
-        if (flagState):
-            return self.regOrDword(CPU_REGISTER_EFLAGS, flags)
-        return self.regAndDword(CPU_REGISTER_EFLAGS, <unsigned int>(~flags))
-    cdef unsigned int getFlagDword(self, unsigned short regId, unsigned int flags):
-        return (self.regReadUnsignedDword(regId)&flags)
     cdef void setSZP(self, unsigned int value, unsigned char regSize):
         self.setEFLAG(FLAG_SF, (value&(<Misc>self.main.misc).getBitMask80(regSize))!=0)
         self.setEFLAG(FLAG_ZF, value==0)
         self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>value])
-    cdef void setSZP_O0(self, unsigned int value, unsigned char regSize):
+    cdef void setSZP_O(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.setEFLAG(FLAG_OF, False)
-    cdef void setSZP_C0_O0_A0(self, unsigned int value, unsigned char regSize):
-        self.setSZP_O0(value, regSize)
-        self.setEFLAG(FLAG_CF | FLAG_AF, False)
+    cdef void setSZP_COA(self, unsigned int value, unsigned char regSize):
+        self.setSZP(value, regSize)
+        self.setEFLAG(FLAG_CF | FLAG_OF | FLAG_AF, False)
     cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize):
         cdef unsigned short regName
         regName = CPU_REGISTER_NONE
@@ -729,7 +721,7 @@ cdef class Registers:
         segment = self.segments.getSegmentInstance(segId, True)
         mmAddr = <unsigned int>(segment.base+mmAddr)
         # TODO: check for limit asf...
-        if (not (<Segments>self.segments).isInProtectedMode()):
+        if (segment.isRMSeg):
             if (self.segments.getA20State()): # A20 Active? if True == on, else off
                 if (segment.segSize != OP_SIZE_WORD or segment.base >= SIZE_1MB):
                     return mmAddr&0xff1fffff
@@ -963,20 +955,6 @@ cdef class Registers:
                 else:
                     self.main.exitError("Registers::mmWriteValueWithOpQword: unknown valueOp {0:d}.", valueOp)
         return data
-    cdef unsigned char getSegSize(self, unsigned short segId):
-        return (<Segment>(self.segments.getSegmentInstance(segId, True))).getSegSize()
-    cdef unsigned char isSegPresent(self, unsigned short segId):
-        return (((<Segment>(self.segments.getSegmentInstance(segId, True))).accessByte & GDT_ACCESS_PRESENT) != 0)
-    cdef unsigned char getAddrSegSize(self, unsigned short segId):
-        segId = <unsigned char>self.getSegSize(segId)
-        return ((((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-    cdef unsigned char getOpCodeSegSize(self):
-        return ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-    cdef unsigned char getAddrCodeSegSize(self):
-        return ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-    cdef void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
-        opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-        addrSize[0] = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef void run(self):
         self.segments = Segments(self.main)
         self.segments.run()

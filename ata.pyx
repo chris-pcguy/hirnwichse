@@ -35,7 +35,7 @@ cdef class AtaDrive:
     cdef void loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType
         if (not filename or not access(filename, F_OK | R_OK)):
-            self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", (self.ataController.controllerId*2)+self.driveId, filename)
+            self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", (self.ataController.controllerId<<1)+self.driveId, filename)
             return
         self.filename = filename
         if (access(filename, F_OK | R_OK | W_OK)):
@@ -47,7 +47,7 @@ cdef class AtaDrive:
             self.isLoaded = True
             self.isWriteProtected = True
         else:
-            self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", (self.ataController.controllerId*2)+self.driveId, filename)
+            self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", (self.ataController.controllerId<<1)+self.driveId, filename)
             return
         if (self.driveId in (0, 1)):
             cmosDiskType = (<Cmos>self.main.platform.cmos).readValue(CMOS_HDD_DRIVE_TYPE, OP_SIZE_BYTE)

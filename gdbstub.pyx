@@ -203,7 +203,7 @@ cdef class GDBStubHandler:
             while (currRegNum < maxRegNum and not self.main.quitEmu):
                 if (currRegNum >= CPU_REGISTERS):
                     break
-                dataOffset = currRegNum*8
+                dataOffset = currRegNum<<3
                 currData = self.hexToBytes(data[dataOffset:dataOffset+8]) # currData is bytes/DWORD
                 if (len(currData) != 4):
                     self.main.exitError("GDBStubHandler::handleCommand: len(currData)!=4; currData isn't DWORD.")

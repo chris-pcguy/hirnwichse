@@ -510,7 +510,7 @@ cdef class Opcodes:
             self.registers.setFullFlags(op1, op2, operSize, OPCODE_SUB)
         elif (opcode in (OPCODE_AND, OPCODE_OR, OPCODE_XOR)):
             op2 = self.modRMInstance.modRSave(operSize, op2, opcode)
-            self.registers.setSZP_C0_O0_A0(op2, operSize)
+            self.registers.setSZP_COA(op2, operSize)
         elif (opcode == OPCODE_TEST):
             self.main.exitError("OPCODE::opcodeR_RM: OPCODE_TEST HAS NO R_RM!!")
         else:
@@ -529,9 +529,9 @@ cdef class Opcodes:
             self.registers.setFullFlags(op1, op2, operSize, OPCODE_SUB)
         elif (opcode in (OPCODE_AND, OPCODE_OR, OPCODE_XOR)):
             op2 = self.modRMInstance.modRMSave(operSize, op2, True, opcode)
-            self.registers.setSZP_C0_O0_A0(op2, operSize)
+            self.registers.setSZP_COA(op2, operSize)
         elif (opcode == OPCODE_TEST):
-            self.registers.setSZP_C0_O0_A0(op1&op2, operSize)
+            self.registers.setSZP_COA(op1&op2, operSize)
         else:
             self.main.notice("OPCODE::opcodeRM_R: invalid opcode: {0:d}.", opcode)
         return True
@@ -562,9 +562,9 @@ cdef class Opcodes:
                 op2 = self.registers.regWriteWithOpWord(CPU_REGISTER_AX, op2, opcode)
             elif (operSize == OP_SIZE_DWORD):
                 op2 = self.registers.regWriteWithOpDword(CPU_REGISTER_EAX, op2, opcode)
-            self.registers.setSZP_C0_O0_A0(op2, operSize)
+            self.registers.setSZP_COA(op2, operSize)
         elif (opcode == OPCODE_TEST):
-            self.registers.setSZP_C0_O0_A0(op1&op2, operSize)
+            self.registers.setSZP_COA(op1&op2, operSize)
         else:
             self.main.notice("OPCODE::opcodeRM_R: invalid opcode: {0:d}.", opcode)
         return True
@@ -1296,7 +1296,7 @@ cdef class Opcodes:
             elif (operOpcodeId == GROUP1_OP_XOR):
                 operOpcodeId = OPCODE_XOR
             operOp2 = self.modRMInstance.modRMSave(operSize, operOp2, True, operOpcodeId)
-            self.registers.setSZP_C0_O0_A0(operOp2, operSize)
+            self.registers.setSZP_COA(operOp2, operSize)
         elif (operOpcodeId == GROUP1_OP_CMP):
             self.registers.setFullFlags(operOp1, operOp2, operSize, OPCODE_SUB)
         else:
@@ -1553,9 +1553,10 @@ cdef class Opcodes:
                     op2 |= CR0_FLAG_ET
                 if ((op2 & CR0_FLAG_PG) and not (op2 & CR0_FLAG_PE)):
                     raise ChemuException(CPU_EXCEPTION_GP, 0)
-                (<Segments>self.registers.segments).pagingOn = (op2 & CR0_FLAG_PG)!=0
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
-            if (self.modRMInstance.regName == CPU_REGISTER_CR3):
+            if (self.modRMInstance.regName == CPU_REGISTER_CR0):
+                self.syncCR0State()
+            elif (self.modRMInstance.regName == CPU_REGISTER_CR3):
                 (<Paging>self.registers.segments.paging).invalidateTables(op2)
             elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
                 if (op2 & CR4_FLAG_VME):
@@ -2083,7 +2084,7 @@ cdef class Opcodes:
         if (operOpcodeId in (GROUP2_OP_TEST, GROUP2_OP_TEST_ALIAS)):
             operOp1 = self.registers.getCurrentOpcodeAddUnsigned(operSize)
             operOp2 = operOp2&operOp1
-            self.registers.setSZP_C0_O0_A0(operOp2, operSize)
+            self.registers.setSZP_COA(operOp2, operSize)
         elif (operOpcodeId == GROUP2_OP_NEG):
             self.modRMInstance.modRMSave(operSize, operOp2, True, OPCODE_NEG)
             self.registers.setFullFlags(0, operOp2, operSize, OPCODE_SUB)
@@ -2358,7 +2359,7 @@ cdef class Opcodes:
         tempAL = self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL)
         tempAH = self.registers.regReadUnsignedHighByte(CPU_REGISTER_AH)
         tempAL = <unsigned char>(self.registers.regWriteWord(CPU_REGISTER_AX, <unsigned char>(tempAL + (tempAH * imm8))))
-        self.registers.setSZP_C0_O0_A0(tempAL, OP_SIZE_BYTE)
+        self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
         return True
     cdef int aam(self):
         cdef unsigned char imm8, tempAL, ALdiv, ALmod
@@ -2369,41 +2370,41 @@ cdef class Opcodes:
         ALdiv, ALmod = divmod(tempAL, imm8)
         self.registers.regWriteHighByte(CPU_REGISTER_AH, ALdiv)
         self.registers.regWriteLowByte(CPU_REGISTER_AL, ALmod)
-        self.registers.setSZP_C0_O0_A0(ALmod, OP_SIZE_BYTE)
+        self.registers.setSZP_COA(ALmod, OP_SIZE_BYTE)
         return True
     cdef int aaa(self):
         cdef unsigned char AFflag, tempAL, tempAH
         cdef unsigned short tempAX
         tempAX = self.registers.regReadUnsignedWord(CPU_REGISTER_AX)
-        tempAL = <unsigned char>tempAX
+        tempAL = tempAX&0xf
         tempAH = (tempAX>>8)
         AFflag = self.registers.getEFLAG(FLAG_AF)!=0
-        if (((tempAL&0xf)>9) or AFflag):
-            tempAL += 6
+        if ((tempAL>9) or AFflag):
+            tempAL = (tempAL+6)&0xf
+            self.registers.setSZP_O(tempAL, OP_SIZE_BYTE)
             self.registers.setEFLAG(FLAG_AF | FLAG_CF, True)
             self.registers.regAddHighByte(CPU_REGISTER_AH, 1)
-            self.registers.regWriteLowByte(CPU_REGISTER_AL, tempAL&0xf)
         else:
-            self.registers.setEFLAG(FLAG_AF | FLAG_CF, False)
-            self.registers.regWriteLowByte(CPU_REGISTER_AL, tempAL&0xf)
-        self.registers.setSZP_O0(self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL), OP_SIZE_BYTE)
+            tempAL &= 0xf
+            self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
+        self.registers.regWriteLowByte(CPU_REGISTER_AL, tempAL)
         return True
     cdef int aas(self):
         cdef unsigned char AFflag, tempAL, tempAH
         cdef unsigned short tempAX
         tempAX = self.registers.regReadUnsignedWord(CPU_REGISTER_AX)
-        tempAL = <unsigned char>tempAX
+        tempAL = tempAX&0xf
         tempAH = (tempAX>>8)
         AFflag = self.registers.getEFLAG(FLAG_AF)!=0
-        if (((tempAL&0xf)>9) or AFflag):
-            tempAL -= 6
+        if ((tempAL>9) or AFflag):
+            tempAL = (tempAL-6)&0xf
+            self.registers.setSZP_O(tempAL, OP_SIZE_BYTE)
             self.registers.setEFLAG(FLAG_AF | FLAG_CF, True)
             self.registers.regSubHighByte(CPU_REGISTER_AH, 1)
-            self.registers.regWriteLowByte(CPU_REGISTER_AL, tempAL&0xf)
         else:
-            self.registers.setEFLAG(FLAG_AF | FLAG_CF, False)
-            self.registers.regWriteLowByte(CPU_REGISTER_AL, tempAL&0xf)
-        self.registers.setSZP_O0(self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL), OP_SIZE_BYTE)
+            tempAL &= 0xf
+            self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
+        self.registers.regWriteLowByte(CPU_REGISTER_AL, tempAL)
         return True
     cdef int daa(self):
         cdef unsigned char old_AL, old_AF, old_CF
@@ -2422,7 +2423,7 @@ cdef class Opcodes:
             self.stc()
         else:
             self.clc()
-        self.registers.setSZP_O0(self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL), OP_SIZE_BYTE)
+        self.registers.setSZP_O(self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL), OP_SIZE_BYTE)
         return True
     cdef int das(self):
         cdef unsigned char old_AL, old_AF, old_CF
@@ -2439,7 +2440,7 @@ cdef class Opcodes:
         if ((old_AL > 0x99) or old_CF):
             self.registers.regSubLowByte(CPU_REGISTER_AL, 0x60)
             self.stc()
-        self.registers.setSZP_O0(self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL), OP_SIZE_BYTE)
+        self.registers.setSZP_O(self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL), OP_SIZE_BYTE)
         return True
     cdef int cbw_cwde(self):
         cdef unsigned int op2
@@ -2491,7 +2492,7 @@ cdef class Opcodes:
         newCF = ((dest>>(count-1))&1)
         dest >>= count
         self.modRMInstance.modRMSave(operSize, dest&bitMask, True, OPCODE_SAVE)
-        self.registers.setSZP_C0_O0_A0(dest&bitMask, operSize)
+        self.registers.setSZP_COA(dest&bitMask, operSize)
         self.registers.setEFLAG(FLAG_CF, newCF)
         return True
     cdef int shrFunc(self, unsigned char operSize, unsigned char count):

@@ -3,7 +3,8 @@ from mm cimport Mm, ConfigSpace
 
 cdef class Segment:
     cdef Segments segments
-    cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, segIsRW, segIsConforming, segDPL
+    cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, \
+        segIsRW, segIsConforming, segDPL, isRMSeg
     cdef unsigned short segmentId, segmentIndex
     cdef unsigned int base, limit
     cdef void loadSegment(self, unsigned short segmentIndex)
@@ -84,13 +85,18 @@ cdef class Segments:
     cdef Tss tss
     cdef Paging paging
     cdef Segment cs, ds, es, fs, gs, ss
+    cdef tuple segs
     cdef unsigned char A20Active, protectedModeOn, pagingOn
     cdef unsigned short ldtr, tr
     cdef void reset(self)
-    cdef unsigned char isInProtectedMode(self)
-    cdef unsigned char isPagingOn(self)
-    cdef unsigned char getA20State(self)
-    cdef void setA20State(self, unsigned char state)
+    cdef inline unsigned char isInProtectedMode(self):
+        return self.protectedModeOn
+    cdef inline unsigned char isPagingOn(self):
+        return self.pagingOn
+    cdef inline unsigned char getA20State(self):
+        return self.A20Active
+    cdef inline void setA20State(self, unsigned char state):
+        self.A20Active = state
     cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness)
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char isCodeSeg(self, unsigned short num)

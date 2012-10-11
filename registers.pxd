@@ -3,10 +3,8 @@ from misc cimport Misc
 from mm cimport Mm
 from segments cimport Segment, GdtEntry, Gdt, Idt, Paging, Segments
 
-# sync these with cpu_globals.pxi:
-DEF CPU_REGISTERS = 27
-DEF FLAG_CF = 0x1
-DEF CPU_REGISTER_EFLAGS = 9
+include "globals.pxi"
+include "cpu_globals.pxi"
 
 cdef:
     struct byteStruct:
@@ -63,7 +61,8 @@ cdef class Registers:
     cdef public unsigned short eipSize
     cdef void reset(self)
     cdef void resetPrefixes(self)
-    cdef void readCodeSegSize(self)
+    cdef inline void readCodeSegSize(self):
+        self.getOpAddrCodeSegSize(&self.operSize, &self.addrSize)
     cdef unsigned char getCPL(self)
     cdef unsigned char getIOPL(self)
     cdef signed char getCurrentOpcodeSignedByte(self)
@@ -225,16 +224,23 @@ cdef class Registers:
     cdef unsigned int regWriteWithOpDword(self, unsigned short regId, unsigned int value, unsigned char valueOp)
     cdef unsigned long int regWriteWithOpQword(self, unsigned short regId, unsigned long int value, unsigned char valueOp)
     cdef unsigned long int regWriteWithOp(self, unsigned short regId, unsigned long int value, unsigned char valueOp, unsigned char regSize)
-    cdef unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state)
     cdef inline unsigned char valGetBit(self, unsigned int value, unsigned char bit): # return True if bit is set, otherwise False
         return (value&<unsigned int>(1<<bit))!=0
     cdef inline unsigned int getEFLAG(self, unsigned int flags):
         return self.getFlagDword(CPU_REGISTER_EFLAGS, flags)
-    cdef unsigned int setEFLAG(self, unsigned int flags, unsigned char flagState)
-    cdef unsigned int getFlagDword(self, unsigned short regId, unsigned int flags)
+    cdef inline unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state):
+        if (state):
+            return ( value | <unsigned int>(1<<bit) )
+        return ( value & <unsigned int>(~(1<<bit)) )
+    cdef inline unsigned int setEFLAG(self, unsigned int flags, unsigned char flagState):
+        if (flagState):
+            return self.regOrDword(CPU_REGISTER_EFLAGS, flags)
+        return self.regAndDword(CPU_REGISTER_EFLAGS, <unsigned int>(~flags))
+    cdef inline unsigned int getFlagDword(self, unsigned short regId, unsigned int flags):
+        return (self.regReadUnsignedDword(regId)&flags)
     cdef void setSZP(self, unsigned int value, unsigned char regSize)
-    cdef void setSZP_O0(self, unsigned int value, unsigned char regSize)
-    cdef void setSZP_C0_O0_A0(self, unsigned int value, unsigned char regSize)
+    cdef void setSZP_O(self, unsigned int value, unsigned char regSize)
+    cdef void setSZP_COA(self, unsigned int value, unsigned char regSize)
     cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize)
     cdef unsigned char getCond(self, unsigned char index)
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method)
@@ -261,12 +267,16 @@ cdef class Registers:
     cdef unsigned short mmWriteValueWithOpWord(self, unsigned int mmAddr, unsigned short data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
     cdef unsigned int mmWriteValueWithOpDword(self, unsigned int mmAddr, unsigned int data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
     cdef unsigned long int mmWriteValueWithOpQword(self, unsigned int mmAddr, unsigned long int data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
-    cdef unsigned char getSegSize(self, unsigned short segId)
-    cdef unsigned char isSegPresent(self, unsigned short segId)
-    cdef unsigned char getAddrSegSize(self, unsigned short segId)
-    cdef unsigned char getOpCodeSegSize(self)
-    cdef unsigned char getAddrCodeSegSize(self)
-    cdef void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize)
+    cdef inline unsigned char getSegSize(self, unsigned short segId):
+        return (<Segment>(self.segments.getSegmentInstance(segId, True))).getSegSize()
+    cdef inline unsigned char isSegPresent(self, unsigned short segId):
+        return (((<Segment>(self.segments.getSegmentInstance(segId, True))).accessByte & GDT_ACCESS_PRESENT) != 0)
+    cdef inline unsigned char getAddrSegSize(self, unsigned short segId):
+        segId = <unsigned char>self.getSegSize(segId)
+        return ((((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
+    cdef inline void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
+        opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
+        addrSize[0] = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef void run(self)
 
 

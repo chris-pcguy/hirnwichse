@@ -158,7 +158,7 @@ cdef class FloppyDrive:
         self.fp.seek(oldPos)
         return data
     cdef bytes readSectors(self, unsigned int sector, unsigned int count): # count in sectors
-        return self.readBytes(sector*512, count*512)
+        return self.readBytes(sector<<9, count<<9)
     cdef void writeBytes(self, unsigned int offset, unsigned int size, bytes data):
         cdef unsigned int oldPos
         if (len(data) < size): # data is too short.
@@ -169,7 +169,7 @@ cdef class FloppyDrive:
         self.fp.seek(oldPos)
         self.fp.flush()
     cdef void writeSectors(self, unsigned int sector, unsigned int count, bytes data):
-        self.writeBytes(sector*512, count*512, data)
+        self.writeBytes(sector<<9, count<<9, data)
 
 
 cdef class FloppyController:

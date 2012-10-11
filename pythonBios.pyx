@@ -38,9 +38,6 @@ cdef class PythonBios:
                 (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_DX, dx)
                 (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_CX, cx)
                 return True
-            elif (ah == 0x06): # scroll up
-                (<Vga>self.main.platform.vga).scrollUp(0xff, bh, al)
-                return True
             elif (ah == 0x0f): # get currMode; write it to AL
                 (<Registers>self.main.cpu.registers).regWriteLowByte(CPU_REGISTER_AL, (currMode|\
                     ((<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_VIDEO_CTL_ADDR)&0x80)))
@@ -117,7 +114,7 @@ cdef class PythonBios:
                 memAddr += bx
                 logicalSector = (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).ChsToSector(cylinder, head, sector)
                 data = (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).readSectors(logicalSector, count)
-                (<Mm>self.main.mm).mmPhyWrite(memAddr, data, count*512)
+                (<Mm>self.main.mm).mmPhyWrite(memAddr, data, count<<9)
                 self.setRetError(False, al)
                 return True
             elif (ah == 0x8):

@@ -93,6 +93,8 @@ cdef class Cpu:
                 self.registers.addressSizePrefix = True
             elif (opcode == OPCODE_PREFIX_CS):
                 self.registers.segmentOverridePrefix = CPU_SEGMENT_CS
+            elif (opcode == OPCODE_PREFIX_SS):
+                self.registers.segmentOverridePrefix = CPU_SEGMENT_SS
             elif (opcode == OPCODE_PREFIX_DS):
                 self.registers.segmentOverridePrefix = CPU_SEGMENT_DS
             elif (opcode == OPCODE_PREFIX_ES):
@@ -101,8 +103,6 @@ cdef class Cpu:
                 self.registers.segmentOverridePrefix = CPU_SEGMENT_FS
             elif (opcode == OPCODE_PREFIX_GS):
                 self.registers.segmentOverridePrefix = CPU_SEGMENT_GS
-            elif (opcode == OPCODE_PREFIX_SS):
-                self.registers.segmentOverridePrefix = CPU_SEGMENT_SS
             elif (opcode == OPCODE_PREFIX_REPE or opcode == OPCODE_PREFIX_REPNE):
                 self.registers.repPrefix = opcode
             ### TODO: I don't think, that we ever need lockPrefix.
@@ -172,9 +172,10 @@ cdef class Cpu:
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         self.registers.readCodeSegSize()
-        self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-        #if (self.main.debugEnabled):
-        #    self.cpuDump()
+        #self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
+        if (self.main.debugEnabled):
+            self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
+            self.cpuDump()
         #if (self.savedEip == 0x1000c1 and self.savedCs == 0x0010):
         #    self.cpuDump()
         #    #self.main.exitError("CPU::doCycle: dumped! exit.")

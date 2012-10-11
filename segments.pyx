@@ -18,7 +18,9 @@ cdef class Segment:
         if (not self.segments.isInProtectedMode()):
             self.base = segmentIndex
             self.base <<= 4
+            self.limit = 0xffff
             self.isValid = True
+            self.isRMSeg = True
             return
         gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segmentIndex))
         if (gdtEntry is None):
@@ -35,6 +37,7 @@ cdef class Segment:
         self.segIsRW = gdtEntry.segIsRW
         self.segIsConforming = gdtEntry.segIsConforming
         self.segDPL = gdtEntry.segDPL
+        self.isRMSeg = False
     cdef unsigned char getSegSize(self):
         return self.segSize
     cdef unsigned char isSegPresent(self):
@@ -125,10 +128,10 @@ cdef class Gdt:
     cdef unsigned char getSegSize(self, unsigned short num):
         return self.getEntry(num).segSize
     cdef unsigned char getSegType(self, unsigned short num):
-        return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsignedByte(num+5) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
+        return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsignedByte(self.tableBase+num+5) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
     cdef void setSegType(self, unsigned short num, unsigned char segmentType):
-        (<Mm>self.segments.main.mm).mmPhyWriteValueByte(num+5, (((<Mm>self.segments.main.mm).\
-          mmPhyReadValueUnsignedByte(num+5) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
+        (<Mm>self.segments.main.mm).mmPhyWriteValueByte(self.tableBase+num+5, (((<Mm>self.segments.main.mm).\
+          mmPhyReadValueUnsignedByte(self.tableBase+num+5) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
             (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)))
     cdef unsigned char isSegPresent(self, unsigned short num):
         return self.getEntry(num).segPresent
@@ -246,7 +249,7 @@ cdef class Idt:
         cdef IdtEntry idtEntry
         if (not self.tableLimit):
             self.segments.main.exitError("Idt::getEntry: tableLimit is zero.")
-        idtEntry = IdtEntry(<unsigned long int>(<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(self.tableBase+(num*8)))
+        idtEntry = IdtEntry(<unsigned long int>(<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(self.tableBase+(num<<3)))
         if (idtEntry.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
             self.segments.main.notice("Idt::getEntry: entryType is LDT or TSS. (is this allowed?)")
         return idtEntry
@@ -259,7 +262,7 @@ cdef class Idt:
         return self.getEntry(num).entrySize
     cdef void getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip):
         cdef unsigned short offset
-        offset = num*4 # Don't use ConfigSpace here.
+        offset = num<<2 # Don't use ConfigSpace here.
         entryEip[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedWord(offset)
         entrySegment[0] = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedWord(offset+2)
 
@@ -286,8 +289,8 @@ cdef class Paging:
     cdef void readAddresses(self, unsigned int virtualAddress):
         cdef unsigned short pageOffset
         cdef unsigned int pageDirectoryOffset, pageTableOffset
-        pageDirectoryOffset = (virtualAddress>>22)*4
-        pageTableOffset = ((virtualAddress>>12)&0x3ff)*4
+        pageDirectoryOffset = (virtualAddress>>22)<<2
+        pageTableOffset = ((virtualAddress>>12)&0x3ff)<<2
         pageOffset = virtualAddress&0xfff
         self.pageDirectoryEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress+pageDirectoryOffset) # page directory
         if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4mb page
@@ -310,8 +313,8 @@ cdef class Paging:
     cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress):
         cdef unsigned short pageOffset
         cdef unsigned int pageDirectoryOffset, pageTableOffset
-        pageDirectoryOffset = (virtualAddress>>22)*4
-        pageTableOffset = ((virtualAddress>>12)&0x3ff)*4
+        pageDirectoryOffset = (virtualAddress>>22)<<2
+        pageTableOffset = ((virtualAddress>>12)&0x3ff)<<2
         pageOffset = virtualAddress&0xfff
         self.readAddresses(virtualAddress)
         (<Mm>self.segments.main.mm).mmPhyWriteValueDword(self.pageDirectoryBaseAddress+pageDirectoryOffset, (self.pageDirectoryEntry | PAGE_WAS_USED)) # page directory
@@ -322,35 +325,18 @@ cdef class Segments:
     def __init__(self, object main):
         self.main = main
         self.ldtr = self.tr = 0
+        self.segs = ()
     cdef void reset(self):
         self.ldtr = self.tr = 0
         self.A20Active = True # enable A20-line by default.
         self.protectedModeOn = self.pagingOn = False
-    cdef unsigned char isInProtectedMode(self):
-        return self.protectedModeOn
-    cdef unsigned char isPagingOn(self):
-        return self.pagingOn
-    cdef unsigned char getA20State(self):
-        return self.A20Active
-    cdef void setA20State(self, unsigned char state):
-        self.A20Active = state
     cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness):
         cdef Segment segment
-        if (segmentId == CPU_SEGMENT_CS):
-            segment = self.cs
-        elif (segmentId == CPU_SEGMENT_DS):
-            segment = self.ds
-        elif (segmentId == CPU_SEGMENT_ES):
-            segment = self.es
-        elif (segmentId == CPU_SEGMENT_FS):
-            segment = self.fs
-        elif (segmentId == CPU_SEGMENT_GS):
-            segment = self.gs
-        elif (segmentId == CPU_SEGMENT_SS):
-            segment = self.ss
-        else:
-            self.main.exitError("Segments::getSegmentInstance: invalid segmentId {0:d}", segmentId)
-            return None
+        IF STRICT_CHECKS:
+            if (not segmentId or (segmentId not in CPU_REGISTER_SREG)):
+                self.main.exitError("Segments::getSegmentInstance: invalid segmentId {0:d}", segmentId)
+                return None
+        segment = self.segs[segmentId]
         if (checkForValidness and not segment.isValid):
             self.main.notice("Segments::getSegmentInstance: segment with ID {0:d} isn't valid.", segmentId)
             raise ChemuException(CPU_EXCEPTION_GP, segment.segmentIndex)
@@ -399,11 +385,12 @@ cdef class Segments:
         self.tss = Tss(self)
         self.paging = Paging(self)
         self.cs = Segment(self, CPU_SEGMENT_CS, 0)
+        self.ss = Segment(self, CPU_SEGMENT_SS, 0)
         self.ds = Segment(self, CPU_SEGMENT_DS, 0)
         self.es = Segment(self, CPU_SEGMENT_ES, 0)
         self.fs = Segment(self, CPU_SEGMENT_FS, 0)
         self.gs = Segment(self, CPU_SEGMENT_GS, 0)
-        self.ss = Segment(self, CPU_SEGMENT_SS, 0)
+        self.segs = (None, self.cs, self.ss, self.ds, self.es, self.fs, self.gs)
 
 
 
