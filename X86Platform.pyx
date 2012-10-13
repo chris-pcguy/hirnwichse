@@ -29,7 +29,6 @@ cdef class PortHandler:
 cdef class Platform:
     def __init__(self, object main):
         self.main = main
-        self.copyRomToLowMem = True
         self.ports  = list()
     cdef void initDevices(self):
         self.cmos     = Cmos(self.main)
@@ -215,18 +214,11 @@ cdef class Platform:
                 romMemSize = size
                 mmAddr = 0x100000000-romMemSize
         self.loadRomToMem(romFileName, mmAddr, romSize)
-        if (self.copyRomToLowMem):
-            if (romMemSize > SIZE_1MB):
-                self.main.exitError("X86Platform::loadRom: copyRomToLowMem active and romMemSize > SIZE_1MB, exiting...")
-                return
-            (<Mm>self.main.mm).mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
+        (<Mm>self.main.mm).mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
     cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
-        ### TODO: should 0xf0000-0xfffff be read-only?
         (<Mm>self.main.mm).mmAreaWrite(mmArea, offset, data, dataSize)
         if (offset >= self.vga.videoMemBase and (offset+dataSize) <= (self.vga.videoMemBase+self.vga.videoMemSize)):
             self.vga.vgaAreaWrite(mmArea, offset, dataSize)
-        #elif (offset >= 0xf0000 and (offset+dataSize) <= (0x100000)):
-        #    self.main.notice("X86Platform::systemWriteHandler: BIOS area (0xf0000-0xfffff) should be read-only.")
     cdef void initMemory(self):
         cdef MmArea biosMmArea
         cdef unsigned int i
@@ -237,8 +229,7 @@ cdef class Platform:
         (<Mm>self.main.mm).mmAddArea(0xfff00000, False)
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
         if (self.main.vgaBiosFilename):
-            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xfffc0000, True)
-        (<Mm>self.main.mm).mmSetReadOnly(0xfff00000, True)
+            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xc0000, True)
         biosMmArea = (<Mm>self.main.mm).mmGetArea(0x0) # this would include the whole first megabyte.
         if (biosMmArea is None or not biosMmArea.valid):
             self.main.exitError("X86Platform::initMemory: biosMmArea is invalid!")

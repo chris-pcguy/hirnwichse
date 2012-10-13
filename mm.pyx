@@ -41,17 +41,17 @@ cdef class Mm:
         mmArea.readHandler  = <MmAreaReadType>self.mmAreaRead
         mmArea.writeHandler = <MmAreaWriteType>self.mmAreaWrite
         return mmArea
-    cdef void mmDelArea(self, unsigned int addr):
-        cdef MmArea mmArea = self.mmGetArea(addr)
+    cdef void mmDelArea(self, unsigned int mmAddr):
+        cdef MmArea mmArea = self.mmGetArea(mmAddr)
         if (mmArea.valid and mmArea.data is not NULL):
             free(mmArea.data)
             mmArea.data = NULL
         mmArea.valid = False
-    cdef MmArea mmGetArea(self, unsigned int addr):
-        addr >>= 20
-        if (addr >= MM_NUMAREAS):
+    cdef MmArea mmGetArea(self, unsigned int mmAddr):
+        mmAddr >>= 20
+        if (mmAddr >= MM_NUMAREAS):
             return None
-        return self.mmAreas[addr]
+        return self.mmAreas[mmAddr]
     cdef tuple mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
         cdef unsigned short begin, end, count, i
@@ -59,12 +59,9 @@ cdef class Mm:
         mmAreas = []
         end = (mmAddr+dataSize-1) >> 20
         begin = (mmAddr) >> 20
-        count = end-begin+1
-        if (begin+count > MM_NUMAREAS): # count can't be zero and end is always >= begin. (afaik)
-            self.main.exitError("Mm::mmGetAreas: begin+count >= MM_NUMAREAS")
-            return None
+        count = (end-begin+1)&0xfff
         for i in range(count):
-            mmArea = self.mmAreas[begin+i]
+            mmArea = self.mmAreas[(begin+i)&0xfff]
             if (not mmArea.valid):
                 mmArea = None
                 continue
@@ -72,8 +69,8 @@ cdef class Mm:
         if (mmArea is None):
             return None
         return tuple(mmAreas)
-    cdef void mmSetReadOnly(self, unsigned int addr, unsigned char readOnly):
-        cdef MmArea mmArea = self.mmGetArea(addr)
+    cdef void mmSetReadOnly(self, unsigned int mmAddr, unsigned char readOnly):
+        cdef MmArea mmArea = self.mmGetArea(mmAddr)
         if (mmArea is None or not mmArea.valid):
             self.main.exitError("Mm::mmSetReadOnly: mmArea is invalid!")
             return
@@ -111,10 +108,6 @@ cdef class Mm:
             tempSize = dataSize-tempSize
         if (tempDataSize):
             self.main.exitError("Mm::mmPhyRead: tempDataSize: {0:#06x} is not zero. (mmAddr: {1:#010x}, dataSize: {2:d})", tempDataSize, origMmAddr, dataSize)
-            return b'\xff'*dataSize
-        ## assume, that mmArea is set to the last entry in mmAreas
-        if (mmAddr-1 > mmArea.end):
-            self.main.exitError("Mm::mmPhyRead: mmAddr overflow")
             return b'\xff'*dataSize
         return data
     cdef signed char mmPhyReadValueSignedByte(self, unsigned int mmAddr):
@@ -264,10 +257,6 @@ cdef class Mm:
             tempSize = dataSize-tempSize
         if (tempDataSize):
             self.main.exitError("Mm::mmPhyWrite: tempDataSize: {0:#06x} is not zero. (mmAddr: {1:#010x}, dataSize: {2:d})", tempDataSize, origMmAddr, dataSize)
-            return False
-        ## assume, that mmArea is set to the last entry in mmAreas
-        if (mmAddr-1 > mmArea.end):
-            self.main.exitError("Mm::mmPhyWrite: mmAddr overflow")
             return False
         return True
     cdef unsigned char mmPhyWriteValueByte(self, unsigned int mmAddr, unsigned char data):

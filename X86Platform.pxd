@@ -42,7 +42,6 @@ cdef class Platform:
     cdef public PythonBios pythonBios
     cdef public Cmos cmos
     cdef list ports
-    cdef unsigned char copyRomToLowMem
     cdef void initDevices(self)
     cdef void resetDevices(self)
     cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject)
