@@ -350,10 +350,11 @@ cdef class Registers:
             if (not segId or (segId not in CPU_REGISTER_SREG)):
                 self.main.exitError("segWrite: segId is not a segment! ({0:d})", segId)
                 return 0
-        if ((<Segments>self.segments).isInProtectedMode()):
-            (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId == CPU_SEGMENT_SS)
         segmentInstance = self.segments.getSegmentInstance(segId, False)
         segmentInstance.loadSegment(segValue)
+        if ((<Segments>self.segments).isInProtectedMode()):
+            if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):
+                segmentInstance.isValid = False
         if (segId == CPU_SEGMENT_CS):
             self.codeSegSize = segmentInstance.getSegSize()
             self.eipSize = OP_SIZE_QWORD

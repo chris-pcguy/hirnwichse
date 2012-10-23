@@ -22,8 +22,7 @@ cdef class Mm:
     cpdef object main
     cdef tuple mmAreas
     cdef MmArea mmAddArea(self, unsigned int mmBaseAddr, unsigned char mmReadOnly)
-    cdef inline void mmClearArea(self, MmArea mmArea, unsigned char clearByte):
-        memset(mmArea.data, clearByte, SIZE_1MB)
+    cdef void mmMallocArea(self, MmArea mmArea, unsigned char clearByte)
     cdef void mmDelArea(self, unsigned int mmAddr)
     cdef MmArea mmGetArea(self, unsigned int mmAddr)
     cdef tuple mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)

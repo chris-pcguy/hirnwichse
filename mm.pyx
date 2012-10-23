@@ -30,17 +30,19 @@ cdef class Mm:
         if (mmArea.end < mmArea.start):
             self.main.exitError("Mm::mmAddArea: mem-address overflow.")
             return None
-        if (mmArea.data is NULL):
-            mmArea.data = <char*>malloc(SIZE_1MB)
-        if (mmArea.data is NULL):
-            self.main.exitError("Mm::mmAddArea: not mmArea.data.")
-            return None
-        self.mmClearArea(mmArea, 0x00)
+        self.mmMallocArea(mmArea, 0x00)
         mmArea.readClass  = self
         mmArea.writeClass = self
         mmArea.readHandler  = <MmAreaReadType>self.mmAreaRead
         mmArea.writeHandler = <MmAreaWriteType>self.mmAreaWrite
         return mmArea
+    cdef void mmMallocArea(self, MmArea mmArea, unsigned char clearByte):
+        if (mmArea.data is NULL):
+            mmArea.data = <char*>malloc(SIZE_1MB)
+        if (mmArea.data is NULL):
+            self.main.exitError("Mm::mmAddArea: not mmArea.data.")
+            return
+        memset(mmArea.data, clearByte, SIZE_1MB)
     cdef void mmDelArea(self, unsigned int mmAddr):
         cdef MmArea mmArea = self.mmGetArea(mmAddr)
         if (mmArea.valid and mmArea.data is not NULL):

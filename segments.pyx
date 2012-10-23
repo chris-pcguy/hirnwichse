@@ -197,36 +197,31 @@ cdef class Gdt:
         if (not gdtEntry.segIsCodeSeg and gdtEntry.segIsRW):
             return True
         return False
-    cdef void checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment):
+    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId):
         cdef unsigned char numSegDPL, cpl
         cdef GdtEntry gdtEntry
-        if (not (num&0xfff8) or num > self.tableLimit):
-            if (loadStackSegment):
-                if (not (num&0xfff8)):
-                    raise ChemuException(CPU_EXCEPTION_GP, 0)
-                else:
-                    raise ChemuException(CPU_EXCEPTION_GP, num)
-            return
+        if (num > self.tableLimit):
+            raise ChemuException(CPU_EXCEPTION_GP, num)
+        if (not (num&0xfff8)):
+            if (segId == CPU_SEGMENT_CS or segId == CPU_SEGMENT_SS):
+                raise ChemuException(CPU_EXCEPTION_GP, 0)
+            return False
         gdtEntry = self.getEntry(num)
-        if (not gdtEntry):
-            if (loadStackSegment):
-                raise ChemuException(CPU_EXCEPTION_GP, num)
-            return
+        if (not gdtEntry or not gdtEntry.segPresent):
+            if (segId == CPU_SEGMENT_SS):
+                raise ChemuException(CPU_EXCEPTION_SS, num)
+            raise ChemuException(CPU_EXCEPTION_NP, num)
         cpl = self.segments.cs.segmentIndex&3
         numSegDPL = gdtEntry.segDPL
-        if (not gdtEntry.segPresent):
-            if (loadStackSegment):
-                raise ChemuException(CPU_EXCEPTION_SS, num)
-            else:
-                raise ChemuException(CPU_EXCEPTION_NP, num)
-        elif (loadStackSegment):
+        if (segId == CPU_SEGMENT_SS):
             if ((num&3 != cpl or numSegDPL != cpl) or \
               (not gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW)):
                 raise ChemuException(CPU_EXCEPTION_GP, num)
-        else: # not loadStackSegment
+        else: # not stack segment
             if ( ((not gdtEntry.segIsCodeSeg or not gdtEntry.segIsConforming) and (num&3 > numSegDPL and \
               cpl > numSegDPL)) or (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
                 raise ChemuException(CPU_EXCEPTION_GP, num)
+        return True
 
 
 cdef class Idt:
@@ -373,11 +368,10 @@ cdef class Segments:
         if (num & SELECTOR_USE_LDT):
             return self.ldt.checkWriteAllowed(num)
         return self.gdt.checkWriteAllowed(num)
-    cdef void checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment):
+    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId):
         if (num & SELECTOR_USE_LDT):
-            self.ldt.checkSegmentLoadAllowed(num, loadStackSegment)
-            return
-        self.gdt.checkSegmentLoadAllowed(num, loadStackSegment)
+            return self.ldt.checkSegmentLoadAllowed(num, segId)
+        return self.gdt.checkSegmentLoadAllowed(num, segId)
     cdef void run(self):
         self.gdt = Gdt(self)
         self.ldt = Gdt(self)

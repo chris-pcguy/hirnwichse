@@ -48,7 +48,7 @@ cdef class Gdt:
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment)
     cdef unsigned char checkReadAllowed(self, unsigned short num)
     cdef unsigned char checkWriteAllowed(self, unsigned short num)
-    cdef void checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment)
+    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId)
 
 cdef class Idt:
     cdef Segments segments
@@ -106,7 +106,7 @@ cdef class Segments:
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment)
     cdef unsigned char checkReadAllowed(self, unsigned short num)
     cdef unsigned char checkWriteAllowed(self, unsigned short num)
-    cdef void checkSegmentLoadAllowed(self, unsigned short num, unsigned char loadStackSegment)
+    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId)
     cdef void run(self)
 
 

@@ -681,87 +681,45 @@ cdef class Opcodes:
     cdef int movsFuncWord(self, unsigned char operSize):
         cdef unsigned char dfFlag
         cdef unsigned short countVal, esiVal, ediVal, i
-        cdef unsigned int dataLength
-        cdef unsigned int esiFull, ediFull
         countVal = 1
         if (self.registers.repPrefix):
             countVal = self.registers.regReadUnsignedWord(CPU_REGISTER_CX)
             if (not countVal):
                 return True
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
-        dataLength = <unsigned int>(<unsigned int>countVal*operSize)
         esiVal = self.registers.regReadUnsignedWord(CPU_REGISTER_SI)
         ediVal = self.registers.regReadUnsignedWord(CPU_REGISTER_DI)
-        esiFull = self.registers.mmGetRealAddr(esiVal, CPU_SEGMENT_DS, True)
-        ediFull = self.registers.mmGetRealAddr(ediVal, CPU_SEGMENT_ES, False)
-        if ((ediFull >= esiFull) and (ediFull < esiFull+dataLength)): # are these addresses overlapping? true if they do
-            for i in range(countVal):
-                self.registers.mmWrite(ediVal, self.registers.mmRead(esiVal, operSize, CPU_SEGMENT_DS, True), operSize, CPU_SEGMENT_ES, False)
-                if (not dfFlag):
-                    esiVal = <unsigned short>(esiVal+operSize)
-                    ediVal = <unsigned short>(ediVal+operSize)
-                else:
-                    esiVal = <unsigned short>(esiVal-operSize)
-                    ediVal = <unsigned short>(ediVal-operSize)
-            self.registers.regWriteWord(CPU_REGISTER_SI, esiVal)
-            self.registers.regWriteWord(CPU_REGISTER_DI, ediVal)
-        else:
-            if (dfFlag):
-                esiFull = <unsigned int>(esiFull-(dataLength-operSize))
-                ediFull = <unsigned int>(ediFull-(dataLength-operSize))
-            (<Mm>self.main.mm).mmPhyCopy(ediFull, esiFull, dataLength)
+        for i in range(countVal):
+            self.registers.mmWrite(ediVal, self.registers.mmRead(esiVal, operSize, CPU_SEGMENT_DS, True), operSize, CPU_SEGMENT_ES, False)
             if (not dfFlag):
-                self.registers.regAddWord(CPU_REGISTER_SI, dataLength)
-                self.registers.regAddWord(CPU_REGISTER_DI, dataLength)
+                esiVal = self.registers.regAddWord(CPU_REGISTER_SI, operSize)
+                ediVal = self.registers.regAddWord(CPU_REGISTER_DI, operSize)
             else:
-                self.registers.regSubWord(CPU_REGISTER_SI, dataLength)
-                self.registers.regSubWord(CPU_REGISTER_DI, dataLength)
-
+                esiVal = self.registers.regSubWord(CPU_REGISTER_SI, operSize)
+                ediVal = self.registers.regSubWord(CPU_REGISTER_DI, operSize)
         self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWriteWord(CPU_REGISTER_CX, 0)
         return True
     cdef int movsFuncDword(self, unsigned char operSize):
         cdef unsigned char dfFlag
-        cdef unsigned int countVal, esiVal, ediVal, i, esiFull, ediFull
-        cdef unsigned long int dataLength
+        cdef unsigned int countVal, esiVal, ediVal, i
         countVal = 1
         if (self.registers.repPrefix):
             countVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
             if (not countVal):
                 return True
         dfFlag = self.registers.getEFLAG(FLAG_DF)!=0
-        dataLength = (<unsigned long int>countVal*operSize)
-        if (dataLength != <unsigned int>dataLength):
-            self.main.notice("Opcodes::movsFunc: dataLength overflow.")
-        dataLength = <unsigned int>dataLength
         esiVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ESI)
         ediVal = self.registers.regReadUnsignedDword(CPU_REGISTER_EDI)
-        esiFull = self.registers.mmGetRealAddr(esiVal, CPU_SEGMENT_DS, True)
-        ediFull = self.registers.mmGetRealAddr(ediVal, CPU_SEGMENT_ES, False)
-        if ((ediFull >= esiFull) and (ediFull < esiFull+dataLength)): # are these addresses overlapping? true if they do
-            for i in range(countVal):
-                self.registers.mmWrite(ediVal, self.registers.mmRead(esiVal, operSize, CPU_SEGMENT_DS, True), operSize, CPU_SEGMENT_ES, False)
-                if (not dfFlag):
-                    esiVal = <unsigned int>(esiVal+operSize)
-                    ediVal = <unsigned int>(ediVal+operSize)
-                else:
-                    esiVal = <unsigned int>(esiVal-operSize)
-                    ediVal = <unsigned int>(ediVal-operSize)
-            self.registers.regWriteDword(CPU_REGISTER_ESI, esiVal)
-            self.registers.regWriteDword(CPU_REGISTER_EDI, ediVal)
-        else:
-            if (dfFlag):
-                esiFull = <unsigned int>(esiFull-(dataLength-operSize))
-                ediFull = <unsigned int>(ediFull-(dataLength-operSize))
-            (<Mm>self.main.mm).mmPhyCopy(ediFull, esiFull, dataLength)
+        for i in range(countVal):
+            self.registers.mmWrite(ediVal, self.registers.mmRead(esiVal, operSize, CPU_SEGMENT_DS, True), operSize, CPU_SEGMENT_ES, False)
             if (not dfFlag):
-                self.registers.regAddDword(CPU_REGISTER_ESI, dataLength)
-                self.registers.regAddDword(CPU_REGISTER_EDI, dataLength)
+                esiVal = self.registers.regAddDword(CPU_REGISTER_ESI, operSize)
+                ediVal = self.registers.regAddDword(CPU_REGISTER_EDI, operSize)
             else:
-                self.registers.regSubDword(CPU_REGISTER_ESI, dataLength)
-                self.registers.regSubDword(CPU_REGISTER_EDI, dataLength)
-
+                esiVal = self.registers.regSubDword(CPU_REGISTER_ESI, operSize)
+                ediVal = self.registers.regSubDword(CPU_REGISTER_EDI, operSize)
         self.main.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWriteDword(CPU_REGISTER_ECX, 0)
@@ -1519,6 +1477,7 @@ cdef class Opcodes:
             self.main.notice("opcodeGroup0F_07: LOADALL 386 opcode isn't supported yet.")
             raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode in (0x06, 0x08, 0x09)): # 0x06: CLTS, 0x08: INVD, 0x09: WBINVD
+            self.main.notice("Opcodes::opcodeGroup0F: CLTS/INVD/WBINVD: TODO!")
             if (cpl != 0):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             if (operOpcode == 0x06): # CLTS
@@ -1576,6 +1535,7 @@ cdef class Opcodes:
             else:
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
         elif (operOpcode == 0x38): # MOVBE
+            self.main.notice("Opcodes::opcodeGroup0F: MOVBE: TODO!")
             operOpcodeMod = self.registers.getCurrentOpcodeAddUnsignedByte()
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             if (operOpcodeMod == 0xf0): # MOVBE R16_32, M16_32
@@ -1653,6 +1613,8 @@ cdef class Opcodes:
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             if (operOpcode == 0xa4): # SHLD imm8
                 count = self.registers.getCurrentOpcodeAddUnsignedByte()
+                if (count > 0x1f):
+                    self.main.notice("SHLD: count > 0x1f...")
             elif (operOpcode == 0xa5): # SHLD CL
                 count = self.registers.regReadUnsignedLowByte(CPU_REGISTER_CL)
                 count &= 0x1f
@@ -1661,6 +1623,8 @@ cdef class Opcodes:
                 return True
             if (not count):
                 return True
+            if (count >= bitSize):
+                self.main.notice("SHLD: count >= bitSize...")
             if (count > bitSize): # bad parameters
                 self.main.exitError("group0F: SHLD: count > bitSize (count == {0:d}, bitSize == {1:d}, operOpcode == {2:#04x}).", count, bitSize, operOpcode)
                 return True
@@ -1697,11 +1661,15 @@ cdef class Opcodes:
             elif (operOpcode == 0xad): # SHRD CL
                 count = self.registers.regReadUnsignedLowByte(CPU_REGISTER_CL)
                 count &= 0x1f
+                if (count > 0x1f):
+                    self.main.notice("SHRD: count > 0x1f...")
             else:
                 self.main.exitError("group0F::SHRD: operOpcode {0:#04x} unknown.", operOpcode)
                 return True
             if (not count):
                 return True
+            if (count >= bitSize):
+                self.main.notice("SHRD: count >= bitSize...")
             if (count > bitSize): # bad parameters
                 self.main.exitError("group0F: SHRD: count > bitSize (count == {0:d}, bitSize == {1:d}, operOpcode == {2:#04x}).", count, bitSize, operOpcode)
                 return True
@@ -1734,6 +1702,7 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
             self.registers.setFullFlags(sop1, sop2, self.registers.operSize, OPCODE_IMUL)
         elif (operOpcode in (0xb0, 0xb1)): # 0xb0: CMPXCHG RM8, R8 ;; 0xb1: CMPXCHG RM16_32, R16_32
+            self.main.notice("Opcodes::opcodeGroup0F: CMPXCHG: TODO!")
             bitSize = self.registers.operSize # bitSize is in bytes (double usage of vars)
             if (operOpcode == 0xb0): # 0xb0: CMPXCHG RM8, R8
                 bitSize = OP_SIZE_BYTE
@@ -1769,6 +1738,7 @@ cdef class Opcodes:
             self.registers.setEFLAG(FLAG_CF | FLAG_PF | FLAG_AF | FLAG_SF | FLAG_OF, False)
             self.registers.setEFLAG(FLAG_ZF, not op2)
         elif (operOpcode == 0xba): # BT/BTS/BTR/BTC RM16/32 IMM8
+            self.main.notice("Opcodes::opcodeGroup0F: BT*: TODO!")
             operOpcodeMod = self.registers.getCurrentOpcodeUnsignedByte()
             operOpcodeModId = (operOpcodeMod>>3)&7
             self.main.debug("Group0F_BA: operOpcodeModId=={0:d}", operOpcodeModId)
@@ -1823,6 +1793,7 @@ cdef class Opcodes:
                 op2 = <unsigned int>(self.modRMInstance.modRMLoadSigned(OP_SIZE_WORD, True))
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
         elif (operOpcode in (0xc0, 0xc1)): # 0xc0: XADD RM8, R8 ;; 0xc1: XADD RM16_32, R16_32
+            self.main.notice("Opcodes::opcodeGroup0F: XADD: TODO!")
             bitSize = self.registers.operSize # bitSize is in bytes (double usage of vars)
             if (operOpcode == 0xc0): # 0xc0: XADD RM8, R8
                 bitSize = OP_SIZE_BYTE
@@ -1833,6 +1804,7 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(bitSize, op1, OPCODE_SAVE)
             self.registers.setFullFlags(op1, op2, bitSize, OPCODE_ADD)
         elif (operOpcode == 0xc7): # CMPXCHG8B M64
+            self.main.notice("Opcodes::opcodeGroup0F: CMPXCHG8B: TODO!")
             operOpcodeMod = self.registers.getCurrentOpcodeAddUnsignedByte()
             operOpcodeModId = (operOpcodeMod>>3)&7
             self.main.debug("Group0F_C7: operOpcodeModId=={0:d}", operOpcodeModId)
@@ -1856,6 +1828,7 @@ cdef class Opcodes:
                 self.main.notice("opcodeGroup0F_C7: operOpcodeModId {0:d} isn't supported yet.", operOpcodeModId)
                 raise ChemuException(CPU_EXCEPTION_UD)
         elif (operOpcode >= 0xc8 and operOpcode <= 0xcf): # BSWAP R32
+            self.main.notice("Opcodes::opcodeGroup0F: BSWAP: TODO!")
             regName  = operOpcode&7
             op1 = self.registers.regReadUnsignedDword(regName)
             op1 = (<Misc>self.main.misc).reverseByteOrder(op1, OP_SIZE_DWORD)
@@ -2057,8 +2030,8 @@ cdef class Opcodes:
         mmAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
         offsetAddr = self.registers.mmReadValueUnsigned(mmAddr, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
         segmentAddr = self.registers.mmReadValueUnsignedWord(mmAddr+self.registers.operSize, self.modRMInstance.rmNameSegId, True)
-        self.modRMInstance.modRSave(self.registers.operSize, offsetAddr, OPCODE_SAVE)
         self.registers.segWrite(segId, segmentAddr)
+        self.modRMInstance.modRSave(self.registers.operSize, offsetAddr, OPCODE_SAVE)
         return True
     cdef int xlatb(self):
         cdef unsigned char data
@@ -2688,8 +2661,8 @@ cdef class Opcodes:
             if (nestingLevel > 1):
                 for i in range(nestingLevel-1):
                     self.registers.regSubWord(CPU_REGISTER_BP, stackAddrSize)
-                    temp = self.registers.mmReadValueUnsigned(self.registers.regReadUnsignedWord(CPU_REGISTER_BP), \
-                      stackAddrSize, CPU_SEGMENT_SS, False)
+                    temp = self.registers.mmReadValueUnsignedWord(self.registers.regReadUnsignedWord(CPU_REGISTER_BP), \
+                      CPU_SEGMENT_SS, False)
                     self.stackPushValue(temp, stackAddrSize)
             if (nestingLevel >= 1):
                 self.stackPushValue(frameTemp, stackAddrSize)
@@ -2697,11 +2670,12 @@ cdef class Opcodes:
             self.registers.regSubWord(CPU_REGISTER_SP, sizeOp)
         elif (stackAddrSize == OP_SIZE_DWORD):
             frameTemp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
-            for i in range(nestingLevel-1):
-                self.registers.regSubDword(CPU_REGISTER_EBP, stackAddrSize)
-                temp = self.registers.mmReadValueUnsigned(self.registers.regReadUnsignedDword(CPU_REGISTER_EBP), \
-                  stackAddrSize, CPU_SEGMENT_SS, False)
-                self.stackPushValue(temp, stackAddrSize)
+            if (nestingLevel > 1):
+                for i in range(nestingLevel-1):
+                    self.registers.regSubDword(CPU_REGISTER_EBP, stackAddrSize)
+                    temp = self.registers.mmReadValueUnsignedDword(self.registers.regReadUnsignedDword(CPU_REGISTER_EBP), \
+                      CPU_SEGMENT_SS, False)
+                    self.stackPushValue(temp, stackAddrSize)
             if (nestingLevel >= 1):
                 self.stackPushValue(frameTemp, stackAddrSize)
             self.registers.regWriteDword(CPU_REGISTER_EBP, frameTemp)
@@ -2757,31 +2731,35 @@ cdef class Opcodes:
         cdef unsigned int value, address
         operSizeInBits = self.registers.operSize << 3
         address = 0
+        self.main.notice("ATTENTION: this could be a WRONG IMPLEMENTATION of btFunc!!! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
         if (self.modRMInstance.mod == 3): # register operand
-            offset &= operSizeInBits-1
-            value = self.modRMInstance.modRLoadUnsigned(self.registers.operSize)
+            offset %= operSizeInBits
+            value = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             state = self.registers.valGetBit(value, offset)
         else: # memory operand
             address = self.modRMInstance.getRMValueFull(self.registers.addrSize)
-            address += (self.registers.operSize * (offset // operSizeInBits))
-            value = self.registers.mmReadValueUnsigned(address, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+            if (self.registers.operSize == OP_SIZE_WORD):
+                address += <signed short>(offset // 8)
+            if (self.registers.operSize == OP_SIZE_DWORD):
+                address += <signed int>(offset // 8)
+            offset %= 8
+            value = self.registers.mmReadValueUnsigned(address, OP_SIZE_BYTE, self.modRMInstance.rmNameSegId, True)
             state = self.registers.valGetBit(value, offset)
+        if (newValType == BT_COMPLEMENT):
+            state = not state
+        elif (newValType == BT_RESET):
+            state = False
+        elif (newValType == BT_SET):
+            state = True
+        else:
+            self.main.exitError("btFunc: unknown newValType: {0:d}", newValType)
+        self.registers.setEFLAG(FLAG_CF, state)
         if (newValType != BT_NONE):
-            if (newValType == BT_COMPLEMENT):
-                state = not state
-            elif (newValType == BT_RESET):
-                state = False
-            elif (newValType == BT_SET):
-                state = True
-            else:
-                self.main.exitError("btFunc: unknown newValType: {0:d}", newValType)
-            self.registers.setEFLAG(FLAG_CF, state)
             value = self.registers.valSetBit(value, offset, state)
             if (self.modRMInstance.mod == 3): # register operand
                 self.modRMInstance.modRMSave(self.registers.operSize, state, True, OPCODE_SAVE)
             else: # memory operands
-                self.main.notice("test_1: ATTENTION: this is (most possibly) a WRONG IMPLEMENTATION of btFunc!!! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-                self.registers.mmWriteValue(address, value, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+                self.registers.mmWriteValue(address, value, OP_SIZE_BYTE, self.modRMInstance.rmNameSegId, True)
         return True
     cdef void run(self):
         self.modRMInstance = ModRMClass(self.main, (<Registers>self.main.cpu.registers))

@@ -99,7 +99,7 @@ cdef class PciBus:
         cdef PciDevice deviceHandle
         cdef MmArea mmArea
         mmArea = (<Mm>self.main.mm).mmAddArea((PCI_MEM_BASE|(<unsigned int>self.busIndex<<20)), False)
-        (<Mm>self.main.mm).mmClearArea(mmArea, 0xff)
+        (<Mm>self.main.mm).mmMallocArea(mmArea, 0xff)
         for deviceIndex, deviceHandle in self.deviceList.items():
             if (deviceHandle):
                 deviceHandle.run()
