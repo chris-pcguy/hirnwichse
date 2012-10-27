@@ -22,7 +22,10 @@ cdef class Segment:
             self.isValid = True
             self.isRMSeg = True
             return
-        gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segmentIndex))
+        if (segmentIndex & SELECTOR_USE_LDT):
+            gdtEntry = (<GdtEntry>(<Gdt>self.segments.ldt).getEntry(segmentIndex))
+        else:
+            gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segmentIndex))
         if (gdtEntry is None):
             self.isValid = False
             return

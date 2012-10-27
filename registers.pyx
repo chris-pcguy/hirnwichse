@@ -723,6 +723,8 @@ cdef class Registers:
         segment = self.segments.getSegmentInstance(segId, True)
         mmAddr = <unsigned int>(segment.base+mmAddr)
         # TODO: check for limit asf...
+        if (self.getEFLAG(FLAG_VM)):
+            self.main.notice("Registers::mmGetRealAddr: TODO. (VM is on)")
         if (segment.isRMSeg):
             if (self.segments.getA20State()): # A20 Active? if True == on, else off
                 if (segment.segSize != OP_SIZE_WORD or segment.base >= SIZE_1MB):
