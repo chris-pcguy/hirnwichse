@@ -1434,7 +1434,6 @@ cdef class Opcodes:
                 op2 = self.registers.regReadUnsignedDword(CPU_REGISTER_CR0)
                 self.modRMInstance.modRMSave(self.registers.operSize, op2, True, OPCODE_SAVE)
             elif (operOpcodeModId == 6): # LMSW
-                self.main.notice("Opcodes::opcodeGroup0F: LMSW: TODO!")
                 if (cpl != 0):
                     raise ChemuException(CPU_EXCEPTION_GP, 0)
                 op1 = self.registers.regReadUnsignedDword(CPU_REGISTER_CR0)
@@ -1482,7 +1481,7 @@ cdef class Opcodes:
             if (cpl != 0):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             if (operOpcode == 0x06): # CLTS
-                self.main.notice("Opcodes::opcodeGroup0F: CLTS: TODO!")
+                self.main.notice("Opcodes::opcodeGroup0F: CLTS: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 self.registers.regAndDword(CPU_REGISTER_CR0, <unsigned int>(~CR0_FLAG_TS))
             elif (operOpcode == 0x08): # INVD
                 self.main.notice("Opcodes::opcodeGroup0F: INVD/WBINVD: TODO!")
@@ -1660,17 +1659,16 @@ cdef class Opcodes:
             op2 = self.modRMInstance.modRLoadUnsigned(self.registers.operSize)
             self.btFunc(op2, BT_SET)
         elif (operOpcode in (0xac, 0xad)): # SHRD
-            self.main.notice("Opcodes::opcodeGroup0F: SHRD: TODO!")
             bitMaskHalf = (<Misc>self.main.misc).getBitMask80(self.registers.operSize)
             bitSize = self.registers.operSize << 3
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             if (operOpcode == 0xac): # SHRD imm8
+                self.main.notice("Opcodes::opcodeGroup0F: SHRD: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+                self.main.cpu.cpuDump()
                 count = self.registers.getCurrentOpcodeAddUnsignedByte()
             elif (operOpcode == 0xad): # SHRD CL
                 count = self.registers.regReadUnsignedLowByte(CPU_REGISTER_CL)
                 count &= 0x1f
-                if (count > 0x1f):
-                    self.main.notice("SHRD: count > 0x1f...")
             else:
                 self.main.exitError("group0F::SHRD: operOpcode {0:#04x} unknown.", operOpcode)
                 return True
@@ -1693,10 +1691,12 @@ cdef class Opcodes:
                 op1 = self.registers.valSetBit(op1, i, tmpBit)
             self.modRMInstance.modRMSave(self.registers.operSize, op1, True, OPCODE_SAVE)
             if (count == 1):
-                newOF = oldOF!=((op1&bitMaskHalf)!=0)
-                self.registers.setEFLAG(FLAG_OF, newOF)
+                newOF = (op1&bitMaskHalf)!=0
+                self.registers.setEFLAG(FLAG_OF, oldOF!=newOF)
             self.registers.setEFLAG(FLAG_CF, newCF)
             self.registers.setSZP(op1, self.registers.operSize)
+            if (operOpcode == 0xac): # SHRD imm8
+                self.main.cpu.cpuDump()
         elif (operOpcode == 0xaf): # IMUL R16_32, R/M16_32
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             sop1 = self.modRMInstance.modRLoadSigned(self.registers.operSize)
@@ -1768,16 +1768,14 @@ cdef class Opcodes:
             op2 = self.modRMInstance.modRLoadUnsigned(self.registers.operSize)
             self.btFunc(op2, BT_COMPLEMENT)
         elif (operOpcode == 0xbc): # BSF R16_32, R/M16_32
-            self.main.notice("Opcodes::opcodeGroup0F: BSF: TODO!")
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             self.registers.setEFLAG(FLAG_ZF, not op2)
-            op1 = 0
-            if (op2 > 1):
+            if (op2 >= 1):
                 op1 = bin(op2)[::-1].find('1')
-            self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
+                self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
         elif (operOpcode == 0xbd): # BSR R16_32, R/M16_32
-            self.main.notice("Opcodes::opcodeGroup0F: BSR: TODO!")
+            self.main.notice("Opcodes::opcodeGroup0F: BSR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             self.registers.setEFLAG(FLAG_ZF, not op2)
@@ -2739,24 +2737,24 @@ cdef class Opcodes:
             raise ChemuException(CPU_EXCEPTION_BR)
         return True
     cdef int btFunc(self, unsigned int offset, unsigned char newValType):
-        cdef unsigned char operSizeInBits, state
+        cdef unsigned char state
         cdef unsigned int value, address
-        operSizeInBits = self.registers.operSize << 3
-        address = 0
-        self.main.notice("ATTENTION: this could be a WRONG IMPLEMENTATION of btFunc!!! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
         if (self.modRMInstance.mod == 3): # register operand
-            offset %= operSizeInBits
+            offset &= (self.registers.operSize << 3) - 1 # operSizeInBits - 1
             value = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             state = self.registers.valGetBit(value, offset)
         else: # memory operand
+            self.main.notice("ATTENTION: this could be a WRONG IMPLEMENTATION of btFunc!!! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.cpu.cpuDump() # dump before
             address = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             if (self.registers.operSize == OP_SIZE_WORD):
-                address += <signed short>(offset // 8)
+                address += <signed short>(offset >> 3)
             if (self.registers.operSize == OP_SIZE_DWORD):
-                address += <signed int>(offset // 8)
-            offset %= 8
+                address += <signed int>(offset >> 3)
+            offset &= 7
             value = self.registers.mmReadValueUnsigned(address, OP_SIZE_BYTE, self.modRMInstance.rmNameSegId, True)
             state = self.registers.valGetBit(value, offset)
+        self.registers.setEFLAG(FLAG_CF, state)
         if (newValType == BT_COMPLEMENT):
             state = not state
         elif (newValType == BT_RESET):
@@ -2765,13 +2763,15 @@ cdef class Opcodes:
             state = True
         else:
             self.main.exitError("btFunc: unknown newValType: {0:d}", newValType)
-        self.registers.setEFLAG(FLAG_CF, state)
         if (newValType != BT_NONE):
             value = self.registers.valSetBit(value, offset, state)
             if (self.modRMInstance.mod == 3): # register operand
-                self.modRMInstance.modRMSave(self.registers.operSize, state, True, OPCODE_SAVE)
+                self.modRMInstance.modRMSave(self.registers.operSize, value, True, OPCODE_SAVE)
             else: # memory operands
                 self.registers.mmWriteValue(address, value, OP_SIZE_BYTE, self.modRMInstance.rmNameSegId, True)
+                self.main.cpu.cpuDump() # dump after
+        elif (self.modRMInstance.mod != 3): # memory operands
+            self.main.cpu.cpuDump() # dump after
         return True
     cdef void run(self):
         self.modRMInstance = ModRMClass(self.main, (<Registers>self.main.cpu.registers))

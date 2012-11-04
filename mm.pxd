@@ -27,6 +27,11 @@ cdef class Mm:
     cdef MmArea mmGetArea(self, unsigned int mmAddr)
     cdef tuple mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)
     cdef void mmSetReadOnly(self, unsigned int mmAddr, unsigned char mmReadOnly)
+    cdef inline char *mmGetDataPointer(self, MmArea mmArea, unsigned int offset):
+        if (not mmArea.valid or mmArea.data is NULL):
+            self.main.exitError("Mm::mmAreaRead: not mmArea(.data). (address: {0:#010x})", mmArea.start+offset)
+            return NULL
+        return <char*>(mmArea.data+offset)
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize)
