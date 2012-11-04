@@ -34,7 +34,7 @@ cdef class Cpu:
     cdef void handleAsyncEvent(self):
         cdef unsigned char irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
-        oldIF = self.registers.getEFLAG(FLAG_IF)!=0
+        oldIF = self.registers.if_flag
         if (self.INTR and oldIF ):
             irqVector = (<Pic>self.main.platform.pic).IAC()
             self.opcodes.interrupt(irqVector, -1)

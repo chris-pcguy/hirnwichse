@@ -131,7 +131,7 @@ cdef class PythonBios:
                     (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_DX, fdCount)
                     (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_ES, 0)
                     (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_DI, 0)
-                    (<Registers>self.main.cpu.registers).setEFLAG(FLAG_CF, True)
+                    (<Registers>self.main.cpu.registers).cf = True
                     return True
                 (<Registers>self.main.cpu.registers).regWriteHighByte(CPU_REGISTER_DH, \
                     ((<FloppyMedia>(<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).heads-1))
@@ -158,7 +158,7 @@ cdef class PythonBios:
                 self.main.notice("PythonBios::interrupt: intNum 0x13 (floppy) ax {0:#06x} not supported yet in PythonBIOS.", ax)
         return False
     cdef void setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy
-        (<Registers>self.main.cpu.registers).setEFLAG( FLAG_CF, newCF )
+        (<Registers>self.main.cpu.registers).cf = newCF
         (<Registers>self.main.cpu.registers).regWriteWord( CPU_REGISTER_AX, ax )
         (<Mm>self.main.mm).mmPhyWriteValue(DISKETTE_RET_STATUS_ADDR, ax>>8, OP_SIZE_BYTE)
     cdef void run(self):

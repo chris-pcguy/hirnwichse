@@ -222,6 +222,8 @@ cdef class Registers:
         self.main = main
     cdef void reset(self):
         self.operSize = self.addrSize = 0
+        self.cf = self.pf = self.af = self.zf = self.sf = self.tf = self.if_flag = self.df = self.of = \
+          self.iopl = self.nt = self.rf = self.vm = self.ac = self.vif = self.vip = self.id = 0
         self.resetPrefixes()
         self.segments.reset()
         self.regWriteDword(CPU_REGISTER_EFLAGS, FLAG_REQUIRED)
@@ -233,6 +235,45 @@ cdef class Registers:
     cdef void resetPrefixes(self):
         self.operandSizePrefix = self.addressSizePrefix = False
         self.segmentOverridePrefix = self.repPrefix = 0
+    cdef unsigned int readFlags(self):
+        cdef unsigned int flags
+        flags = FLAG_REQUIRED
+        flags |= self.cf
+        flags |= self.pf<<2
+        flags |= self.af<<4
+        flags |= self.zf<<6
+        flags |= self.sf<<7
+        flags |= self.tf<<8
+        flags |= self.if_flag<<9
+        flags |= self.df<<10
+        flags |= self.of<<11
+        flags |= self.iopl<<12
+        flags |= self.nt<<14
+        flags |= self.rf<<16
+        flags |= self.vm<<17
+        flags |= self.ac<<18
+        flags |= self.vif<<19
+        flags |= self.vip<<20
+        flags |= self.id<<21
+        return flags
+    cdef void setFlags(self, unsigned int flags):
+        self.cf = (flags&FLAG_CF)!=0
+        self.pf = (flags&FLAG_PF)!=0
+        self.af = (flags&FLAG_AF)!=0
+        self.zf = (flags&FLAG_ZF)!=0
+        self.sf = (flags&FLAG_SF)!=0
+        self.tf = (flags&FLAG_TF)!=0
+        self.if_flag = (flags&FLAG_IF)!=0
+        self.df = (flags&FLAG_DF)!=0
+        self.of = (flags&FLAG_OF)!=0
+        self.iopl = (flags>>12)&3
+        self.nt = (flags&FLAG_NT)!=0
+        self.rf = (flags&FLAG_RF)!=0
+        self.vm = (flags&FLAG_VM)!=0
+        self.ac = (flags&FLAG_AC)!=0
+        self.vif = (flags&FLAG_VIF)!=0
+        self.vip = (flags&FLAG_VIP)!=0
+        self.id = (flags&FLAG_ID)!=0
     cdef unsigned char getCPL(self):
         cdef Segment cs
         if (not (<Segments>self.segments).isInProtectedMode()):
@@ -242,7 +283,7 @@ cdef class Registers:
             return 0
         return (cs.segmentIndex&3)
     cdef unsigned char getIOPL(self):
-        return (self.getEFLAG(FLAG_IOPL)>>12)&3
+        return self.iopl
     cdef signed char getCurrentOpcodeSignedByte(self):
         cdef unsigned int opcodeAddr
         opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
@@ -547,15 +588,15 @@ cdef class Registers:
             return self.regWriteWithOpQword(regId, value, valueOp)
         return 0
     cdef void setSZP(self, unsigned int value, unsigned char regSize):
-        self.setEFLAG(FLAG_SF, (value&(<Misc>self.main.misc).getBitMask80(regSize))!=0)
-        self.setEFLAG(FLAG_ZF, value==0)
-        self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>value])
+        self.sf = (value&(<Misc>self.main.misc).getBitMask80(regSize))!=0
+        self.zf = value==0
+        self.pf = PARITY_TABLE[<unsigned char>value]
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
-        self.setEFLAG(FLAG_OF, False)
+        self.of = False
     cdef void setSZP_COA(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
-        self.setEFLAG(FLAG_CF | FLAG_OF | FLAG_AF, False)
+        self.cf = self.of = self.af = False
     cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize):
         cdef unsigned short regName
         regName = CPU_REGISTER_NONE
@@ -580,38 +621,37 @@ cdef class Registers:
     cdef unsigned char getCond(self, unsigned char index):
         cdef unsigned int flags
         if (index == 0x0): # O
-            return self.getEFLAG(FLAG_OF)!=0
+            return self.of
         elif (index == 0x1): # NO
-            return self.getEFLAG(FLAG_OF)==0
+            return not self.of
         elif (index == 0x2): # B
-            return self.getEFLAG(FLAG_CF)!=0
+            return self.cf
         elif (index == 0x3): # NB
-            return self.getEFLAG(FLAG_CF)==0
+            return not self.cf
         elif (index == 0x4): # Z
-            return self.getEFLAG(FLAG_ZF)!=0
+            return self.zf
         elif (index == 0x5): # NZ
-            return self.getEFLAG(FLAG_ZF)==0
+            return not self.zf
         elif (index == 0x6): # BE
-            return self.getEFLAG(FLAG_CF_ZF)!=0
+            return self.cf or self.zf
         elif (index == 0x7): # NBE
-            return self.getEFLAG(FLAG_CF_ZF)==0
+            return not self.cf and not self.zf
         elif (index == 0x8): # S
-            return self.getEFLAG(FLAG_SF)!=0
+            return self.sf
         elif (index == 0x9): # NS
-            return self.getEFLAG(FLAG_SF)==0
+            return not self.sf
         elif (index == 0xa): # P
-            return self.getEFLAG(FLAG_PF)!=0
+            return self.pf
         elif (index == 0xb): # NP
-            return self.getEFLAG(FLAG_PF)==0
+            return not self.pf
         elif (index == 0xc): # L
-            return (self.getEFLAG(FLAG_SF_OF) in (FLAG_SF, FLAG_OF))
+            return self.sf != self.of
         elif (index == 0xd): # NL
-            return (self.getEFLAG(FLAG_SF_OF) in (0, FLAG_SF_OF))
+            return self.sf == self.of
         elif (index == 0xe): # LE
-            flags = self.getEFLAG(FLAG_SF_OF_ZF)
-            return ( ((flags&FLAG_ZF)!=0) or ((flags&FLAG_SF_OF) in (FLAG_SF, FLAG_OF)) )
+            return self.zf or self.sf != self.of
         elif (index == 0xf): # NLE
-            return (self.getEFLAG(FLAG_SF_OF_ZF) in (0, FLAG_SF_OF))
+            return not self.zf and self.sf == self.of
         else:
             self.main.exitError("getCond: index {0:#04x} is invalid.", index)
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method):
@@ -621,7 +661,7 @@ cdef class Registers:
         afFlag = carried = False
         bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
         if (method in (OPCODE_ADD, OPCODE_ADC)):
-            if (method == OPCODE_ADC and self.getEFLAG(FLAG_CF)):
+            if (method == OPCODE_ADC and self.cf):
                 carried = True
                 reg1 += 1
             regSumu = <unsigned int>(reg0+reg1)
@@ -630,8 +670,8 @@ cdef class Registers:
             elif (regSize == OP_SIZE_WORD):
                 regSumu = <unsigned short>regSumu
             unsignedOverflow = (regSumu < reg0 or regSumu < reg1)
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
-            self.setEFLAG(FLAG_ZF, regSumu==0)
+            self.pf = PARITY_TABLE[<unsigned char>regSumu]
+            self.zf = regSumu==0
             reg0Nibble = reg0&0xf
             regSumuNibble = regSumu&0xf
             if ((not carried and regSumuNibble<reg0Nibble) or (carried and regSumuNibble<=reg0Nibble)):
@@ -640,12 +680,12 @@ cdef class Registers:
             reg1 &= bitMaskHalf
             regSumu &= bitMaskHalf
             signedOverflow = ( ((not reg0 and not reg1) and regSumu) or ((reg0 and reg1) and not regSumu) ) != 0
-            self.setEFLAG(FLAG_AF, afFlag)
-            self.setEFLAG(FLAG_CF, unsignedOverflow)
-            self.setEFLAG(FLAG_OF, signedOverflow)
-            self.setEFLAG(FLAG_SF, regSumu!=0)
+            self.af = afFlag
+            self.cf = unsignedOverflow
+            self.of = signedOverflow
+            self.sf = regSumu!=0
         elif (method in (OPCODE_SUB, OPCODE_SBB)):
-            if (method == OPCODE_SBB and self.getEFLAG(FLAG_CF)):
+            if (method == OPCODE_SBB and self.cf):
                 carried = True
                 reg1 += 1
             regSumu = <unsigned int>(reg0-reg1)
@@ -654,8 +694,8 @@ cdef class Registers:
             elif (regSize == OP_SIZE_WORD):
                 regSumu = <unsigned short>regSumu
             unsignedOverflow = ((not carried and regSumu > reg0) or (carried and regSumu >= reg0))
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
-            self.setEFLAG(FLAG_ZF, regSumu==0)
+            self.pf = PARITY_TABLE[<unsigned char>regSumu]
+            self.zf = regSumu==0
             reg0Nibble = reg0&0xf
             regSumuNibble = regSumu&0xf
             if ((not carried and regSumuNibble>reg0Nibble) or (carried and regSumuNibble>=reg0Nibble)):
@@ -664,10 +704,10 @@ cdef class Registers:
             reg1 &= bitMaskHalf
             regSumu &= bitMaskHalf
             signedOverflow = ( ((reg0 and not reg1) and not regSumu) or ((not reg0 and reg1) and regSumu) ) != 0
-            self.setEFLAG(FLAG_AF, afFlag)
-            self.setEFLAG(FLAG_CF, unsignedOverflow)
-            self.setEFLAG(FLAG_OF, signedOverflow)
-            self.setEFLAG(FLAG_SF, regSumu!=0)
+            self.af = afFlag
+            self.cf = unsignedOverflow
+            self.of = signedOverflow
+            self.sf = regSumu!=0
         elif (method in (OPCODE_MUL, OPCODE_IMUL)):
             if (regSize == OP_SIZE_BYTE):
                 reg0 = <unsigned char>reg0
@@ -681,12 +721,12 @@ cdef class Registers:
                 reg0 = <unsigned int>reg0
                 reg1 = <unsigned int>reg1
                 regSumu = <unsigned int>(reg0*reg1)
-            self.setEFLAG(FLAG_AF, False)
-            self.setEFLAG(FLAG_CF | FLAG_OF, ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1)))
-            self.setEFLAG(FLAG_PF, PARITY_TABLE[<unsigned char>regSumu])
-            self.setEFLAG(FLAG_ZF, regSumu==0)
+            self.af = False
+            self.cf = self.of = ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1))
+            self.pf = PARITY_TABLE[<unsigned char>regSumu]
+            self.zf = regSumu==0
             regSumu &= bitMaskHalf
-            self.setEFLAG(FLAG_SF, regSumu!=0)
+            self.sf = regSumu!=0
     cpdef checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write):
         cdef GdtEntry gdtEntry
         cdef unsigned char addrInLimit
@@ -723,7 +763,7 @@ cdef class Registers:
         segment = self.segments.getSegmentInstance(segId, True)
         mmAddr = <unsigned int>(segment.base+mmAddr)
         # TODO: check for limit asf...
-        if (self.getEFLAG(FLAG_VM)):
+        if (self.vm):
             self.main.notice("Registers::mmGetRealAddr: TODO. (VM is on)")
         if (segment.isRMSeg):
             if (self.segments.getA20State()): # A20 Active? if True == on, else off
@@ -821,7 +861,7 @@ cdef class Registers:
                     data = <unsigned char>(oldData+data)
                     self.mmWriteValueByte(mmAddr, data, segId, allowOverride)
                 elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
-                    carryOn = self.getEFLAG( FLAG_CF )
+                    carryOn = self.cf
                     if (valueOp == OPCODE_ADC):
                         data = <unsigned char>(oldData+<unsigned char>(data+carryOn))
                     else:
@@ -860,7 +900,7 @@ cdef class Registers:
                     data = <unsigned short>(oldData+data)
                     self.mmWriteValueWord(mmAddr, data, segId, allowOverride)
                 elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
-                    carryOn = self.getEFLAG( FLAG_CF )
+                    carryOn = self.cf
                     if (valueOp == OPCODE_ADC):
                         data = <unsigned short>(oldData+<unsigned short>(data+carryOn))
                     else:
@@ -899,7 +939,7 @@ cdef class Registers:
                     data = <unsigned int>(oldData+data)
                     self.mmWriteValueDword(mmAddr, data, segId, allowOverride)
                 elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
-                    carryOn = self.getEFLAG( FLAG_CF )
+                    carryOn = self.cf
                     if (valueOp == OPCODE_ADC):
                         data = <unsigned int>(oldData+<unsigned int>(data+carryOn))
                     else:
@@ -938,7 +978,7 @@ cdef class Registers:
                     data = <unsigned long int>(oldData+data)
                     self.mmWriteValueQword(mmAddr, data, segId, allowOverride)
                 elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
-                    carryOn = self.getEFLAG( FLAG_CF )
+                    carryOn = self.cf
                     if (valueOp == OPCODE_ADC):
                         data = <unsigned long int>(oldData+<unsigned long int>(data+carryOn))
                     else:

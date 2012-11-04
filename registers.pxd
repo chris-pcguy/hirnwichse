@@ -56,13 +56,16 @@ cdef class Registers:
     cdef Segments segments
     cdef RegStruct regs[CPU_REGISTERS]
     cdef public unsigned char repPrefix, segmentOverridePrefix, operandSizePrefix, \
-                                addressSizePrefix, codeSegSize
+                                addressSizePrefix, codeSegSize, cf, pf, af, zf, sf, \
+                                tf, if_flag, df, of, iopl, nt, rf, vm, ac, vif, vip, id
     cdef unsigned char operSize, addrSize
     cdef public unsigned short eipSize
     cdef void reset(self)
     cdef void resetPrefixes(self)
     cdef inline void readCodeSegSize(self):
         self.getOpAddrCodeSegSize(&self.operSize, &self.addrSize)
+    cdef unsigned int readFlags(self)
+    cdef void setFlags(self, unsigned int flags)
     cdef unsigned char getCPL(self)
     cdef unsigned char getIOPL(self)
     cdef signed char getCurrentOpcodeSignedByte(self)
@@ -104,8 +107,12 @@ cdef class Registers:
     cdef inline unsigned char regReadUnsignedHighByte(self, unsigned short regId):
         return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regReadUnsignedWord(self, unsigned short regId):
+        if (regId == CPU_REGISTER_FLAGS):
+            return self.readFlags()
         return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regReadUnsignedDword(self, unsigned short regId):
+        if (regId == CPU_REGISTER_EFLAGS):
+            return self.readFlags()
         return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regReadUnsignedQword(self, unsigned short regId):
         return self.regs[regId]._union.rrx
@@ -117,10 +124,16 @@ cdef class Registers:
         self.regs[regId]._union.word._union.byte.rh = value
         return value # returned value is unsigned!!
     cdef inline unsigned short regWriteWord(self, unsigned short regId, unsigned short value):
-        self.regs[regId]._union.word._union.rx = value
+        if (regId == CPU_REGISTER_FLAGS):
+            self.setFlags(value)
+        else:
+            self.regs[regId]._union.word._union.rx = value
         return value # returned value is unsigned!!
     cdef inline unsigned int regWriteDword(self, unsigned short regId, unsigned int value):
-        self.regs[regId]._union.dword.erx = value
+        if (regId == CPU_REGISTER_EFLAGS):
+            self.setFlags(value)
+        else:
+            self.regs[regId]._union.dword.erx = value
         return value # returned value is unsigned!!
     cdef inline unsigned long int regWriteQword(self, unsigned short regId, unsigned long int value):
         self.regs[regId]._union.rrx = value
@@ -138,15 +151,15 @@ cdef class Registers:
         return self.regWriteQword(regId, <unsigned long int>(self.regReadUnsignedQword(regId)+value))
     cdef unsigned long int regAdd(self, unsigned short regId, unsigned long int value, unsigned char regSize)
     cdef inline unsigned char regAdcLowByte(self, unsigned short regId, unsigned char value):
-        return self.regAddLowByte(regId, <unsigned char>(value+self.getEFLAG( FLAG_CF )))
+        return self.regAddLowByte(regId, <unsigned char>(value+self.cf))
     cdef inline unsigned char regAdcHighByte(self, unsigned short regId, unsigned char value):
-        return self.regAddHighByte(regId, <unsigned char>(value+self.getEFLAG( FLAG_CF )))
+        return self.regAddHighByte(regId, <unsigned char>(value+self.cf))
     cdef inline unsigned short regAdcWord(self, unsigned short regId, unsigned short value):
-        return self.regAddWord(regId, <unsigned short>(value+self.getEFLAG( FLAG_CF )))
+        return self.regAddWord(regId, <unsigned short>(value+self.cf))
     cdef inline unsigned int regAdcDword(self, unsigned short regId, unsigned int value):
-        return self.regAddDword(regId, <unsigned int>(value+self.getEFLAG( FLAG_CF )))
+        return self.regAddDword(regId, <unsigned int>(value+self.cf))
     cdef inline unsigned long int regAdcQword(self, unsigned short regId, unsigned long int value):
-        return self.regAddQword(regId, <unsigned long int>(value+self.getEFLAG( FLAG_CF )))
+        return self.regAddQword(regId, <unsigned long int>(value+self.cf))
     cdef inline unsigned char regSubLowByte(self, unsigned short regId, unsigned char value):
         return self.regWriteLowByte(regId, <unsigned char>(self.regReadUnsignedLowByte(regId)-value))
     cdef inline unsigned char regSubHighByte(self, unsigned short regId, unsigned char value):
@@ -159,15 +172,15 @@ cdef class Registers:
         return self.regWriteQword(regId, <unsigned long int>(self.regReadUnsignedQword(regId)-value))
     cdef unsigned long int regSub(self, unsigned short regId, unsigned long int value, unsigned char regSize)
     cdef inline unsigned char regSbbLowByte(self, unsigned short regId, unsigned char value):
-        return self.regSubLowByte(regId, <unsigned char>(value+self.getEFLAG( FLAG_CF )))
+        return self.regSubLowByte(regId, <unsigned char>(value+self.cf))
     cdef inline unsigned char regSbbHighByte(self, unsigned short regId, unsigned char value):
-        return self.regSubHighByte(regId, <unsigned char>(value+self.getEFLAG( FLAG_CF )))
+        return self.regSubHighByte(regId, <unsigned char>(value+self.cf))
     cdef inline unsigned short regSbbWord(self, unsigned short regId, unsigned short value):
-        return self.regSubWord(regId, <unsigned short>(value+self.getEFLAG( FLAG_CF )))
+        return self.regSubWord(regId, <unsigned short>(value+self.cf))
     cdef inline unsigned int regSbbDword(self, unsigned short regId, unsigned int value):
-        return self.regSubDword(regId, <unsigned int>(value+self.getEFLAG( FLAG_CF )))
+        return self.regSubDword(regId, <unsigned int>(value+self.cf))
     cdef inline unsigned long int regSbbQword(self, unsigned short regId, unsigned long int value):
-        return self.regSubQword(regId, <unsigned long int>(value+self.getEFLAG( FLAG_CF )))
+        return self.regSubQword(regId, <unsigned long int>(value+self.cf))
     cdef inline unsigned char regXorLowByte(self, unsigned short regId, unsigned char value):
         return self.regWriteLowByte(regId, <unsigned char>(self.regReadUnsignedLowByte(regId)^value))
     cdef inline unsigned char regXorHighByte(self, unsigned short regId, unsigned char value):
@@ -226,15 +239,11 @@ cdef class Registers:
     cdef unsigned long int regWriteWithOp(self, unsigned short regId, unsigned long int value, unsigned char valueOp, unsigned char regSize)
     cdef inline unsigned char valGetBit(self, unsigned int value, unsigned char bit): # return True if bit is set, otherwise False
         return (value&<unsigned int>(1<<bit))!=0
-    cdef inline unsigned int getEFLAG(self, unsigned int flags):
-        return self.getFlagDword(CPU_REGISTER_EFLAGS, flags)
     cdef inline unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state):
         if (state):
             return ( value | <unsigned int>(1<<bit) )
         return ( value & <unsigned int>(~(1<<bit)) )
-    cdef inline unsigned int setEFLAG(self, unsigned int flags, unsigned char flagState):
-        if (flagState):
-            return self.regOrDword(CPU_REGISTER_EFLAGS, flags)
+    cdef inline unsigned int clearEFLAG(self, unsigned int flags):
         return self.regAndDword(CPU_REGISTER_EFLAGS, <unsigned int>(~flags))
     cdef inline unsigned int getFlagDword(self, unsigned short regId, unsigned int flags):
         return (self.regReadUnsignedDword(regId)&flags)

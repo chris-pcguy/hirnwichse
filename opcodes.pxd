@@ -13,20 +13,20 @@ cdef class Opcodes:
     cdef ModRMClass modRMInstance
     cdef int executeOpcode(self, unsigned char opcode) except -1
     cdef inline void cli(self):
-        self.registers.setEFLAG(FLAG_IF, False)
+        self.registers.if_flag = False
     cdef inline void sti(self):
-        self.registers.setEFLAG(FLAG_IF, True)
+        self.registers.if_flag = True
         self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
     cdef inline void cld(self):
-        self.registers.setEFLAG(FLAG_DF, False)
+        self.registers.df = False
     cdef inline void std(self):
-        self.registers.setEFLAG(FLAG_DF, True)
+        self.registers.df = True
     cdef inline void clc(self):
-        self.registers.setEFLAG(FLAG_CF, False)
+        self.registers.cf = False
     cdef inline void stc(self):
-        self.registers.setEFLAG(FLAG_CF, True)
+        self.registers.cf = True
     cdef inline void cmc(self):
-        self.registers.setEFLAG(FLAG_CF, not self.registers.getEFLAG(FLAG_CF))
+        self.registers.cf = not self.registers.cf
     cdef inline void hlt(self):
         self.main.cpu.cpuHalted = True
     cdef inline void syncCR0State(self):
