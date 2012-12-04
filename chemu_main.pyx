@@ -19,19 +19,20 @@ cdef class ChEmu:
         register(self.quitFunc)
     cpdef parseArgs(self):
         self.parser = ArgumentParser(description='ChEmu: a x86 emulator in python.')
-        self.parser.add_argument('--biosFilename', dest='biosFilename', action='store', type=str, default='bios.bin', help='bios filename')
-        self.parser.add_argument('--vgaBiosFilename', dest='vgaBiosFilename', action='store', type=str, default='vgabios.bin', help='vgabios filename')
+        self.parser.add_argument('--bios', dest='biosFilename', action='store', type=str, default='bios.bin', help='bios filename')
+        self.parser.add_argument('--vgabios', dest='vgaBiosFilename', action='store', type=str, default='vgabios.bin', help='vgabios filename')
         self.parser.add_argument('-m', dest='memSize', action='store', type=int, default=64, help='memSize in MB')
         self.parser.add_argument('-L', dest='romPath', action='store', type=str, default='./bios', help='romPath')
         self.parser.add_argument('-x', dest='exitIfCpuHalted', action='store_true', default=False, help='Exit if CPU if halted')
         self.parser.add_argument('--debug', dest='debugEnabled', action='store_true', default=False, help='Debug.')
         self.parser.add_argument('--debugHalt', dest='debugHalt', action='store_true', default=False, help='Start with halted CPU')
-        self.parser.add_argument('--fdaFilename', dest='fdaFilename', action='store', type=str, default='floppy0.img', help='fdaFilename')
-        self.parser.add_argument('--fdbFilename', dest='fdbFilename', action='store', type=str, default='floppy1.img', help='fdbFilename')
-        self.parser.add_argument('--hdaFilename', dest='hdaFilename', action='store', type=str, default='hd0.img', help='hdaFilename')
-        self.parser.add_argument('--hdbFilename', dest='hdbFilename', action='store', type=str, default='hd1.img', help='hdbFilename')
+        self.parser.add_argument('--fda', dest='fdaFilename', action='store', type=str, default='floppy0.img', help='fdaFilename')
+        self.parser.add_argument('--fdb', dest='fdbFilename', action='store', type=str, default='floppy1.img', help='fdbFilename')
+        self.parser.add_argument('--hda', dest='hdaFilename', action='store', type=str, default='hd0.img', help='hdaFilename')
+        self.parser.add_argument('--hdb', dest='hdbFilename', action='store', type=str, default='hd1.img', help='hdbFilename')
         self.parser.add_argument('--noUI', dest='noUI', action='store_true', default=False, help='Disable UI.')
-        self.parser.add_argument('--forceFloppyDiskType', dest='forceFloppyDiskType', action='store', type=int, default=4, help='Force FloppyDiskType: 0==auto detect; 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
+        self.parser.add_argument('--fdaType', dest='fdaType', action='store', type=int, default=4, help='fdaType: 0==auto detect; 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
+        self.parser.add_argument('--fdbType', dest='fdbType', action='store', type=int, default=4, help='fdbType: 0==auto detect; 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
         self.cmdArgs = self.parser.parse_args(argv[1:])
 
         self.exitIfCpuHalted = self.cmdArgs.exitIfCpuHalted
@@ -45,7 +46,8 @@ cdef class ChEmu:
         self.fdbFilename = self.cmdArgs.fdbFilename.encode() # default: ''
         self.hdaFilename = self.cmdArgs.hdaFilename.encode() # default: ''
         self.hdbFilename = self.cmdArgs.hdbFilename.encode() # default: ''
-        self.forceFloppyDiskType    = self.cmdArgs.forceFloppyDiskType
+        self.fdaType    = self.cmdArgs.fdaType
+        self.fdbType    = self.cmdArgs.fdbType
         self.memSize = self.cmdArgs.memSize
     cpdef quitFunc(self):
         self.quitEmu = True

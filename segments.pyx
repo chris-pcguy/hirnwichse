@@ -6,9 +6,8 @@ include "cpu_globals.pxi"
 
 
 cdef class Segment:
-    def __init__(self, Segments segments, unsigned short segmentId, unsigned short segmentIndex):
+    def __init__(self, Segments segments, unsigned short segmentIndex):
         self.segments = segments
-        self.segmentId = segmentId
         self.isValid = False
         self.segSize = OP_SIZE_WORD
         self.loadSegment(segmentIndex)
@@ -21,6 +20,9 @@ cdef class Segment:
             self.limit = 0xffff
             self.isValid = True
             self.isRMSeg = True
+            return
+        if (not segmentIndex):
+            self.isValid = False
             return
         if (segmentIndex & SELECTOR_USE_LDT):
             gdtEntry = (<GdtEntry>(<Gdt>self.segments.ldt).getEntry(segmentIndex))
@@ -267,16 +269,6 @@ cdef class Idt:
 
 
 
-cdef class Tss:
-    def __init__(self, Segments segments):
-        self.segments = segments
-        self.tableBase = self.tableLimit = 0
-    cdef void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit):
-        self.tableBase, self.tableLimit = tableBase, tableLimit
-    cdef void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
-        retTableBase[0] = self.tableBase
-        retTableLimit[0] = self.tableLimit
-
 cdef class Paging:
     def __init__(self, Segments segments):
         self.segments = segments
@@ -322,10 +314,10 @@ cdef class Paging:
 cdef class Segments:
     def __init__(self, object main):
         self.main = main
-        self.ldtr = self.tr = 0
+        self.ldtr = 0
         self.segs = ()
     cdef void reset(self):
-        self.ldtr = self.tr = 0
+        self.ldtr = 0
         self.A20Active = True # enable A20-line by default.
         self.protectedModeOn = self.pagingOn = False
     cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness):
@@ -379,15 +371,15 @@ cdef class Segments:
         self.gdt = Gdt(self)
         self.ldt = Gdt(self)
         self.idt = Idt(self)
-        self.tss = Tss(self)
         self.paging = Paging(self)
-        self.cs = Segment(self, CPU_SEGMENT_CS, 0)
-        self.ss = Segment(self, CPU_SEGMENT_SS, 0)
-        self.ds = Segment(self, CPU_SEGMENT_DS, 0)
-        self.es = Segment(self, CPU_SEGMENT_ES, 0)
-        self.fs = Segment(self, CPU_SEGMENT_FS, 0)
-        self.gs = Segment(self, CPU_SEGMENT_GS, 0)
-        self.segs = (None, self.cs, self.ss, self.ds, self.es, self.fs, self.gs)
+        self.cs = Segment(self, 0)
+        self.ss = Segment(self, 0)
+        self.ds = Segment(self, 0)
+        self.es = Segment(self, 0)
+        self.fs = Segment(self, 0)
+        self.gs = Segment(self, 0)
+        self.tss = Segment(self, 0)
+        self.segs = (None, self.cs, self.ss, self.ds, self.es, self.fs, self.gs, self.tss)
 
 
 

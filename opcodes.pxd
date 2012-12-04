@@ -1,6 +1,6 @@
 
 from misc cimport Misc
-from segments cimport GdtEntry, IdtEntry, Gdt, Idt, Paging, Segments
+from segments cimport GdtEntry, IdtEntry, Gdt, Idt, Paging, Segment, Segments
 from registers cimport ModRMClass, Registers
 from mm cimport Mm
 

@@ -459,13 +459,23 @@ cdef class Opcodes:
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal):
         cdef unsigned char segType
         cdef GdtEntry gdtEntry
+        cdef Segment segment
         self.syncCR0State()
         if ((<Segments>self.registers.segments).isInProtectedMode()):
             gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(segVal))
             if (not gdtEntry or not gdtEntry.segPresent):
                 raise ChemuException(CPU_EXCEPTION_NP, segVal)
             segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
-            if (not (segType & GDT_ACCESS_NORMAL_SEGMENT) and (segType != TABLE_ENTRY_SYSTEM_TYPE_LDT)):
+            if (segType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
+                segment = <Segment>(<Segments>self.registers.segments).getSegmentInstance(CPU_SEGMENT_TSS, True)
+                if (segment.segDPL < self.registers.getCPL() or segment.segDPL < (segment.segmentIndex&3)):
+                    raise ChemuException(CPU_EXCEPTION_GP, segment.segmentIndex)
+                if (not segment.segPresent):
+                    raise ChemuException(CPU_EXCEPTION_NP, segment.segmentIndex)
+                if (segment.limit < 0x67):
+                    raise ChemuException(CPU_EXCEPTION_TS, segment.segmentIndex)
+                self.main.notice("Opcodes::jumpFarDirect: sysSegType == {0:d}; method == {1:d} (TSS); TODO!", segType, method)
+            elif (not (segType & GDT_ACCESS_NORMAL_SEGMENT) and (segType != TABLE_ENTRY_SYSTEM_TYPE_LDT)):
                 self.main.exitError("Opcodes::jumpFarDirect: sysSegType {0:d} isn't supported yet.", segType)
                 return True
         if (method == OPCODE_CALL):
@@ -1122,7 +1132,7 @@ cdef class Opcodes:
         return True
     cdef int pushfWD(self):
         cdef unsigned int value
-        value = self.registers.regReadUnsigned(CPU_REGISTER_FLAGS, self.registers.operSize)|0x2
+        value = self.registers.regReadUnsigned(CPU_REGISTER_FLAGS, self.registers.operSize) | FLAG_REQUIRED
         value &= (~FLAG_IOPL) # This is for
         value |= (self.registers.getIOPL()<<12) # IOPL, Bits 12,13
         if (self.registers.operSize == OP_SIZE_DWORD):
@@ -1304,8 +1314,7 @@ cdef class Opcodes:
                     self.modRMInstance.modRMSave(byteSize, (<Segments>\
                       self.registers.segments).ldtr, True, OPCODE_SAVE)
                 elif (operOpcodeModId == 1): # STR
-                    self.modRMInstance.modRMSave(byteSize, (<Segments>\
-                      self.registers.segments).tr, True, OPCODE_SAVE)
+                    self.modRMInstance.modRMSave(byteSize, self.registers.segRead(CPU_SEGMENT_TSS), True, OPCODE_SAVE)
                     self.main.notice("opcodeGroup0F_00_STR: TR isn't fully supported yet.")
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)
@@ -1358,8 +1367,7 @@ cdef class Opcodes:
                               TSS_MIN_32BIT_HARD_LIMIT)
                             op1 = 0
                     op1 &= 0xfff8
-                    (<Segments>self.registers.segments).tr = op1
-                    (<Gdt>self.registers.segments.tss).loadTablePosition(gdtEntry.base, gdtEntry.limit)
+                    self.registers.segWrite(CPU_SEGMENT_TSS, op1)
                     self.main.notice("opcodeGroup0F_00_LTR: TR isn't fully supported yet.")
             elif (operOpcodeModId == 4): # VERR
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)

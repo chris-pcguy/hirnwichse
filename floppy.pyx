@@ -100,8 +100,13 @@ cdef class FloppyDrive:
         return (cylinder*self.media.heads*self.media.sectorsPerTrack)+(head*self.media.sectorsPerTrack)+(sector-1)
     cdef unsigned char getDiskType(self, unsigned int size):
         cdef unsigned char diskType = FLOPPY_DISK_TYPE_NONE
-        if (self.main.forceFloppyDiskType != FLOPPY_DISK_TYPE_NONE):
-            diskType = self.main.forceFloppyDiskType
+        cdef unsigned char diskTypeOverride = FLOPPY_DISK_TYPE_NONE
+        if (self.driveId == 0):
+            diskTypeOverride = self.main.fdaType
+        elif (self.driveId == 1):
+            diskTypeOverride = self.main.fdbType
+        if (diskTypeOverride != FLOPPY_DISK_TYPE_NONE):
+            diskType = diskTypeOverride
         elif (size <= SIZE_360K):
             diskType = FLOPPY_DISK_TYPE_360K
         elif (size <= SIZE_720K):

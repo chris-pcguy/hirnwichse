@@ -5,7 +5,7 @@ cdef class Segment:
     cdef Segments segments
     cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, \
         segIsRW, segIsConforming, segDPL, isRMSeg
-    cdef unsigned short segmentId, segmentIndex
+    cdef unsigned short segmentIndex
     cdef unsigned int base, limit
     cdef void loadSegment(self, unsigned short segmentIndex)
     cdef unsigned char getSegSize(self)
@@ -62,13 +62,6 @@ cdef class Idt:
     cdef unsigned char getEntrySize(self, unsigned char num)
     cdef void getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip)
 
-cdef class Tss:
-    cdef Segments segments
-    cdef unsigned short tableLimit
-    cdef unsigned int tableBase
-    cdef void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit)
-    cdef void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit)
-
 cdef class Paging:
     cdef Segments segments
     cdef unsigned int pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
@@ -82,12 +75,11 @@ cdef class Segments:
     cpdef object main
     cdef Gdt gdt, ldt
     cdef Idt idt
-    cdef Tss tss
     cdef Paging paging
-    cdef Segment cs, ds, es, fs, gs, ss
+    cdef Segment cs, ds, es, fs, gs, ss, tss
     cdef tuple segs
     cdef unsigned char A20Active, protectedModeOn, pagingOn
-    cdef unsigned short ldtr, tr
+    cdef unsigned short ldtr
     cdef void reset(self)
     cdef inline unsigned char isInProtectedMode(self):
         return self.protectedModeOn
