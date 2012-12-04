@@ -2231,6 +2231,7 @@ cdef class Opcodes:
             if (isSoftInt and ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10)) and \
               self.main.platform.pythonBios.interrupt(intNum)):
                 return True
+            entryEip &= BITMASK_WORD
         self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}, AX: {3:#06x}", intNum, entrySegment, entryEip, self.registers.regReadUnsignedWord(CPU_REGISTER_AX))
         if (inProtectedMode):
             cpl = self.registers.getCPL()
