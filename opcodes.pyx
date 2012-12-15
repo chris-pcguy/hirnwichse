@@ -1561,8 +1561,9 @@ cdef class Opcodes:
                 self.modRMInstance.modRMSave(self.registers.operSize, op2, True, OPCODE_SAVE)
             else:
                 self.main.exitError("MOVBE: operOpcodeMod {0:#04x} not in (0xf0, 0xf1)", operOpcodeMod)
-        elif (operOpcode >= 0x40 and operOpcode <= 0x4f): # CMOVcc
-            self.cmovFunc(self.registers.getCond(operOpcode&0xf))
+        elif (operOpcode >= 0x40 and operOpcode <= 0x4f): # CMOVcc ;; R16, R/M 16; R32, R/M 32
+            self.main.notice("Opcodes::cmovFunc: TODO!")
+            self.movR_RM(self.registers.operSize, self.registers.getCond(operOpcode&0xf))
         elif (operOpcode >= 0x80 and operOpcode <= 0x8f):
             self.jumpShort(self.registers.operSize, self.registers.getCond(operOpcode&0xf))
         elif (operOpcode >= 0x90 and operOpcode <= 0x9f): # SETcc
@@ -2625,17 +2626,14 @@ cdef class Opcodes:
         return True
     cdef int sahf(self):
         cdef unsigned short flagsVal
-        self.main.notice("Opcodes::sahf: TODO!")
         flagsVal = self.registers.regReadUnsignedWord(CPU_REGISTER_FLAGS)&0xff00
-        flagsVal |= self.registers.regReadUnsignedHighByte(CPU_REGISTER_AH)
-        flagsVal &= (0xff00 | FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_CF)
+        flagsVal |= self.registers.regReadUnsignedHighByte(CPU_REGISTER_AH) & (FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_CF)
         flagsVal |= FLAG_REQUIRED
         self.registers.regWriteWord(CPU_REGISTER_FLAGS, flagsVal)
         return True
     cdef int lahf(self):
         cdef unsigned char flagsVal
-        flagsVal = <unsigned char>(self.registers.regReadUnsignedWord(CPU_REGISTER_FLAGS))
-        flagsVal &= (FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_CF)
+        flagsVal = self.registers.regReadUnsignedWord(CPU_REGISTER_FLAGS) & (FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_CF)
         flagsVal |= FLAG_REQUIRED
         self.registers.regWriteHighByte(CPU_REGISTER_AH, flagsVal)
         return True
@@ -2708,10 +2706,6 @@ cdef class Opcodes:
         elif (stackAddrSize == OP_SIZE_DWORD):
             self.registers.regWriteDword(CPU_REGISTER_ESP, self.registers.regReadUnsignedDword(CPU_REGISTER_EBP))
         self.stackPopRegId(CPU_REGISTER_EBP, self.registers.operSize)
-        return True
-    cdef int cmovFunc(self, unsigned char cond): # R16, R/M 16; R32, R/M 32
-        self.main.notice("Opcodes::cmovFunc: TODO!")
-        self.movR_RM(self.registers.operSize, cond)
         return True
     cdef int setWithCondFunc(self, unsigned char cond): # if cond==True set 1, else 0
         self.modRMInstance.modRMOperands(OP_SIZE_BYTE, MODRM_FLAGS_NONE)

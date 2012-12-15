@@ -10,7 +10,7 @@ from ps2 cimport PS2
 from vga cimport Vga
 from ata cimport Ata
 from floppy cimport Floppy
-from serial cimport Serial
+from serial_dev cimport Serial
 from parallel cimport Parallel
 from gdbstub cimport GDBStub
 from pythonBios cimport PythonBios

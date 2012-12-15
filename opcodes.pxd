@@ -141,7 +141,6 @@ cdef class Opcodes:
     cdef int xchgR_RM(self, unsigned char operSize) except -1
     cdef int enter(self) except -1
     cdef int leave(self) except -1
-    cdef int cmovFunc(self, unsigned char cond) except -1 # R16, R/M 16; R32, R/M 32
     cdef int setWithCondFunc(self, unsigned char cond) except -1 # if cond==True set 1, else 0
     cdef int arpl(self) except -1
     cdef int bound(self) except -1

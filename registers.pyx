@@ -78,6 +78,8 @@ cdef class ModRMClass:
                     self.ss = (modRMByte>>6)&3
                     if (index != 4):
                         self.rmName1 = index
+                    if (self.rm == CPU_REGISTER_ESP):
+                        self.rmNameSegId = CPU_SEGMENT_SS
                 if (self.mod == 0 and self.rm == 5):
                     self.rmName0 = CPU_REGISTER_NONE
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
@@ -87,7 +89,7 @@ cdef class ModRMClass:
                     self.rmName2 = self.registers.getCurrentOpcodeAddSignedByte()
                 elif (self.mod == 2):
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
-                if (self.rmName0 in (CPU_REGISTER_ESP, CPU_REGISTER_EBP)):
+                if (self.rmName0 == CPU_REGISTER_EBP):
                     self.rmNameSegId = CPU_SEGMENT_SS
             self.rmNameSegId = self.registers.segmentOverridePrefix or self.rmNameSegId
     cdef unsigned int getRMValueFull(self, unsigned char rmSize):
