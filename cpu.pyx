@@ -106,7 +106,8 @@ cdef class Cpu:
             elif (opcode == OPCODE_PREFIX_REPE or opcode == OPCODE_PREFIX_REPNE):
                 self.registers.repPrefix = opcode
             ### TODO: I don't think, that we ever need lockPrefix.
-            ##elif (opcode == OPCODE_PREFIX_LOCK):
+            elif (opcode == OPCODE_PREFIX_LOCK):
+                self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
             opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
         return opcode
     cpdef cpuDump(self):

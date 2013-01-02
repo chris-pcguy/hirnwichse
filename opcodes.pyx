@@ -1785,10 +1785,13 @@ cdef class Opcodes:
                 self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
         elif (operOpcode == 0xbd): # BSR R16_32, R/M16_32
             self.main.notice("Opcodes::opcodeGroup0F: BSR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.cpu.cpuDump()
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             self.registers.zf = not op2
-            self.modRMInstance.modRSave(self.registers.operSize, op2.bit_length()-1, OPCODE_SAVE)
+            if (op2 >= 1):
+                self.modRMInstance.modRSave(self.registers.operSize, op2.bit_length()-1, OPCODE_SAVE)
+            self.main.cpu.cpuDump()
         elif (operOpcode in (0xb6, 0xbe)): # 0xb6==MOVZX R16_32, R/M8 ;; 0xbe==MOVSX R16_32, R/M8
             self.modRMInstance.modRMOperands(OP_SIZE_BYTE, MODRM_FLAGS_NONE)
             self.modRMInstance.regName = self.registers.getRegNameWithFlags(MODRM_FLAGS_NONE, \
