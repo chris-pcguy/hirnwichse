@@ -1427,8 +1427,8 @@ cdef class Opcodes:
                     (<Idt>self.registers.segments.idt).getBaseLimit(&base, &limit)
                 if (self.registers.operSize == OP_SIZE_WORD):
                     base &= 0xffffff
-                self.registers.mmWriteValueWord(mmAddr, limit, CPU_SEGMENT_DS, True)
-                self.registers.mmWriteValueDword(mmAddr+OP_SIZE_WORD, base, CPU_SEGMENT_DS, True)
+                self.registers.mmWriteValueSize(mmAddr, limit, CPU_SEGMENT_DS, True)
+                self.registers.mmWriteValueSize(mmAddr+OP_SIZE_WORD, base, CPU_SEGMENT_DS, True)
             elif (operOpcodeModId in (2, 3)): # LGDT/LIDT
                 limit = self.registers.mmReadValueUnsignedWord(mmAddr, CPU_SEGMENT_DS, True)
                 base = self.registers.mmReadValueUnsignedDword(mmAddr+OP_SIZE_WORD, CPU_SEGMENT_DS, True)
@@ -1839,7 +1839,7 @@ cdef class Opcodes:
                     qop2 = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
                     qop2 <<= 32
                     qop2 |= self.registers.regReadUnsignedDword(CPU_REGISTER_EBX)
-                    (<Mm>self.main.mm).mmPhyWriteValueQword(op1, qop2)
+                    (<Mm>self.main.mm).mmPhyWriteValueSize(op1, qop2)
                 else:
                     self.registers.zf = False
                     self.registers.regWriteDword(CPU_REGISTER_EDX, qop1>>32)

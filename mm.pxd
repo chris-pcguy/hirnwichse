@@ -3,10 +3,22 @@ from misc cimport Misc
 from libc.stdlib cimport calloc, malloc, free
 from libc.string cimport strncpy, memcpy, memset, memmove
 
+include "globals.pxi"
+
+ctypedef fused unsigned_value_types:
+    unsigned char
+    unsigned short
+    unsigned int
+    unsigned long int
+
+ctypedef unsigned char unsigned_char
+ctypedef unsigned short unsigned_short
+ctypedef unsigned int unsigned_int
+ctypedef unsigned long int unsigned_long_int
+
+
 ctypedef bytes (*MmAreaReadType)(self, MmArea, unsigned int, unsigned int)
 ctypedef void (*MmAreaWriteType)(self, MmArea, unsigned int, char *, unsigned int)
-
-DEF SIZE_1MB = 0x100000 # sync this with globals.pxi
 
 cdef class MmArea:
     cdef unsigned char readOnly, valid
@@ -46,10 +58,7 @@ cdef class Mm:
     cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr)
     cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize)
     cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize)
-    cdef unsigned char mmPhyWriteValueByte(self, unsigned int mmAddr, unsigned char data)
-    cdef unsigned char mmPhyWriteValueWord(self, unsigned int mmAddr, unsigned short data)
-    cdef unsigned char mmPhyWriteValueDword(self, unsigned int mmAddr, unsigned int data)
-    cdef unsigned char mmPhyWriteValueQword(self, unsigned int mmAddr, unsigned long int data)
+    cdef unsigned char mmPhyWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data)
     cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize)
     cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
     cdef unsigned int mmGetAbsoluteAddressForInterrupt(self, unsigned char intNum)

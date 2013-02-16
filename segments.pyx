@@ -135,7 +135,7 @@ cdef class Gdt:
     cdef unsigned char getSegType(self, unsigned short num):
         return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsignedByte(self.tableBase+num+5) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
     cdef void setSegType(self, unsigned short num, unsigned char segmentType):
-        (<Mm>self.segments.main.mm).mmPhyWriteValueByte(self.tableBase+num+5, (((<Mm>self.segments.main.mm).\
+        (<Mm>self.segments.main.mm).mmPhyWriteValueSize(self.tableBase+num+5, <unsigned char>(((<Mm>self.segments.main.mm).\
           mmPhyReadValueUnsignedByte(self.tableBase+num+5) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
             (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)))
     cdef unsigned char isSegPresent(self, unsigned short num):
@@ -309,8 +309,8 @@ cdef class Paging:
         pageTableOffset = ((virtualAddress>>12)&0x3ff)<<2
         pageOffset = virtualAddress&0xfff
         self.readAddresses(virtualAddress)
-        (<Mm>self.segments.main.mm).mmPhyWriteValueDword(self.pageDirectoryBaseAddress+pageDirectoryOffset, (self.pageDirectoryEntry | PAGE_WAS_USED)) # page directory
-        (<Mm>self.segments.main.mm).mmPhyWriteValueDword((self.pageDirectoryEntry&0xfffff000)+pageTableOffset, (self.pageTableEntry | PAGE_WAS_USED)) # page table
+        (<Mm>self.segments.main.mm).mmPhyWriteValueSize(<unsigned int>(self.pageDirectoryBaseAddress+pageDirectoryOffset), <unsigned int>(self.pageDirectoryEntry | PAGE_WAS_USED)) # page directory
+        (<Mm>self.segments.main.mm).mmPhyWriteValueSize(<unsigned int>((self.pageDirectoryEntry&0xfffff000)+pageTableOffset), <unsigned int>(self.pageTableEntry | PAGE_WAS_USED)) # page table
         return (self.pageTableEntry&0xfffff000)+pageOffset
 
 cdef class Segments:

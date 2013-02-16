@@ -6,6 +6,13 @@ from segments cimport Segment, GdtEntry, Gdt, Idt, Paging, Segments
 include "globals.pxi"
 include "cpu_globals.pxi"
 
+ctypedef fused unsigned_value_types:
+    unsigned char
+    unsigned short
+    unsigned int
+    unsigned long int
+
+
 cdef:
     struct byteStruct:
         unsigned char rl
@@ -267,10 +274,7 @@ cdef class Registers:
     cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
     cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned char mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned char mmWriteValueByte(self, unsigned int mmAddr, unsigned char data, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned char mmWriteValueWord(self, unsigned int mmAddr, unsigned short data, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned char mmWriteValueDword(self, unsigned int mmAddr, unsigned int data, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned char mmWriteValueQword(self, unsigned int mmAddr, unsigned long int data, unsigned short segId, unsigned char allowOverride)
+    cdef unsigned char mmWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride)
     cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned char mmWriteValueWithOpByte(self, unsigned int mmAddr, unsigned char data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
     cdef unsigned short mmWriteValueWithOpWord(self, unsigned int mmAddr, unsigned short data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
