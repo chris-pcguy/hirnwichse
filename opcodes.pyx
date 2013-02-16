@@ -2313,6 +2313,10 @@ cdef class Opcodes:
                 if (not gdtEntrySS.segPresent):
                     raise ChemuException(CPU_EXCEPTION_SS, tempSS)
                 eflagsMask |= FLAG_VM
+                self.main.notice("Opcodes::iret: What the heck should I do here?")
+                for i in (CPU_SEGMENT_DS, CPU_SEGMENT_ES, CPU_SEGMENT_FS, CPU_SEGMENT_GS):
+                    if (((not self.registers.segments.isCodeSeg(i)) or (not self.registers.segments.isSegConforming(i))) and (cpl > self.registers.segments.getSegDPL(i))): # TODO: is this correct? (Intel, use fucking parentheses!!)
+                        self.registers.segWrite(i, 0)
             if (not gdtEntryCS.isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
@@ -2330,12 +2334,12 @@ cdef class Opcodes:
             tempEFLAGS &= eflagsMask
             tempEFLAGS |= FLAG_REQUIRED
             self.registers.regWriteDword(CPU_REGISTER_EFLAGS, tempEFLAGS)
-            if ((tempCS&3) == cpl): # same privilege level; rpl==cpl
-                cpl = self.registers.getCPL()
-                self.main.notice("Opcodes::iret: What the heck should I do here?")
-                for i in (CPU_SEGMENT_DS, CPU_SEGMENT_ES, CPU_SEGMENT_FS, CPU_SEGMENT_GS):
-                    if (((not self.registers.segments.isCodeSeg(i)) or (not self.registers.segments.isSegConforming(i))) and (cpl > self.registers.segments.getSegDPL(i))): # TODO: is this correct? (Intel, use fucking parentheses!!)
-                        self.registers.segWrite(i, 0)
+            #if ((tempCS&3) == cpl): # same privilege level; rpl==cpl
+            #    cpl = self.registers.getCPL()
+            #    self.main.notice("Opcodes::iret: What the heck should I do here?")
+            #    for i in (CPU_SEGMENT_DS, CPU_SEGMENT_ES, CPU_SEGMENT_FS, CPU_SEGMENT_GS):
+            #        if (((not self.registers.segments.isCodeSeg(i)) or (not self.registers.segments.isSegConforming(i))) and (cpl > self.registers.segments.getSegDPL(i))): # TODO: is this correct? (Intel, use fucking parentheses!!)
+            #            self.registers.segWrite(i, 0)
         else:
             if (self.registers.operSize == OP_SIZE_DWORD):
                 tempEFLAGS = (tempEFLAGS & 0x257fd5)

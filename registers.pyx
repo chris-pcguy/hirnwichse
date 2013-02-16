@@ -6,7 +6,7 @@ include "cpu_globals.pxi"
 
 
 # Parity Flag Table: DO NOT EDIT!!!
-cdef tuple PARITY_TABLE = (True, False, False, True, False, True, True, False, False, True,
+DEF PARITY_TABLE = (True, False, False, True, False, True, True, False, False, True,
                 True, False, True, False, False, True, False, True, True, False,
                 True, False, False, True, True, False, False, True, False, True,
                 True, False, False, True, True, False, True, False, False, True,
@@ -223,9 +223,9 @@ cdef class Registers:
         self.registers = self
         self.main = main
     cdef void reset(self):
-        self.operSize = self.addrSize = 0
-        self.cf = self.pf = self.af = self.zf = self.sf = self.tf = self.if_flag = self.df = self.of = \
-          self.iopl = self.nt = self.rf = self.vm = self.ac = self.vif = self.vip = self.id = 0
+        self.operSize = self.addrSize = self.cf = self.pf = self.af = self.zf = self.sf = self.tf = \
+          self.if_flag = self.df = self.of = self.iopl = self.nt = self.rf = self.vm = self.ac = \
+          self.vif = self.vip = self.id = 0
         self.resetPrefixes()
         self.segments.reset()
         self.regWriteDword(CPU_REGISTER_EFLAGS, FLAG_REQUIRED)
@@ -235,28 +235,11 @@ cdef class Registers:
         #self.segments.cs.base = 0xfff00000
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef void resetPrefixes(self):
-        self.operandSizePrefix = self.addressSizePrefix = False
-        self.segmentOverridePrefix = self.repPrefix = 0
+        self.operandSizePrefix = self.addressSizePrefix = self.segmentOverridePrefix = self.repPrefix = 0
     cdef unsigned int readFlags(self):
         cdef unsigned int flags
-        flags = FLAG_REQUIRED
-        flags |= self.cf
-        flags |= self.pf<<2
-        flags |= self.af<<4
-        flags |= self.zf<<6
-        flags |= self.sf<<7
-        flags |= self.tf<<8
-        flags |= self.if_flag<<9
-        flags |= self.df<<10
-        flags |= self.of<<11
-        flags |= self.iopl<<12
-        flags |= self.nt<<14
-        flags |= self.rf<<16
-        flags |= self.vm<<17
-        flags |= self.ac<<18
-        flags |= self.vif<<19
-        flags |= self.vip<<20
-        flags |= self.id<<21
+        flags = (FLAG_REQUIRED | self.cf | (self.pf<<2) | (self.af<<4) | (self.zf<<6) | (self.sf<<7) | (self.tf<<8) | (self.if_flag<<9) | (self.df<<10) | \
+          (self.of<<11) | (self.iopl<<12) | (self.nt<<14) | (self.rf<<16) | (self.vm<<17) | (self.ac<<18) | (self.vif<<19) | (self.vip<<20) | (self.id<<21))
         return flags
     cdef void setFlags(self, unsigned int flags):
         self.cf = (flags&FLAG_CF)!=0
@@ -711,24 +694,23 @@ cdef class Registers:
             self.of = signedOverflow
             self.sf = regSumu!=0
         elif (method in (OPCODE_MUL, OPCODE_IMUL)):
+            regSumu = <unsigned int>(reg0*reg1)
             if (regSize == OP_SIZE_BYTE):
                 reg0 = <unsigned char>reg0
                 reg1 = <unsigned char>reg1
-                regSumu = <unsigned char>(reg0*reg1)
+                regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
                 reg0 = <unsigned short>reg0
                 reg1 = <unsigned short>reg1
-                regSumu = <unsigned short>(reg0*reg1)
+                regSumu = <unsigned short>regSumu
             elif (regSize == OP_SIZE_DWORD):
                 reg0 = <unsigned int>reg0
                 reg1 = <unsigned int>reg1
-                regSumu = <unsigned int>(reg0*reg1)
             self.af = False
             self.cf = self.of = ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1))
             self.pf = PARITY_TABLE[<unsigned char>regSumu]
             self.zf = regSumu==0
-            regSumu &= bitMaskHalf
-            self.sf = regSumu!=0
+            self.sf = (regSumu & bitMaskHalf) != 0
     cpdef checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write):
         cdef GdtEntry gdtEntry
         cdef unsigned char addrInLimit

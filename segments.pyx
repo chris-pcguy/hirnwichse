@@ -221,10 +221,12 @@ cdef class Gdt:
         if (segId == CPU_SEGMENT_SS):
             if ((num&3 != cpl or numSegDPL != cpl) or \
               (not gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW)):
+                self.segments.main.notice("test2: segId=={0:#04d}", segId)
                 raise ChemuException(CPU_EXCEPTION_GP, num)
         else: # not stack segment
             if ( ((not gdtEntry.segIsCodeSeg or not gdtEntry.segIsConforming) and (num&3 > numSegDPL and \
               cpl > numSegDPL)) or (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
+                self.segments.main.notice("test3: segId=={0:#04d}", segId)
                 raise ChemuException(CPU_EXCEPTION_GP, num)
         return True
 
@@ -314,8 +316,6 @@ cdef class Paging:
 cdef class Segments:
     def __init__(self, object main):
         self.main = main
-        self.ldtr = 0
-        self.segs = ()
     cdef void reset(self):
         self.ldtr = 0
         self.A20Active = True # enable A20-line by default.
