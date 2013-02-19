@@ -259,7 +259,7 @@ cdef class Mm:
         elif (unsigned_value_types is unsigned_long_int):
             dataSize = OP_SIZE_QWORD
         else:
-            self.main.error("Mm::mmPhyWrite: unsigned_value_types is wrong.")
+            self.main.error("Mm::mmPhyWrite: invalid unsigned_value_types.")
             return False
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
         if (mmAreas is None):

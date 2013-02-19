@@ -163,21 +163,21 @@ cdef class ModRMClass:
                     return self.registers.regWriteWithOpLowByte(self.rmName0, value, valueOp)
                 else: # self.rm >= 4
                     return self.registers.regWriteWithOpHighByte(self.rmName0, value, valueOp)
-            return self.registers.mmWriteValueWithOpByte(mmAddr, value, self.rmNameSegId, allowOverride, valueOp)
+            return <unsigned char>(self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned char>value, self.rmNameSegId, allowOverride, valueOp))
         elif (regSize == OP_SIZE_WORD):
             value = <unsigned short>value
             if (self.mod == 3):
                 return self.registers.regWriteWithOpWord(self.rmName0, value, valueOp)
-            return self.registers.mmWriteValueWithOpWord(mmAddr, value, self.rmNameSegId, allowOverride, valueOp)
+            return <unsigned short>(self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned short>value, self.rmNameSegId, allowOverride, valueOp))
         elif (regSize == OP_SIZE_DWORD):
             value = <unsigned int>value
             if (self.mod == 3):
                 return self.registers.regWriteWithOpDword(self.rmName0, value, valueOp)
-            return self.registers.mmWriteValueWithOpDword(mmAddr, value, self.rmNameSegId, allowOverride, valueOp)
+            return <unsigned int>(self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned int>value, self.rmNameSegId, allowOverride, valueOp))
         elif (regSize == OP_SIZE_QWORD):
             if (self.mod == 3):
                 return self.registers.regWriteWithOpQword(self.rmName0, value, valueOp)
-            return self.registers.mmWriteValueWithOpQword(mmAddr, value, self.rmNameSegId, allowOverride, valueOp)
+            return <unsigned long int>(self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned long int>value, self.rmNameSegId, allowOverride, valueOp))
         self.main.exitError("ModRMClass::modRMSave: if; else.")
         return 0
     cdef signed long int modRLoadSigned(self, unsigned char regSize):
@@ -815,32 +815,42 @@ cdef class Registers:
         #self.checkMemAccessRights(mmAddr, dataSize, segId, True)
         mmAddr = self.mmGetRealAddr(mmAddr, segId, allowOverride)
         return (<Mm>self.main.mm).mmPhyWriteValue(mmAddr, data, dataSize)
-    cdef unsigned char mmWriteValueWithOpByte(self, unsigned int mmAddr, unsigned char data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
+    cdef unsigned_value_types mmWriteValueWithOpSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
         cdef unsigned char carryOn
-        cdef unsigned char oldData
+        cdef unsigned_value_types oldData
         if (valueOp == OPCODE_SAVE):
             self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
         else:
             if (valueOp == OPCODE_NEG):
-                data = <unsigned char>(-data)
+                data = (-data)
                 self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
             elif (valueOp == OPCODE_NOT):
-                data = <unsigned char>(~data)
+                data = (~data)
                 self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
             else:
-                oldData = self.mmReadValueUnsignedByte(mmAddr, segId, allowOverride)
+                if (unsigned_value_types is unsigned_char):
+                    oldData = self.mmReadValueUnsignedByte(mmAddr, segId, allowOverride)
+                elif (unsigned_value_types is unsigned_short):
+                    oldData = self.mmReadValueUnsignedWord(mmAddr, segId, allowOverride)
+                elif (unsigned_value_types is unsigned_int):
+                    oldData = self.mmReadValueUnsignedDword(mmAddr, segId, allowOverride)
+                elif (unsigned_value_types is unsigned_long_int):
+                    oldData = self.mmReadValueUnsignedQword(mmAddr, segId, allowOverride)
+                else:
+                    self.main.error("mmWriteValueWithOpSize: invalid unsigned_value_types.")
+                    return False
                 if (valueOp == OPCODE_ADD):
-                    data = <unsigned char>(oldData+data)
+                    data = (oldData+data)
                     self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
                 elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
                     carryOn = self.cf
                     if (valueOp == OPCODE_ADC):
-                        data = <unsigned char>(oldData+<unsigned char>(data+carryOn))
+                        data = (oldData+(data+carryOn))
                     else:
-                        data = <unsigned char>(oldData-<unsigned char>(data+carryOn))
+                        data = (oldData-(data+carryOn))
                     self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
                 elif (valueOp == OPCODE_SUB):
-                    data = <unsigned char>(oldData-data)
+                    data = (oldData-data)
                     self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
                 elif (valueOp == OPCODE_AND):
                     data = (oldData&data)
@@ -852,124 +862,7 @@ cdef class Registers:
                     data = (oldData^data)
                     self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
                 else:
-                    self.main.exitError("Registers::mmWriteValueWithOpByte: unknown valueOp {0:d}.", valueOp)
-        return data
-    cdef unsigned short mmWriteValueWithOpWord(self, unsigned int mmAddr, unsigned short data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
-        cdef unsigned char carryOn
-        cdef unsigned short oldData
-        if (valueOp == OPCODE_SAVE):
-            self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-        else:
-            if (valueOp == OPCODE_NEG):
-                data = <unsigned short>(-data)
-                self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-            elif (valueOp == OPCODE_NOT):
-                data = <unsigned short>(~data)
-                self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-            else:
-                oldData = self.mmReadValueUnsignedWord(mmAddr, segId, allowOverride)
-                if (valueOp == OPCODE_ADD):
-                    data = <unsigned short>(oldData+data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
-                    carryOn = self.cf
-                    if (valueOp == OPCODE_ADC):
-                        data = <unsigned short>(oldData+<unsigned short>(data+carryOn))
-                    else:
-                        data = <unsigned short>(oldData-<unsigned short>(data+carryOn))
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_SUB):
-                    data = <unsigned short>(oldData-data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_AND):
-                    data = (oldData&data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_OR):
-                    data = (oldData|data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_XOR):
-                    data = (oldData^data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                else:
-                    self.main.exitError("Registers::mmWriteValueWithOpWord: unknown valueOp {0:d}.", valueOp)
-        return data
-    cdef unsigned int mmWriteValueWithOpDword(self, unsigned int mmAddr, unsigned int data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
-        cdef unsigned char carryOn
-        cdef unsigned int oldData
-        if (valueOp == OPCODE_SAVE):
-            self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-        else:
-            if (valueOp == OPCODE_NEG):
-                data = <unsigned int>(-data)
-                self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-            elif (valueOp == OPCODE_NOT):
-                data = <unsigned int>(~data)
-                self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-            else:
-                oldData = self.mmReadValueUnsignedDword(mmAddr, segId, allowOverride)
-                if (valueOp == OPCODE_ADD):
-                    data = <unsigned int>(oldData+data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
-                    carryOn = self.cf
-                    if (valueOp == OPCODE_ADC):
-                        data = <unsigned int>(oldData+<unsigned int>(data+carryOn))
-                    else:
-                        data = <unsigned int>(oldData-<unsigned int>(data+carryOn))
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_SUB):
-                    data = <unsigned int>(oldData-data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_AND):
-                    data = (oldData&data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_OR):
-                    data = (oldData|data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_XOR):
-                    data = (oldData^data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                else:
-                    self.main.exitError("Registers::mmWriteValueWithOpDword: unknown valueOp {0:d}.", valueOp)
-        return data
-    cdef unsigned long int mmWriteValueWithOpQword(self, unsigned int mmAddr, unsigned long int data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp):
-        cdef unsigned char carryOn
-        cdef unsigned long int oldData
-        if (valueOp == OPCODE_SAVE):
-            self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-        else:
-            if (valueOp == OPCODE_NEG):
-                data = <unsigned long int>(-data)
-                self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-            elif (valueOp == OPCODE_NOT):
-                data = <unsigned long int>(~data)
-                self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-            else:
-                oldData = self.mmReadValueUnsignedQword(mmAddr, segId, allowOverride)
-                if (valueOp == OPCODE_ADD):
-                    data = <unsigned long int>(oldData+data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
-                    carryOn = self.cf
-                    if (valueOp == OPCODE_ADC):
-                        data = <unsigned long int>(oldData+<unsigned long int>(data+carryOn))
-                    else:
-                        data = <unsigned long int>(oldData-<unsigned long int>(data+carryOn))
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_SUB):
-                    data = <unsigned long int>(oldData-data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_AND):
-                    data = (oldData&data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_OR):
-                    data = (oldData|data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                elif (valueOp == OPCODE_XOR):
-                    data = (oldData^data)
-                    self.mmWriteValueSize(mmAddr, data, segId, allowOverride)
-                else:
-                    self.main.exitError("Registers::mmWriteValueWithOpQword: unknown valueOp {0:d}.", valueOp)
+                    self.main.exitError("Registers::mmWriteValueWithOpSize: unknown valueOp {0:d}.", valueOp)
         return data
     cdef void run(self):
         self.segments = Segments(self.main)
