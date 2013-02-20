@@ -44,7 +44,7 @@ cdef class Cmos:
         self.writeValue(CMOS_EXT_MEMORY2_L, <unsigned char>extMemSizeIn64K, OP_SIZE_BYTE)
         self.writeValue(CMOS_EXT_MEMORY2_H, <unsigned char>(extMemSizeIn64K>>8), OP_SIZE_BYTE)
         # TODO: set here the physical memory over 4GB if we need it...
-        # ... or if we're able to handle it anywhere in the future... oO
+        # ... or if we're able to handle it anytime in the future... oO
         ##self.updateTime()
     cdef void updateTime(self):
         cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century

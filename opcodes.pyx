@@ -2645,7 +2645,7 @@ cdef class Opcodes:
         self.registers.regWriteHighByte(CPU_REGISTER_AH, flagsVal)
         return True
     cdef int xchgFuncRegWord(self, unsigned short regName, unsigned short regName2):
-        cdef unsigned int regValue, regValue2
+        cdef unsigned short regValue, regValue2
         regValue, regValue2 = self.registers.regReadUnsignedWord(regName), self.registers.regReadUnsignedWord(regName2)
         self.registers.regWriteWord(regName, regValue2)
         self.registers.regWriteWord(regName2, regValue)

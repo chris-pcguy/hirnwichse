@@ -13,9 +13,9 @@ cdef class Misc:
     cdef inline unsigned long int getBitMaskFF(self, unsigned char maskSize):
         return BITMASKS_FF[maskSize]
     cdef unsigned int checksum(self, bytes data) # data is bytes
-    cdef unsigned long int decToBcd(self, unsigned char dec)
-    cdef unsigned long int bcdToDec(self, unsigned char bcd)
-    cdef unsigned long int reverseByteOrder(self, unsigned int value, unsigned char valueSize)
+    cdef unsigned short decToBcd(self, unsigned short dec)
+    cdef unsigned short bcdToDec(self, unsigned short bcd)
+    cdef unsigned int reverseByteOrder(self, unsigned int value, unsigned char valueSize)
     cpdef object createThread(self, object threadFunc, unsigned char startIt)
 
 

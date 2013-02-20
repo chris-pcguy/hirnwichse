@@ -200,7 +200,7 @@ cdef class Vga:
         cdef unsigned int posdata
         if (not self.ui or not self.needLoadFont):
             return
-        charHeight = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_VIDEO_CHAR_HEIGHT, 2)
+        charHeight = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_VIDEO_CHAR_HEIGHT)
         posdata = (<Mm>self.main.mm).mmGetAbsoluteAddressForInterrupt(0x43)
         self.ui.charSize = (UI_CHAR_WIDTH, charHeight)
         self.ui.fontData = (<Mm>self.main.mm).mmPhyRead(posdata, VGA_FONTAREA_SIZE)
@@ -211,7 +211,7 @@ cdef class Vga:
         return self.processVideoMem
     cdef unsigned char getCorrectPage(self, unsigned char page):
         if (page == 0xff):
-            page = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_ACTUAL_PAGE_ADDR, 1)
+            page = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ACTUAL_PAGE_ADDR)
         elif (page > 7):
             self.main.exitError("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
         return page
@@ -263,14 +263,14 @@ cdef class Vga:
                 y += 1
     cdef void writeCharacter(self, unsigned int address, unsigned char c, signed short attr):
         if (attr == -1):
-            (<Mm>self.main.mm).mmPhyWriteValue(address, c, 1)
+            (<Mm>self.main.mm).mmPhyWriteValueSize(address, c)
             return
-        (<Mm>self.main.mm).mmPhyWriteValue(address, ((<unsigned short>attr<<8)|c), 2)
+        (<Mm>self.main.mm).mmPhyWriteValueSize(address, <unsigned short>((<unsigned short>attr<<8)|c))
     cdef unsigned int getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
         cdef unsigned short pageSize
         cdef unsigned int offset
         page = self.getCorrectPage(page)
-        pageSize = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_PAGE_SIZE_ADDR, 2)
+        pageSize = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_PAGE_SIZE_ADDR)
         offset = ((y*80)+x)<<1
         return ((self.videoMemBase+(pageSize*page))+offset)
     cdef unsigned short getCursorPosition(self, unsigned char page): # returns y, x
@@ -279,14 +279,14 @@ cdef class Vga:
         if (page > 7):
             self.main.exitError("VGA::getCursorPosition: page > 7 (page: {0:d})", page)
             return 0
-        pos = (<Mm>self.main.mm).mmPhyReadValueUnsigned(VGA_CURSOR_BASE_ADDR+(page<<1), 2)
+        pos = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_CURSOR_BASE_ADDR+(page<<1))
         return pos
     cdef void setCursorPosition(self, unsigned char page, unsigned short pos):
         page = self.getCorrectPage(page)
         if (page > 7):
             self.main.exitError("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
-        (<Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page<<1), pos, 2)
+        (<Mm>self.main.mm).mmPhyWriteValueSize(VGA_CURSOR_BASE_ADDR+(page<<1), pos)
     cdef void scrollUp(self, unsigned char page, signed short attr, unsigned short lines):
         cdef bytes oldData
         cdef unsigned int oldAddr, dataSize
@@ -300,7 +300,7 @@ cdef class Vga:
             dataSize = 160*lines
             (<Mm>self.main.mm).mmPhyCopy(oldAddr, oldAddr+dataSize, 4000-dataSize)
         if (attr == -1):
-            attr = (<Mm>self.main.mm).mmPhyReadValueUnsigned(self.getAddrOfPos(page, 79, 24)+1, 1)
+            attr = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(self.getAddrOfPos(page, 79, 24)+1)
         oldData = bytes([ 0x20, attr ])*80*lines
         (<Mm>self.main.mm).mmPhyWrite(oldAddr+(4000-dataSize), oldData, dataSize)
         self.setProcessVideoMem(True)

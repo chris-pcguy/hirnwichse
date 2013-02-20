@@ -296,7 +296,7 @@ cdef class Mm:
         self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
     cdef unsigned int mmGetAbsoluteAddressForInterrupt(self, unsigned char intNum):
         cdef unsigned int posdata
-        posdata = (<Mm>self.main.mm).mmPhyReadValueUnsigned((<unsigned short>intNum<<2), 4)
+        posdata = (<Mm>self.main.mm).mmPhyReadValueUnsignedDword((<unsigned short>intNum<<2))
         posdata = (((posdata>>12)&0xffff0)+(<unsigned short>posdata))
         return posdata
 
