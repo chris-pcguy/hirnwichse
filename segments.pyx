@@ -15,8 +15,7 @@ cdef class Segment:
         cdef GdtEntry gdtEntry
         self.segmentIndex = segmentIndex
         if (not self.segments.isInProtectedMode()):
-            self.base = segmentIndex
-            self.base <<= 4
+            self.base = <unsigned int>segmentIndex<<4
             self.limit = 0xffff
             self.isValid = True
             self.isRMSeg = True
@@ -41,6 +40,7 @@ cdef class Segment:
         self.segIsCodeSeg = gdtEntry.segIsCodeSeg
         self.segIsRW = gdtEntry.segIsRW
         self.segIsConforming = gdtEntry.segIsConforming
+        self.segIsNormal = gdtEntry.segIsNormal
         self.segDPL = gdtEntry.segDPL
         self.isRMSeg = False
     cdef unsigned char getSegSize(self):
@@ -55,7 +55,7 @@ cdef class Segment:
     cdef unsigned char isSegReadableWritable(self):
         return self.segIsRW
     cdef unsigned char isSysSeg(self):
-        return (not (self.accessByte & GDT_ACCESS_NORMAL_SEGMENT))
+        return (not self.segIsNormal)
     cdef unsigned char isSegConforming(self):
         return self.segIsConforming
     cdef unsigned char getSegDPL(self):
@@ -79,16 +79,20 @@ cdef class GdtEntry:
         self.segIsCodeSeg = (self.accessByte & GDT_ACCESS_EXECUTABLE)!=0
         self.segIsRW = (self.accessByte & GDT_ACCESS_READABLE_WRITABLE)!=0
         self.segIsConforming = (self.accessByte & GDT_ACCESS_CONFORMING)!=0
+        self.segIsNormal = (self.accessByte & GDT_ACCESS_NORMAL_SEGMENT)!=0
+        self.segUse4K = (self.flags & GDT_FLAG_USE_4K)!=0
         self.segDPL = ((self.accessByte & GDT_ACCESS_DPL)>>5)&3
         if (self.flags & GDT_FLAG_LONGMODE): # TODO: int-mode isn't implemented yet...
             self.gdt.segments.main.exitError("Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades...")
     cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size):
         cdef unsigned int limit
         limit = self.limit
-        if (self.flags & GDT_FLAG_USE_4K):
+        if (self.segUse4K):
             limit <<= 12
         # TODO: handle the direction bit here.
         ## address is an offset.
+        if (not self.segIsCodeSeg and self.segIsConforming):
+            self.gdt.segments.main.exitError("GdtEntry::isAddressInLimit: direction-bit ISN'T supported yet.")
         if ((address+size)>limit):
             return False
         return True
@@ -128,7 +132,10 @@ cdef class Gdt:
         if (not num):
             ##self.segments.main.debug("GDT::getEntry: num == 0!")
             return None
-        entryData = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(self.tableBase+num)
+        entryData = self.tableBase+num
+        if (self.segments.isPagingOn()):
+            entryData = self.segments.paging.getPhysicalAddress(entryData)
+        entryData = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(entryData)
         return GdtEntry(self, entryData)
     cdef unsigned char getSegSize(self, unsigned short num):
         return self.getEntry(num).segSize
@@ -248,10 +255,15 @@ cdef class Idt:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
     cdef IdtEntry getEntry(self, unsigned char num):
+        cdef unsigned long int address
         cdef IdtEntry idtEntry
         if (not self.tableLimit):
             self.segments.main.exitError("Idt::getEntry: tableLimit is zero.")
-        idtEntry = IdtEntry(<unsigned long int>(<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(self.tableBase+(num<<3)))
+        address = self.tableBase+(num<<3)
+        if (self.segments.isPagingOn()):
+            address = self.segments.paging.getPhysicalAddress(address)
+        address = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(address)
+        idtEntry = IdtEntry(address)
         if (idtEntry.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
             self.segments.main.notice("Idt::getEntry: entryType is LDT or TSS. (is this allowed?)")
         return idtEntry

@@ -37,14 +37,14 @@ cdef class Cpu:
         oldIF = self.registers.if_flag
         if (self.INTR and oldIF ):
             irqVector = (<Pic>self.main.platform.pic).IAC()
-            self.opcodes.interrupt(irqVector, -1)
+            self.opcodes.interrupt(irqVector)
             ##self.saveCurrentInstPointer() # TODO: do we need this here?
         elif (self.HRQ):
             (<IsaDma>self.main.platform.isadma).raiseHLDA()
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
             self.asyncEvent = False
         return
-    cpdef exception(self, unsigned char exceptionId, signed int errorCode):
+    cpdef exception(self, unsigned char exceptionId, signed int errorCode=-1):
         self.main.notice("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
         if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
@@ -57,7 +57,7 @@ cdef class Cpu:
                 return
             self.opcodes.interrupt(exceptionId, errorCode)
         else:
-            self.opcodes.interrupt(exceptionId, -1)
+            self.opcodes.interrupt(exceptionId)
         self.exceptionLevel = 0
     cpdef handleException(self, object exception):
         cdef unsigned char exceptionId
@@ -103,7 +103,7 @@ cdef class Cpu:
                 self.registers.segmentOverridePrefix = CPU_SEGMENT_FS
             elif (opcode == OPCODE_PREFIX_GS):
                 self.registers.segmentOverridePrefix = CPU_SEGMENT_GS
-            elif (opcode == OPCODE_PREFIX_REPE or opcode == OPCODE_PREFIX_REPNE):
+            elif (opcode in OPCODE_PREFIX_REPS):
                 self.registers.repPrefix = opcode
             ### TODO: I don't think, that we ever need lockPrefix.
             elif (opcode == OPCODE_PREFIX_LOCK):
@@ -138,7 +138,6 @@ cdef class Cpu:
         self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}\n\n", self.registers.regReadUnsignedDword(CPU_REGISTER_DR6), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_DR7))
     cpdef doInfiniteCycles(self):
-        cdef unsigned long int cycleInc
         try:
             while (not self.main.quitEmu):
                 if (self.cpuHalted and self.main.exitIfCpuHalted):
@@ -151,10 +150,6 @@ cdef class Cpu:
                         continue
                     sleep(0.2)
                     continue
-                cycleInc = self.cycles >> 14
-                if (cycleInc > self.oldCycleInc):
-                    self.oldCycleInc = cycleInc
-                    sleep(0.000001) # FIXME: HACK: TODO: timing issue.
                 self.doCycle()
         except:
             print_exc()

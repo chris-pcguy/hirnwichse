@@ -104,11 +104,16 @@ cdef class Pit:
                     retVal = <unsigned char>channel.counterValue
                 elif (channel.counterWriteMode == 2): # MSB
                     retVal = <unsigned char>(<unsigned short>channel.counterValue>>8)
-                elif (channel.counterWriteMode == 3): # LSB;MSB
+                elif (channel.counterWriteMode in (0, 3)): # LSB;MSB
                     if (not channel.counterFlipFlop):
+                        if (channel.counterWriteMode == 0): # TODO?
+                            channel.counterLatchValue = channel.counterValue
                         retVal = <unsigned char>channel.counterValue
                     else:
-                        retVal = <unsigned char>(<unsigned short>channel.counterValue>>8)
+                        if (channel.counterWriteMode == 0):
+                            retVal = <unsigned char>(<unsigned short>channel.counterLatchValue>>8)
+                        else:
+                            retVal = <unsigned char>(<unsigned short>channel.counterValue>>8)
                     channel.counterFlipFlop = not channel.counterFlipFlop
                 else:
                     self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", channel.counterWriteMode)
@@ -128,7 +133,7 @@ cdef class Pit:
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
                 channel = self.channels[channelId]
-                if (channel.counterWriteMode == 3): # LSB;MSB
+                if (channel.counterWriteMode in (0, 3)): # LSB;MSB
                     if (not channel.counterFlipFlop):
                         channel.counterStartValue = data&BITMASK_BYTE
                     else:
@@ -151,9 +156,6 @@ cdef class Pit:
                     return
                 if (bcd): # BCD
                     self.main.exitError("outPort: BCD not supported yet.")
-                    return
-                if (counterWriteMode == 0):
-                    self.main.exitError("outPort: latch-count not supported.")
                     return
                 if (modeNumber in (6, 7)):
                     modeNumber -= 4

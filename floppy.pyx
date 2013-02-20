@@ -37,7 +37,7 @@ DEF FDC_CMD_MF = 0x40 # command is using mfm
 DEF FDC_CMD_MT = 0x80 # command is using multi-track
 DEF FDC_SECTOR_SIZE = 512
 
-cdef dict FDC_CMDLENGTH_TABLE = {0x3: 3, 0x4: 2, 0x5: 9, 0x6: 9, 0x7: 2, 0x8: 1, 0xa: 2, 0xf: 3}
+DEF FDC_CMDLENGTH_TABLE = (None, None, None, 3, 2, 9, 9, 2, 1, None, 2, None, None, None, None, 3)
 
 
 cdef class FloppyMedia:
@@ -219,11 +219,10 @@ cdef class FloppyController:
             self.msr |= (FDC_MSR_RQM | FDC_MSR_BUSY)
         self.addToCommand(command)
         cmd = self.command[0]&0x1f
-        if (FDC_CMDLENGTH_TABLE.get(cmd)):
-            cmdLength = FDC_CMDLENGTH_TABLE.get(cmd)
-        else:
-            self.main.exitError("FDC: addCommand: invalid command: {0:#04x}", cmd)
-            return
+        try:
+            cmdLength = FDC_CMDLENGTH_TABLE[cmd]
+        except IndexError:
+            cmdLength = None
         if (not cmdLength):
             self.main.exitError("FDC: addCommand: invalid command: {0:#04x}", cmd)
             return

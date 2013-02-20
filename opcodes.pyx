@@ -343,7 +343,7 @@ cdef class Opcodes:
             retVal = True
             raise ChemuException(CPU_EXCEPTION_BP)
         elif (opcode == 0xcd):
-            retVal = self.interrupt(-1, -1)
+            retVal = self.interrupt()
         elif (opcode == 0xce):
             retVal = self.into()
         elif (opcode == 0xcf):
@@ -1490,7 +1490,7 @@ cdef class Opcodes:
                 raise ChemuException(CPU_EXCEPTION_GP, 0)
             if (operOpcode == 0x06): # CLTS
                 self.main.notice("Opcodes::opcodeGroup0F: CLTS: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-                self.registers.regAndDword(CPU_REGISTER_CR0, <unsigned int>(~CR0_FLAG_TS))
+                self.registers.regAndDword(CPU_REGISTER_CR0, ~CR0_FLAG_TS)
             elif (operOpcode == 0x08): # INVD
                 self.main.notice("Opcodes::opcodeGroup0F: INVD/WBINVD: TODO!")
             elif (operOpcode == 0x09): # WBINVD
@@ -2197,7 +2197,7 @@ cdef class Opcodes:
             self.main.notice("opcodeGroup2_RM: invalid operOpcodeId. {0:d}", operOpcodeId)
             raise ChemuException(CPU_EXCEPTION_UD)
         return True
-    cdef int interrupt(self, signed short intNum, signed int errorCode): # TODO: complete this!
+    cdef int interrupt(self, signed short intNum=-1, signed int errorCode=-1): # TODO: complete this!
         cdef unsigned char inProtectedMode, entryType, entrySize, \
                               entryNeededDPL, entryPresent, cpl, isSoftInt
         cdef unsigned short entrySegment
@@ -2778,7 +2778,7 @@ cdef class Opcodes:
             if (self.modRMInstance.mod == 3): # register operand
                 self.modRMInstance.modRMSave(self.registers.operSize, value, True, OPCODE_SAVE)
             else: # memory operands
-                self.registers.mmWriteValue(address, value, OP_SIZE_BYTE, self.modRMInstance.rmNameSegId, True)
+                self.registers.mmWriteValueSize(address, value, self.modRMInstance.rmNameSegId, True)
                 self.main.cpu.cpuDump() # dump after
         elif (self.modRMInstance.mod != 3): # memory operands
             self.main.cpu.cpuDump() # dump after

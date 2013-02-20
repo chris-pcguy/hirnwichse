@@ -89,7 +89,7 @@ cdef class Cmos:
         self.writeValue(CMOS_YEAR_NO_CENTURY, year, OP_SIZE_BYTE)
         self.writeValue(CMOS_CENTURY, century, OP_SIZE_BYTE)
     cdef void makeCheckSum(self):
-        cdef unsigned short checkSum = (<Misc>self.main.misc).checksum(bytes(self.configSpace.csRead(0x10, 0x1e))) # 0x10..0x2d
+        cdef unsigned short checkSum = (<Misc>self.main.misc).checksum(self.configSpace.csRead(0x10, 0x1e)) # 0x10..0x2d
         self.writeValue(CMOS_CHECKSUM_L, <unsigned char>checkSum, OP_SIZE_BYTE)
         self.writeValue(CMOS_CHECKSUM_H, (checkSum>>8), OP_SIZE_BYTE)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):

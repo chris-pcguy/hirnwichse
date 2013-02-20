@@ -160,7 +160,7 @@ cdef class PythonBios:
     cdef void setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy
         (<Registers>self.main.cpu.registers).cf = newCF
         (<Registers>self.main.cpu.registers).regWriteWord( CPU_REGISTER_AX, ax )
-        (<Mm>self.main.mm).mmPhyWriteValue(DISKETTE_RET_STATUS_ADDR, ax>>8, OP_SIZE_BYTE)
+        (<Mm>self.main.mm).mmPhyWriteValueSize(DISKETTE_RET_STATUS_ADDR, <unsigned char>(ax>>8))
     cdef void run(self):
         pass
 

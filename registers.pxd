@@ -149,7 +149,10 @@ cdef class Registers:
             self.regs[regId]._union.dword.erx = value
         return value # returned value is unsigned!!
     cdef inline unsigned long int regWriteQword(self, unsigned short regId, unsigned long int value):
-        self.regs[regId]._union.rrx = value
+        if (regId == CPU_REGISTER_RFLAGS):
+            self.setFlags(<unsigned int>value)
+        else:
+            self.regs[regId]._union.rrx = value
         return value # returned value is unsigned!!
     cdef unsigned long int regWrite(self, unsigned short regId, unsigned long int value, unsigned char regSize)
     cdef inline unsigned char regAddLowByte(self, unsigned short regId, unsigned char value):

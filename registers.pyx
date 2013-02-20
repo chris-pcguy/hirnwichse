@@ -237,10 +237,8 @@ cdef class Registers:
     cdef void resetPrefixes(self):
         self.operandSizePrefix = self.addressSizePrefix = self.segmentOverridePrefix = self.repPrefix = 0
     cdef unsigned int readFlags(self):
-        cdef unsigned int flags
-        flags = (FLAG_REQUIRED | self.cf | (self.pf<<2) | (self.af<<4) | (self.zf<<6) | (self.sf<<7) | (self.tf<<8) | (self.if_flag<<9) | (self.df<<10) | \
+        return (FLAG_REQUIRED | self.cf | (self.pf<<2) | (self.af<<4) | (self.zf<<6) | (self.sf<<7) | (self.tf<<8) | (self.if_flag<<9) | (self.df<<10) | \
           (self.of<<11) | (self.iopl<<12) | (self.nt<<14) | (self.rf<<16) | (self.vm<<17) | (self.ac<<18) | (self.vif<<19) | (self.vip<<20) | (self.id<<21))
-        return flags
     cdef void setFlags(self, unsigned int flags):
         self.cf = (flags&FLAG_CF)!=0
         self.pf = (flags&FLAG_PF)!=0

@@ -4,7 +4,7 @@ from mm cimport Mm, ConfigSpace
 cdef class Segment:
     cdef Segments segments
     cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, \
-        segIsRW, segIsConforming, segDPL, isRMSeg
+        segIsRW, segIsConforming, segIsNormal, segDPL, isRMSeg
     cdef unsigned short segmentIndex
     cdef unsigned int base, limit
     cdef void loadSegment(self, unsigned short segmentIndex)
@@ -18,7 +18,8 @@ cdef class Segment:
 
 cdef class GdtEntry:
     cdef Gdt gdt
-    cdef unsigned char accessByte, flags, segSize, segPresent, segIsCodeSeg, segIsRW, segIsConforming, segDPL
+    cdef unsigned char accessByte, flags, segSize, segPresent, segIsCodeSeg, segIsRW, \
+        segIsConforming, segIsNormal, segUse4K, segDPL
     cdef unsigned int base, limit
     cdef void parseEntryData(self, unsigned long int entryData)
     cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size)

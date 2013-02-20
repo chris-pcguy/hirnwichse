@@ -4,7 +4,7 @@ cdef class PitChannel:
     cdef Pit pit
     cdef unsigned char channelId, bcdMode, counterMode, counterWriteMode, \
       counterFlipFlop, timerEnabled
-    cdef unsigned int counterValue, counterStartValue
+    cdef unsigned int counterValue, counterStartValue, counterLatchValue
     cdef float tempTimerValue
     cpdef mode0Func(self)
     cpdef mode2Func(self)
