@@ -117,15 +117,6 @@ cdef class Gdt:
     def __init__(self, Segments segments):
         self.segments = segments
         self.tableBase = self.tableLimit = 0
-    cdef void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit):
-        if (tableLimit > GDT_HARD_LIMIT):
-            self.segments.main.exitError("Gdt::loadTablePosition: tableLimit {0:#06x} > GDT_HARD_LIMIT {1:#06x}.",\
-              tableLimit, GDT_HARD_LIMIT)
-            return
-        self.tableBase, self.tableLimit = tableBase, tableLimit
-    cdef void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
-        retTableBase[0] = self.tableBase
-        retTableLimit[0] = self.tableLimit
     cdef GdtEntry getEntry(self, unsigned short num):
         cdef unsigned long int entryData
         num &= 0xfff8
@@ -137,27 +128,6 @@ cdef class Gdt:
             entryData = self.segments.paging.getPhysicalAddress(entryData)
         entryData = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(entryData)
         return GdtEntry(self, entryData)
-    cdef unsigned char getSegSize(self, unsigned short num):
-        return self.getEntry(num).segSize
-    cdef unsigned char getSegType(self, unsigned short num):
-        return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsignedByte(self.tableBase+num+5) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
-    cdef void setSegType(self, unsigned short num, unsigned char segmentType):
-        (<Mm>self.segments.main.mm).mmPhyWriteValueSize(self.tableBase+num+5, <unsigned char>(((<Mm>self.segments.main.mm).\
-          mmPhyReadValueUnsignedByte(self.tableBase+num+5) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
-            (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)))
-    cdef unsigned char isSegPresent(self, unsigned short num):
-        return self.getEntry(num).segPresent
-    cdef unsigned char isCodeSeg(self, unsigned short num):
-        return self.getEntry(num).segIsCodeSeg
-    ### isSegReadableWritable:
-    ### if codeseg, return True if readable, else False
-    ### if dataseg, return True if writable, else False
-    cdef unsigned char isSegReadableWritable(self, unsigned short num):
-        return self.getEntry(num).segIsRW
-    cdef unsigned char isSegConforming(self, unsigned short num):
-        return self.getEntry(num).segIsConforming
-    cdef unsigned char getSegDPL(self, unsigned short num):
-        return self.getEntry(num).segDPL
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment):
         cdef unsigned char cpl
         cdef GdtEntry gdtEntry

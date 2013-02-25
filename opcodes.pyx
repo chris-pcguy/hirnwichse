@@ -466,16 +466,19 @@ cdef class Opcodes:
             if (not gdtEntry or not gdtEntry.segPresent):
                 raise ChemuException(CPU_EXCEPTION_NP, segVal)
             segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
-            if (segType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
-                segment = <Segment>(<Segments>self.registers.segments).getSegmentInstance(CPU_SEGMENT_TSS, True)
-                if (segment.segDPL < self.registers.getCPL() or segment.segDPL < (segment.segmentIndex&3)):
-                    raise ChemuException(CPU_EXCEPTION_GP, segment.segmentIndex)
-                if (not segment.segPresent):
-                    raise ChemuException(CPU_EXCEPTION_NP, segment.segmentIndex)
-                if (segment.limit < 0x67):
-                    raise ChemuException(CPU_EXCEPTION_TS, segment.segmentIndex)
-                self.main.notice("Opcodes::jumpFarDirect: sysSegType == {0:d}; method == {1:d} (TSS); TODO!", segType, method)
-            elif (not (segType & GDT_ACCESS_NORMAL_SEGMENT) and (segType != TABLE_ENTRY_SYSTEM_TYPE_LDT)):
+            #if (segType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
+            #    segment = <Segment>(<Segments>self.registers.segments).getSegmentInstance(CPU_SEGMENT_TSS, True)
+            #    if (segment.segDPL < self.registers.getCPL() or segment.segDPL < (segment.segmentIndex&3)):
+            #        raise ChemuException(CPU_EXCEPTION_GP, segment.segmentIndex)
+            #    if (not segment.segPresent):
+            #        raise ChemuException(CPU_EXCEPTION_NP, segment.segmentIndex)
+            #    if (segment.limit < 0x67):
+            #        raise ChemuException(CPU_EXCEPTION_TS, segment.segmentIndex)
+            #    self.main.notice("Opcodes::jumpFarDirect: sysSegType == {0:d}; method == {1:d} (TSS); TODO!", segType, method)
+            #elif (not (segType & GDT_ACCESS_NORMAL_SEGMENT) and (segType != TABLE_ENTRY_SYSTEM_TYPE_LDT)):
+            #    self.main.exitError("Opcodes::jumpFarDirect: sysSegType {0:d} isn't supported yet.", segType)
+            #    return True
+            if (not (segType & GDT_ACCESS_NORMAL_SEGMENT)):
                 self.main.exitError("Opcodes::jumpFarDirect: sysSegType {0:d} isn't supported yet.", segType)
                 return True
         if (method == OPCODE_CALL):
@@ -1344,13 +1347,12 @@ cdef class Opcodes:
                     elif ((op1 & SELECTOR_USE_LDT) or \
                       ((op1&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit)):
                         raise ChemuException(CPU_EXCEPTION_GP, op1)
-                    if (not (<Gdt>self.registers.segments.gdt).isSegPresent(op1)):
-                        raise ChemuException(CPU_EXCEPTION_NP, op1)
                     gdtEntry = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(op1))
-                    segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK) if (gdtEntry) else 0
+                    if (not gdtEntry or not gdtEntry.segPresent):
+                        raise ChemuException(CPU_EXCEPTION_NP, op1)
+                    segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
                     if (not gdtEntry or segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
-                        self.main.notice("opcodeGroup0F_00_LTR: segType {0:d} not a TSS. (is gdtEntry None? {1:d})", \
-                          segType, (gdtEntry is None))
+                        self.main.notice("opcodeGroup0F_00_LTR: segType {0:d} not a TSS.)", segType)
                         raise ChemuException(CPU_EXCEPTION_GP, op1)
                     if (segType == TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS):
                         (<Gdt>self.registers.segments.gdt).setSegType(op1, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY)
@@ -1658,7 +1660,7 @@ cdef class Opcodes:
                 newOF = oldOF!=((op1&bitMaskHalf)!=0)
                 self.registers.of = newOF
             self.registers.cf = newCF
-            self.registers.setSZP(op1, self.registers.operSize)
+            self.registers.setSZP_A(op1, self.registers.operSize)
         elif (operOpcode == 0xa8): # PUSH GS
             self.pushSeg(PUSH_GS)
         elif (operOpcode == 0xa9): # POP GS
@@ -1703,7 +1705,7 @@ cdef class Opcodes:
                 newOF = (op1&bitMaskHalf)!=0
                 self.registers.of = oldOF!=newOF
             self.registers.cf = newCF
-            self.registers.setSZP(op1, self.registers.operSize)
+            self.registers.setSZP_A(op1, self.registers.operSize)
             if (operOpcode == 0xac): # SHRD imm8
                 self.main.cpu.cpuDump()
         elif (operOpcode == 0xaf): # IMUL R16_32, R/M16_32

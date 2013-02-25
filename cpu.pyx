@@ -137,7 +137,7 @@ cdef class Cpu:
           self.registers.regReadUnsignedDword(CPU_REGISTER_DR3))
         self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}\n\n", self.registers.regReadUnsignedDword(CPU_REGISTER_DR6), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_DR7))
-    cpdef doInfiniteCycles(self):
+    cdef void doInfiniteCycles(self):
         try:
             while (not self.main.quitEmu):
                 if (self.cpuHalted and self.main.exitIfCpuHalted):
@@ -154,7 +154,7 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
-    cpdef doCycle(self):
+    cdef void doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
             return
         if (self.debugHalt and self.debugSingleStep):

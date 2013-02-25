@@ -1,6 +1,9 @@
 
 from mm cimport Mm, ConfigSpace
 
+include "cpu_globals.pxi"
+
+
 cdef class Segment:
     cdef Segments segments
     cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, \
@@ -35,17 +38,37 @@ cdef class Gdt:
     cdef Segments segments
     cdef unsigned short tableLimit
     cdef unsigned int tableBase
-    cdef void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit)
-    cdef void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit)
+    cdef inline void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit):
+        if (tableLimit > GDT_HARD_LIMIT):
+            self.segments.main.exitError("Gdt::loadTablePosition: tableLimit {0:#06x} > GDT_HARD_LIMIT {1:#06x}.", \
+              tableLimit, GDT_HARD_LIMIT)
+            return
+        self.tableBase, self.tableLimit = tableBase, tableLimit
+    cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
+        retTableBase[0] = self.tableBase
+        retTableLimit[0] = self.tableLimit
     cdef GdtEntry getEntry(self, unsigned short num)
-    cdef unsigned char getSegSize(self, unsigned short num)
-    cdef unsigned char getSegType(self, unsigned short num)
-    cdef void setSegType(self, unsigned short num, unsigned char segmentType)
-    cdef unsigned char isSegPresent(self, unsigned short num)
-    cdef unsigned char isCodeSeg(self, unsigned short num)
-    cdef unsigned char isSegReadableWritable(self, unsigned short num)
-    cdef unsigned char isSegConforming(self, unsigned short num)
-    cdef unsigned char getSegDPL(self, unsigned short num)
+    cdef inline unsigned char getSegSize(self, unsigned short num):
+        return self.getEntry(num).segSize
+    cdef inline unsigned char getSegType(self, unsigned short num):
+        return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsignedByte(self.tableBase+num+5) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
+    cdef inline void setSegType(self, unsigned short num, unsigned char segmentType):
+        (<Mm>self.segments.main.mm).mmPhyWriteValueSize(self.tableBase+num+5, <unsigned char>(((<Mm>self.segments.main.mm).\
+          mmPhyReadValueUnsignedByte(self.tableBase+num+5) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
+            (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)))
+    cdef inline unsigned char isSegPresent(self, unsigned short num):
+        return self.getEntry(num).segPresent
+    cdef inline unsigned char isCodeSeg(self, unsigned short num):
+        return self.getEntry(num).segIsCodeSeg
+    ### isSegReadableWritable:
+    ### if codeseg, return True if readable, else False
+    ### if dataseg, return True if writable, else False
+    cdef inline unsigned char isSegReadableWritable(self, unsigned short num):
+        return self.getEntry(num).segIsRW
+    cdef inline unsigned char isSegConforming(self, unsigned short num):
+        return self.getEntry(num).segIsConforming
+    cdef inline unsigned char getSegDPL(self, unsigned short num):
+        return self.getEntry(num).segDPL
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment)
     cdef unsigned char checkReadAllowed(self, unsigned short num)
     cdef unsigned char checkWriteAllowed(self, unsigned short num)
