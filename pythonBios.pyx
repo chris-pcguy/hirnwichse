@@ -137,8 +137,8 @@ cdef class PythonBios:
                     ((<FloppyMedia>(<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).heads-1))
                 (<Registers>self.main.cpu.registers).regWriteLowByte(CPU_REGISTER_DL, fdCount)
                 (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_CX, \
-                    ((<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).tracks<<8) | \
-                    (<FloppyMedia>((<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).sectorsPerTrack)))
+                    (((<FloppyMedia>(<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).tracks<<8) | \
+                    ((<FloppyMedia>(<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).media).sectorsPerTrack)))
                 # fdCount is fdType here.
                 fdCount = (<Cmos>self.main.platform.cmos).readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
                 if (dl == 0):
