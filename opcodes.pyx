@@ -268,7 +268,8 @@ cdef class Opcodes:
             if (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_MP | \
               CR0_FLAG_TS)) ==  (CR0_FLAG_MP | CR0_FLAG_TS)):
                 raise ChemuException(CPU_EXCEPTION_NM)
-            raise ChemuException(CPU_EXCEPTION_UD)
+            #raise ChemuException(CPU_EXCEPTION_UD) # TODO
+            retVal = True
         elif (opcode == 0x9c):
             retVal = self.pushfWD()
         elif (opcode == 0x9d):
@@ -368,11 +369,11 @@ cdef class Opcodes:
             retVal = self.xlatb()
         elif (opcode >= 0xd8 and opcode <= 0xdf):
             self.main.notice("Opcodes::executeOpcode: FPU Opcodes: TODO!")
-            if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)):
-                raise ChemuException(CPU_EXCEPTION_UD)
-            elif (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS))):
+            #if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)): # TODO
+            #    raise ChemuException(CPU_EXCEPTION_UD)
+            if (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS))):
                 raise ChemuException(CPU_EXCEPTION_NM)
-            raise ChemuException(CPU_EXCEPTION_UD)
+            retVal = self.fpuOpcodes(opcode)
         elif (opcode == 0xe0):
             retVal = self.loopFunc(OPCODE_LOOPNE)
         elif (opcode == 0xe1):
@@ -1357,16 +1358,12 @@ cdef class Opcodes:
                     if (segType == TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS):
                         (<Gdt>self.registers.segments.gdt).setSegType(op1, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY)
                         if (gdtEntry.limit != TSS_MIN_16BIT_HARD_LIMIT):
-                            self.main.notice(\
-                              "opcodeGroup0F_00_LTR: tssLimit {0:#06x} != TSS_MIN_16BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
-                              TSS_MIN_16BIT_HARD_LIMIT)
+                            self.main.notice("opcodeGroup0F_00_LTR: tssLimit {0:#06x} != TSS_MIN_16BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, TSS_MIN_16BIT_HARD_LIMIT)
                             op1 = 0
                     elif (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS):
                         (<Gdt>self.registers.segments.gdt).setSegType(op1, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)
                         if (gdtEntry.limit < TSS_MIN_32BIT_HARD_LIMIT):
-                            self.main.notice(\
-                              "opcodeGroup0F_00_LTR: tssLimit {0:#06x} < TSS_MIN_32BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, \
-                              TSS_MIN_32BIT_HARD_LIMIT)
+                            self.main.notice("opcodeGroup0F_00_LTR: tssLimit {0:#06x} < TSS_MIN_32BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, TSS_MIN_32BIT_HARD_LIMIT)
                             op1 = 0
                     op1 &= 0xfff8
                     self.registers.segWrite(CPU_SEGMENT_TSS, op1)
@@ -2790,6 +2787,17 @@ cdef class Opcodes:
         elif (self.modRMInstance.mod != 3): # memory operands
             self.main.cpu.cpuDump() # dump after
         return True
+    cdef int fpuOpcodes(self, unsigned char opcode):
+        cdef unsigned char opcode2
+        opcode2 = self.registers.getCurrentOpcodeAddUnsignedByte()
+        if (opcode in (0xdb, 0xdd, 0xdf)):
+            if ((opcode == 0xdf and opcode2 == 0xe0) or \
+              (opcode == 0xdb and opcode2 == 0xe3) or \
+              (opcode == 0xdd and ((opcode2>>3)&7) == 7)): # FNSTSW/FINIT/FNSTSW
+                return True
+        self.main.notice("Opcodes::fpuOpcodes: opcode=={0:#04x}, opcode2=={1:#04x}", opcode, opcode2)
+        raise ChemuException(CPU_EXCEPTION_UD)
+        #return True
     cdef void run(self):
         self.modRMInstance = ModRMClass(self.main, (<Registers>self.main.cpu.registers))
     # end of opcodes

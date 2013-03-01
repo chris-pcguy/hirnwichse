@@ -44,6 +44,8 @@ cdef class Gdt:
               tableLimit, GDT_HARD_LIMIT)
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
+        if (self.segments.isPagingOn()):
+            self.tableBase = self.segments.paging.getPhysicalAddress(self.tableBase)
     cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit

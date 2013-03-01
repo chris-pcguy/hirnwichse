@@ -124,8 +124,6 @@ cdef class Gdt:
             ##self.segments.main.debug("GDT::getEntry: num == 0!")
             return None
         entryData = self.tableBase+num
-        if (self.segments.isPagingOn()):
-            entryData = self.segments.paging.getPhysicalAddress(entryData)
         entryData = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(entryData)
         return GdtEntry(self, entryData)
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment):
@@ -218,6 +216,8 @@ cdef class Idt:
               tableLimit, IDT_HARD_LIMIT)
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
+        if (self.segments.isPagingOn()):
+            self.tableBase = self.segments.paging.getPhysicalAddress(self.tableBase)
         if (self.segments.protectedModeOn and not self.tableLimit and self.tableBase):
             self.segments.main.exitError("Idt::loadTable: tableLimit is zero.")
             return
@@ -230,8 +230,6 @@ cdef class Idt:
         if (not self.tableLimit):
             self.segments.main.exitError("Idt::getEntry: tableLimit is zero.")
         address = self.tableBase+(num<<3)
-        if (self.segments.isPagingOn()):
-            address = self.segments.paging.getPhysicalAddress(address)
         address = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(address)
         idtEntry = IdtEntry(address)
         if (idtEntry.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):

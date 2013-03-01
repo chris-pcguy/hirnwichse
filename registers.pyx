@@ -230,8 +230,7 @@ cdef class Registers:
         self.segments.reset()
         self.regWriteDword(CPU_REGISTER_EFLAGS, FLAG_REQUIRED)
         #self.regWriteDword(CPU_REGISTER_CR0, 0x40000014)
-        #self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
-        self.regWriteDword(CPU_REGISTER_CR0, 0x60000034)
+        self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
         #self.segments.cs.base = 0xfff00000
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)

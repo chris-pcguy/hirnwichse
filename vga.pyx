@@ -75,8 +75,8 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
     cdef void setData(self, unsigned int data, unsigned char dataSize):
         if (dataSize != 1):
             self.main.exitError("DAC::setData: dataSize != 1 (dataSize: {0:d})", dataSize)
-        elif (data >= 0x40):
-            self.main.exitError("DAC::setData: data >= 0x40 (data: {0:#04x})", data)
+        #elif (data >= 0x40):
+        #    self.main.exitError("DAC::setData: data >= 0x40 (data: {0:#04x})", data)
         self.csWriteValue((self.writeIndex*3)+self.writeCycle, data&0x3f, 1)
         self.writeCycle += 1
         if (self.writeCycle >= 3):

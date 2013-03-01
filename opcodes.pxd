@@ -35,7 +35,7 @@ cdef class Opcodes:
         (<Segments>self.registers.segments).protectedModeOn = (value & CR0_FLAG_PE)!=0
         (<Segments>self.registers.segments).pagingOn = (value & CR0_FLAG_PG)!=0
     cdef inline unsigned int quirkCR0(self, unsigned int value):
-        value |= (CR0_FLAG_EM | CR0_FLAG_ET | CR0_FLAG_NE | CR0_FLAG_NW | CR0_FLAG_CD)
+        #value |= (CR0_FLAG_EM | CR0_FLAG_ET | CR0_FLAG_NE | CR0_FLAG_NW | CR0_FLAG_CD)
         return value
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except -1
@@ -148,6 +148,7 @@ cdef class Opcodes:
     cdef int arpl(self) except -1
     cdef int bound(self) except -1
     cdef int btFunc(self, unsigned int offset, unsigned char newValType) except -1
+    cdef int fpuOpcodes(self, unsigned char opcode) except -1
     cdef void run(self)
     # end of opcodes
 
