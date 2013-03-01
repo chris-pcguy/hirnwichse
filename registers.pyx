@@ -567,9 +567,9 @@ cdef class Registers:
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.of = False
-    cdef void setSZP_OA(self, unsigned int value, unsigned char regSize):
+    cdef void setSZP_A(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
-        self.of = self.af = False
+        self.af = False
     cdef void setSZP_COA(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.cf = self.of = self.af = False

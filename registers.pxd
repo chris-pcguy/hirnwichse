@@ -264,7 +264,7 @@ cdef class Registers:
         return (self.regReadUnsignedDword(regId)&flags)
     cdef void setSZP(self, unsigned int value, unsigned char regSize)
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize)
-    cdef void setSZP_OA(self, unsigned int value, unsigned char regSize)
+    cdef void setSZP_A(self, unsigned int value, unsigned char regSize)
     cdef void setSZP_COA(self, unsigned int value, unsigned char regSize)
     cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize)
     cdef unsigned char getCond(self, unsigned char index)

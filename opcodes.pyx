@@ -1654,11 +1654,9 @@ cdef class Opcodes:
                 tmpBit = self.registers.valGetBit(op2, i-count+bitSize)
                 op1 = self.registers.valSetBit(op1, i, tmpBit)
             self.modRMInstance.modRMSave(self.registers.operSize, op1, True, OPCODE_SAVE)
-            if (count == 1):
-                newOF = oldOF!=((op1&bitMaskHalf)!=0)
-                self.registers.of = newOF
+            self.registers.of = oldOF!=((op1&bitMaskHalf)!=0) if (count == 1) else False
             self.registers.cf = newCF
-            self.registers.setSZP_OA(op1, self.registers.operSize)
+            self.registers.setSZP_A(op1, self.registers.operSize)
         elif (operOpcode == 0xa8): # PUSH GS
             self.pushSeg(PUSH_GS)
         elif (operOpcode == 0xa9): # POP GS
@@ -1702,11 +1700,9 @@ cdef class Opcodes:
                 tmpBit = self.registers.valGetBit(op2, i+count-bitSize)
                 op1 = self.registers.valSetBit(op1, i, tmpBit)
             self.modRMInstance.modRMSave(self.registers.operSize, op1, True, OPCODE_SAVE)
-            if (count == 1):
-                newOF = (op1&bitMaskHalf)!=0
-                self.registers.of = oldOF!=newOF
+            self.registers.of = oldOF!=((op1&bitMaskHalf)!=0) if (count == 1) else False
             self.registers.cf = newCF
-            self.registers.setSZP_OA(op1, self.registers.operSize)
+            self.registers.setSZP_A(op1, self.registers.operSize)
             if (count != 1 and self.registers.of):
                 self.main.notice("Opcodes::opcodeGroup0F: SHRD: OF were SET! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 self.main.cpu.cpuDump()
@@ -2758,8 +2754,8 @@ cdef class Opcodes:
             value = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             state = self.registers.valGetBit(value, offset)
         else: # memory operand
-            self.main.notice("ATTENTION: this could be a WRONG IMPLEMENTATION of btFunc!!! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-            self.main.cpu.cpuDump() # dump before
+            #self.main.notice("ATTENTION: this could be a WRONG IMPLEMENTATION of btFunc!!! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+            #self.main.cpu.cpuDump() # dump before
             address = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             if (self.registers.operSize == OP_SIZE_WORD):
                 address += <signed short>(offset >> 3)
@@ -2768,6 +2764,7 @@ cdef class Opcodes:
             offset &= 7
             value = self.registers.mmReadValueUnsigned(address, OP_SIZE_BYTE, self.modRMInstance.rmNameSegId, True)
             state = self.registers.valGetBit(value, offset)
+            #self.main.notice("btFunc: test1.1: address=={0:#010x}; offset=={1:d}; value=={2:#04x}; state=={3:d}; segId=={4:d}", address, offset, value, state, self.modRMInstance.rmNameSegId)
         self.registers.cf = state
         if (newValType == BT_COMPLEMENT):
             state = not state
@@ -2783,9 +2780,10 @@ cdef class Opcodes:
                 self.modRMInstance.modRMSave(self.registers.operSize, value, True, OPCODE_SAVE)
             else: # memory operands
                 self.registers.mmWriteValueSize(address, value, self.modRMInstance.rmNameSegId, True)
-                self.main.cpu.cpuDump() # dump after
-        elif (self.modRMInstance.mod != 3): # memory operands
-            self.main.cpu.cpuDump() # dump after
+                #self.main.notice("btFunc: test1.2: address=={0:#010x}; offset=={1:d}; value=={2:#04x}; state=={3:d}; segId=={4:d}", address, offset, value, state, self.modRMInstance.rmNameSegId)
+                #self.main.cpu.cpuDump() # dump after
+        #elif (self.modRMInstance.mod != 3): # memory operands
+        #    self.main.cpu.cpuDump() # dump after
         return True
     cdef int fpuOpcodes(self, unsigned char opcode):
         cdef unsigned char opcode2
