@@ -34,6 +34,9 @@ cdef class Opcodes:
         value = self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_PG | CR0_FLAG_PE))
         (<Segments>self.registers.segments).protectedModeOn = (value & CR0_FLAG_PE)!=0
         (<Segments>self.registers.segments).pagingOn = (value & CR0_FLAG_PG)!=0
+    cdef inline unsigned int quirkCR0(self, unsigned int value):
+        value |= (CR0_FLAG_EM | CR0_FLAG_ET | CR0_FLAG_NE | CR0_FLAG_NW | CR0_FLAG_CD)
+        return value
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except -1
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal) except -1

@@ -132,7 +132,7 @@ cdef class Pci:
             if (not pciAddressHandle.enableBit):
                 self.main.notice("Pci::readRegister: Warning: tried to read without enableBit set.")
             return deviceHandle.getData(pciAddressHandle.getMmAddress(), dataSize)
-        bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
+        bitMask = BITMASKS_FF[dataSize]
         return bitMask
     cdef void writeRegister(self, unsigned int address, unsigned int data, unsigned char dataSize):
         cdef PciDevice deviceHandle

@@ -154,7 +154,7 @@ cdef class Platform:
         cdef unsigned short portNum
         cdef unsigned int retVal, bitMask
         try:
-            bitMask = (<Misc>self.main.misc).getBitMaskFF(dataSize)
+            bitMask = BITMASKS_FF[dataSize]
             for port in self.ports:
                 if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.inPort is NULL):
                     continue

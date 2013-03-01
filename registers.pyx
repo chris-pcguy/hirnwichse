@@ -230,7 +230,8 @@ cdef class Registers:
         self.segments.reset()
         self.regWriteDword(CPU_REGISTER_EFLAGS, FLAG_REQUIRED)
         #self.regWriteDword(CPU_REGISTER_CR0, 0x40000014)
-        self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
+        #self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
+        self.regWriteDword(CPU_REGISTER_CR0, 0x60000034)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
         #self.segments.cs.base = 0xfff00000
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
@@ -560,26 +561,16 @@ cdef class Registers:
         else:
             self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp {0:d}.", valueOp)
         return 0
-    cdef unsigned long int regWriteWithOp(self, unsigned short regId, unsigned long int value, unsigned char valueOp, unsigned char regSize):
-        if (regSize == OP_SIZE_BYTE):
-            return self.regWriteWithOpLowByte(regId, value, valueOp)
-        elif (regSize == OP_SIZE_WORD):
-            return self.regWriteWithOpWord(regId, value, valueOp)
-        elif (regSize == OP_SIZE_DWORD):
-            return self.regWriteWithOpDword(regId, value, valueOp)
-        elif (regSize == OP_SIZE_QWORD):
-            return self.regWriteWithOpQword(regId, value, valueOp)
-        return 0
     cdef void setSZP(self, unsigned int value, unsigned char regSize):
-        self.sf = (value&(<Misc>self.main.misc).getBitMask80(regSize))!=0
+        self.sf = (value&BITMASKS_80[regSize])!=0
         self.zf = value==0
         self.pf = PARITY_TABLE[<unsigned char>value]
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.of = False
-    cdef void setSZP_A(self, unsigned int value, unsigned char regSize):
+    cdef void setSZP_OA(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
-        self.af = False
+        self.of = self.af = False
     cdef void setSZP_COA(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.cf = self.of = self.af = False
@@ -597,15 +588,13 @@ cdef class Registers:
                 reg += 2
             regName = CPU_REGISTER_DREG[reg]
         else:
+            regName = reg
             if (operSize == OP_SIZE_BYTE):
-                regName = reg&3
-            else:
-                regName = reg
+                regName &= 3
         if (regName == CPU_REGISTER_NONE):
             raise ChemuException(CPU_EXCEPTION_UD)
         return regName
     cdef unsigned char getCond(self, unsigned char index):
-        cdef unsigned int flags
         if (index == 0x0): # O
             return self.of
         elif (index == 0x1): # NO
@@ -641,11 +630,11 @@ cdef class Registers:
         else:
             self.main.exitError("getCond: index {0:#04x} is invalid.", index)
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method):
-        cdef unsigned char unsignedOverflow, signedOverflow, afFlag, reg0Nibble, regSumuNibble, carried
+        cdef unsigned char unsignedOverflow, signedOverflow, reg0Nibble, regSumuNibble, carried
         cdef unsigned int bitMaskHalf
         cdef unsigned long int regSumu
-        afFlag = carried = False
-        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(regSize)
+        carried = False
+        bitMaskHalf = BITMASKS_80[regSize]
         if (method in (OPCODE_ADD, OPCODE_ADC)):
             if (method == OPCODE_ADC and self.cf):
                 carried = True
@@ -660,13 +649,11 @@ cdef class Registers:
             self.zf = regSumu==0
             reg0Nibble = reg0&0xf
             regSumuNibble = regSumu&0xf
-            if ((not carried and regSumuNibble<reg0Nibble) or (carried and regSumuNibble<=reg0Nibble)):
-                afFlag = True
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
             regSumu &= bitMaskHalf
             signedOverflow = ( ((not reg0 and not reg1) and regSumu) or ((reg0 and reg1) and not regSumu) ) != 0
-            self.af = afFlag
+            self.af = (regSumuNibble<(reg0Nibble+carried))
             self.cf = unsignedOverflow
             self.of = signedOverflow
             self.sf = regSumu!=0
@@ -684,13 +671,11 @@ cdef class Registers:
             self.zf = regSumu==0
             reg0Nibble = reg0&0xf
             regSumuNibble = regSumu&0xf
-            if ((not carried and regSumuNibble>reg0Nibble) or (carried and regSumuNibble>=reg0Nibble)):
-                afFlag = True
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
             regSumu &= bitMaskHalf
             signedOverflow = ( ((reg0 and not reg1) and not regSumu) or ((not reg0 and reg1) and regSumu) ) != 0
-            self.af = afFlag
+            self.af = ((regSumuNibble+carried)>reg0Nibble)
             self.cf = unsignedOverflow
             self.of = signedOverflow
             self.sf = regSumu!=0

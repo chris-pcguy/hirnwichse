@@ -114,63 +114,52 @@ cdef class Mm:
         return data
     cdef signed char mmPhyReadValueSignedByte(self, unsigned int mmAddr):
         cdef MmArea mmArea = self.mmGetArea(mmAddr)
-        cdef signed char data = <signed char>BITMASK_BYTE
         cdef unsigned char dataSize = OP_SIZE_BYTE
         cdef unsigned int tempAddr
         if (mmArea is None):
             self.main.notice("Mm::mmPhyReadValueSignedByte: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
-            return data
+            return <signed char>BITMASK_BYTE
         tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
-        data = (<signed char*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-        return data
+        return (<signed char*>self.mmGetDataPointer(mmArea, tempAddr))[0]
     cdef signed short mmPhyReadValueSignedWord(self, unsigned int mmAddr):
         cdef MmArea mmArea
-        cdef signed short data = <signed short>BITMASK_WORD
         cdef unsigned char dataSize = OP_SIZE_WORD
         cdef unsigned int tempAddr
         cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        if (mmAreas is None):
+        if (mmAreas is None or not len(mmAreas)):
             self.main.notice("Mm::mmPhyReadValueSignedWord: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
-            return data
+            return <signed short>BITMASK_WORD
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
                 return self.mmPhyReadValueSigned(mmAddr, dataSize)
-            data = (<signed short*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-            return data
-        return data
+            return (<signed short*>self.mmGetDataPointer(mmArea, tempAddr))[0]
     cdef signed int mmPhyReadValueSignedDword(self, unsigned int mmAddr):
         cdef MmArea mmArea
-        cdef signed int data = <signed int>BITMASK_DWORD
         cdef unsigned char dataSize = OP_SIZE_DWORD
         cdef unsigned int tempAddr
         cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        if (mmAreas is None):
+        if (mmAreas is None or not len(mmAreas)):
             self.main.notice("Mm::mmPhyReadValueSignedDword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
-            return data
+            return <signed int>BITMASK_DWORD
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
                 return self.mmPhyReadValueSigned(mmAddr, dataSize)
-            data = (<signed int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-            return data
-        return data
+            return (<signed int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
     cdef signed long int mmPhyReadValueSignedQword(self, unsigned int mmAddr):
         cdef MmArea mmArea
-        cdef signed long int data = <signed long int>BITMASK_QWORD
         cdef unsigned char dataSize = OP_SIZE_QWORD
         cdef unsigned int tempAddr
         cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        if (mmAreas is None):
+        if (mmAreas is None or not len(mmAreas)):
             self.main.notice("Mm::mmPhyReadValueSignedQword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
-            return data
+            return <signed long int>BITMASK_QWORD
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
             if (tempAddr+dataSize > SIZE_1MB):
                 return self.mmPhyReadValueSigned(mmAddr, dataSize)
-            data = (<signed long int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-            return data
-        return data
+            return (<signed long int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
     cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize):
         return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=True)
     cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr):

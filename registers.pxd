@@ -252,7 +252,6 @@ cdef class Registers:
     cdef unsigned short regWriteWithOpWord(self, unsigned short regId, unsigned short value, unsigned char valueOp)
     cdef unsigned int regWriteWithOpDword(self, unsigned short regId, unsigned int value, unsigned char valueOp)
     cdef unsigned long int regWriteWithOpQword(self, unsigned short regId, unsigned long int value, unsigned char valueOp)
-    cdef unsigned long int regWriteWithOp(self, unsigned short regId, unsigned long int value, unsigned char valueOp, unsigned char regSize)
     cdef inline unsigned char valGetBit(self, unsigned int value, unsigned char bit): # return True if bit is set, otherwise False
         return (value&<unsigned int>(1<<bit))!=0
     cdef inline unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state):
@@ -265,7 +264,7 @@ cdef class Registers:
         return (self.regReadUnsignedDword(regId)&flags)
     cdef void setSZP(self, unsigned int value, unsigned char regSize)
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize)
-    cdef void setSZP_A(self, unsigned int value, unsigned char regSize)
+    cdef void setSZP_OA(self, unsigned int value, unsigned char regSize)
     cdef void setSZP_COA(self, unsigned int value, unsigned char regSize)
     cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize)
     cdef unsigned char getCond(self, unsigned char index)

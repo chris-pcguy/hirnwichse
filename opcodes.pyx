@@ -1218,7 +1218,7 @@ cdef class Opcodes:
         cdef signed long int operOp2
         cdef unsigned int operSum, bitMask
         cdef unsigned long int temp
-        bitMask = (<Misc>self.main.misc).getBitMaskFF(self.registers.operSize)
+        bitMask = BITMASKS_FF[self.registers.operSize]
         self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
         operOp1 = self.modRMInstance.modRMLoadSigned(self.registers.operSize, True)
         if (immIsByte):
@@ -1451,7 +1451,9 @@ cdef class Opcodes:
                 if ((op1&1) and not (op2&1)): # it's already in protected mode, but it tries to switch to real mode...
                     self.main.exitError("opcodeGroup0F_01: LMSW: tried to switch to real mode from protected mode.")
                     return True
-                self.registers.regWriteDword(CPU_REGISTER_CR0, ((op1&0xfffffff0)|(op2&0xf)))
+                op1 = ((op1&0xfffffff0)|(op2&0xf))
+                op1 = self.quirkCR0(op1)
+                self.registers.regWriteDword(CPU_REGISTER_CR0, op1)
                 self.syncCR0State()
             elif (operOpcodeModId == 7): # INVLPG
                 # TODO: Don't invalidate everything!
@@ -1523,10 +1525,9 @@ cdef class Opcodes:
             op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_DWORD, True)
             if (self.modRMInstance.regName == CPU_REGISTER_CR0):
                 op1 = self.registers.regReadUnsignedDword(CPU_REGISTER_CR0) # op1 == old CR0
-                if (op1 & CR0_FLAG_ET):
-                    op2 |= CR0_FLAG_ET
                 if ((op2 & CR0_FLAG_PG) and not (op2 & CR0_FLAG_PE)):
                     raise ChemuException(CPU_EXCEPTION_GP, 0)
+                op2 = self.quirkCR0(op2)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
             if (self.modRMInstance.regName == CPU_REGISTER_CR0):
                 self.syncCR0State()
@@ -1625,7 +1626,7 @@ cdef class Opcodes:
             self.btFunc(op2, BT_NONE)
         elif (operOpcode in (0xa4, 0xa5)): # SHLD
             self.main.notice("Opcodes::opcodeGroup0F: SHLD: TODO!")
-            bitMaskHalf = (<Misc>self.main.misc).getBitMask80(self.registers.operSize)
+            bitMaskHalf = BITMASKS_80[self.registers.operSize]
             bitSize = self.registers.operSize << 3
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             if (operOpcode == 0xa4): # SHLD imm8
@@ -1660,7 +1661,7 @@ cdef class Opcodes:
                 newOF = oldOF!=((op1&bitMaskHalf)!=0)
                 self.registers.of = newOF
             self.registers.cf = newCF
-            self.registers.setSZP_A(op1, self.registers.operSize)
+            self.registers.setSZP_OA(op1, self.registers.operSize)
         elif (operOpcode == 0xa8): # PUSH GS
             self.pushSeg(PUSH_GS)
         elif (operOpcode == 0xa9): # POP GS
@@ -1670,19 +1671,22 @@ cdef class Opcodes:
             op2 = self.modRMInstance.modRLoadUnsigned(self.registers.operSize)
             self.btFunc(op2, BT_SET)
         elif (operOpcode in (0xac, 0xad)): # SHRD
-            bitMaskHalf = (<Misc>self.main.misc).getBitMask80(self.registers.operSize)
+            bitMaskHalf = BITMASKS_80[self.registers.operSize]
             bitSize = self.registers.operSize << 3
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             if (operOpcode == 0xac): # SHRD imm8
-                self.main.notice("Opcodes::opcodeGroup0F: SHRD: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-                self.main.cpu.cpuDump()
+                self.main.notice("Opcodes::opcodeGroup0F: SHRD_imm8: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 count = self.registers.getCurrentOpcodeAddUnsignedByte()
             elif (operOpcode == 0xad): # SHRD CL
+                self.main.notice("Opcodes::opcodeGroup0F: SHRD_CL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 count = self.registers.regReadUnsignedLowByte(CPU_REGISTER_CL)
-                count &= 0x1f
             else:
                 self.main.exitError("group0F::SHRD: operOpcode {0:#04x} unknown.", operOpcode)
                 return True
+            if (count != 1 and self.registers.of):
+                self.main.notice("Opcodes::opcodeGroup0F: SHRD: OF is SET! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+                self.main.cpu.cpuDump()
+            count &= 0x1f
             if (not count):
                 return True
             if (count >= bitSize):
@@ -1705,8 +1709,9 @@ cdef class Opcodes:
                 newOF = (op1&bitMaskHalf)!=0
                 self.registers.of = oldOF!=newOF
             self.registers.cf = newCF
-            self.registers.setSZP_A(op1, self.registers.operSize)
-            if (operOpcode == 0xac): # SHRD imm8
+            self.registers.setSZP_OA(op1, self.registers.operSize)
+            if (count != 1 and self.registers.of):
+                self.main.notice("Opcodes::opcodeGroup0F: SHRD: OF were SET! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 self.main.cpu.cpuDump()
         elif (operOpcode == 0xaf): # IMUL R16_32, R/M16_32
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
@@ -2075,7 +2080,7 @@ cdef class Opcodes:
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         operOp2 = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         operSizeInBits = operSize << 3
-        bitMask = (<Misc>self.main.misc).getBitMaskFF(operSize)
+        bitMask = BITMASKS_FF[operSize]
         if (operOpcodeId in (GROUP2_OP_TEST, GROUP2_OP_TEST_ALIAS)):
             operOp1 = self.registers.getCurrentOpcodeAddUnsigned(operSize)
             operOp2 = operOp2&operOp1
@@ -2169,8 +2174,8 @@ cdef class Opcodes:
             self.registers.regWrite(CPU_REGISTER_AX, utemp, operSize)
             self.registers.regWrite(CPU_REGISTER_DX, tempmod, operSize)
         elif (operOpcodeId == GROUP2_OP_IDIV):
-            bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
-            doubleBitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize<<1)
+            bitMaskHalf = BITMASKS_80[operSize]
+            doubleBitMaskHalf = BITMASKS_80[operSize<<1]
             operOp1 = self.registers.regReadUnsigned(CPU_REGISTER_DX, operSize)<<operSizeInBits
             operOp1 |= self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
             if (operOp1 == doubleBitMaskHalf):
@@ -2454,8 +2459,8 @@ cdef class Opcodes:
         return True
     cdef int cwd_cdq(self):
         cdef unsigned int bitMask, bitMaskHalf, op2
-        bitMask = (<Misc>self.main.misc).getBitMaskFF(self.registers.operSize)
-        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(self.registers.operSize)
+        bitMask = BITMASKS_FF[self.registers.operSize]
+        bitMaskHalf = BITMASKS_80[self.registers.operSize]
         op2 = self.registers.regReadUnsigned(CPU_REGISTER_AX, self.registers.operSize)
         if (op2&bitMaskHalf):
             self.registers.regWrite(CPU_REGISTER_DX, bitMask, self.registers.operSize)
@@ -2465,7 +2470,7 @@ cdef class Opcodes:
     cdef int shlFunc(self, unsigned char operSize, unsigned char count):
         cdef unsigned char newCF, newOF
         cdef unsigned int bitMaskHalf, dest
-        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
+        bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         count = count&0x1f
         if (not count):
@@ -2485,7 +2490,7 @@ cdef class Opcodes:
         cdef unsigned char newCF
         cdef unsigned int bitMask
         cdef signed int dest
-        bitMask = (<Misc>self.main.misc).getBitMaskFF(operSize)
+        bitMask = BITMASKS_FF[operSize]
         dest = self.modRMInstance.modRMLoadSigned(operSize, True)
         count = count&0x1f
         if (not count):
@@ -2499,7 +2504,7 @@ cdef class Opcodes:
     cdef int shrFunc(self, unsigned char operSize, unsigned char count):
         cdef unsigned char newCF_OF
         cdef unsigned int bitMaskHalf, dest, tempDest
-        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
+        bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         tempDest = dest
         count = count&0x1f
@@ -2517,7 +2522,7 @@ cdef class Opcodes:
     cdef int rclFunc(self, unsigned char operSize, unsigned char count):
         cdef unsigned char tempCF_OF, newCF, i
         cdef unsigned int bitMaskHalf, dest
-        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
+        bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         count = count&0x1f
         if (operSize == OP_SIZE_BYTE):
@@ -2541,7 +2546,7 @@ cdef class Opcodes:
     cdef int rcrFunc(self, unsigned char operSize, unsigned char count):
         cdef unsigned char tempCF_OF, newCF, i
         cdef unsigned int bitMaskHalf, dest
-        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
+        bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         count = count&0x1f
         newCF = self.registers.cf
@@ -2563,7 +2568,7 @@ cdef class Opcodes:
     cdef int rolFunc(self, unsigned char operSize, unsigned char count):
         cdef unsigned char tempCF_OF, newCF, i
         cdef unsigned int bitMaskHalf, dest
-        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
+        bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         count &= 0x1f
         count = count&((operSize<<3)-1)
@@ -2583,7 +2588,7 @@ cdef class Opcodes:
     cdef int rorFunc(self, unsigned char operSize, unsigned char count):
         cdef unsigned char tempCF_OF, newCF_M1, i
         cdef unsigned int bitMaskHalf, dest, destM1
-        bitMaskHalf = (<Misc>self.main.misc).getBitMask80(operSize)
+        bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         destM1 = dest
         count &= 0x1f

@@ -1,6 +1,5 @@
 
-from threading import Thread, Timer
-from random import randint
+from threading import Thread
 
 
 class ChemuException(Exception):

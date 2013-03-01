@@ -7,12 +7,12 @@ DEF OP_SIZE_WORD  = 2
 DEF OP_SIZE_DWORD = 4
 DEF OP_SIZE_QWORD = 8
 
-DEF BITMASK_BYTE  = 0xffUL
-DEF BITMASK_WORD  = 0xffffUL
-DEF BITMASK_DWORD = 0xffffffffUL
-DEF BITMASK_QWORD = 0xffffffffffffffffULL
-#cdef unsigned int BITMASK_DWORD = 0xffffffffUL
-#cdef unsigned long int BITMASK_QWORD = 0xffffffffffffffffULL
+DEF BITMASK_BYTE  = 0xff
+DEF BITMASK_WORD  = 0xffff
+DEF BITMASK_DWORD = 0xffffffff
+DEF BITMASK_QWORD = 0xffffffffffffffff
+#cdef unsigned int BITMASK_DWORD = 0xffffffff
+#cdef unsigned long int BITMASK_QWORD = 0xffffffffffffffff
 
 
 
@@ -144,5 +144,9 @@ DEF FDC_FIRST_READ_PORTS = (0x3f0, 0x3f1, 0x3f2, 0x3f3, 0x3f4, 0x3f5, 0x3f6, 0x3
 DEF FDC_SECOND_READ_PORTS = (0x370, 0x371, 0x372, 0x373, 0x374, 0x375, 0x376, 0x377)
 DEF FDC_FIRST_WRITE_PORTS = (0x3f2, 0x3f3, 0x3f4, 0x3f5, 0x3f6, 0x3f7)
 DEF FDC_SECOND_WRITE_PORTS = (0x372, 0x373, 0x374, 0x375, 0x376, 0x377)
+
+
+DEF BITMASKS_80 = (None, 0x80, 0x8000, None, 0x80000000, None, None, None, 0x8000000000000000)
+DEF BITMASKS_FF = (None, 0xff, 0xffff, None, 0xffffffff, None, None, None, 0xffffffffffffffff)
 
 

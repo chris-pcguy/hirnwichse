@@ -1,17 +1,6 @@
 
-include "globals.pxi"
-
-DEF BITMASKS_80 = (None, 0x80, 0x8000, None, 0x80000000, None, None, None, 0x8000000000000000)
-DEF BITMASKS_FF = (None, 0xff, 0xffff, None, 0xffffffff, None, None, None, 0xffffffffffffffff)
-
-
-
 cdef class Misc:
     cpdef object main
-    cdef inline unsigned long int getBitMask80(self, unsigned char maskSize):
-        return BITMASKS_80[maskSize]
-    cdef inline unsigned long int getBitMaskFF(self, unsigned char maskSize):
-        return BITMASKS_FF[maskSize]
     cdef unsigned int checksum(self, bytes data) # data is bytes
     cdef unsigned short decToBcd(self, unsigned short dec)
     cdef unsigned short bcdToDec(self, unsigned short bcd)
