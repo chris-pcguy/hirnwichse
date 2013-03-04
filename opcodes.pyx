@@ -1291,7 +1291,7 @@ cdef class Opcodes:
         return True
     cdef int opcodeGroup0F(self):
         cdef unsigned char operOpcode, bitSize, byteSize, operOpcodeMod, operOpcodeModId, \
-            newCF, newOF, oldOF, count, eaxIsInvalid, cpl, segType
+            newCF, oldOF, count, eaxIsInvalid, cpl, segType
         cdef unsigned short limit
         cdef unsigned int eaxId, bitMask, bitMaskHalf, base, mmAddr, op1, op2
         cdef unsigned long int qop1, qop2
@@ -1755,7 +1755,7 @@ cdef class Opcodes:
             self.registers.cf = self.registers.pf = self.registers.af = self.registers.sf = self.registers.of = False
             self.registers.zf = not op2
         elif (operOpcode == 0xba): # BT/BTS/BTR/BTC RM16/32 IMM8
-            self.main.notice("Opcodes::opcodeGroup0F: BT*: TODO!")
+            self.main.notice("Opcodes::opcodeGroup0F: BT*: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             operOpcodeMod = self.registers.getCurrentOpcodeUnsignedByte()
             operOpcodeModId = (operOpcodeMod>>3)&7
             self.main.debug("Group0F_BA: operOpcodeModId=={0:d}", operOpcodeModId)
@@ -2461,7 +2461,7 @@ cdef class Opcodes:
             self.registers.regWrite(CPU_REGISTER_DX, 0, self.registers.operSize)
         return True
     cdef int shlFunc(self, unsigned char operSize, unsigned char count):
-        cdef unsigned char newCF, newOF
+        cdef unsigned char newCF
         cdef unsigned int bitMaskHalf, dest
         bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize, True)
@@ -2473,8 +2473,7 @@ cdef class Opcodes:
         if (operSize == OP_SIZE_WORD):
             dest = <unsigned short>dest
         self.modRMInstance.modRMSave(operSize, dest, True, OPCODE_SAVE)
-        newOF = (((dest&bitMaskHalf)!=0)^newCF)
-        self.registers.of = newOF
+        self.registers.of = (((dest&bitMaskHalf)!=0)^newCF)
         self.registers.cf = newCF
         self.registers.af = False
         self.registers.setSZP(dest, operSize)

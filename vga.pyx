@@ -30,6 +30,7 @@ cdef class CRT(VGA_REGISTER_RAW):
         VGA_REGISTER_RAW.__init__(self, VGA_CRT_AREA_SIZE, vga, main)
         self.protectRegisters = False
     cdef void setData(self, unsigned int data, unsigned char dataSize):
+        cdef unsigned int temp
         cdef unsigned short index = self.getIndex()
         if (self.protectRegisters):
             if (index >= 0x00 and index <= 0x06):
@@ -37,7 +38,14 @@ cdef class CRT(VGA_REGISTER_RAW):
             elif (index == 0x07):
                 data = (self.getData(dataSize)&(~VGA_CRT_OFREG_LC8))|(data&VGA_CRT_OFREG_LC8)
         VGA_REGISTER_RAW.setData(self, data, dataSize)
-        if (index == 0x11):
+        if (index in (0x0c, 0x0d)):
+            temp = self.vga.videoMemBaseWithOffset-self.vga.videoMemBase
+            if (index == 0x0c): # high byte
+                temp = (temp & 0x00ff) | (data << 8)
+            elif (index == 0x0d): # low byte
+                temp = (temp & 0xff00) | data
+            self.vga.videoMemBaseWithOffset = self.vga.videoMemBase+temp
+        elif (index == 0x11):
             self.protectRegisters = (data&VGA_CRT_PROTECT_REGISTERS) != 0
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
@@ -168,7 +176,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 cdef class Vga:
     def __init__(self, object main):
         self.main = main
-        self.videoMemBase = 0xb8000
+        self.videoMemBaseWithOffset = self.videoMemBase = 0xb8000
         self.videoMemSize = 0x08000
         self.needLoadFont = False
         self.seq = Sequencer(self, self.main)
@@ -222,7 +230,7 @@ cdef class Vga:
         page = self.getCorrectPage(page)
         cursorPos = self.getCursorPosition(page)
         y, x = (cursorPos>>8), <unsigned char>cursorPos
-        address = self.getAddrOfPos(page, x, y)
+        address = self.getAddrOfPos(x, y)
         if (c == 0x7): # beep
             pass
         elif (c == 0x8): # BS == backspace
@@ -243,7 +251,7 @@ cdef class Vga:
             x -= 80
             y += 1
         if (y >= 25):
-            self.scrollUp(page, attr, 1)
+            self.scrollUp(attr, 1)
             y = 24
         cursorPos = ((y<<8)|x)
         self.setCursorPosition(page, cursorPos)
@@ -255,7 +263,7 @@ cdef class Vga:
         cursorPos = self.getCursorPosition(page)
         x, y = <unsigned char>cursorPos, (cursorPos>>8)
         for i in range(count):
-            address = self.getAddrOfPos(page, x, y)
+            address = self.getAddrOfPos(x, y)
             self.writeCharacter(address, c, attr)
             x += 1
             if (x >= 80):
@@ -266,13 +274,10 @@ cdef class Vga:
             (<Mm>self.main.mm).mmPhyWriteValueSize(address, c)
             return
         (<Mm>self.main.mm).mmPhyWriteValueSize(address, <unsigned short>((<unsigned short>attr<<8)|c))
-    cdef unsigned int getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y):
-        cdef unsigned short pageSize
+    cdef unsigned int getAddrOfPos(self, unsigned char x, unsigned char y):
         cdef unsigned int offset
-        page = self.getCorrectPage(page)
-        pageSize = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_PAGE_SIZE_ADDR)
         offset = ((y*80)+x)<<1
-        return ((self.videoMemBase+(pageSize*page))+offset)
+        return (self.videoMemBaseWithOffset+offset)
     cdef unsigned short getCursorPosition(self, unsigned char page): # returns y, x
         cdef unsigned short pos
         page = self.getCorrectPage(page)
@@ -287,12 +292,11 @@ cdef class Vga:
             self.main.exitError("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
         (<Mm>self.main.mm).mmPhyWriteValueSize(VGA_CURSOR_BASE_ADDR+(page<<1), pos)
-    cdef void scrollUp(self, unsigned char page, signed short attr, unsigned short lines):
+    cdef void scrollUp(self, signed short attr, unsigned short lines):
         cdef bytes oldData
         cdef unsigned int oldAddr, dataSize
         self.setProcessVideoMem(False)
-        page = self.getCorrectPage(page)
-        oldAddr = self.getAddrOfPos(page, 0, 0)
+        oldAddr = self.getAddrOfPos(0, 0)
         if (lines == 0):
             lines = 25
             dataSize = 4000 # 160*25
@@ -300,7 +304,7 @@ cdef class Vga:
             dataSize = 160*lines
             (<Mm>self.main.mm).mmPhyCopy(oldAddr, oldAddr+dataSize, 4000-dataSize)
         if (attr == -1):
-            attr = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(self.getAddrOfPos(page, 79, 24)+1)
+            attr = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(self.getAddrOfPos(79, 24)+1)
         oldData = bytes([ 0x20, attr ])*80*lines
         (<Mm>self.main.mm).mmPhyWrite(oldAddr+(4000-dataSize), oldData, dataSize)
         self.setProcessVideoMem(True)
@@ -322,7 +326,7 @@ cdef class Vga:
         # TODO: hardcoded to 80x25
         dataSize = min(dataSize, 4000) # 80*25*2
         while (dataSize > 0 and not self.main.quitEmu):
-            y, x = divmod((offset-self.videoMemBase)//2, 80)
+            y, x = divmod((offset-self.videoMemBaseWithOffset)//2, 80)
             rectList.append(self.ui.putChar(x, y, mmArea.data[offset], mmArea.data[offset+1]))
             if (dataSize <= 2):
                 break

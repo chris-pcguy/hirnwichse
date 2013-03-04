@@ -55,7 +55,7 @@ cdef class Vga:
     cpdef object main
     cpdef PygameUI ui
     cdef unsigned char needLoadFont
-    cdef unsigned long videoMemBase, videoMemSize
+    cdef unsigned int videoMemBase, videoMemBaseWithOffset, videoMemSize
     cdef Sequencer seq
     cdef CRT crt
     cdef GDC gdc
@@ -71,10 +71,10 @@ cdef class Vga:
     cdef void writeCharacterTeletype(self, unsigned char c, signed short attr, unsigned char page)
     cdef void writeCharacterNoTeletype(self, unsigned char c, signed short attr, unsigned char page, unsigned short count)
     cdef void writeCharacter(self, unsigned int address, unsigned char c, signed short attr)
-    cdef unsigned int getAddrOfPos(self, unsigned char page, unsigned char x, unsigned char y)
+    cdef unsigned int getAddrOfPos(self, unsigned char x, unsigned char y)
     cdef unsigned short getCursorPosition(self, unsigned char page)
     cdef void setCursorPosition(self, unsigned char page, unsigned short pos)
-    cdef void scrollUp(self, unsigned char page, signed short attr, unsigned short lines)
+    cdef void scrollUp(self, signed short attr, unsigned short lines)
     cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
