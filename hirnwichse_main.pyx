@@ -12,13 +12,13 @@ include "globals.pxi"
 
 
 
-cdef class ChEmu:
+cdef class Hirnwichse:
     def __init__(self):
         self.quitEmu = False
         self.exitOnTripleFault = True
         register(self.quitFunc)
     cpdef parseArgs(self):
-        self.parser = ArgumentParser(description='ChEmu: a x86 emulator in python.')
+        self.parser = ArgumentParser(description='Hirnwichse: a x86 emulator in python.')
         self.parser.add_argument('--bios', dest='biosFilename', action='store', type=str, default='bios.bin', help='bios filename')
         self.parser.add_argument('--vgabios', dest='vgaBiosFilename', action='store', type=str, default='vgabios.bin', help='vgabios filename')
         self.parser.add_argument('-m', dest='memSize', action='store', type=int, default=64, help='memSize in MB')

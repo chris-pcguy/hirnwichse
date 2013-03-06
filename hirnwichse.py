@@ -10,14 +10,14 @@ from pyximport import install
 from traceback import print_exc
 #install(pyimport = True)
 install()
-from chemu_main import ChEmu
+from hirnwichse_main import Hirnwichse
 
 
 
 if (__name__ == '__main__'):
     try:
-        chemu_class = ChEmu()
-        chemu_class.run()
+        hirnwichse_class = Hirnwichse()
+        hirnwichse_class.run()
     except (KeyboardInterrupt, SystemExit):
         exit(0)
     except:

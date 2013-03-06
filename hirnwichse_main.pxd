@@ -7,7 +7,7 @@ from pic cimport Pic, SetINTR
 from isadma cimport IsaDma, SetHRQ
 
 
-cdef class ChEmu:
+cdef class Hirnwichse:
     cpdef object parser, cmdArgs
     cdef public Misc misc
     cdef public Mm mm

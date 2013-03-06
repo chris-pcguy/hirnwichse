@@ -1,5 +1,5 @@
 
-from misc import ChemuException
+from misc import HirnwichseException
 
 include "globals.pxi"
 include "cpu_globals.pxi"
@@ -583,7 +583,7 @@ cdef class Registers:
         elif (modRMflags & MODRM_FLAGS_DREG):
             if (reg in (4, 5)):
                 if (self.getFlagDword( CPU_REGISTER_CR4, CR4_FLAG_DE )):
-                    raise ChemuException(CPU_EXCEPTION_UD)
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
                 reg += 2
             regName = CPU_REGISTER_DREG[reg]
         else:
@@ -591,7 +591,7 @@ cdef class Registers:
             if (operSize == OP_SIZE_BYTE):
                 regName &= 3
         if (regName == CPU_REGISTER_NONE):
-            raise ChemuException(CPU_EXCEPTION_UD)
+            raise HirnwichseException(CPU_EXCEPTION_UD)
         return regName
     cdef unsigned char getCond(self, unsigned char index):
         if (index == 0x0): # O
@@ -705,26 +705,26 @@ cdef class Registers:
         segVal = self.segRead(segId)
         if ( (segVal&0xfff8) == 0 ):
             if (segId == CPU_SEGMENT_SS):
-                raise ChemuException(CPU_EXCEPTION_SS, segVal)
+                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
             else:
-                raise ChemuException(CPU_EXCEPTION_GP, segVal)
+                raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
         gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segVal))
         if (not gdtEntry or not gdtEntry.segPresent ):
             if (segId == CPU_SEGMENT_SS):
-                raise ChemuException(CPU_EXCEPTION_SS, segVal)
+                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
             else:
-                raise ChemuException(CPU_EXCEPTION_NP, segVal)
+                raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
         addrInLimit = gdtEntry.isAddressInLimit(mmAddr, dataSize)
         if (write):
             if ((gdtEntry.segIsCodeSeg or not gdtEntry.segIsRW) or not addrInLimit or ((<Segments>self.segments).isPagingOn() and not (<Paging>(<Segments>self.segments).paging).writeAccessAllowed(mmAddr))):
                 if (segId == CPU_SEGMENT_SS):
-                    raise ChemuException(CPU_EXCEPTION_SS, segVal)
+                    raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
                 else:
-                    raise ChemuException(CPU_EXCEPTION_GP, segVal)
+                    raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
             return True
         else:
             if ((gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) or not addrInLimit):
-                raise ChemuException(CPU_EXCEPTION_GP, segVal)
+                raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
     cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
         cdef Segment segment
         if (allowOverride and self.segmentOverridePrefix):

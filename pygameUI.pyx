@@ -17,7 +17,7 @@ cdef class PygameUI:
         self.fontData = b'\x00'*VGA_FONTAREA_SIZE
     cpdef initPygame(self):
         pygame.display.init()
-        pygame.display.set_caption('ChEmu - THE x86 Emulator written in Python. (c) 2011-2013 by Christian Inci')
+        pygame.display.set_caption('Hirnwichse - THE x86 Emulator written in Python. (c) 2011-2013 by Christian Inci')
         self.screen = pygame.display.set_mode(self.screenSize)
         register(self.quitFunc)
         pygame.event.set_blocked([ pygame.ACTIVEEVENT, pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP,\

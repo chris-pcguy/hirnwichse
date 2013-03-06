@@ -2,7 +2,7 @@
 from threading import Thread
 
 
-class ChemuException(Exception):
+class HirnwichseException(Exception):
     pass
 
 

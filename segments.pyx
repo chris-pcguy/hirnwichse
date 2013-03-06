@@ -1,5 +1,5 @@
 
-from misc import ChemuException
+from misc import HirnwichseException
 
 include "globals.pxi"
 include "cpu_globals.pxi"
@@ -131,19 +131,19 @@ cdef class Gdt:
         cdef GdtEntry gdtEntry
         if (not (num&0xfff8) or num > self.tableLimit):
             if (not (num&0xfff8)):
-                raise ChemuException(CPU_EXCEPTION_GP, 0)
+                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             else:
-                raise ChemuException(CPU_EXCEPTION_GP, num)
+                raise HirnwichseException(CPU_EXCEPTION_GP, num)
         cpl = self.segments.cs.segmentIndex&3
         gdtEntry = self.getEntry(num)
         if (not gdtEntry or (isStackSegment and ( num&3 != cpl or \
           gdtEntry.segDPL != cpl))):# or 0):
-            raise ChemuException(CPU_EXCEPTION_GP, num)
+            raise HirnwichseException(CPU_EXCEPTION_GP, num)
         elif (not gdtEntry.segPresent):
             if (isStackSegment):
-                raise ChemuException(CPU_EXCEPTION_SS, num)
+                raise HirnwichseException(CPU_EXCEPTION_SS, num)
             else:
-                raise ChemuException(CPU_EXCEPTION_NP, num)
+                raise HirnwichseException(CPU_EXCEPTION_NP, num)
         return True
     cdef unsigned char checkReadAllowed(self, unsigned short num): # for VERR
         cdef unsigned char rpl
@@ -181,28 +181,28 @@ cdef class Gdt:
         cdef unsigned char numSegDPL, cpl
         cdef GdtEntry gdtEntry
         if (num > self.tableLimit):
-            raise ChemuException(CPU_EXCEPTION_GP, num)
+            raise HirnwichseException(CPU_EXCEPTION_GP, num)
         if (not (num&0xfff8)):
             if (segId == CPU_SEGMENT_CS or segId == CPU_SEGMENT_SS):
-                raise ChemuException(CPU_EXCEPTION_GP, 0)
+                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             return False
         gdtEntry = self.getEntry(num)
         if (not gdtEntry or not gdtEntry.segPresent):
             if (segId == CPU_SEGMENT_SS):
-                raise ChemuException(CPU_EXCEPTION_SS, num)
-            raise ChemuException(CPU_EXCEPTION_NP, num)
+                raise HirnwichseException(CPU_EXCEPTION_SS, num)
+            raise HirnwichseException(CPU_EXCEPTION_NP, num)
         cpl = self.segments.cs.segmentIndex&3
         numSegDPL = gdtEntry.segDPL
         if (segId == CPU_SEGMENT_SS):
             if ((num&3 != cpl or numSegDPL != cpl) or \
               (not gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW)):
                 self.segments.main.notice("test2: segId=={0:#04d}", segId)
-                raise ChemuException(CPU_EXCEPTION_GP, num)
+                raise HirnwichseException(CPU_EXCEPTION_GP, num)
         else: # not stack segment
             if ( ((not gdtEntry.segIsCodeSeg or not gdtEntry.segIsConforming) and (num&3 > numSegDPL and \
               cpl > numSegDPL)) or (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
                 self.segments.main.notice("test3: segId=={0:#04d}", segId)
-                raise ChemuException(CPU_EXCEPTION_GP, num)
+                raise HirnwichseException(CPU_EXCEPTION_GP, num)
         return True
 
 
@@ -309,7 +309,7 @@ cdef class Segments:
         segment = self.segs[segmentId]
         if (checkForValidness and not segment.isValid):
             self.main.notice("Segments::getSegmentInstance: segment with ID {0:d} isn't valid.", segmentId)
-            raise ChemuException(CPU_EXCEPTION_GP, segment.segmentIndex)
+            raise HirnwichseException(CPU_EXCEPTION_GP, segment.segmentIndex)
         return segment
     cdef GdtEntry getEntry(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):

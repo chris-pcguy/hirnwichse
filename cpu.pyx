@@ -2,7 +2,7 @@
 from sys import exit
 from time import sleep
 from traceback import print_exc
-from misc import ChemuException
+from misc import HirnwichseException
 
 
 include "globals.pxi"
@@ -86,7 +86,7 @@ cdef class Cpu:
         while (opcode in OPCODE_PREFIXES and not self.main.quitEmu):
             count += 1
             if (count >= 16):
-                raise ChemuException(CPU_EXCEPTION_UD)
+                raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (opcode == OPCODE_PREFIX_OP):
                 self.registers.operandSizePrefix = True
             elif (opcode == OPCODE_PREFIX_ADDR):
@@ -177,8 +177,8 @@ cdef class Cpu:
         try:
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
-                raise ChemuException(CPU_EXCEPTION_UD)
-        except ChemuException as exception: # exception
+                raise HirnwichseException(CPU_EXCEPTION_UD)
+        except HirnwichseException as exception: # exception
             self.exceptionLevel += 1
             if (self.exceptionLevel == 1):
                 self.handleException(exception) # execute exception handler
