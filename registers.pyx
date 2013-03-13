@@ -39,7 +39,7 @@ cdef class ModRMClass:
     def __init__(self, object main, Registers registers):
         self.main = main
         self.registers = registers
-    cpdef object modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
+    cdef unsigned short modRMOperands(self, unsigned char regSize, unsigned char modRMflags): # regSize in bytes
         cdef unsigned char modRMByte, index
         modRMByte = self.registers.getCurrentOpcodeAddUnsignedByte()
         self.rmNameSegId = CPU_SEGMENT_DS
@@ -52,10 +52,9 @@ cdef class ModRMClass:
         self.regName = self.registers.getRegNameWithFlags(modRMflags, self.reg, regSize) # reg
         if (self.mod == 3): # if mod==3, then: reg is source ; rm is dest
             self.regSize = regSize
+            self.rmName0 = self.rm # rm
             if (regSize == OP_SIZE_BYTE):
-                self.rmName0 = self.rm&3
-            else:
-                self.rmName0 = self.rm # rm
+                self.rmName0 &= 3
         else:
             self.regSize = self.registers.addrSize
             if (self.registers.addrSize == OP_SIZE_WORD):
@@ -92,129 +91,141 @@ cdef class ModRMClass:
                 if (self.rmName0 == CPU_REGISTER_EBP):
                     self.rmNameSegId = CPU_SEGMENT_SS
             self.rmNameSegId = self.registers.segmentOverridePrefix or self.rmNameSegId
-    cdef unsigned int getRMValueFull(self, unsigned char rmSize):
-        cdef unsigned int retAddr
-        if (self.regSize == OP_SIZE_BYTE and self.rm <= 3):
-            retAddr = <unsigned char>(self.registers.regReadUnsignedLowByte(self.rmName0))
-            if (self.rmName1 != CPU_REGISTER_NONE):
-                retAddr = <unsigned char>(retAddr+(self.registers.regReadUnsigned(self.rmName1, self.registers.addrSize)<<self.ss))
-            retAddr = <unsigned char>(retAddr+self.rmName2)
-        elif (self.regSize == OP_SIZE_BYTE and self.rm >= 4):
-            retAddr = <unsigned char>(self.registers.regReadUnsignedHighByte(self.rmName0))
-            if (self.rmName1 != CPU_REGISTER_NONE):
-                retAddr = <unsigned char>(retAddr+(self.registers.regReadUnsigned(self.rmName1, self.registers.addrSize)<<self.ss))
-            retAddr = <unsigned char>(retAddr+self.rmName2)
+        return True
+    cdef unsigned long int getRMValueFull(self, unsigned char rmSize):
+        cdef unsigned long int retAddr
+        if (self.regSize == OP_SIZE_BYTE):
+            if (self.rm <= 3):
+                retAddr = <unsigned char>(self.registers.regReadUnsignedLowByte(self.rmName0))
+            elif (self.rm >= 4):
+                retAddr = <unsigned char>(self.registers.regReadUnsignedHighByte(self.rmName0))
         elif (self.regSize == OP_SIZE_WORD):
             retAddr = <unsigned short>(self.registers.regReadUnsignedWord(self.rmName0))
-            if (self.rmName1 != CPU_REGISTER_NONE):
-                retAddr = <unsigned short>(retAddr+(self.registers.regReadUnsigned(self.rmName1, self.registers.addrSize)<<self.ss))
-            retAddr = <unsigned short>(retAddr+self.rmName2)
         elif (self.regSize == OP_SIZE_DWORD):
             retAddr = <unsigned int>(self.registers.regReadUnsignedDword(self.rmName0))
-            if (self.rmName1 != CPU_REGISTER_NONE):
-                retAddr = <unsigned int>(retAddr+(self.registers.regReadUnsigned(self.rmName1, self.registers.addrSize)<<self.ss))
-            retAddr = <unsigned int>(retAddr+self.rmName2)
-        if (rmSize == OP_SIZE_WORD):
+        elif (self.regSize == OP_SIZE_QWORD):
+            retAddr = <unsigned long int>(self.registers.regReadUnsignedQword(self.rmName0))
+        if (self.rmName1 != CPU_REGISTER_NONE):
+            retAddr = <unsigned long int>(retAddr+(self.registers.regReadUnsigned(self.rmName1, self.registers.addrSize)<<self.ss))
+        retAddr = <unsigned long int>(retAddr+self.rmName2)
+        if (rmSize == OP_SIZE_WORD or self.regSize == OP_SIZE_WORD):
             return <unsigned short>retAddr
+        elif (self.regSize == OP_SIZE_BYTE):
+            return <unsigned char>retAddr
+        elif (self.regSize == OP_SIZE_DWORD):
+            return <unsigned int>retAddr
+        elif (self.regSize == OP_SIZE_QWORD):
+            return <unsigned long int>retAddr
         return retAddr
-    cpdef object modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride):
+    cdef signed long int modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride):
         # NOTE: imm == unsigned ; disp == signed
-        cdef unsigned int mmAddr
+        cdef unsigned long int mmAddr
         cdef signed long int returnInt
         if (self.mod == 3):
-            if (regSize == OP_SIZE_BYTE and self.rm <= 3):
-                returnInt = self.registers.regReadSignedLowByte(self.rmName0)
-            elif (regSize == OP_SIZE_BYTE and self.rm >= 4):
-                returnInt = self.registers.regReadSignedHighByte(self.rmName0)
+            if (regSize == OP_SIZE_BYTE):
+                if (self.rm <= 3):
+                    returnInt = self.registers.regReadSignedLowByte(self.rmName0)
+                elif (self.rm >= 4):
+                    returnInt = self.registers.regReadSignedHighByte(self.rmName0)
             elif (regSize == OP_SIZE_WORD):
                 returnInt = self.registers.regReadSignedWord(self.rmName0)
             elif (regSize == OP_SIZE_DWORD):
                 returnInt = self.registers.regReadSignedDword(self.rmName0)
+            elif (regSize == OP_SIZE_QWORD):
+                returnInt = self.registers.regReadSignedQword(self.rmName0)
         else:
             mmAddr = self.getRMValueFull(self.registers.addrSize)
             returnInt = self.registers.mmReadValueSigned(mmAddr, regSize, self.rmNameSegId, allowOverride)
         return returnInt
-    cpdef object modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride):
+    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride):
         # NOTE: imm == unsigned ; disp == signed
-        cdef unsigned int mmAddr
-        cdef unsigned long int returnInt
+        cdef unsigned long int mmAddr, returnInt
         if (self.mod == 3):
-            if (regSize == OP_SIZE_BYTE and self.rm <= 3):
-                returnInt = self.registers.regReadUnsignedLowByte(self.rmName0)
-            elif (regSize == OP_SIZE_BYTE and self.rm >= 4):
-                returnInt = self.registers.regReadUnsignedHighByte(self.rmName0)
+            if (regSize == OP_SIZE_BYTE):
+                if (self.rm <= 3):
+                    returnInt = self.registers.regReadUnsignedLowByte(self.rmName0)
+                elif (self.rm >= 4):
+                    returnInt = self.registers.regReadUnsignedHighByte(self.rmName0)
             elif (regSize == OP_SIZE_WORD):
                 returnInt = self.registers.regReadUnsignedWord(self.rmName0)
             elif (regSize == OP_SIZE_DWORD):
                 returnInt = self.registers.regReadUnsignedDword(self.rmName0)
+            elif (regSize == OP_SIZE_QWORD):
+                returnInt = self.registers.regReadUnsignedQword(self.rmName0)
         else:
             mmAddr = self.getRMValueFull(self.registers.addrSize)
             returnInt = self.registers.mmReadValueUnsigned(mmAddr, regSize, self.rmNameSegId, allowOverride)
         return returnInt
-    cpdef object modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char allowOverride, unsigned char valueOp):
+    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char allowOverride, unsigned char valueOp):
         # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
-        cdef unsigned int mmAddr
+        cdef unsigned long int mmAddr
         if (self.mod != 3):
             mmAddr = self.getRMValueFull(self.registers.addrSize)
         if (regSize == OP_SIZE_BYTE):
-            value = <unsigned char>value
             if (self.mod == 3):
                 if (self.rm <= 3):
-                    return self.registers.regWriteWithOpLowByte(self.rmName0, value, valueOp)
+                    return self.registers.regWriteWithOpLowByte(self.rmName0, <unsigned char>value, valueOp)
                 else: # self.rm >= 4
-                    return self.registers.regWriteWithOpHighByte(self.rmName0, value, valueOp)
+                    return self.registers.regWriteWithOpHighByte(self.rmName0, <unsigned char>value, valueOp)
             return <unsigned char>(self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned char>value, self.rmNameSegId, allowOverride, valueOp))
         elif (regSize == OP_SIZE_WORD):
-            value = <unsigned short>value
             if (self.mod == 3):
-                return self.registers.regWriteWithOpWord(self.rmName0, value, valueOp)
+                return self.registers.regWriteWithOpWord(self.rmName0, <unsigned short>value, valueOp)
             return <unsigned short>(self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned short>value, self.rmNameSegId, allowOverride, valueOp))
         elif (regSize == OP_SIZE_DWORD):
-            value = <unsigned int>value
             if (self.mod == 3):
-                return self.registers.regWriteWithOpDword(self.rmName0, value, valueOp)
+                return self.registers.regWriteWithOpDword(self.rmName0, <unsigned int>value, valueOp)
             return <unsigned int>(self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned int>value, self.rmNameSegId, allowOverride, valueOp))
         elif (regSize == OP_SIZE_QWORD):
             if (self.mod == 3):
-                return self.registers.regWriteWithOpQword(self.rmName0, value, valueOp)
+                return self.registers.regWriteWithOpQword(self.rmName0, <unsigned long int>value, valueOp)
             return <unsigned long int>(self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned long int>value, self.rmNameSegId, allowOverride, valueOp))
         self.main.exitError("ModRMClass::modRMSave: if; else.")
         return 0
     cdef signed long int modRLoadSigned(self, unsigned char regSize):
         cdef signed long int retVal = 0
-        if (regSize == OP_SIZE_BYTE and self.reg <= 3):
-            retVal = self.registers.regReadSignedLowByte(self.regName)
-        elif (regSize == OP_SIZE_BYTE and self.reg >= 4):
-            retVal = self.registers.regReadSignedHighByte(self.regName)
+        if (regSize == OP_SIZE_BYTE):
+            if (self.reg <= 3):
+                retVal = self.registers.regReadSignedLowByte(self.regName)
+            elif (self.reg >= 4):
+                retVal = self.registers.regReadSignedHighByte(self.regName)
         elif (regSize == OP_SIZE_WORD):
             retVal = self.registers.regReadSignedWord(self.regName)
         elif (regSize == OP_SIZE_DWORD):
             retVal = self.registers.regReadSignedDword(self.regName)
+        elif (regSize == OP_SIZE_QWORD):
+            retVal = self.registers.regReadSignedQword(self.regName)
         return retVal
     cdef unsigned long int modRLoadUnsigned(self, unsigned char regSize):
         cdef unsigned long int retVal = 0
-        if (regSize == OP_SIZE_BYTE and self.reg <= 3):
-            retVal = self.registers.regReadUnsignedLowByte(self.regName)
-        elif (regSize == OP_SIZE_BYTE and self.reg >= 4):
-            retVal = self.registers.regReadUnsignedHighByte(self.regName)
+        if (regSize == OP_SIZE_BYTE):
+            if (self.reg <= 3):
+                retVal = self.registers.regReadUnsignedLowByte(self.regName)
+            elif (self.reg >= 4):
+                retVal = self.registers.regReadUnsignedHighByte(self.regName)
         elif (regSize == OP_SIZE_WORD):
             retVal = self.registers.regReadUnsignedWord(self.regName)
         elif (regSize == OP_SIZE_DWORD):
             retVal = self.registers.regReadUnsignedDword(self.regName)
+        elif (regSize == OP_SIZE_QWORD):
+            retVal = self.registers.regReadUnsignedQword(self.regName)
         return retVal
     cdef unsigned long int modRSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp):
-        if (regSize == OP_SIZE_BYTE and self.reg <= 3):
+        if (regSize == OP_SIZE_BYTE):
             value = <unsigned char>value
-            return self.registers.regWriteWithOpLowByte(self.regName, value, valueOp)
-        elif (regSize == OP_SIZE_BYTE and self.reg >= 4):
-            value = <unsigned char>value
-            return self.registers.regWriteWithOpHighByte(self.regName, value, valueOp)
+            if (self.reg <= 3):
+                return self.registers.regWriteWithOpLowByte(self.regName, value, valueOp)
+            elif (self.reg >= 4):
+                return self.registers.regWriteWithOpHighByte(self.regName, value, valueOp)
         elif (regSize == OP_SIZE_WORD):
             value = <unsigned short>value
             return self.registers.regWriteWithOpWord(self.regName, value, valueOp)
         elif (regSize == OP_SIZE_DWORD):
             value = <unsigned int>value
             return self.registers.regWriteWithOpDword(self.regName, value, valueOp)
+        elif (regSize == OP_SIZE_QWORD):
+            value = <unsigned long int>value
+            return self.registers.regWriteWithOpQword(self.regName, value, valueOp)
 
 
 
@@ -381,7 +392,6 @@ cdef class Registers:
                 segmentInstance.isValid = False
         if (segId == CPU_SEGMENT_CS):
             self.codeSegSize = segmentInstance.getSegSize()
-            self.eipSize = OP_SIZE_QWORD
         self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
         return segValue
     cdef signed long int regReadSigned(self, unsigned short regId, unsigned char regSize):
@@ -696,6 +706,7 @@ cdef class Registers:
             self.pf = PARITY_TABLE[<unsigned char>regSumu]
             self.zf = regSumu==0
             self.sf = (regSumu & bitMaskHalf) != 0
+    """
     cpdef checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write):
         cdef GdtEntry gdtEntry
         cdef unsigned char addrInLimit
@@ -725,6 +736,7 @@ cdef class Registers:
         else:
             if ((gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) or not addrInLimit):
                 raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+    """
     cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
         cdef Segment segment
         if (allowOverride and self.segmentOverridePrefix):

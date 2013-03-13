@@ -443,7 +443,7 @@ cdef class Opcodes:
         elif (opcode == 0xff):
             retVal = self.opcodeGroupFF()
         else:
-            self.main.notice("handler for opcode {0:#06x} wasn't found.", opcode)
+            self.main.notice("handler for opcode {0:#04x} wasn't found.", opcode)
             raise HirnwichseException(CPU_EXCEPTION_UD) # if opcode wasn't found.
         return retVal
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
@@ -2269,7 +2269,7 @@ cdef class Opcodes:
         cdef GdtEntry gdtEntryCS, gdtEntrySS
         cdef unsigned char inProtectedMode, cpl
         cdef unsigned short tempCS, tempSS, i
-        cdef unsigned int tempEFLAGS, tempEIP, tempESP, eflagsMask = 0
+        cdef unsigned int tempEFLAGS, currentEFLAGS, tempEIP, tempESP, eflagsMask = 0
         inProtectedMode = (<Segments>self.registers.segments).isInProtectedMode()
         tempEIP = self.stackPopValue(False) # this is here because esp should stay on
                                             # it's original value in case of an exception.
@@ -2278,6 +2278,7 @@ cdef class Opcodes:
         tempEIP = self.stackPopValue(True)
         tempCS = <unsigned short>self.stackPopValue(True)
         tempEFLAGS = self.stackPopValue(True)
+        currentEFLAGS = self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS)
         if (inProtectedMode):
             if (tempEFLAGS & FLAG_VM):
                 self.main.exitError("Opcodes::iret: VM86-Mode isn't supported yet.")
@@ -2299,18 +2300,23 @@ cdef class Opcodes:
             if ((tempCS&3) > cpl): # outer privilege level; rpl > cpl
                 self.main.notice("Opcodes::iret: rpl > cpl.")
                 tempESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
-                tempSS = self.registers.segRead(CPU_SEGMENT_SS)
+                #tempSS = self.registers.segRead(CPU_SEGMENT_SS)
+                if (not (<Segment>self.registers.segments.ss).isAddressInLimit(tempESP, (self.registers.operSize << 1))): # if currentESP is not in currentSS limits
+                    self.main.notice("Opcodes::iret: address not in limit ; test2. (tempESP: {0:#010x}, operSize: {1:d})", tempESP, self.registers.operSize)
+                    raise HirnwichseException(CPU_EXCEPTION_SS, 0)
+                tempESP = self.stackPopValue(True)
+                tempSS = <unsigned short>self.stackPopValue(True)
                 if (not (tempSS&0xfff8)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 if ((tempSS&0xfff8) > (<Gdt>self.registers.segments.gdt).tableLimit):
+                    self.main.notice("Opcodes::iret: rpl > cpl ; test1. (var1: {0:#06x}, tableLimit: {1:#06x})", (tempSS&0xfff8), (<Gdt>self.registers.segments.gdt).tableLimit)
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempSS)
                 gdtEntrySS = (<GdtEntry>(<Gdt>self.registers.segments.gdt).getEntry(tempSS))
-                if (not gdtEntrySS.isAddressInLimit(tempESP, \
-                  ((self.registers.operSize == OP_SIZE_DWORD and OP_SIZE_QWORD) or OP_SIZE_DWORD))): # TODO: should i keep it in this order?
-                    raise HirnwichseException(CPU_EXCEPTION_SS, 0)
-                if ((tempCS&3 != tempSS&3) or (not gdtEntrySS.segIsRW) or (gdtEntrySS.segDPL != tempCS&3)):
+                if ((tempSS&3 != tempCS&3) or (not gdtEntrySS.segIsRW) or (gdtEntrySS.segDPL != tempCS&3)):
+                    self.main.notice("Opcodes::iret: test3. (check1: {0:d}, check2: {1:d}, check3: {2:d})", (tempSS&3 != tempCS&3), (not gdtEntrySS.segIsRW), (gdtEntrySS.segDPL != tempCS&3))
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempSS)
                 if (not gdtEntrySS.segPresent):
+                    self.main.notice("Opcodes::iret: seg not present ; test4.")
                     raise HirnwichseException(CPU_EXCEPTION_SS, tempSS)
                 eflagsMask |= FLAG_VM
                 self.main.notice("Opcodes::iret: What the heck should I do here?")
@@ -2333,7 +2339,9 @@ cdef class Opcodes:
                     eflagsMask |= FLAG_VIF | FLAG_VIP
             tempEFLAGS &= eflagsMask
             tempEFLAGS |= FLAG_REQUIRED
-            self.registers.regWriteDword(CPU_REGISTER_EFLAGS, tempEFLAGS)
+            currentEFLAGS &= ~eflagsMask
+            currentEFLAGS |= tempEFLAGS
+            self.registers.regWriteDword(CPU_REGISTER_EFLAGS, currentEFLAGS)
             #if ((tempCS&3) == cpl): # same privilege level; rpl==cpl
             #    cpl = self.registers.getCPL()
             #    self.main.notice("Opcodes::iret: What the heck should I do here?")

@@ -41,6 +41,7 @@ cdef class Segment:
         self.segIsRW = gdtEntry.segIsRW
         self.segIsConforming = gdtEntry.segIsConforming
         self.segIsNormal = gdtEntry.segIsNormal
+        self.segUse4K = gdtEntry.segUse4K
         self.segDPL = gdtEntry.segDPL
         self.isRMSeg = False
     cdef unsigned char getSegSize(self):
@@ -60,6 +61,18 @@ cdef class Segment:
         return self.segIsConforming
     cdef unsigned char getSegDPL(self):
         return self.segDPL
+    cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size): # TODO: copied from GdtEntry::isAddressInLimit until a better solution is found... so never.
+        cdef unsigned int limit
+        limit = self.limit
+        if (self.segUse4K):
+            limit <<= 12
+        # TODO: handle the direction bit here.
+        ## address is an offset.
+        if (not self.segIsCodeSeg and self.segIsConforming):
+            self.gdt.segments.main.exitError("GdtEntry::isAddressInLimit: direction-bit ISN'T supported yet.")
+        if ((address+size)>limit):
+            return False
+        return True
 
 
 cdef class GdtEntry:
