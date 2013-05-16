@@ -3,9 +3,11 @@ cdef class PitChannel:
     cpdef object main
     cdef Pit pit
     cdef unsigned char channelId, bcdMode, counterMode, counterWriteMode, \
-      counterFlipFlop, timerEnabled
+      counterFlipFlop, timerEnabled, readBackStatusValue, readBackStatusIssued
     cdef unsigned int counterValue, counterStartValue, counterLatchValue
     cdef float tempTimerValue
+    cpdef readBackCount(self)
+    cpdef readBackStatus(self)
     cpdef mode0Func(self)
     cpdef mode2Func(self)
     cpdef timerFunc(self)

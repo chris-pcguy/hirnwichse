@@ -4,12 +4,13 @@ from pic cimport Pic
 
 
 cdef class AtaDrive:
-    cpdef object main
+    cpdef object main, fp
     cdef AtaController ataController
     cdef unsigned char driveId, sectorCountFlipFlop, sectorHighFlipFlop, sectorMiddleFlipFlop, sectorLowFlipFlop, isLoaded, \
         isWriteProtected
     cdef unsigned int sectorCount
     cdef unsigned long int sector
+    cdef bytes filename
     cdef void reset(self)
     cdef void loadDrive(self, bytes filename)
     cdef void run(self)

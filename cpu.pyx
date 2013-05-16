@@ -46,11 +46,11 @@ cdef class Cpu:
         return
     cpdef exception(self, unsigned char exceptionId, signed int errorCode=-1):
         self.main.notice("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
-        ##if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
-        if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
-            self.savedEip = <unsigned int>(self.savedEip+1)
-        self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
-        self.registers.regWriteDword(CPU_REGISTER_EIP, self.savedEip)
+        if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
+            self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
+            self.registers.regWriteDword(CPU_REGISTER_EIP, self.savedEip)
+        #if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
+        #    self.savedEip = <unsigned int>(self.savedEip+1)
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
             if (errorCode == -1):
                 self.main.exitError("CPU exception: errorCode should be set, is -1.")

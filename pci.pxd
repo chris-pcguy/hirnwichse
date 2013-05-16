@@ -14,8 +14,9 @@ cdef class PciDevice:
     cpdef object main
     cdef Pci pci
     cdef PciBus bus
-    cdef unsigned char deviceIndex
+    cdef unsigned char deviceIndex, barsEnabled # barsEnabled is a bitmask
     cdef void reset(self)
+    cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned char dataSize)
     cdef inline unsigned int getMmAddress(self, unsigned char bus, unsigned char device, unsigned char function, unsigned short register)
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize)

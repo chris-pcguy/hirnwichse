@@ -9,6 +9,12 @@ DEF PCI_DEVICE_ID = 0x02
 DEF PCI_CLASS_DEVICE = 0x0a
 DEF PCI_HEADER_TYPE = 0x0e
 DEF PCI_BIST = 0xf
+DEF PCI_BASE_ADDRESS_0 = 0x10
+DEF PCI_BASE_ADDRESS_1 = 0x14
+DEF PCI_BASE_ADDRESS_2 = 0x18
+DEF PCI_BASE_ADDRESS_3 = 0x1c
+DEF PCI_BASE_ADDRESS_4 = 0x20
+DEF PCI_BASE_ADDRESS_5 = 0x24
 DEF PCI_BRIDGE_MEM_BASE = 0x20
 DEF PCI_BRIDGE_MEM_LIMIT = 0x22
 
@@ -24,7 +30,15 @@ DEF PCI_DEVICE_ID_INTEL_440FX = 0x1237
 DEF PCI_HEADER_TYPE_BRIDGE = 1
 DEF PCI_RESET_VALUE = 0x02
 
-cdef unsigned int PCI_MEM_BASE = 0xe0000000
+
+DEF PCI_BAR0_ENABLED_MASK = 0x1
+DEF PCI_BAR1_ENABLED_MASK = 0x2
+DEF PCI_BAR2_ENABLED_MASK = 0x4
+DEF PCI_BAR3_ENABLED_MASK = 0x8
+DEF PCI_BAR4_ENABLED_MASK = 0x10
+DEF PCI_BAR5_ENABLED_MASK = 0x20
+
+cdef unsigned int PCI_MEM_BASE = 0xc0000000
 
 
 cdef class PciAddress:
@@ -47,11 +61,29 @@ cdef class PciDevice:
         self.deviceIndex = deviceIndex
     cdef void reset(self):
         pass
+    cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned char dataSize): # return true means allowed
+        cdef unsigned char offset, headerType
+        offset = mmAddress&0xff
+        if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BASE_ADDRESS_5+4):
+            if ((offset & 3) != 0):
+                self.main.notice("PciDevice::checkWriteAccess: unaligned access!")
+            headerType = self.getData((mmAddress & 0xffffff00) | PCI_HEADER_TYPE, OP_SIZE_BYTE)
+            if (headerType >= 0x02):
+                self.main.notice("PciDevice::checkWriteAccess: headerType >= 0x02")
+                return True
+            elif (headerType == 0x01):
+                if (offset >= PCI_BASE_ADDRESS_2):
+                    return True
+            (<Mm>self.main.mm).mmPhyWriteValue(mmAddress & 0xfffffffc, 0x00, OP_SIZE_DWORD)
+            return False
+        return True
     cdef inline unsigned int getMmAddress(self, unsigned char bus, unsigned char device, unsigned char function, unsigned short register):
         return (PCI_MEM_BASE | (bus<<20) | ((device&0x1f)<<15) | ((function&0x7)<<12) | (register))
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize):
         return (<Mm>self.main.mm).mmPhyReadValueUnsigned(mmAddress, dataSize)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
+        if (not self.checkWriteAccess(mmAddress, dataSize)):
+            return
         (<Mm>self.main.mm).mmPhyWriteValue(mmAddress, data, dataSize)
     cdef void setVendorId(self, unsigned short vendorId):
         self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_VENDOR_ID), vendorId, OP_SIZE_WORD)

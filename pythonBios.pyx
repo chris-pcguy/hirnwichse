@@ -87,6 +87,7 @@ cdef class PythonBios:
                 self.main.notice("PythonBios::interrupt: int: 0x10: currMode {0:d} not supported here. (ax: {1:#06x})", currMode, ax)
                 return False
         elif (intNum == 0x13): # data storage; floppy
+            #return False
             fdcNum = 0
             if (dl in (2, 3)):
                 fdcNum = 1

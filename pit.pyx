@@ -6,6 +6,9 @@ from posix.unistd cimport usleep
 include "globals.pxi"
 
 
+DEF READBACK_DONT_LATCH_COUNT  = 0x20
+DEF READBACK_DONT_LATCH_STATUS = 0x10
+
 cdef class PitChannel:
     def __init__(self, object main, Pit pit, unsigned char channelId):
         self.main = main
@@ -14,9 +17,16 @@ cdef class PitChannel:
         self.bcdMode = 0 # 0 == binary; 1 == BCD
         self.counterMode = 0 # 0-5 valid, 6,7 not
         self.counterWriteMode = 0 # 1 == LSB ; 2 == MSB ; 3 == LSB;MSB
-        self.counterValue = self.counterStartValue = 0
-        self.counterFlipFlop = self.timerEnabled = False
+        self.readBackStatusValue = 0
+        self.counterValue = self.counterStartValue = self.counterLatchValue = 0
+        self.counterFlipFlop = self.timerEnabled = self.readBackStatusIssued = False
         self.tempTimerValue = 0.0
+    cpdef readBackCount(self):
+        self.counterLatchValue = self.counterValue
+    cpdef readBackStatus(self):
+        self.readBackStatusValue = self.bcdMode
+        self.readBackStatusValue |= self.counterMode<<1
+        self.readBackStatusValue |= self.counterWriteMode<<4
     cpdef mode0Func(self):
         self.timerEnabled = False
         usleep(int(self.tempTimerValue))
@@ -100,7 +110,10 @@ cdef class Pit:
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
                 channel = self.channels[channelId]
-                if (channel.counterWriteMode == 1): # LSB
+                if (channel.readBackStatusIssued):
+                    channel.readBackStatusIssued = False
+                    retVal = channel.readBackStatusValue
+                elif (channel.counterWriteMode == 1): # LSB
                     retVal = <unsigned char>channel.counterValue
                 elif (channel.counterWriteMode == 2): # MSB
                     retVal = <unsigned char>(<unsigned short>channel.counterValue>>8)
@@ -128,7 +141,7 @@ cdef class Pit:
         return 0
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef PitChannel channel
-        cdef unsigned char channelId, bcd, modeNumber, counterWriteMode
+        cdef unsigned char channelId, bcd, modeNumber, counterWriteMode, i
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
@@ -152,7 +165,22 @@ cdef class Pit:
                 counterWriteMode = (data>>4)&3
                 channelId = (data>>6)&3
                 if (channelId == 3):
-                    self.main.exitError("outPort: read-back not supported.")
+                    if (bcd): # not bcd, reserved!
+                        self.main.exitError("outPort: reserved should be clear.")
+                        return
+                    if (not (data&READBACK_DONT_LATCH_STATUS)):
+                        self.main.exitError("outPort: latch status isn't supported yet.")
+                        return
+                    if (modeNumber): # not modeNumber, channels!
+                        for i in range(3):
+                            if ((data & (2 << i)) != 0):
+                                channel = self.channels[i]
+                                if (not (data&READBACK_DONT_LATCH_COUNT)):
+                                    channel.readBackCount()
+                                if (not (data&READBACK_DONT_LATCH_STATUS)):
+                                    channel.readBackStatus()
+                                    channel.readBackStatusIssued = True
+                    #self.main.exitError("outPort: read-back not supported.")
                     return
                 if (bcd): # BCD
                     self.main.exitError("outPort: BCD not supported yet.")

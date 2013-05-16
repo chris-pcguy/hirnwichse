@@ -1505,6 +1505,8 @@ cdef class Opcodes:
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_CREG)
             if (self.modRMInstance.regName not in (CPU_REGISTER_CR0, CPU_REGISTER_CR2, CPU_REGISTER_CR3, CPU_REGISTER_CR4)):
                 raise HirnwichseException(CPU_EXCEPTION_UD)
+            elif (self.modRMInstance.regName == CPU_REGISTER_CR2):
+                self.main.notice("TODO: MOV R32, CR2")
             # We need to 'ignore' mod to read the source/dest as a register. That's the way to do it.
             self.modRMInstance.mod = 3
             self.modRMInstance.modRMSave(OP_SIZE_DWORD, self.modRMInstance.modRLoadUnsigned(OP_SIZE_DWORD), True, OPCODE_SAVE)
@@ -1528,6 +1530,8 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
             if (self.modRMInstance.regName == CPU_REGISTER_CR0):
                 self.syncCR0State()
+            elif (self.modRMInstance.regName == CPU_REGISTER_CR2):
+                self.main.notice("TODO: MOV CR2, R32")
             elif (self.modRMInstance.regName == CPU_REGISTER_CR3):
                 (<Paging>self.registers.segments.paging).invalidateTables(op2)
             elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
@@ -1578,7 +1582,8 @@ cdef class Opcodes:
             if (eaxId == 0x1):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x400)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8110)
+                #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8110)
+                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8100) # TODO: disabled TSC feature.
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
             elif (eaxId >= 0x2 and eaxId <= 0x5):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
@@ -2230,17 +2235,9 @@ cdef class Opcodes:
               TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
                 self.main.exitError("Opcodes::interrupt: unknown entryType {0:d}.", entryType)
                 return True
-        else:
-            (<Idt>(<Segments>self.registers.segments).idt).getEntryRealMode(intNum, &entrySegment, <unsigned short*>&entryEip)
-            if (isSoftInt and ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10)) and \
-              self.main.platform.pythonBios.interrupt(intNum)):
-                return True
-            entryEip &= BITMASK_WORD
-        self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}, AX: {3:#06x}", intNum, entrySegment, entryEip, self.registers.regReadUnsignedWord(CPU_REGISTER_AX))
-        if (inProtectedMode):
             cpl = self.registers.getCPL()
-            if ((cpl and cpl > entrySegment&3) or (<Segments>self.registers.segments).getSegDPL(entrySegment)):
-                self.main.exitError("Opcodes::interrupt: (cpl!=0 and cpl>rpl) or dpl!=0")
+            if ((cpl > entrySegment&3) or (<Segments>self.registers.segments).getSegDPL(entrySegment)):
+                self.main.exitError("Opcodes::interrupt: (cpl>rpl) or dpl!=0")
                 return True
             elif (cpl&3 != entrySegment&3): # FIXME
                 self.main.exitError("Opcodes::interrupt: cpl&3 != entrySegment&3. What to do here???")
@@ -2249,6 +2246,13 @@ cdef class Opcodes:
                 #self.stackPushRegId(CPU_REGISTER_ESP, entrySize)
             entrySegment &= 0xfffc
             entrySegment |= cpl
+        else:
+            (<Idt>(<Segments>self.registers.segments).idt).getEntryRealMode(intNum, &entrySegment, <unsigned short*>&entryEip)
+            if (isSoftInt and ((entrySegment == 0xf000 and intNum != 0x10) or (entrySegment == 0xc000 and intNum == 0x10)) and \
+              self.main.platform.pythonBios.interrupt(intNum)):
+                return True
+            entryEip &= BITMASK_WORD
+        self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}, AX: {3:#06x}", intNum, entrySegment, entryEip, self.registers.regReadUnsignedWord(CPU_REGISTER_AX))
         if (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE)):
             eflagsClearThis |= FLAG_IF
         self.stackPushRegId(CPU_REGISTER_EFLAGS, entrySize)
@@ -2773,15 +2777,15 @@ cdef class Opcodes:
             state = self.registers.valGetBit(value, offset)
             #self.main.notice("btFunc: test1.1: address=={0:#010x}; offset=={1:d}; value=={2:#04x}; state=={3:d}; segId=={4:d}", address, offset, value, state, self.modRMInstance.rmNameSegId)
         self.registers.cf = state
-        if (newValType == BT_COMPLEMENT):
-            state = not state
-        elif (newValType == BT_RESET):
-            state = False
-        elif (newValType == BT_SET):
-            state = True
-        else:
-            self.main.exitError("btFunc: unknown newValType: {0:d}", newValType)
         if (newValType != BT_NONE):
+            if (newValType == BT_COMPLEMENT):
+                state = not state
+            elif (newValType == BT_RESET):
+                state = False
+            elif (newValType == BT_SET):
+                state = True
+            else:
+                self.main.exitError("btFunc: unknown newValType: {0:d}", newValType)
             value = self.registers.valSetBit(value, offset, state)
             if (self.modRMInstance.mod == 3): # register operand
                 self.modRMInstance.modRMSave(self.registers.operSize, value, True, OPCODE_SAVE)

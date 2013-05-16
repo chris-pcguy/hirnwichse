@@ -3,3 +3,7 @@ If in code are many REP operations, it could be that GUI-Events can't get execut
 
 Do character write over pygame_events? (cpuThread: videoMmArea-->EventList;; mainThread: EventList-->doOutput)
 
+PCI
+Opcodes::interrupt
+ATA
+VM86

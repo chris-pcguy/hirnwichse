@@ -193,9 +193,9 @@ cdef class AtaController:
             hdaLoaded = (<AtaDrive>self.drive[0]).isLoaded
             hdbLoaded = (<AtaDrive>self.drive[1]).isLoaded
             #cmosVal = (<Cmos>self.main.platform.cmos).readValue(CMOS_EQUIPMENT_BYTE, OP_SIZE_BYTE)
-            #if (fdaLoaded or fdbLoaded):
+            #if (hdaLoaded or hdbLoaded):
             #    cmosVal |= 0x1
-            #    if (fdaLoaded and fdbLoaded):
+            #    if (hdaLoaded and hdbLoaded):
             #        cmosVal |= 0x40
             #(<Cmos>self.main.platform.cmos).writeValue(CMOS_EQUIPMENT_BYTE, cmosVal, OP_SIZE_BYTE)
             #(<Cmos>self.main.platform.cmos).setEquipmentDefaultValue(cmosVal)
@@ -210,6 +210,7 @@ cdef class Ata:
         for controller in self.controller:
             controller.reset(False)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+        self.main.notice("Ata::inPort: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
         if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
             return (<AtaController>self.controller[0]).inPort(ioPortAddr-ATA1_BASE, dataSize)
         elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
@@ -220,6 +221,7 @@ cdef class Ata:
             return (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
         return BITMASK_BYTE
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
+        self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#010x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
         if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
             (<AtaController>self.controller[0]).outPort(ioPortAddr-ATA1_BASE, data, dataSize)
         elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
