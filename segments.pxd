@@ -7,7 +7,7 @@ include "cpu_globals.pxi"
 cdef class Segment:
     cdef Segments segments
     cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, \
-        segIsRW, segIsConforming, segIsNormal, segUse4K, segDPL, isRMSeg
+        segIsRW, segIsConforming, segIsNormal, segUse4K, segDPL
     cdef unsigned short segmentIndex
     cdef unsigned int base, limit
     cdef void loadSegment(self, unsigned short segmentIndex)

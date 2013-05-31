@@ -220,14 +220,16 @@ cdef class Platform:
         if (offset >= self.vga.videoMemBase and (offset+dataSize) <= (self.vga.videoMemBase+self.vga.videoMemSize)):
             self.vga.vgaAreaWrite(mmArea, offset, dataSize)
     cdef void initMemory(self):
-        cdef MmArea biosMmArea
+        cdef MmArea biosMmArea, romMmArea
         cdef unsigned int i
         if (not self.main or not self.main.mm or not self.main.memSize):
+            self.main.exitError("X86Platform::initMemory: not self.main or not self.main.mm or not self.main.memSize")
             return
         for i in range(self.main.memSize):
             (<Mm>self.main.mm).mmAddArea(SIZE_1MB*i, False)
-        (<Mm>self.main.mm).mmAddArea(0xfff00000, False)
+        romMmArea = (<Mm>self.main.mm).mmAddArea(0xfff00000, False)
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
+        romMmArea.readOnly = True
         if (self.main.vgaBiosFilename):
             self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xc0000, True)
         biosMmArea = (<Mm>self.main.mm).mmGetArea(0x0) # this would include the whole first megabyte.

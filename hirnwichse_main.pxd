@@ -19,7 +19,7 @@ cdef class Hirnwichse:
     cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename
     cpdef parseArgs(self)
     cpdef quitFunc(self)
-    cpdef runThreadFunc(self)
+    cdef runThreadFunc(self)
     cpdef reset(self, unsigned char resetHardware)
     cpdef run(self)
 

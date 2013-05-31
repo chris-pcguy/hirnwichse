@@ -16,12 +16,8 @@ cdef class Segment:
         self.segmentIndex = segmentIndex
         if (not self.segments.isInProtectedMode()):
             self.base = <unsigned int>segmentIndex<<4
-            self.limit = 0xffff
+            #self.limit = 0xffff
             self.isValid = True
-            self.isRMSeg = True
-            return
-        if (not segmentIndex):
-            self.isValid = False
             return
         if (segmentIndex & SELECTOR_USE_LDT):
             gdtEntry = (<GdtEntry>(<Gdt>self.segments.ldt).getEntry(segmentIndex))
@@ -43,7 +39,6 @@ cdef class Segment:
         self.segIsNormal = gdtEntry.segIsNormal
         self.segUse4K = gdtEntry.segUse4K
         self.segDPL = gdtEntry.segDPL
-        self.isRMSeg = False
     cdef unsigned char getSegSize(self):
         return self.segSize
     cdef unsigned char isSegPresent(self):
@@ -311,7 +306,7 @@ cdef class Segments:
         self.main = main
     cdef void reset(self):
         self.ldtr = 0
-        self.A20Active = True # enable A20-line by default.
+        self.A20Active = True # TODO: enabled A20-line by default. should it really be disabled by default?
         self.protectedModeOn = self.pagingOn = False
     cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness):
         cdef Segment segment

@@ -61,8 +61,8 @@ cdef class ModRMClass:
                 self.rmName0 = CPU_MODRM_16BIT_RM0[self.rm]
                 self.rmName1 = CPU_MODRM_16BIT_RM1[self.rm]
                 if (self.mod == 0 and self.rm == 6):
-                        self.rmName0 = CPU_REGISTER_NONE
-                        self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedWord()
+                    self.rmName0 = CPU_REGISTER_NONE
+                    self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedWord()
                 elif (self.mod == 1):
                     self.rmName2 = self.registers.getCurrentOpcodeAddSignedByte()
                 elif (self.mod == 2):
@@ -84,12 +84,12 @@ cdef class ModRMClass:
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
                 else:
                     self.rmName0 = self.rm
+                    if (self.rmName0 == CPU_REGISTER_EBP):
+                        self.rmNameSegId = CPU_SEGMENT_SS
                 if (self.mod == 1):
                     self.rmName2 = self.registers.getCurrentOpcodeAddSignedByte()
                 elif (self.mod == 2):
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
-                if (self.rmName0 == CPU_REGISTER_EBP):
-                    self.rmNameSegId = CPU_SEGMENT_SS
             self.rmNameSegId = self.registers.segmentOverridePrefix or self.rmNameSegId
         return True
     cdef unsigned long int getRMValueFull(self, unsigned char rmSize):
@@ -114,8 +114,8 @@ cdef class ModRMClass:
             return <unsigned char>retAddr
         elif (self.regSize == OP_SIZE_DWORD):
             return <unsigned int>retAddr
-        elif (self.regSize == OP_SIZE_QWORD):
-            return <unsigned long int>retAddr
+        #elif (self.regSize == OP_SIZE_QWORD):
+        #    return <unsigned long int>retAddr
         return retAddr
     cdef signed long int modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride):
         # NOTE: imm == unsigned ; disp == signed
@@ -243,7 +243,6 @@ cdef class Registers:
         #self.regWriteDword(CPU_REGISTER_CR0, 0x40000014)
         self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
-        #self.segments.cs.base = 0xfff00000
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef void resetPrefixes(self):
         self.operandSizePrefix = self.addressSizePrefix = self.segmentOverridePrefix = self.repPrefix = 0
@@ -269,13 +268,9 @@ cdef class Registers:
         self.vip = (flags&FLAG_VIP)!=0
         self.id = (flags&FLAG_ID)!=0
     cdef unsigned char getCPL(self):
-        cdef Segment cs
         if (not (<Segments>self.segments).isInProtectedMode()):
             return 0
-        cs = self.segments.cs
-        if (cs.isRMSeg):
-            return 0
-        return (cs.segmentIndex&3)
+        return ((<Segment>self.segments.cs).segmentIndex&3)
     cdef unsigned char getIOPL(self):
         return self.iopl
     cdef signed char getCurrentOpcodeSignedByte(self):
@@ -746,15 +741,15 @@ cdef class Registers:
         # TODO: check for limit asf...
         if (self.vm):
             self.main.notice("Registers::mmGetRealAddr: TODO. (VM is on)")
-        if (segment.isRMSeg):
-            if (self.segments.getA20State()): # A20 Active? if True == on, else off
-                if (segment.segSize != OP_SIZE_WORD or segment.base >= SIZE_1MB):
-                    return mmAddr&0xff1fffff
-                return mmAddr&0x1fffff
-            elif (segment.segSize == OP_SIZE_WORD and segment.base < SIZE_1MB):
-                return mmAddr&0xfffff
-        elif ((<Segments>self.segments).isPagingOn()):
+        #self.main.notice("test_1: addr: {0:#010x}", mmAddr)
+        if ((<Segments>self.segments).isPagingOn()): # TODO: is a20 even applied after paging? (on the physical address... or even the virtual one?)
             return (<Paging>(<Segments>self.segments).paging).getPhysicalAddress(mmAddr)
+        if (self.segments.getA20State()): # A20 Active? if True == on, else off
+            if (segment.segSize != OP_SIZE_WORD or segment.base >= SIZE_1MB):
+                return mmAddr
+            return mmAddr&0x1fffff
+        elif (segment.segSize == OP_SIZE_WORD and segment.base < SIZE_1MB):
+            return mmAddr&0xfffff
         return mmAddr
     cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char allowOverride):
         #self.checkMemAccessRights(mmAddr, dataSize, segId, False)

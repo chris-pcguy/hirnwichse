@@ -61,7 +61,7 @@ cdef class Hirnwichse:
     def notice(self, str msg, *msgArgs): # this needs to be 'def'
         print("NOTICE: " + msg.format(*msgArgs))
         stdout.flush()
-    cpdef runThreadFunc(self):
+    cdef runThreadFunc(self):
         self.platform.run()
         (<Pic>self.platform.pic).cpuInstance = self.cpu
         (<Pic>self.platform.pic).setINTR = <SetINTR>self.cpu.setINTR

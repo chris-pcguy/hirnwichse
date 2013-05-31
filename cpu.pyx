@@ -193,7 +193,7 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doCycle: exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
-    cpdef run(self):
+    cdef run(self):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
         self.opcodes.registers = self.registers

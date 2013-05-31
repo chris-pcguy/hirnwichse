@@ -15,3 +15,7 @@ This project makes heavily use of Cython.
 This project may have included some parts of other projects, such as Qemu or Bochs.
 
 Thanks to all of them!
+
+
+Notice:
+You must revert the patch 'd832914e8569f9bddb2cbb059cd81fc4d3a7a333' in Cython!!

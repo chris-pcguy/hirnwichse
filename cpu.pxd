@@ -30,6 +30,6 @@ cdef class Cpu:
     cpdef cpuDump(self)
     cdef void doInfiniteCycles(self)
     cdef void doCycle(self)
-    cpdef run(self)
+    cdef run(self)
 
 

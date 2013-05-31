@@ -39,9 +39,9 @@ cdef class Mm:
     cdef void mmMallocArea(self, MmArea mmArea, unsigned char clearByte):
         if (mmArea.data is NULL):
             mmArea.data = <char*>malloc(SIZE_1MB)
-        if (mmArea.data is NULL):
-            self.main.exitError("Mm::mmAddArea: not mmArea.data.")
-            return
+            if (mmArea.data is NULL):
+                self.main.exitError("Mm::mmAddArea: not mmArea.data.")
+                return
         memset(mmArea.data, clearByte, SIZE_1MB)
     cdef void mmDelArea(self, unsigned int mmAddr):
         cdef MmArea mmArea = self.mmGetArea(mmAddr)
@@ -79,15 +79,18 @@ cdef class Mm:
         mmArea.readOnly = readOnly
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         if (not mmArea.valid or mmArea.data is NULL or not dataSize):
-            self.main.exitError("Mm::mmAreaRead: not mmArea(.data) || not dataSize. (address: {0:#010x}, dataSize: {1:d})", \
-              mmArea.start+offset, dataSize)
+            if (mmArea.data is not NULL):
+                self.main.exitError("Mm::mmAreaRead: not mmArea(.valid) || not dataSize. (address: {0:#010x}, dataSize: {1:d})", \
+                  mmArea.start+offset, dataSize)
             return b'\xff'*dataSize
         return mmArea.data[offset:offset+dataSize]
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
-        if (not mmArea.valid or mmArea.readOnly or mmArea.data is NULL or not dataSize):
-            self.main.exitError("Mm::mmAreaWrite: not mmArea(.data) || mmArea.readOnly || not dataSize. (address: {0:#010x}, dataSize: {1:d}, readOnly: {2:d})", \
+        if (not mmArea.valid or mmArea.readOnly or not dataSize):
+            self.main.exitError("Mm::mmAreaWrite: not mmArea.valid || mmArea.readOnly || not dataSize. (address: {0:#010x}, dataSize: {1:d}, readOnly: {2:d})", \
               mmArea.start+offset, dataSize, mmArea.readOnly)
             return
+        elif (mmArea.data is NULL):
+            self.mmMallocArea(mmArea, 0x00)
         with nogil:
             memcpy(<char*>(mmArea.data+offset), data, dataSize)
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
