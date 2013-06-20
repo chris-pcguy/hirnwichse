@@ -119,7 +119,7 @@ cdef class AtaController:
                 ret = (0xa0) | (self.useLBA << 6) | (self.driveId << 4) # | (self.headNo&0xf)
             elif (ioPortAddr == 0x7 or ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 if (not drive.isLoaded):
-                    ret = 0x00
+                    ret = BITMASK_BYTE # 0x00
                 else:
                     ret = (self.driveBusy << 7) | (self.driveReady << 6) | (self.seekComplete << 4) | (self.drq << 3) | \
                         (self.err)
@@ -128,7 +128,7 @@ cdef class AtaController:
             elif (ioPortAddr == 0x1ff or ioPortAddr == 0x207):
                 return BITMASK_BYTE
             else:
-                self.main.notice("AtaController::inPort: controllerId: {0:d}; ioPortAddr: {1:#06x}; dataSize: {2:d}", self.controllerId, ioPortAddr, dataSize)
+                self.main.notice("AtaController::inPort: controllerId: {0:d}; ioPortAddr: {1:#06x}; dataSize: {2:d}; ret: {3:#06x}", self.controllerId, ioPortAddr, dataSize, ret)
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
         return ret

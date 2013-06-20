@@ -94,13 +94,12 @@ cdef class ModRMClass:
         return True
     cdef unsigned long int getRMValueFull(self, unsigned char rmSize):
         cdef unsigned long int retAddr
-        if (self.regSize == OP_SIZE_BYTE):
-            if (self.rm <= 3):
-                retAddr = <unsigned char>(self.registers.regReadUnsignedLowByte(self.rmName0))
-            elif (self.rm >= 4):
-                retAddr = <unsigned char>(self.registers.regReadUnsignedHighByte(self.rmName0))
-        elif (self.regSize == OP_SIZE_WORD):
+        if (self.regSize in (OP_SIZE_BYTE, OP_SIZE_WORD)):
             retAddr = <unsigned short>(self.registers.regReadUnsignedWord(self.rmName0))
+            if (self.regSize == OP_SIZE_BYTE):
+                if (self.rm >= 4):
+                    retAddr >>= 8
+                retAddr = <unsigned char>retAddr
         elif (self.regSize == OP_SIZE_DWORD):
             retAddr = <unsigned int>(self.registers.regReadUnsignedDword(self.rmName0))
         elif (self.regSize == OP_SIZE_QWORD):
@@ -108,13 +107,13 @@ cdef class ModRMClass:
         if (self.rmName1 != CPU_REGISTER_NONE):
             retAddr = <unsigned long int>(retAddr+(self.registers.regReadUnsigned(self.rmName1, self.registers.addrSize)<<self.ss))
         retAddr = <unsigned long int>(retAddr+self.rmName2)
-        if (rmSize == OP_SIZE_WORD or self.regSize == OP_SIZE_WORD):
-            return <unsigned short>retAddr
-        elif (self.regSize == OP_SIZE_BYTE):
+        if (rmSize == OP_SIZE_BYTE):
             return <unsigned char>retAddr
-        elif (self.regSize == OP_SIZE_DWORD):
+        elif (rmSize == OP_SIZE_WORD):
+            return <unsigned short>retAddr
+        elif (rmSize == OP_SIZE_DWORD):
             return <unsigned int>retAddr
-        #elif (self.regSize == OP_SIZE_QWORD):
+        #elif (rmSize == OP_SIZE_QWORD):
         #    return <unsigned long int>retAddr
         return retAddr
     cdef signed long int modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride):
@@ -125,7 +124,7 @@ cdef class ModRMClass:
             if (regSize == OP_SIZE_BYTE):
                 if (self.rm <= 3):
                     returnInt = self.registers.regReadSignedLowByte(self.rmName0)
-                elif (self.rm >= 4):
+                else: #elif (self.rm >= 4):
                     returnInt = self.registers.regReadSignedHighByte(self.rmName0)
             elif (regSize == OP_SIZE_WORD):
                 returnInt = self.registers.regReadSignedWord(self.rmName0)
@@ -144,7 +143,7 @@ cdef class ModRMClass:
             if (regSize == OP_SIZE_BYTE):
                 if (self.rm <= 3):
                     returnInt = self.registers.regReadUnsignedLowByte(self.rmName0)
-                elif (self.rm >= 4):
+                else: #elif (self.rm >= 4):
                     returnInt = self.registers.regReadUnsignedHighByte(self.rmName0)
             elif (regSize == OP_SIZE_WORD):
                 returnInt = self.registers.regReadUnsignedWord(self.rmName0)
@@ -187,7 +186,7 @@ cdef class ModRMClass:
         if (regSize == OP_SIZE_BYTE):
             if (self.reg <= 3):
                 retVal = self.registers.regReadSignedLowByte(self.regName)
-            elif (self.reg >= 4):
+            else: #elif (self.reg >= 4):
                 retVal = self.registers.regReadSignedHighByte(self.regName)
         elif (regSize == OP_SIZE_WORD):
             retVal = self.registers.regReadSignedWord(self.regName)
@@ -201,7 +200,7 @@ cdef class ModRMClass:
         if (regSize == OP_SIZE_BYTE):
             if (self.reg <= 3):
                 retVal = self.registers.regReadUnsignedLowByte(self.regName)
-            elif (self.reg >= 4):
+            else: #elif (self.reg >= 4):
                 retVal = self.registers.regReadUnsignedHighByte(self.regName)
         elif (regSize == OP_SIZE_WORD):
             retVal = self.registers.regReadUnsignedWord(self.regName)
@@ -215,7 +214,7 @@ cdef class ModRMClass:
             value = <unsigned char>value
             if (self.reg <= 3):
                 return self.registers.regWriteWithOpLowByte(self.regName, value, valueOp)
-            elif (self.reg >= 4):
+            else: #elif (self.reg >= 4):
                 return self.registers.regWriteWithOpHighByte(self.regName, value, valueOp)
         elif (regSize == OP_SIZE_WORD):
             value = <unsigned short>value
@@ -740,7 +739,7 @@ cdef class Registers:
         mmAddr = <unsigned int>(segment.base+mmAddr)
         # TODO: check for limit asf...
         if (self.vm):
-            self.main.notice("Registers::mmGetRealAddr: TODO. (VM is on)")
+            self.main.exitError("Registers::mmGetRealAddr: TODO. (VM is on)")
         #self.main.notice("test_1: addr: {0:#010x}", mmAddr)
         if ((<Segments>self.segments).isPagingOn()): # TODO: is a20 even applied after paging? (on the physical address... or even the virtual one?)
             return (<Paging>(<Segments>self.segments).paging).getPhysicalAddress(mmAddr)
