@@ -713,7 +713,7 @@ cdef class Registers:
                 raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
             else:
                 raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
-        gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segVal))
+        gdtEntry = <GdtEntry>self.segments.getEntry(segVal)
         if (not gdtEntry or not gdtEntry.segPresent ):
             if (segId == CPU_SEGMENT_SS):
                 raise HirnwichseException(CPU_EXCEPTION_SS, segVal)

@@ -19,10 +19,7 @@ cdef class Segment:
             #self.limit = 0xffff
             self.isValid = True
             return
-        if (segmentIndex & SELECTOR_USE_LDT):
-            gdtEntry = (<GdtEntry>(<Gdt>self.segments.ldt).getEntry(segmentIndex))
-        else:
-            gdtEntry = (<GdtEntry>(<Gdt>self.segments.gdt).getEntry(segmentIndex))
+        gdtEntry = self.segments.getEntry(segmentIndex)
         if (gdtEntry is None):
             self.isValid = False
             return
@@ -188,7 +185,7 @@ cdef class Gdt:
     cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId):
         cdef unsigned char numSegDPL, cpl
         cdef GdtEntry gdtEntry
-        if (num > self.tableLimit):
+        if ((num&0xfff8) > self.tableLimit):
             raise HirnwichseException(CPU_EXCEPTION_GP, num)
         if (not (num&0xfff8)):
             if (segId == CPU_SEGMENT_CS or segId == CPU_SEGMENT_SS):
@@ -201,10 +198,10 @@ cdef class Gdt:
             raise HirnwichseException(CPU_EXCEPTION_NP, num)
         cpl = self.segments.cs.segmentIndex&3
         numSegDPL = gdtEntry.segDPL
-        if (segId == CPU_SEGMENT_SS):
-            if ((num&3 != cpl or numSegDPL != cpl) or \
-              (not gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW)):
-                self.segments.main.notice("test2: segId=={0:#04d}", segId)
+        if (segId == CPU_SEGMENT_SS): # TODO: TODO!
+            ##if ((num&3 != cpl or numSegDPL != cpl) or \
+            if (((gdtEntry.segIsCodeSeg) or (not gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW))):
+                self.segments.main.notice("test2: segId=={0:#04x}, num {1:#06x}, numSegDPL {2:d}, cpl {3:d}", segId, num, numSegDPL, cpl)
                 raise HirnwichseException(CPU_EXCEPTION_GP, num)
         else: # not stack segment
             if ( ((not gdtEntry.segIsCodeSeg or not gdtEntry.segIsConforming) and (num&3 > numSegDPL and \
@@ -229,9 +226,6 @@ cdef class Idt:
         if (self.segments.protectedModeOn and not self.tableLimit and self.tableBase):
             self.segments.main.exitError("Idt::loadTable: tableLimit is zero.")
             return
-    cdef void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
-        retTableBase[0] = self.tableBase
-        retTableLimit[0] = self.tableLimit
     cdef IdtEntry getEntry(self, unsigned char num):
         cdef unsigned long int address
         cdef IdtEntry idtEntry
@@ -335,10 +329,23 @@ cdef class Segments:
         if (num & SELECTOR_USE_LDT):
             return self.ldt.isSegConforming(num)
         return self.gdt.isSegConforming(num)
+    cdef unsigned char isSegPresent(self, unsigned short num):
+        if (num & SELECTOR_USE_LDT):
+            return self.ldt.isSegPresent(num)
+        return self.gdt.isSegPresent(num)
     cdef unsigned char getSegDPL(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
             return self.ldt.getSegDPL(num)
         return self.gdt.getSegDPL(num)
+    cdef unsigned char getSegType(self, unsigned short num):
+        if (num & SELECTOR_USE_LDT):
+            return self.ldt.getSegType(num)
+        return self.gdt.getSegType(num)
+    cdef void setSegType(self, unsigned short num, unsigned char segmentType):
+        if (num & SELECTOR_USE_LDT):
+            self.ldt.setSegType(num, segmentType)
+            return
+        self.gdt.setSegType(num, segmentType)
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment):
         if (num & SELECTOR_USE_LDT):
             return self.ldt.checkAccessAllowed(num, isStackSegment)
@@ -355,6 +362,10 @@ cdef class Segments:
         if (num & SELECTOR_USE_LDT):
             return self.ldt.checkSegmentLoadAllowed(num, segId)
         return self.gdt.checkSegmentLoadAllowed(num, segId)
+    cdef unsigned char inLimit(self, unsigned short num):
+        if (num & SELECTOR_USE_LDT):
+            return ((num&0xfff8) <= self.ldt.tableLimit)
+        return ((num&0xfff8) <= self.gdt.tableLimit)
     cdef void run(self):
         self.gdt = Gdt(self)
         self.ldt = Gdt(self)

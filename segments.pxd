@@ -82,7 +82,9 @@ cdef class Idt:
     cdef unsigned short tableLimit
     cdef unsigned int tableBase
     cdef void loadTable(self, unsigned int tableBase, unsigned short tableLimit)
-    cdef void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit)
+    cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
+        retTableBase[0] = self.tableBase
+        retTableLimit[0] = self.tableLimit
     cdef IdtEntry getEntry(self, unsigned char num)
     cdef unsigned char isEntryPresent(self, unsigned char num)
     cdef unsigned char getEntryNeededDPL(self, unsigned char num)
@@ -121,11 +123,15 @@ cdef class Segments:
     cdef unsigned char isCodeSeg(self, unsigned short num)
     cdef unsigned char isSegReadableWritable(self, unsigned short num)
     cdef unsigned char isSegConforming(self, unsigned short num)
+    cdef unsigned char isSegPresent(self, unsigned short num)
     cdef unsigned char getSegDPL(self, unsigned short num)
+    cdef unsigned char getSegType(self, unsigned short num)
+    cdef void setSegType(self, unsigned short num, unsigned char segmentType)
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment)
     cdef unsigned char checkReadAllowed(self, unsigned short num)
     cdef unsigned char checkWriteAllowed(self, unsigned short num)
     cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId)
+    cdef unsigned char inLimit(self, unsigned short num)
     cdef void run(self)
 
 
