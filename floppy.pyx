@@ -599,8 +599,6 @@ cdef class FloppyController:
                 if (not len(self.result)):
                     self.handleIdle()
                 return drive # previous result[0]
-            elif (ioPortAddr == 0x6):
-                return (<Ata>self.main.platform.ata).inPort(ioPortAddr, dataSize)
             elif (ioPortAddr == 0x7):
                 value = (<Ata>self.main.platform.ata).inPort(ioPortAddr, dataSize)&0x7f
                 drive = self.DOR & 0x3
@@ -631,9 +629,6 @@ cdef class FloppyController:
             elif (ioPortAddr == 0x5): # send cmds
                 self.addCommand(data)
                 return
-            elif (ioPortAddr == 0x6):
-                ##self.main.debug("FDC_CTRL::outPort: hdc-shared port {0:#06x} not supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
-                return # TODO: 0x3f6/0x376 should be shared with hard disk controller.
             elif (ioPortAddr == 0x7): # set data rate
                 self.dataRate = data & 0x3
                 return

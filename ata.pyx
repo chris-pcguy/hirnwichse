@@ -91,7 +91,10 @@ cdef class AtaController:
         cdef unsigned char ret = BITMASK_BYTE
         drive = self.drive[self.driveId]
         if (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr == 0x2):
+            if (ioPortAddr == 0x0): # data port
+                pass
+                self.main.notice("AtaController::inPort: data port ;controllerId: {0:d}; ioPortAddr: {1:#06x}; dataSize: {2:d}", self.controllerId, ioPortAddr, dataSize)
+            elif (ioPortAddr == 0x2):
                 if (not drive.sectorCountFlipFlop and self.useLBA and self.useLBA48):
                     ret = (drive.sectorCount>>8)&0xff
                 else:
@@ -119,18 +122,20 @@ cdef class AtaController:
                 ret = (0xa0) | (self.useLBA << 6) | (self.driveId << 4) # | (self.headNo&0xf)
             elif (ioPortAddr == 0x7 or ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 if (not drive.isLoaded):
-                    ret = BITMASK_BYTE # 0x00
+                    #ret = BITMASK_BYTE # 0x00
+                    ret = 0x00 # BITMASK_BYTE
                 else:
                     ret = (self.driveBusy << 7) | (self.driveReady << 6) | (self.seekComplete << 4) | (self.drq << 3) | \
                         (self.err)
                 if (ioPortAddr == 0x7 and self.irq):
                     (<Pic>self.main.platform.pic).lowerIrq(self.irq)
             elif (ioPortAddr == 0x1ff or ioPortAddr == 0x207):
+                self.main.exitError("AtaController::inPort: what??? ;controllerId: {0:d}; ioPortAddr: {1:#06x}; dataSize: {2:d}", self.controllerId, ioPortAddr, dataSize)
                 return BITMASK_BYTE
             else:
-                self.main.notice("AtaController::inPort: controllerId: {0:d}; ioPortAddr: {1:#06x}; dataSize: {2:d}; ret: {3:#06x}", self.controllerId, ioPortAddr, dataSize, ret)
+                self.main.notice("AtaController::inPort: TODO: controllerId: {0:d}; ioPortAddr: {1:#06x}; dataSize: {2:d}; ret: {3:#06x}", self.controllerId, ioPortAddr, dataSize, ret)
         else:
-            self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("AtaController::inPort: dataSize {0:d} not supported.", dataSize)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef AtaDrive drive
@@ -169,9 +174,12 @@ cdef class AtaController:
                 drive.sector = (drive.sector&0xfffff0ffffff)|((data&0xf)<<24)
                 self.useLBA = True if ((data & USE_LBA) != 0) else False
                 self.useLBA48 = True if ((data & USE_LBA28) != USE_LBA28) else False
+            elif (ioPortAddr == 0x7): # command port
+                pass
+                self.main.notice("AtaController::outPort: command port: controllerId: {0:d}; ioPortAddr: {1:#06x}; data: {2:#04x}; dataSize: {3:d}", self.controllerId, ioPortAddr, data, dataSize)
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 if (not (data & CONTROL_REG_SHOULD_BE_SET)):
-                    self.main.exitError("outPort: CONTROL_REG_SHOULD_BE_SET should be set! (obvious message is obvious.)")
+                    self.main.exitError("AtaController::outPort: CONTROL_REG_SHOULD_BE_SET should be set! (obvious message is obvious.)")
                 prevReset = self.doReset
                 self.irqEnabled = True if ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN) else False
                 self.doReset = True if ((data & CONTROL_REG_SRST) == CONTROL_REG_SRST) else False
@@ -181,24 +189,15 @@ cdef class AtaController:
                     self.driveBusy = self.resetInProgress = False
                     self.driveReady = True
             else:
-                self.main.notice("AtaController::outPort: controllerId: {0:d}; ioPortAddr: {1:#06x}; data: {2:#04x}; dataSize: {3:d}", self.controllerId, ioPortAddr, data, dataSize)
+                self.main.notice("AtaController::outPort: TODO: controllerId: {0:d}; ioPortAddr: {1:#06x}; data: {2:#04x}; dataSize: {3:d}", self.controllerId, ioPortAddr, data, dataSize)
         else:
-            self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("AtaController::outPort: dataSize {0:d} not supported.", dataSize)
         return
     cdef void run(self):
-        cdef unsigned char hdaLoaded, hdbLoaded, cmosVal
+        (<Cmos>self.main.platform.cmos).writeValue(CMOS_HDD_DRIVE_TYPE, 0, OP_SIZE_BYTE)
         if (self.controllerId == 0):
             if (self.main.hdaFilename): (<AtaDrive>self.drive[0]).loadDrive(self.main.hdaFilename)
             if (self.main.hdbFilename): (<AtaDrive>self.drive[1]).loadDrive(self.main.hdbFilename)
-            hdaLoaded = (<AtaDrive>self.drive[0]).isLoaded
-            hdbLoaded = (<AtaDrive>self.drive[1]).isLoaded
-            #cmosVal = (<Cmos>self.main.platform.cmos).readValue(CMOS_EQUIPMENT_BYTE, OP_SIZE_BYTE)
-            #if (hdaLoaded or hdbLoaded):
-            #    cmosVal |= 0x1
-            #    if (hdaLoaded and hdbLoaded):
-            #        cmosVal |= 0x40
-            #(<Cmos>self.main.platform.cmos).writeValue(CMOS_EQUIPMENT_BYTE, cmosVal, OP_SIZE_BYTE)
-            #(<Cmos>self.main.platform.cmos).setEquipmentDefaultValue(cmosVal)
 
 
 cdef class Ata:
@@ -210,18 +209,20 @@ cdef class Ata:
         for controller in self.controller:
             controller.reset(False)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+        cdef unsigned char ret = BITMASK_BYTE
         self.main.notice("Ata::inPort: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
         if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
-            return (<AtaController>self.controller[0]).inPort(ioPortAddr-ATA1_BASE, dataSize)
+            ret = (<AtaController>self.controller[0]).inPort(ioPortAddr-ATA1_BASE, dataSize)
         elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
-            return (<AtaController>self.controller[1]).inPort(ioPortAddr-ATA2_BASE, dataSize)
+            ret = (<AtaController>self.controller[1]).inPort(ioPortAddr-ATA2_BASE, dataSize)
         elif (ioPortAddr in ATA3_PORTS and len(self.controller) >= 3 and self.controller[2]):
-            return (<AtaController>self.controller[2]).inPort(ioPortAddr-ATA3_BASE, dataSize)
+            ret = (<AtaController>self.controller[2]).inPort(ioPortAddr-ATA3_BASE, dataSize)
         elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
-            return (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
-        return BITMASK_BYTE
+            ret = (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
+        self.main.notice("Ata::inPort: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
+        return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
-        self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#010x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
+        self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
         if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
             (<AtaController>self.controller[0]).outPort(ioPortAddr-ATA1_BASE, data, dataSize)
         elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
