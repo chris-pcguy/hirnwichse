@@ -671,7 +671,7 @@ cdef class Opcodes:
         dataLength = (<unsigned long int>countVal*operSize)
         if (dataLength != <unsigned int>dataLength):
             self.main.notice("Opcodes::stosFunc: dataLength overflow.")
-        dataLength = dataLength&BITMASK_DWORD
+        dataLength &= BITMASK_DWORD
         data = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
         ediVal = self.registers.regReadUnsignedDword(CPU_REGISTER_EDI)
         if (dfFlag):
@@ -778,7 +778,7 @@ cdef class Opcodes:
         dataLength = (<unsigned long int>countVal*operSize)
         if (dataLength != <unsigned int>dataLength):
             self.main.notice("Opcodes::lodsFunc: dataLength overflow.")
-        dataLength = dataLength&BITMASK_DWORD
+        dataLength &= BITMASK_DWORD
         if (not dfFlag):
             esiVal = (self.registers.regAddDword(CPU_REGISTER_ESI, dataLength)-operSize)&BITMASK_DWORD
         else:
@@ -1324,7 +1324,7 @@ cdef class Opcodes:
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)
                 if (operOpcodeModId == 2): # LLDT
                     if (not (op1>>2)):
-                        self.main.notice("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid. (LDTR: {0:#06x})", op1)
+                        self.main.debug("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid. (LDTR: {0:#06x})", op1)
                         op1 = 0
                     else:
                         if ((op1 & SELECTOR_USE_LDT) or not self.registers.segments.inLimit(op1)):
@@ -1722,7 +1722,7 @@ cdef class Opcodes:
             if (self.registers.operSize == OP_SIZE_WORD):
                 sop1 = <signed short>sop1
                 sop2 = <signed short>sop2
-            op1 = (sop1*sop2)&BITMASK_DWORD
+            op1 = <unsigned int>(sop1*sop2)
             if (self.registers.operSize == OP_SIZE_WORD):
                 op1 &= BITMASK_WORD
             self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
@@ -2113,17 +2113,17 @@ cdef class Opcodes:
         elif (operOpcodeId == GROUP2_OP_IMUL):
             operOp1 = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
             if (operSize == OP_SIZE_BYTE):
-                operSum = ((<signed char>operOp1)*(<signed char>operOp2))&BITMASK_WORD
+                operSum = <unsigned short>((<signed char>operOp1)*(<signed char>operOp2))
                 self.registers.regWriteWord(CPU_REGISTER_AX, operSum)
                 self.registers.setFullFlags(operOp1, operOp2, operSize, OPCODE_IMUL)
                 self.registers.cf = self.registers.of = (<signed char>operSum)!=(<signed short>operSum)
                 return True
             if (operSize == OP_SIZE_WORD):
-                operSum = (<signed short>operOp1*<signed short>operOp2)&BITMASK_DWORD
+                operSum = <unsigned int>(<signed short>operOp1*<signed short>operOp2)
                 self.registers.regWrite(CPU_REGISTER_AX, operSum&BITMASK_WORD, operSize)
                 self.registers.regWrite(CPU_REGISTER_DX, (operSum>>operSizeInBits)&BITMASK_WORD, operSize)
             elif (operSize == OP_SIZE_DWORD):
-                operSum = (<signed int>operOp1*<signed int>operOp2)&BITMASK_DWORD
+                operSum = <unsigned int>(<signed int>operOp1*<signed int>operOp2)
                 utemp = (operOp1*operOp2)>>operSizeInBits
                 self.registers.regWrite(CPU_REGISTER_AX, operSum, operSize)
                 self.registers.regWrite(CPU_REGISTER_DX, utemp, operSize)

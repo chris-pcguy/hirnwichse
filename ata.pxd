@@ -16,6 +16,10 @@ cdef class AtaDrive:
     cdef inline unsigned short readValue(self, unsigned char index)
     cdef inline void writeValue(self, unsigned char index, unsigned short value)
     cdef void loadDrive(self, bytes filename)
+    cdef bytes readBytes(self, unsigned int offset, unsigned int size)
+    cdef bytes readSectors(self, unsigned int sector, unsigned int count) # count in sectors
+    cdef void writeBytes(self, unsigned int offset, unsigned int size, bytes data)
+    cdef void writeSectors(self, unsigned int sector, unsigned int count, bytes data)
     cdef void run(self)
 
 
@@ -23,9 +27,9 @@ cdef class AtaController:
     cpdef object main
     cdef Ata ata
     cdef tuple drive
-    cdef bytes result
+    cdef bytes result, data
     cdef unsigned char controllerId, driveId, useLBA, useLBA48, irqEnabled, doReset, driveBusy, resetInProgress, \
-        driveReady, drq, seekComplete, err, irq
+        driveReady, drq, seekComplete, err, irq, cmd
     cdef void reset(self, unsigned char swReset)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)

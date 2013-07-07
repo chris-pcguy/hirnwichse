@@ -25,6 +25,11 @@ DEF CONTROL_REG_SRST = 0x4
 DEF CONTROL_REG_NIEN = 0x2
 
 DEF COMMAND_IDENTIFY = 0xec
+DEF COMMAND_READ_LBA28 = 0x20
+DEF COMMAND_WRITE_LBA28 = 0x30
+
+DEF SECTOR_SIZE = 512
+DEF SECTOR_SHIFT = 9
 
 cdef class AtaDrive:
     def __init__(self, AtaController ataController, object main, unsigned char driveId):
@@ -34,16 +39,17 @@ cdef class AtaDrive:
         self.isLoaded = False
         self.isWriteProtected = True
         self.diskSize = 0
-        self.configSpace = ConfigSpace(512, self.main)
+        self.configSpace = ConfigSpace(SECTOR_SIZE, self.main) # Is the device identity data area actually one sector big?
     cdef inline unsigned short readValue(self, unsigned char index):
-        return self.configSpace.csReadValueUnsignedBE(index << 1, OP_SIZE_WORD)
+        return self.configSpace.csReadValueUnsigned(index << 1, OP_SIZE_WORD)
     cdef inline void writeValue(self, unsigned char index, unsigned short value):
-        self.configSpace.csWriteValueBE(index << 1, value, OP_SIZE_WORD)
+        self.configSpace.csWriteValue(index << 1, value, OP_SIZE_WORD)
     cdef void reset(self):
         self.sector = self.sectorCount = 1
         self.sectorCountFlipFlop = self.sectorHighFlipFlop = self.sectorMiddleFlipFlop = self.sectorLowFlipFlop = False
     cdef void loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType
+        cdef unsigned int cylinders
         if (not filename or not access(filename, F_OK | R_OK)):
             self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", (self.ataController.controllerId<<1)+self.driveId, filename)
             return
@@ -62,17 +68,47 @@ cdef class AtaDrive:
         self.fp.seek(0, SEEK_END)
         self.diskSize = self.fp.tell()
         self.fp.seek(0)
-        self.writeValue(5, 512) # hdd block size
-        self.writeValue(83, (1<<10)) # supports lba48
-        self.writeValue(1, self.diskSize / (HEADS * SPT)) # word 1 ; cylinders
+        self.writeValue(0, 0x40) # word 0 ; fixed drive
+        cylinders = self.diskSize / (HEADS * SPT)
+        if (cylinders > 16383):
+            cylinders = 16383
+        self.writeValue(1, cylinders) # word 1 ; cylinders
         self.writeValue(3, HEADS) # word 3 ; heads
+        self.writeValue(4, SPT << SECTOR_SHIFT) # word 4 ; spt * SECTOR_SIZE
+        self.writeValue(5, SECTOR_SIZE) # hdd block size
         self.writeValue(6, SPT) # word 6 ; spt
-        self.configSpace.csWriteValueBE(100 << 1, self.diskSize>>9, OP_SIZE_QWORD) # total number of addressable blocks. (diskSize>>9 == diskSize/512)
+        self.writeValue(20, 2) # type
+        self.writeValue(21, SECTOR_SIZE) # increment in hdd block size
+        self.writeValue(83, (1<<10)) # supports lba48
+        self.configSpace.csWriteValue(100 << 1, self.diskSize>>SECTOR_SHIFT, OP_SIZE_QWORD) # total number of addressable blocks. (diskSize>>SECTOR_SHIFT == diskSize/SECTOR_SIZE)
         if (self.driveId in (0, 1)):
             cmosDiskType = (<Cmos>self.main.platform.cmos).readValue(CMOS_HDD_DRIVE_TYPE, OP_SIZE_BYTE)
             cmosDiskType |= (0xf0 if (self.driveId == 0) else 0x0f)
             (<Cmos>self.main.platform.cmos).writeValue(CMOS_HDD_DRIVE_TYPE, cmosDiskType, OP_SIZE_BYTE)
             (<Cmos>self.main.platform.cmos).writeValue((CMOS_HD0_EXTENDED_DRIVE_TYPE if (self.driveId == 0) else CMOS_HD1_EXTENDED_DRIVE_TYPE), 0x2f, OP_SIZE_BYTE)
+    cdef bytes readBytes(self, unsigned int offset, unsigned int size):
+        cdef bytes data
+        cdef unsigned int oldPos
+        oldPos = self.fp.tell()
+        self.fp.seek(offset)
+        data = self.fp.read(size)
+        if (len(data) < size): # floppy image is too short.
+            data += b'\x00'*(size-len(data))
+        self.fp.seek(oldPos)
+        return data
+    cdef bytes readSectors(self, unsigned int sector, unsigned int count): # count in sectors
+        return self.readBytes(sector<<SECTOR_SHIFT, count<<SECTOR_SHIFT)
+    cdef void writeBytes(self, unsigned int offset, unsigned int size, bytes data):
+        cdef unsigned int oldPos
+        if (len(data) < size): # data is too short.
+            data += b'\x00'*(size-len(data))
+        oldPos = self.fp.tell()
+        self.fp.seek(offset)
+        retData = self.fp.write(data)
+        self.fp.seek(oldPos)
+        self.fp.flush()
+    cdef void writeSectors(self, unsigned int sector, unsigned int count, bytes data):
+        self.writeBytes(sector<<SECTOR_SHIFT, count<<SECTOR_SHIFT, data)
     cdef void run(self):
         self.reset()
 
@@ -90,11 +126,12 @@ cdef class AtaController:
             self.irq = None
         self.driveId = 0
         self.drive = (AtaDrive(self, self.main, 0), AtaDrive(self, self.main, 1))
-        self.result = b""
+        self.result = self.data = b""
     cdef void reset(self, unsigned char swReset):
         cdef AtaDrive drive
         self.drq = self.err = self.useLBA = self.useLBA48 = False
         self.seekComplete = self.irqEnabled = True
+        self.cmd = 0
         if (self.irq):
             (<Pic>self.main.platform.pic).lowerIrq(self.irq)
         if (not swReset):
@@ -171,7 +208,13 @@ cdef class AtaController:
         if (ioPortAddr <= 0x5 and not drive.isLoaded):
             return # ignore write to not loaded device
         if (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr == 0x1):
+            if (ioPortAddr == 0x0): # data port
+                self.data += bytes([data])
+                if (len(self.data) >> SECTOR_SHIFT >= drive.sectorCount):
+                    drive.writeSectors(drive.sector, drive.sectorCount, self.data)
+                    self.data = self.data[drive.sectorCount << SECTOR_SHIFT:]
+                    self.drq = False
+            elif (ioPortAddr == 0x1):
                 pass # ignored
             elif (ioPortAddr == 0x2):
                 if (not drive.sectorCountFlipFlop and self.useLBA and self.useLBA48):
@@ -204,17 +247,22 @@ cdef class AtaController:
                 self.useLBA = True if ((data & USE_LBA) != 0) else False
                 self.useLBA48 = True if ((data & USE_LBA28) != USE_LBA28) else False
             elif (ioPortAddr == 0x7): # command port
-                if (data == COMMAND_IDENTIFY):
-                    if (drive.isLoaded):
-                        self.err = False
-                        self.driveBusy = False
-                        self.drq = True
-                        self.result = drive.configSpace.csRead(0, 512)
+                if (drive.isLoaded):
+                    self.err = False
+                    self.driveBusy = False
+                    self.drq = True
+                    self.cmd = data
+                    if (data == COMMAND_IDENTIFY):
+                        self.result = drive.configSpace.csRead(0, SECTOR_SIZE)
+                    elif (data == COMMAND_READ_LBA28):
+                        self.result = drive.readSectors(drive.sector, drive.sectorCount)
+                    elif (data == COMMAND_WRITE_LBA28):
+                        pass # not handled here.
                     else:
-                        ##self.driveBusy = self.driveReady = self.seekComplete = self.drq = self.err = False
-                        self.main.notice("AtaController::outPort: identify command: drive isn't loaded: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
+                        self.main.exitError("AtaController::outPort: unknown command: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                 else:
-                    self.main.exitError("AtaController::outPort: unknown command: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
+                    ##self.driveBusy = self.driveReady = self.seekComplete = self.drq = self.err = False
+                    self.main.notice("AtaController::outPort: identify command: drive isn't loaded: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 if (not (data & CONTROL_REG_SHOULD_BE_SET)):
                     self.main.exitError("AtaController::outPort: CONTROL_REG_SHOULD_BE_SET should be set! (obvious message is obvious.)")
@@ -248,14 +296,14 @@ cdef class Ata:
             controller.reset(False)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int ret = BITMASK_BYTE
-        self.main.notice("Ata::inPort: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
+        #self.main.notice("Ata::inPort: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_WORD):
-            ret = self.inPort(ioPortAddr, OP_SIZE_BYTE)<<8
-            ret |= self.inPort(ioPortAddr, OP_SIZE_BYTE)
+            ret = self.inPort(ioPortAddr, OP_SIZE_BYTE)
+            ret |= self.inPort(ioPortAddr, OP_SIZE_BYTE)<<8
             return ret
         elif (dataSize == OP_SIZE_DWORD):
-            ret = self.inPort(ioPortAddr, OP_SIZE_WORD)<<16
-            ret |= self.inPort(ioPortAddr, OP_SIZE_WORD)
+            ret = self.inPort(ioPortAddr, OP_SIZE_WORD)
+            ret |= self.inPort(ioPortAddr, OP_SIZE_WORD)<<16
             return ret
         if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
             ret = (<AtaController>self.controller[0]).inPort(ioPortAddr-ATA1_BASE, dataSize)
@@ -265,10 +313,10 @@ cdef class Ata:
             ret = (<AtaController>self.controller[2]).inPort(ioPortAddr-ATA3_BASE, dataSize)
         elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
             ret = (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
-        self.main.notice("Ata::inPort: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
+        #self.main.notice("Ata::inPort: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
-        self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
+        #self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_WORD):
             self.outPort(ioPortAddr, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
             self.outPort(ioPortAddr, data&BITMASK_BYTE, OP_SIZE_BYTE)

@@ -211,19 +211,19 @@ cdef class ModRMClass:
         return retVal
     cdef unsigned long int modRSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp):
         if (regSize == OP_SIZE_BYTE):
-            value = value&BITMASK_BYTE
+            value &= BITMASK_BYTE
             if (self.reg <= 3):
                 return self.registers.regWriteWithOpLowByte(self.regName, value, valueOp)
             else: #elif (self.reg >= 4):
                 return self.registers.regWriteWithOpHighByte(self.regName, value, valueOp)
         elif (regSize == OP_SIZE_WORD):
-            value = value&BITMASK_WORD
+            value &= BITMASK_WORD
             return self.registers.regWriteWithOpWord(self.regName, value, valueOp)
         elif (regSize == OP_SIZE_DWORD):
-            value = value&BITMASK_DWORD
+            value &= BITMASK_DWORD
             return self.registers.regWriteWithOpDword(self.regName, value, valueOp)
         elif (regSize == OP_SIZE_QWORD):
-            value = value&BITMASK_QWORD
+            value &= BITMASK_QWORD
             return self.registers.regWriteWithOpQword(self.regName, value, valueOp)
 
 
