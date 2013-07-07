@@ -9,7 +9,7 @@ cdef class Cmos:
     cdef unsigned char cmosIndex, equipmentDefaultValue
     cdef inline void setEquipmentDefaultValue(self, unsigned char value)
     cdef unsigned char getEquipmentDefaultValue(self)
-    cdef unsigned int readValue(self, unsigned char index, unsigned char size)
+    cdef inline unsigned int readValue(self, unsigned char index, unsigned char size)
     cdef inline void writeValue(self, unsigned char index, unsigned int value, unsigned char size)
     cdef void reset(self)
     cdef void updateTime(self)

@@ -21,10 +21,10 @@ cdef class PythonBios:
         dx = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_DX)
         bx = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_BX)
         bp = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_BP)
-        ah, al = ax>>8, <unsigned char>ax
-        ch, cl = cx>>8, <unsigned char>cx
-        dh, dl = dx>>8, <unsigned char>dx
-        bh, bl = bx>>8, <unsigned char>bx
+        ah, al = ax>>8, ax&BITMASK_BYTE
+        ch, cl = cx>>8, cx&BITMASK_BYTE
+        dh, dl = dx>>8, dx&BITMASK_BYTE
+        bh, bl = bx>>8, bx&BITMASK_BYTE
         if (intNum == 0x10): # video; TODO: REWORK THIS AND THE VGA MODULE TOO!!!
             #return False
             currMode = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_MODE_ADDR)
@@ -93,7 +93,8 @@ cdef class PythonBios:
                 fdcNum = 1
             if (dl not in (0, 1, 2, 3) or (not (<FloppyDrive>(<FloppyController>(<Floppy>self.main.platform.floppy).controller[fdcNum]).drive[dl]).isLoaded)):
                 if (dl not in (0, 1, 2, 3)):
-                    self.main.notice("INT_0x13(AX=={0:#06x}): drive dl({1:#04x}) is not in (0, 1, 2, 3).", ax, dl)
+                    return False
+                    #self.main.notice("INT_0x13(AX=={0:#06x}): drive dl({1:#04x}) is not in (0, 1, 2, 3).", ax, dl)
                 else:
                     self.main.notice("INT_0x13(AX=={0:#06x}): drive dl({1:#04x}) is not loaded.", ax, dl)
                 # TODO: set correct error code.
@@ -149,7 +150,7 @@ cdef class PythonBios:
                 (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_BX, fdCount)
                 memAddr = (<Mm>self.main.mm).mmPhyReadValueUnsigned((0x78), OP_SIZE_DWORD) # INT 0x1E: 0x78==OFFSET; 0x7A==SEGMENT
                 (<Registers>self.main.cpu.registers).segWrite(CPU_SEGMENT_ES, (memAddr>>16))
-                (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_DI, <unsigned short>memAddr)
+                (<Registers>self.main.cpu.registers).regWriteWord(CPU_REGISTER_DI, memAddr&BITMASK_WORD)
                 self.setRetError(False, 0)
                 return True
             elif (not (dl & 0x80)):
@@ -161,7 +162,7 @@ cdef class PythonBios:
     cdef void setRetError(self, unsigned char newCF, unsigned short ax): # for use with floppy
         (<Registers>self.main.cpu.registers).cf = newCF
         (<Registers>self.main.cpu.registers).regWriteWord( CPU_REGISTER_AX, ax )
-        (<Mm>self.main.mm).mmPhyWriteValueSize(DISKETTE_RET_STATUS_ADDR, <unsigned char>(ax>>8))
+        (<Mm>self.main.mm).mmPhyWriteValueSize(DISKETTE_RET_STATUS_ADDR, (ax>>8)&BITMASK_BYTE)
     cdef void run(self):
         pass
 

@@ -114,19 +114,19 @@ cdef class Pit:
                     channel.readBackStatusIssued = False
                     retVal = channel.readBackStatusValue
                 elif (channel.counterWriteMode == 1): # LSB
-                    retVal = <unsigned char>channel.counterValue
+                    retVal = channel.counterValue&BITMASK_BYTE
                 elif (channel.counterWriteMode == 2): # MSB
-                    retVal = <unsigned char>(<unsigned short>channel.counterValue>>8)
+                    retVal = (channel.counterValue>>8)&BITMASK_BYTE
                 elif (channel.counterWriteMode in (0, 3)): # LSB;MSB
                     if (not channel.counterFlipFlop):
                         if (channel.counterWriteMode == 0): # TODO?
                             channel.counterLatchValue = channel.counterValue
-                        retVal = <unsigned char>channel.counterValue
+                        retVal = channel.counterValue&BITMASK_BYTE
                     else:
                         if (channel.counterWriteMode == 0):
-                            retVal = <unsigned char>(<unsigned short>channel.counterLatchValue>>8)
+                            retVal = (channel.counterLatchValue>>8)&BITMASK_BYTE
                         else:
-                            retVal = <unsigned char>(<unsigned short>channel.counterValue>>8)
+                            retVal = (channel.counterValue>>8)&BITMASK_BYTE
                     channel.counterFlipFlop = not channel.counterFlipFlop
                 else:
                     self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", channel.counterWriteMode)

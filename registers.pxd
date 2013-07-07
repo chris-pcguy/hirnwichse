@@ -290,7 +290,7 @@ cdef class Registers:
     cdef inline unsigned char isSegPresent(self, unsigned short segId):
         return (((<Segment>(self.segments.getSegmentInstance(segId, True))).accessByte & GDT_ACCESS_PRESENT) != 0)
     cdef inline unsigned char getAddrSegSize(self, unsigned short segId):
-        segId = <unsigned char>self.getSegSize(segId)
+        segId = self.getSegSize(segId)&BITMASK_BYTE
         return ((((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef inline void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
         opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)

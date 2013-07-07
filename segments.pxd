@@ -1,6 +1,7 @@
 
 from mm cimport Mm, ConfigSpace
 
+include "globals.pxi"
 include "cpu_globals.pxi"
 
 
@@ -56,9 +57,9 @@ cdef class Gdt:
     cdef inline unsigned char getSegType(self, unsigned short num):
         return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsignedByte(self.tableBase+num+5) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
     cdef inline void setSegType(self, unsigned short num, unsigned char segmentType):
-        (<Mm>self.segments.main.mm).mmPhyWriteValueSize(self.tableBase+num+5, <unsigned char>(((<Mm>self.segments.main.mm).\
+        (<Mm>self.segments.main.mm).mmPhyWriteValueSize(self.tableBase+num+5, (((<Mm>self.segments.main.mm).\
           mmPhyReadValueUnsignedByte(self.tableBase+num+5) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
-            (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)))
+            (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK))&BITMASK_BYTE)
     cdef inline unsigned char isSegPresent(self, unsigned short num):
         return self.getEntry(num).segPresent
     cdef inline unsigned char isCodeSeg(self, unsigned short num):

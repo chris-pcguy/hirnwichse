@@ -72,11 +72,11 @@ cdef class GdtEntry:
         self.gdt = gdt
         self.parseEntryData(entryData)
     cdef void parseEntryData(self, unsigned long int entryData):
-        self.accessByte = <unsigned char>(entryData>>40)
+        self.accessByte = (entryData>>40)&BITMASK_BYTE
         self.flags  = (entryData>>52)&0xf
         self.base  = (entryData>>16)&0xffffff
         self.limit = entryData&0xffff
-        self.base  |= (<unsigned char>(entryData>>56))<<24
+        self.base  |= ((entryData>>56)&BITMASK_BYTE)<<24
         self.limit |= ((entryData>>48)&0xf)<<16
         # segment size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
         self.segSize = OP_SIZE_DWORD if (self.flags & GDT_FLAG_SIZE) else OP_SIZE_WORD

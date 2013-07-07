@@ -229,7 +229,7 @@ cdef class Vga:
         cdef unsigned int address
         page = self.getCorrectPage(page)
         cursorPos = self.getCursorPosition(page)
-        y, x = (cursorPos>>8), <unsigned char>cursorPos
+        y, x = (cursorPos>>8), cursorPos&BITMASK_BYTE
         address = self.getAddrOfPos(x, y)
         if (c == 0x7): # beep
             pass
@@ -261,7 +261,7 @@ cdef class Vga:
         cdef unsigned int address
         page = self.getCorrectPage(page)
         cursorPos = self.getCursorPosition(page)
-        x, y = <unsigned char>cursorPos, (cursorPos>>8)
+        x, y = cursorPos&BITMASK_BYTE, (cursorPos>>8)
         for i in range(count):
             address = self.getAddrOfPos(x, y)
             self.writeCharacter(address, c, attr)
@@ -273,7 +273,7 @@ cdef class Vga:
         if (attr == -1):
             (<Mm>self.main.mm).mmPhyWriteValueSize(address, c)
             return
-        (<Mm>self.main.mm).mmPhyWriteValueSize(address, <unsigned short>((<unsigned short>attr<<8)|c))
+        (<Mm>self.main.mm).mmPhyWriteValueSize(address, ((<unsigned short>attr<<8)|c)&BITMASK_WORD)
     cdef unsigned int getAddrOfPos(self, unsigned char x, unsigned char y):
         cdef unsigned int offset
         offset = ((y*80)+x)<<1
@@ -372,7 +372,7 @@ cdef class Vga:
             self.attrctrlreg.setFlipFlop(False)
         else:
             self.main.exitError("inPort: port {0:#04x} isn't supported. (dataSize byte)", ioPortAddr)
-        return <unsigned char>retVal
+        return retVal&BITMASK_BYTE
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             if ((ioPortAddr >= 0x3b0 and ioPortAddr <= 0x3bf) and self.extreg.getColorEmulation()):
@@ -427,8 +427,8 @@ cdef class Vga:
             if (ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
                 return
             elif (ioPortAddr in (0x3b4, 0x3c4, 0x3ce, 0x3d4)):
-                self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
-                self.outPort(ioPortAddr+1, <unsigned char>(data>>8), OP_SIZE_BYTE)
+                self.outPort(ioPortAddr, data&BITMASK_BYTE, OP_SIZE_BYTE)
+                self.outPort(ioPortAddr+1, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
             else:
                 self.main.exitError("outPort: port {0:#04x} isn't supported. (dataSize word, data {1:#04x})", ioPortAddr, data)
         else:
