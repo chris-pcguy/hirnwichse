@@ -97,7 +97,7 @@ cdef class FloppyDrive:
         self.DIR = 0
         self.cylinder = self.head = self.sector = self.eot = 0
     cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector):
-        return (cylinder*self.media.heads*self.media.sectorsPerTrack)+(head*self.media.sectorsPerTrack)+(sector-1)
+        return (cylinder*self.media.heads+head)*self.media.sectorsPerTrack+(sector-1)
     cdef unsigned char getDiskType(self, unsigned int size):
         cdef unsigned char diskType = FLOPPY_DISK_TYPE_NONE
         cdef unsigned char diskTypeOverride = FLOPPY_DISK_TYPE_NONE

@@ -2,55 +2,17 @@
 
 include "globals.pxi"
 
-DEF PCI_DEVICE_CONFIG_SIZE = 4096
-
-DEF PCI_VENDOR_ID = 0x00
-DEF PCI_DEVICE_ID = 0x02
-DEF PCI_CLASS_DEVICE = 0x0a
-DEF PCI_HEADER_TYPE = 0x0e
-DEF PCI_BIST = 0xf
-DEF PCI_BASE_ADDRESS_0 = 0x10
-DEF PCI_BASE_ADDRESS_1 = 0x14
-DEF PCI_BASE_ADDRESS_2 = 0x18
-DEF PCI_BASE_ADDRESS_3 = 0x1c
-DEF PCI_BASE_ADDRESS_4 = 0x20
-DEF PCI_BASE_ADDRESS_5 = 0x24
-DEF PCI_BRIDGE_MEM_BASE = 0x20
-DEF PCI_BRIDGE_MEM_LIMIT = 0x22
-
-DEF PCI_PRIMARY_BUS = 0x18
-DEF PCI_SECONDARY_BUS = 0x19
-DEF PCI_SUBORDINATE_BUS = 0x1a
-
-DEF PCI_CLASS_BRIDGE_HOST = 0x0600
-DEF PCI_CLASS_BRIDGE_PCI  = 0x0604
-DEF PCI_VENDOR_ID_INTEL   = 0x8086
-DEF PCI_DEVICE_ID_INTEL_440FX = 0x1237
-
-DEF PCI_HEADER_TYPE_BRIDGE = 1
-DEF PCI_RESET_VALUE = 0x02
-
-
-DEF PCI_BAR0_ENABLED_MASK = 0x1
-DEF PCI_BAR1_ENABLED_MASK = 0x2
-DEF PCI_BAR2_ENABLED_MASK = 0x4
-DEF PCI_BAR3_ENABLED_MASK = 0x8
-DEF PCI_BAR4_ENABLED_MASK = 0x10
-DEF PCI_BAR5_ENABLED_MASK = 0x20
-
-cdef unsigned int PCI_MEM_BASE = 0xc0000000
-
 
 cdef class PciAddress:
     def __init__(self, unsigned int address):
         self.calculateAddress(address)
     cdef unsigned int getMmAddress(self):
-        return (PCI_MEM_BASE | (self.bus<<20) | (self.device<<15) | (self.function<<12) | (self.register))
+        return (PCI_MEM_BASE | (self.bus<<PCI_BUS_SHIFT) | (self.device<<PCI_DEVICE_SHIFT) | (self.function<<PCI_FUNCTION_SHIFT) | (self.register))
     cdef void calculateAddress(self, unsigned int address):
         self.enableBit = (address>>31)
-        self.bus = (address>>16)&BITMASK_BYTE
-        self.device = (address>>11)&0x1f
-        self.function = (address>>8)&0x7
+        self.bus = (address>>PCI_BUS_SHIFT)&BITMASK_BYTE
+        self.device = (address>>PCI_DEVICE_SHIFT)&0x1f
+        self.function = (address>>PCI_FUNCTION_SHIFT)&0x7
         self.register = address&BITMASK_BYTE
 
 cdef class PciDevice:
@@ -78,7 +40,7 @@ cdef class PciDevice:
             return False
         return True
     cdef inline unsigned int getMmAddress(self, unsigned char bus, unsigned char device, unsigned char function, unsigned short register):
-        return (PCI_MEM_BASE | (bus<<20) | ((device&0x1f)<<15) | ((function&0x7)<<12) | (register))
+        return (PCI_MEM_BASE | (bus<<PCI_BUS_SHIFT) | ((device&0x1f)<<PCI_DEVICE_SHIFT) | ((function&0x7)<<PCI_FUNCTION_SHIFT) | (register))
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize):
         return (<Mm>self.main.mm).mmPhyReadValueUnsigned(mmAddress, dataSize)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
@@ -89,13 +51,15 @@ cdef class PciDevice:
         self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_VENDOR_ID), vendorId, OP_SIZE_WORD)
     cdef void setDeviceId(self, unsigned short deviceId):
         self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_DEVICE_ID), deviceId, OP_SIZE_WORD)
-    cdef void setClassDevice(self, unsigned short classDevice):
-        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_CLASS_DEVICE), classDevice, OP_SIZE_WORD)
+    cdef void setDeviceClass(self, unsigned short deviceClass):
+        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_DEVICE_CLASS), deviceClass, OP_SIZE_WORD)
     cdef void setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId):
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
     cdef void run(self):
-        pass
+        cdef MmArea mmArea
+        mmArea = (<Mm>self.main.mm).mmAddArea((<unsigned int>PCI_MEM_BASE|(<unsigned int>self.bus.busIndex<<PCI_BUS_SHIFT)|(<unsigned int>self.deviceIndex<<PCI_DEVICE_SHIFT)), False)
+        (<Mm>self.main.mm).mmMallocArea(mmArea, PCI_DEVICE_CONFIG_SIZE)
 
 cdef class PciBridge(PciDevice):
     def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):
@@ -110,7 +74,7 @@ cdef class PciBridge(PciDevice):
     cdef void run(self):
         PciDevice.run(self)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
-        self.setClassDevice(PCI_CLASS_BRIDGE_HOST)
+        self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
         self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_PRIMARY_BUS), 0, OP_SIZE_BYTE)
         self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_HEADER_TYPE), PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
 
@@ -120,6 +84,13 @@ cdef class PciBus:
         self.main = main
         self.busIndex = busIndex
         self.deviceList = {0x00: PciBridge(self, self.pci, self.main, 0)}
+    cdef PciDevice addDevice(self):
+        cdef PciDevice pciDevice
+        cdef unsigned char deviceLength = len(self.deviceList)
+        pciDevice = PciDevice(self, self.pci, self.main, deviceLength)
+        pciDevice.run()
+        self.deviceList[deviceLength] = pciDevice
+        return pciDevice
     cdef PciDevice getDeviceByIndex(self, unsigned char index):
         cdef PciDevice deviceHandle
         deviceHandle = self.deviceList.get(index)
@@ -129,9 +100,6 @@ cdef class PciBus:
     cdef void run(self):
         cdef unsigned char deviceIndex
         cdef PciDevice deviceHandle
-        cdef MmArea mmArea
-        mmArea = (<Mm>self.main.mm).mmAddArea((PCI_MEM_BASE|(<unsigned int>self.busIndex<<20)), False)
-        (<Mm>self.main.mm).mmMallocArea(mmArea, 0xff)
         for deviceIndex, deviceHandle in self.deviceList.items():
             if (deviceHandle):
                 deviceHandle.run()
@@ -145,6 +113,12 @@ cdef class Pci:
         self.pciReset = False
         self.address = self.elcr1 = self.elcr2 = 0
         self.busList = {0x00: PciBus(self, self.main, 0)}
+    cdef PciDevice addDevice(self):
+        cdef PciBus pciBus
+        cdef PciDevice pciDevice
+        pciBus = self.busList[0]
+        pciDevice = pciBus.addDevice()
+        return pciDevice
     cdef PciDevice getDevice(self, unsigned char busIndex, unsigned char deviceIndex):
         cdef PciBus busHandle
         cdef PciDevice deviceHandle

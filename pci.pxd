@@ -22,7 +22,7 @@ cdef class PciDevice:
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize)
     cdef void setVendorId(self, unsigned short vendorId)
     cdef void setDeviceId(self, unsigned short deviceId)
-    cdef void setClassDevice(self, unsigned short classDevice)
+    cdef void setDeviceClass(self, unsigned short deviceClass)
     cdef void setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId)
     cdef void run(self)
 
@@ -34,6 +34,7 @@ cdef class PciBus:
     cdef Pci pci
     cdef dict deviceList
     cdef unsigned char busIndex
+    cdef PciDevice addDevice(self)
     cdef PciDevice getDeviceByIndex(self, unsigned char index)
     cdef void run(self)
 
@@ -42,6 +43,7 @@ cdef class Pci:
     cdef dict busList
     cdef unsigned char pciReset, elcr1, elcr2
     cdef unsigned int address
+    cdef PciDevice addDevice(self)
     cdef PciDevice getDevice(self, unsigned char bus, unsigned char device)
     cdef unsigned int readRegister(self, unsigned int address, unsigned char dataSize)
     cdef void writeRegister(self, unsigned int address, unsigned int data, unsigned char dataSize)

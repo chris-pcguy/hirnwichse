@@ -306,6 +306,7 @@ cdef class GDBStub:
     def __init__(self, object main):
         self.main = main
         self.server = self.gdbHandler = None
+        return
         try:
             self.server = ThreadedTCPServer((GDBSTUB_HOST, GDBSTUB_PORT), ThreadedTCPRequestHandler, bind_and_activate=False)
             self.gdbHandler = GDBStubHandler(self.main, self)
@@ -335,6 +336,7 @@ cdef class GDBStub:
             print_exc()
             self.quitFunc()
     cpdef run(self):
+        return
         try:
             (<Misc>self.main.misc).createThread(self.serveGDBStub, True)
         except:
