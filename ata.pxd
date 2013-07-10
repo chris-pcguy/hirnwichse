@@ -29,7 +29,7 @@ cdef class AtaController:
     cdef tuple drive
     cdef bytes result, data
     cdef unsigned char controllerId, driveId, useLBA, useLBA48, irqEnabled, doReset, driveBusy, resetInProgress, driveReady, errorRegister, \
-        drq, seekComplete, err, irq, cmd, sector, head, sectorCountFlipFlop, sectorHighFlipFlop, sectorMiddleFlipFlop, sectorLowFlipFlop
+        drq, seekComplete, err, irq, cmd, sector, head, sectorCountByte, sectorCountFlipFlop, sectorHighFlipFlop, sectorMiddleFlipFlop, sectorLowFlipFlop
     cdef unsigned int sectorCount, cylinder
     cdef unsigned long int lba
     cdef void reset(self, unsigned char swReset)

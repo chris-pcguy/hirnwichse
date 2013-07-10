@@ -17,10 +17,13 @@ cdef class PciAddress:
 
 cdef class PciDevice:
     def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):
+        cdef MmArea mmArea
         self.bus = bus
         self.pci = pci
         self.main = main
         self.deviceIndex = deviceIndex
+        mmArea = (<Mm>self.main.mm).mmAddArea((<unsigned int>PCI_MEM_BASE|(<unsigned int>self.bus.busIndex<<PCI_BUS_SHIFT)|(<unsigned int>self.deviceIndex<<PCI_DEVICE_SHIFT)), False)
+        (<Mm>self.main.mm).mmMallocArea(mmArea, BITMASK_BYTE)
     cdef void reset(self):
         pass
     cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned char dataSize): # return true means allowed
@@ -57,9 +60,7 @@ cdef class PciDevice:
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
     cdef void run(self):
-        cdef MmArea mmArea
-        mmArea = (<Mm>self.main.mm).mmAddArea((<unsigned int>PCI_MEM_BASE|(<unsigned int>self.bus.busIndex<<PCI_BUS_SHIFT)|(<unsigned int>self.deviceIndex<<PCI_DEVICE_SHIFT)), False)
-        (<Mm>self.main.mm).mmMallocArea(mmArea, PCI_DEVICE_CONFIG_SIZE)
+        pass
 
 cdef class PciBridge(PciDevice):
     def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):
@@ -138,6 +139,8 @@ cdef class Pci:
             if (not pciAddressHandle.enableBit):
                 self.main.notice("Pci::readRegister: Warning: tried to read without enableBit set.")
             return deviceHandle.getData(pciAddressHandle.getMmAddress(), dataSize)
+        else:
+            self.main.debug("Pci::readRegister: deviceHandle is NULL")
         bitMask = BITMASKS_FF[dataSize]
         return bitMask
     cdef void writeRegister(self, unsigned int address, unsigned int data, unsigned char dataSize):
@@ -150,22 +153,26 @@ cdef class Pci:
                 self.main.notice("Pci::writeRegister: Warning: tried to write without enableBit set.")
             deviceHandle.setData(pciAddressHandle.getMmAddress(), data, dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+        cdef unsigned int ret = 0
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0x4d0):
-                return self.elcr1
+                ret = self.elcr1
             elif (ioPortAddr == 0x4d1):
-                return self.elcr2
+                ret = self.elcr2
             elif (ioPortAddr == 0xcf8):
-                return self.address
+                ret = self.address
             elif (ioPortAddr == 0xcf9):
-                return (self.pciReset and PCI_RESET_VALUE)
+                ret = (self.pciReset and PCI_RESET_VALUE)
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
-                return self.readRegister((self.address&0xfffffffc)+(ioPortAddr&3), dataSize)
-            self.main.exitError("inPort: port {0:#04x} is not supported. (dataSize {1:d})", ioPortAddr, dataSize)
+                ret = self.readRegister((self.address&0xfffffffc)+(ioPortAddr&3), dataSize)
+            else:
+                self.main.exitError("inPort: port {0:#04x} is not supported. (dataSize {1:d})", ioPortAddr, dataSize)
         else:
             self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
-        return 0
+        self.main.debug("inPort: port {0:#04x}. (dataSize {1:d}; ret {2:#06x})", ioPortAddr, dataSize, ret)
+        return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
+        self.main.debug("outPort: port {0:#04x}. (dataSize {1:d}; data {2:#06x})", ioPortAddr, dataSize, data)
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0x4d0):
                 data &= 0xf8

@@ -134,7 +134,7 @@ cdef class AtaController:
         self.drq = self.err = self.useLBA = self.useLBA48 = False
         self.seekComplete = self.irqEnabled = True
         self.cmd = 0
-        self.errorRegister = 1
+        self.errorRegister = 0
         self.lowerAtaIrq()
         if (not swReset):
             self.doReset = self.driveBusy = self.resetInProgress = False
@@ -186,42 +186,13 @@ cdef class AtaController:
             elif (ioPortAddr == 0x1):
                 return self.errorRegister
             elif (ioPortAddr == 0x2):
-                if (not self.sectorCountFlipFlop and self.useLBA and self.useLBA48):
-                    ret = (self.sectorCount >> 8) & BITMASK_BYTE
-                else:
-                    ret = self.sectorCount & BITMASK_BYTE
-                if (self.useLBA48):
-                    self.sectorCountFlipFlop = not self.sectorCountFlipFlop
+                ret = self.sectorCountByte & BITMASK_BYTE
             elif (ioPortAddr == 0x3):
-                if (self.useLBA):
-                    if (not self.sectorLowFlipFlop and self.useLBA48):
-                        ret = (self.lba >> 24) & BITMASK_BYTE
-                    else:
-                        ret = self.lba & BITMASK_BYTE
-                    if (self.useLBA48):
-                        self.sectorLowFlipFlop = not self.sectorLowFlipFlop
-                else:
-                    ret = self.sector
+                ret = self.sector & BITMASK_BYTE
             elif (ioPortAddr == 0x4):
-                if (self.useLBA):
-                    if (not self.sectorMiddleFlipFlop and self.useLBA48):
-                        ret = (self.lba >> 32) & BITMASK_BYTE
-                    else:
-                        ret = (self.lba >> 8) & BITMASK_BYTE
-                    if (self.useLBA48):
-                        self.sectorMiddleFlipFlop = not self.sectorMiddleFlipFlop
-                else:
-                    ret = self.cylinder & BITMASK_BYTE
+                ret = self.cylinder & BITMASK_BYTE
             elif (ioPortAddr == 0x5):
-                if (self.useLBA):
-                    if (not self.sectorHighFlipFlop and self.useLBA48):
-                        ret = (self.lba >> 40) & BITMASK_BYTE
-                    else:
-                        ret = (self.lba >> 16) & BITMASK_BYTE
-                    if (self.useLBA48):
-                        self.sectorHighFlipFlop = not self.sectorHighFlipFlop
-                else:
-                    ret = (self.cylinder >> 8) & BITMASK_BYTE
+                ret = (self.cylinder >> 8) & BITMASK_BYTE
             elif (ioPortAddr == 0x6):
                 ret = (0xa0) | (self.useLBA << 6) | (self.driveId << 4) | (((self.lba >> 24) if (self.useLBA) else self.head) & 0xf)
             elif (ioPortAddr == 0x7 or ioPortAddr == 0x1fe or ioPortAddr == 0x206):
@@ -256,46 +227,38 @@ cdef class AtaController:
             elif (ioPortAddr == 0x1):
                 self.errorRegister = data & BITMASK_BYTE
             elif (ioPortAddr == 0x2):
-                if (not self.sectorCountFlipFlop and self.useLBA and self.useLBA48):
+                if (not self.sectorCountFlipFlop):
                     self.sectorCount = (self.sectorCount & 0x00ff) | ((data & BITMASK_BYTE) << 8)
                 else:
                     self.sectorCount = (self.sectorCount & 0xff00) | (data & BITMASK_BYTE)
-                if (self.useLBA48):
-                    self.sectorCountFlipFlop = not self.sectorCountFlipFlop
+                self.sectorCountByte = (data & BITMASK_BYTE)
+                self.sectorCountFlipFlop = not self.sectorCountFlipFlop
             elif (ioPortAddr == 0x3):
-                if (self.useLBA):
-                    if (not self.sectorLowFlipFlop and self.useLBA48):
-                        self.lba = (self.lba & 0xffff00ffffff) | ((data & BITMASK_BYTE) << 24)
-                    else:
-                        self.lba = (self.lba & 0xffffffffff00) | (data & BITMASK_BYTE)
-                    if (self.useLBA48):
-                        self.sectorLowFlipFlop = not self.sectorLowFlipFlop
+                if (not self.sectorLowFlipFlop):
+                    self.lba = (self.lba & 0xffff00ffffff) | ((data & BITMASK_BYTE) << 24)
+                else:
+                    self.lba = (self.lba & 0xffffffffff00) | (data & BITMASK_BYTE)
+                self.sectorLowFlipFlop = not self.sectorLowFlipFlop
                 self.sector = data & BITMASK_BYTE
             elif (ioPortAddr == 0x4):
-                if (self.useLBA):
-                    if (not self.sectorMiddleFlipFlop and self.useLBA48):
-                        self.lba = (self.lba & 0xff00ffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 32)
-                    else:
-                        self.lba = (self.lba & 0xffffffff00ff) | ((data & BITMASK_BYTE) << 8)
-                    if (self.useLBA48):
-                        self.sectorMiddleFlipFlop = not self.sectorMiddleFlipFlop
+                if (not self.sectorMiddleFlipFlop):
+                    self.lba = (self.lba & 0xff00ffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 32)
+                else:
+                    self.lba = (self.lba & 0xffffffff00ff) | ((data & BITMASK_BYTE) << 8)
+                self.sectorMiddleFlipFlop = not self.sectorMiddleFlipFlop
                 self.cylinder = (self.cylinder & 0xff00) | (data & BITMASK_BYTE)
             elif (ioPortAddr == 0x5):
-                if (self.useLBA):
-                    if (not self.sectorHighFlipFlop and self.useLBA48):
-                        self.lba = (self.lba & 0x00ffffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 40)
-                    else:
-                        self.lba = (self.lba & 0xffffff00ffff) | ((data & BITMASK_BYTE) << 16)
-                    if (self.useLBA48):
-                        self.sectorHighFlipFlop = not self.sectorHighFlipFlop
+                if (not self.sectorHighFlipFlop):
+                    self.lba = (self.lba & 0x00ffffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 40)
+                else:
+                    self.lba = (self.lba & 0xffffff00ffff) | ((data & BITMASK_BYTE) << 16)
+                self.sectorHighFlipFlop = not self.sectorHighFlipFlop
                 self.cylinder = (self.cylinder & 0x00ff) | ((data & BITMASK_BYTE) << 8)
             elif (ioPortAddr == 0x6):
                 self.driveId = ((data & SELECT_SLAVE_DRIVE) == SELECT_SLAVE_DRIVE)
                 drive = self.drive[self.driveId]
                 self.useLBA = ((data & USE_LBA) == USE_LBA)
                 self.useLBA48 = ((data & USE_LBA28) != USE_LBA28)
-                if (self.useLBA and not self.useLBA48):
-                    self.lba = (self.lba & 0xfffff0ffffff) | ((data & 0xf) << 24)
                 self.head = data & 0xf
             elif (ioPortAddr == 0x7): # command port
                 if (self.driveId and not drive.isLoaded):
@@ -307,7 +270,8 @@ cdef class AtaController:
                     self.lba = drive.ChsToSector(self.cylinder, self.head, self.sector)
                     self.main.debug("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}", self.lba, self.cylinder, self.head, self.sector)
                 elif (not self.useLBA48):
-                    self.lba &= 0xfffffff
+                    self.lba = ((self.lba >> 24) & 0x0ffffff) | (self.head << 24)
+                    self.sectorCount >>= 8
                 if (data == COMMAND_IDENTIFY_DEVICE):
                     self.result = drive.configSpace.csRead(0, SECTOR_SIZE)
                 elif (data == COMMAND_IDENTIFY_DEVICE_PACKET):
@@ -327,17 +291,18 @@ cdef class AtaController:
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)
                 self.doReset = ((data & CONTROL_REG_SRST) == CONTROL_REG_SRST)
                 self.main.debug("AtaController::outPort: test2: prevReset=={0:d}; doReset=={1:d}; resetInProgress=={2:d}", prevReset, self.doReset, self.resetInProgress)
+                if (drive.isLoaded):
+                    self.driveId = self.cylinder = 0
+                else:
+                    self.cylinder = BITMASK_WORD
+                self.lba = self.head = 0
+                self.sectorCount = self.sectorCountByte = self.sector = 1
+                self.sectorCountFlipFlop = self.sectorHighFlipFlop = self.sectorMiddleFlipFlop = self.sectorLowFlipFlop = False
                 if (not prevReset and self.doReset):
                     self.reset(True)
                 elif (self.resetInProgress and not self.doReset):
                     self.driveBusy = self.resetInProgress = False
                     self.driveReady = True
-                    self.head = 0
-                    if (drive.isLoaded):
-                        self.driveId = self.cylinder = 0
-                    else:
-                        self.cylinder = BITMASK_WORD
-                    self.sectorCount = self.sector = 1
             else:
                 self.main.notice("AtaController::outPort: TODO: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
         else:
