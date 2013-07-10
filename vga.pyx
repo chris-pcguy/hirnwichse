@@ -186,6 +186,10 @@ cdef class Vga:
         self.extreg = ExtReg(self, self.main)
         self.attrctrlreg = AttrCtrlReg(self, self.main)
         self.processVideoMem = True
+        self.pciDevice = (<Pci>self.main.platform.pci).addDevice()
+        self.pciDevice.setVendorDeviceId(0x1234, 0x1111)
+        self.pciDevice.setDeviceClass(PCI_CLASS_VGA)
+        self.pciDevice.setData(PCI_ROM_ADDRESS, 0xc0000, OP_SIZE_DWORD)
         self.ui = None
         if (not self.main.noUI):
             self.ui = PygameUI(self, self.main)

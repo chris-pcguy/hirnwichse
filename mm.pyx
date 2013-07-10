@@ -78,14 +78,14 @@ cdef class Mm:
             return
         mmArea.readOnly = readOnly
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
-        if (not mmArea.valid or mmArea.data is NULL or not dataSize):
+        if (not mmArea.valid or mmArea.data is NULL or not dataSize or (offset+dataSize-1) > mmArea.end):
             if (mmArea.data is not NULL):
                 self.main.exitError("Mm::mmAreaRead: not mmArea(.valid) || not dataSize. (address: {0:#010x}, dataSize: {1:d})", \
                   mmArea.start+offset, dataSize)
             return b'\xff'*dataSize
         return mmArea.data[offset:offset+dataSize]
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
-        if (not mmArea.valid or mmArea.readOnly or not dataSize):
+        if (not mmArea.valid or mmArea.readOnly or not dataSize or (offset+dataSize-1) > mmArea.end):
             self.main.exitError("Mm::mmAreaWrite: not mmArea.valid || mmArea.readOnly || not dataSize. (address: {0:#010x}, dataSize: {1:d}, readOnly: {2:d})", \
               mmArea.start+offset, dataSize, mmArea.readOnly)
             return
@@ -303,24 +303,23 @@ cdef class ConfigSpace:
             return
         self.csResetData()
         register(self.csFreeData)
-    cdef void csResetData(self):
+    cdef void csResetData(self, unsigned char clearByte = 0x00):
+        self.clearByte = clearByte
         if (self.csData):
-            memset(self.csData, 0x00, self.csSize)
+            memset(self.csData, clearByte, self.csSize)
     cpdef csFreeData(self):
         if (self.csData):
             free(self.csData)
         self.csData = None
     cdef bytes csRead(self, unsigned int offset, unsigned int size):
-        IF STRICT_CHECKS:
-            if (not self.csData or not size or offset+size > self.csSize):
-                self.main.exitError("ConfigSpace::csRead: not self.csData || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
-                return b'\x00'*size
+        if (not self.csData or not size or (offset+size) > self.csSize):
+            self.main.debug("ConfigSpace::csRead: not self.csData || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
+            return bytes([self.clearByte])*size
         return self.csData[offset:offset+size]
     cdef void csWrite(self, unsigned int offset, bytes data, unsigned int size):
-        IF STRICT_CHECKS:
-            if (not self.csData or not size or offset+size > self.csSize):
-                self.main.exitError("ConfigSpace::csWrite: not self.csData || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
-                return
+        if (not self.csData or not size or (offset+size) > self.csSize):
+            self.main.debug("ConfigSpace::csWrite: not self.csData || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
+            return
         memcpy(<char*>(self.csData+offset), <char*>data, size)
     cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size):
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)

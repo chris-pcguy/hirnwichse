@@ -29,7 +29,7 @@ cdef class PortHandler:
 cdef class Platform:
     def __init__(self, object main):
         self.main = main
-        self.ports  = list()
+        self.ports  = []
     cdef void initDevices(self):
         self.cmos     = Cmos(self.main)
         self.pic      = Pic(self.main)

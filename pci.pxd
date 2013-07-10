@@ -1,6 +1,6 @@
 
 from misc cimport Misc
-from mm cimport Mm, MmArea
+from mm cimport ConfigSpace
 from pic cimport Pic
 
 
@@ -14,10 +14,11 @@ cdef class PciDevice:
     cpdef object main
     cdef Pci pci
     cdef PciBus bus
+    cdef ConfigSpace configSpace
     cdef unsigned char deviceIndex, barsEnabled # barsEnabled is a bitmask
     cdef void reset(self)
     cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned char dataSize)
-    cdef inline unsigned int getMmAddress(self, unsigned char bus, unsigned char device, unsigned char function, unsigned short register)
+    cdef inline unsigned int getMmAddress(self, unsigned char bus, unsigned char device, unsigned char function, unsigned char register)
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize)
     cdef void setVendorId(self, unsigned short vendorId)
@@ -32,7 +33,7 @@ cdef class PciBridge(PciDevice):
 cdef class PciBus:
     cpdef object main
     cdef Pci pci
-    cdef dict deviceList
+    cdef list deviceList
     cdef unsigned char busIndex
     cdef PciDevice addDevice(self)
     cdef PciDevice getDeviceByIndex(self, unsigned char index)
@@ -40,7 +41,7 @@ cdef class PciBus:
 
 cdef class Pci:
     cpdef object main
-    cdef dict busList
+    cdef list busList
     cdef unsigned char pciReset, elcr1, elcr2
     cdef unsigned int address
     cdef PciDevice addDevice(self)

@@ -66,8 +66,9 @@ cdef class Mm:
 cdef class ConfigSpace:
     cpdef object main
     cdef char *csData
+    cdef unsigned char clearByte
     cdef unsigned int csSize
-    cdef void csResetData(self)
+    cdef void csResetData(self, unsigned char clearByte = ?)
     cpdef csFreeData(self)
     cdef bytes csRead(self, unsigned int offset, unsigned int size)
     cdef void csWrite(self, unsigned int offset, bytes data, unsigned int size)
