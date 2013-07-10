@@ -225,7 +225,7 @@ cdef class AtaController:
                 else:
                     self.raiseAtaIrq()
             elif (ioPortAddr == 0x1):
-                self.errorRegister = data & BITMASK_BYTE
+                pass
             elif (ioPortAddr == 0x2):
                 if (not self.sectorCountFlipFlop):
                     self.sectorCount = (self.sectorCount & 0x00ff) | ((data & BITMASK_BYTE) << 8)
