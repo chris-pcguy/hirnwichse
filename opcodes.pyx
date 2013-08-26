@@ -2821,6 +2821,7 @@ cdef class Opcodes:
         lowerBound = self.registers.mmReadValueSigned(returnInt, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
         upperBound = self.registers.mmReadValueSigned(returnInt+self.registers.operSize, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
         if (index < lowerBound or index > upperBound+self.registers.operSize):
+            self.main.notice("bound_test1: index: {0:#06x}, lowerBound: {1:#06x}, upperBound: {2:#06x}", index, lowerBound, upperBound)
             raise HirnwichseException(CPU_EXCEPTION_BR)
         return True
     cdef int btFunc(self, unsigned int offset, unsigned char newValType):

@@ -30,6 +30,8 @@ cdef class Hirnwichse:
         self.parser.add_argument('--fdb', dest='fdbFilename', action='store', type=str, default='floppy1.img', help='fdbFilename')
         self.parser.add_argument('--hda', dest='hdaFilename', action='store', type=str, default='hd0.img', help='hdaFilename')
         self.parser.add_argument('--hdb', dest='hdbFilename', action='store', type=str, default='hd1.img', help='hdbFilename')
+        self.parser.add_argument('--cdrom', dest='cdromFilename', action='store', type=str, default='cdrom.iso', help='cdromFilename')
+        self.parser.add_argument('--boot', dest='bootFrom', action='store', type=int, default=BOOT_FROM_FD, help='bootFrom')
         self.parser.add_argument('--noUI', dest='noUI', action='store_true', default=False, help='Disable UI.')
         self.parser.add_argument('--fdaType', dest='fdaType', action='store', type=int, default=4, help='fdaType: 0==auto detect; 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
         self.parser.add_argument('--fdbType', dest='fdbType', action='store', type=int, default=4, help='fdbType: 0==auto detect; 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
@@ -46,6 +48,7 @@ cdef class Hirnwichse:
         self.fdbFilename = self.cmdArgs.fdbFilename.encode() # default: ''
         self.hdaFilename = self.cmdArgs.hdaFilename.encode() # default: ''
         self.hdbFilename = self.cmdArgs.hdbFilename.encode() # default: ''
+        self.cdromFilename = self.cmdArgs.cdromFilename.encode() # default: ''
         self.fdaType    = self.cmdArgs.fdaType
         self.fdbType    = self.cmdArgs.fdbType
         self.memSize = self.cmdArgs.memSize

@@ -25,7 +25,18 @@ cdef class Cmos:
         self.writeValue(CMOS_STATUS_REGISTER_B, 0x02, OP_SIZE_BYTE)
         self.writeValue(CMOS_STATUS_REGISTER_D, 0x80, OP_SIZE_BYTE)
         self.writeValue(CMOS_EQUIPMENT_BYTE, self.getEquipmentDefaultValue(), OP_SIZE_BYTE)
-        self.writeValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE) # boot from floppy first.
+        if (self.main.bootFrom == BOOT_FROM_FD): # boot from floppy first.
+            self.writeValue(CMOS_EXT_BIOS_CFG, 0x20, OP_SIZE_BYTE)
+            self.writeValue(CMOS_BOOT_FROM_1_2, (BOOT_FROM_HD<<4)|BOOT_FROM_FD, OP_SIZE_BYTE) # FD;HD;CD
+            self.writeValue(CMOS_BOOT_FROM_3, (BOOT_FROM_CD<<4), OP_SIZE_BYTE)
+        elif (self.main.bootFrom == BOOT_FROM_HD): # boot from harddisk first.
+            self.writeValue(CMOS_EXT_BIOS_CFG, 0x00, OP_SIZE_BYTE)
+            self.writeValue(CMOS_BOOT_FROM_1_2, (BOOT_FROM_FD<<4)|BOOT_FROM_HD, OP_SIZE_BYTE) # HD;FD;CD
+            self.writeValue(CMOS_BOOT_FROM_3, (BOOT_FROM_CD<<4), OP_SIZE_BYTE)
+        elif (self.main.bootFrom == BOOT_FROM_CD): # boot from cd first
+            self.writeValue(CMOS_EXT_BIOS_CFG, 0x00, OP_SIZE_BYTE)
+            self.writeValue(CMOS_BOOT_FROM_1_2, (BOOT_FROM_FD<<4)|BOOT_FROM_CD, OP_SIZE_BYTE) # CD;FD;HD
+            self.writeValue(CMOS_BOOT_FROM_3, (BOOT_FROM_HD<<4), OP_SIZE_BYTE)
         self.writeValue(CMOS_BASE_MEMORY_L, 0x80, OP_SIZE_BYTE)
         self.writeValue(CMOS_BASE_MEMORY_H, 0x02, OP_SIZE_BYTE)
         memSizeInK = (self.main.memSize<<10)

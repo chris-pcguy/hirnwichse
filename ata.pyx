@@ -8,6 +8,11 @@ include "globals.pxi"
 DEF HEADS = 16
 DEF SPT = 63
 
+DEF ATA_DRIVE_TYPE_NONE = 0
+DEF ATA_DRIVE_TYPE_HD = 1
+DEF ATA_DRIVE_TYPE_CDROM = 2
+
+
 DEF ATA1_BASE = 0x1f0
 DEF ATA2_BASE = 0x170
 DEF ATA3_BASE = 0x1e8
@@ -33,10 +38,11 @@ DEF SECTOR_SIZE = 512
 DEF SECTOR_SHIFT = 9
 
 cdef class AtaDrive:
-    def __init__(self, AtaController ataController, object main, unsigned char driveId):
+    def __init__(self, AtaController ataController, object main, unsigned char driveId, unsigned char driveType):
         self.ataController = ataController
         self.main = main
         self.driveId = driveId
+        self.driveType = driveType
         self.isLoaded = False
         self.isWriteProtected = True
         self.diskSize = 0
@@ -50,7 +56,7 @@ cdef class AtaDrive:
     cdef void reset(self):
         pass
     cdef void loadDrive(self, bytes filename):
-        cdef unsigned char cmosDiskType
+        cdef unsigned char cmosDiskType, translateReg, translateValue, translateValueTemp
         cdef unsigned int cylinders
         if (not filename or not access(filename, F_OK | R_OK)):
             self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", (self.ataController.controllerId << 1)+self.driveId, filename)
@@ -83,11 +89,30 @@ cdef class AtaDrive:
         self.writeValue(21, SECTOR_SIZE) # increment in hdd block size
         self.writeValue(83, (1 << 10)) # supports lba48
         self.configSpace.csWriteValue(100 << 1, self.diskSize >> SECTOR_SHIFT, OP_SIZE_QWORD) # total number of addressable blocks. (diskSize >> SECTOR_SHIFT == diskSize/SECTOR_SIZE)
-        if (self.driveId in (0, 1)):
+        if (cylinders <= 1024): # hardcoded
+            translateValueTemp = ATA_TRANSLATE_NONE
+        elif ((cylinders * HEADS) <= 131072):
+            translateValueTemp = ATA_TRANSLATE_LARGE
+        else:
+            translateValueTemp = ATA_TRANSLATE_LBA
+        translateReg = CMOS_ATA_0_1_TRANSLATION if (self.ataController.controllerId in (0, 1)) else CMOS_ATA_2_3_TRANSLATION
+        translateValue = (<Cmos>self.main.platform.cmos).readValue(translateReg, OP_SIZE_BYTE)
+        translateValue |= (translateValueTemp << (((self.ataController.controllerId&1)<<2)+(self.driveId<<1)))
+        (<Cmos>self.main.platform.cmos).writeValue(translateReg, translateValue, OP_SIZE_BYTE)
+        if (self.ataController.controllerId == 0 and self.driveId in (0, 1)):
             cmosDiskType = (<Cmos>self.main.platform.cmos).readValue(CMOS_HDD_DRIVE_TYPE, OP_SIZE_BYTE)
             cmosDiskType |= (0xf0 if (self.driveId == 0) else 0x0f)
             (<Cmos>self.main.platform.cmos).writeValue(CMOS_HDD_DRIVE_TYPE, cmosDiskType, OP_SIZE_BYTE)
             (<Cmos>self.main.platform.cmos).writeValue((CMOS_HD0_EXTENDED_DRIVE_TYPE if (self.driveId == 0) else CMOS_HD1_EXTENDED_DRIVE_TYPE), 0x2f, OP_SIZE_BYTE)
+            (<Cmos>self.main.platform.cmos).writeValue((CMOS_HD0_CYLINDERS if (self.driveId == 0) else CMOS_HD1_CYLINDERS), cylinders, OP_SIZE_WORD)
+            (<Cmos>self.main.platform.cmos).writeValue((CMOS_HD0_LANDING_ZONE if (self.driveId == 0) else CMOS_HD1_LANDING_ZONE), cylinders, OP_SIZE_WORD)
+            (<Cmos>self.main.platform.cmos).writeValue((CMOS_HD0_WRITE_PRECOMP if (self.driveId == 0) else CMOS_HD1_WRITE_PRECOMP), 0xffff, OP_SIZE_WORD)
+            (<Cmos>self.main.platform.cmos).writeValue((CMOS_HD0_HEADS if (self.driveId == 0) else CMOS_HD1_HEADS), HEADS, OP_SIZE_BYTE)
+            (<Cmos>self.main.platform.cmos).writeValue((CMOS_HD0_SPT if (self.driveId == 0) else CMOS_HD1_SPT), SPT, OP_SIZE_BYTE)
+            if (self.driveId == 0):
+                (<Cmos>self.main.platform.cmos).writeValue(CMOS_HD0_CONTROL_BYTE, 0xc8, OP_SIZE_BYTE) # hardcoded
+            else:
+                (<Cmos>self.main.platform.cmos).writeValue(CMOS_HD1_CONTROL_BYTE, 0x80, OP_SIZE_BYTE) # hardcoded
     cdef bytes readBytes(self, unsigned int offset, unsigned int size):
         cdef bytes data
         cdef unsigned int oldPos
@@ -117,17 +142,21 @@ cdef class AtaDrive:
 
 cdef class AtaController:
     def __init__(self, Ata ata, object main, unsigned char controllerId):
+        cdef unsigned char driveType # HACK
         self.ata = ata
         self.main = main
         self.controllerId = controllerId
         if (self.controllerId == 0):
             self.irq = ATA1_IRQ
+            driveType = ATA_DRIVE_TYPE_HD
         elif (self.controllerId == 1):
             self.irq = ATA2_IRQ
+            driveType = ATA_DRIVE_TYPE_CDROM
         else:
             self.irq = None
+            driveType = ATA_DRIVE_TYPE_NONE
         self.driveId = 0
-        self.drive = (AtaDrive(self, self.main, 0), AtaDrive(self, self.main, 1))
+        self.drive = (AtaDrive(self, self.main, 0, driveType), AtaDrive(self, self.main, 1, driveType))
         self.result = self.data = b""
     cdef void reset(self, unsigned char swReset):
         cdef AtaDrive drive
@@ -186,8 +215,12 @@ cdef class AtaController:
             elif (ioPortAddr == 0x1):
                 return self.errorRegister
             elif (ioPortAddr == 0x2):
+                if (not drive.isLoaded): # HACK!
+                    return BITMASK_BYTE
                 ret = self.sectorCountByte & BITMASK_BYTE
             elif (ioPortAddr == 0x3):
+                if (not drive.isLoaded): # HACK!
+                    return BITMASK_BYTE
                 ret = self.sector & BITMASK_BYTE
             elif (ioPortAddr == 0x4):
                 ret = self.cylinder & BITMASK_BYTE
@@ -313,6 +346,8 @@ cdef class AtaController:
         if (self.controllerId == 0):
             if (self.main.hdaFilename): (<AtaDrive>self.drive[0]).loadDrive(self.main.hdaFilename)
             if (self.main.hdbFilename): (<AtaDrive>self.drive[1]).loadDrive(self.main.hdbFilename)
+        elif (self.controllerId == 1):
+            if (self.main.cdromFilename): (<AtaDrive>self.drive[0]).loadDrive(self.main.cdromFilename)
 
 
 cdef class Ata:
