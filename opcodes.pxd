@@ -12,11 +12,9 @@ cdef class Opcodes:
     cdef Registers registers
     cdef ModRMClass modRMInstance
     cdef int executeOpcode(self, unsigned char opcode) except -1
-    cdef inline void cli(self):
-        self.registers.if_flag = False
-    cdef inline void sti(self):
-        self.registers.if_flag = True
-        self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
+    cdef int cli(self) except -1
+    cdef int sti(self) except -1
+    cdef int hlt(self) except -1
     cdef inline void cld(self):
         self.registers.df = False
     cdef inline void std(self):
@@ -27,8 +25,6 @@ cdef class Opcodes:
         self.registers.cf = True
     cdef inline void cmc(self):
         self.registers.cf = not self.registers.cf
-    cdef inline void hlt(self):
-        self.main.cpu.cpuHalted = True
     cdef inline void syncCR0State(self):
         cdef unsigned int value
         value = self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_PG | CR0_FLAG_PE))

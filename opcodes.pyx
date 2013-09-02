@@ -446,6 +446,41 @@ cdef class Opcodes:
             self.main.notice("handler for opcode {0:#04x} wasn't found.", opcode)
             raise HirnwichseException(CPU_EXCEPTION_UD) # if opcode wasn't found.
         return retVal
+    cdef int cli(self):
+        if ((<Segments>self.registers.segments).isInProtectedMode()):
+            if (self.registers.vm):
+                self.main.exitError("Opcodes::cli: VM86-Mode isn't supported yet.")
+                return True
+            if (self.registers.getIOPL() < self.registers.getCPL()):
+                if ((self.registers.getCPL() == 3) and self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_PVI)):
+                    self.registers.vif = False
+                    return True
+                else:
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+        self.registers.if_flag = False
+        return True
+    cdef int sti(self):
+        if ((<Segments>self.registers.segments).isInProtectedMode()):
+            if (self.registers.vm):
+                self.main.exitError("Opcodes::sti: VM86-Mode isn't supported yet.")
+                return True
+            if (self.registers.getIOPL() < self.registers.getCPL()):
+                if ((self.registers.getCPL() == 3) and not self.registers.vip):
+                    self.registers.vif = True
+                    return True
+                else:
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+        self.registers.if_flag = True
+        self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
+        return True
+    cdef int hlt(self):
+        if ((<Segments>self.registers.segments).isInProtectedMode()):
+             if (self.registers.getCPL() > 0):
+                 self.main.exitError("Opcodes::hlt: CPL > 0.")
+                 return True
+        self.main.cpu.cpuHalted = True
+        self.main.notice("Opcodes::hlt: HLT was called.")
+        return True
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if ((<Segments>self.registers.segments).isInProtectedMode()):
             if (self.registers.getCPL() > self.registers.getIOPL()):
@@ -2260,18 +2295,17 @@ cdef class Opcodes:
                     TSSstackOffset = (gdtEntryCS.segDPL << 3) + 4
                     if ((TSSstackOffset + 5) > (<Segment>self.registers.segments.tss).limit):
                         raise HirnwichseException(CPU_EXCEPTION_TS, (<Misc>self.main.misc).calculateInterruptErrorcode((<Segment>self.registers.segments.tss).segmentIndex, 0, not isSoftInt))
-                    newSS = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(((<Segment>self.registers.segments.tss).base + TSSstackOffset + 4))
-                    newESP = (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(((<Segment>self.registers.segments.tss).base + TSSstackOffset))
+                    newSS = self.registers.mmReadValueUnsignedWord((TSSstackOffset + OP_SIZE_DWORD), CPU_SEGMENT_TSS, False)
+                    newESP = self.registers.mmReadValueUnsignedDword(TSSstackOffset, CPU_SEGMENT_TSS, False)
                 else:
                     TSSstackOffset = (gdtEntryCS.segDPL << 2) + 2
                     if ((TSSstackOffset + 3) > (<Segment>self.registers.segments.tss).limit):
                         raise HirnwichseException(CPU_EXCEPTION_TS, (<Misc>self.main.misc).calculateInterruptErrorcode((<Segment>self.registers.segments.tss).segmentIndex, 0, not isSoftInt))
-                    newSS = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(((<Segment>self.registers.segments.tss).base + TSSstackOffset + 2))
-                    newESP = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(((<Segment>self.registers.segments.tss).base + TSSstackOffset))
+                    newSS = self.registers.mmReadValueUnsignedWord((TSSstackOffset + OP_SIZE_WORD), CPU_SEGMENT_TSS, False)
+                    newESP = self.registers.mmReadValueUnsignedWord(TSSstackOffset, CPU_SEGMENT_TSS, False)
                 if (not (newSS&0xfff8)):
                     raise HirnwichseException(CPU_EXCEPTION_TS, not isSoftInt)
                 if (not self.registers.segments.inLimit(newSS) or ((newSS&3) != gdtEntryCS.segDPL)):
-                    self.main.notice("interrupt exception test_2")
                     raise HirnwichseException(CPU_EXCEPTION_TS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
                 gdtEntrySS = <GdtEntry>self.registers.segments.getEntry(newSS)
                 if (not gdtEntrySS):
@@ -2391,6 +2425,7 @@ cdef class Opcodes:
                     return True
                 if ((tempSS&3 != tempCS&3) or (not gdtEntrySS.segIsRW) or (gdtEntrySS.segDPL != tempCS&3)): # TODO: TODO!
                     self.main.notice("Opcodes::iret: test_4")
+                    self.main.notice("Opcodes::iret: test_4_1 (c1=={0:d}; c2=={1:d}; c3=={2:d})", (tempSS&3 != tempCS&3), (not gdtEntrySS.segIsRW), (gdtEntrySS.segDPL != tempCS&3))
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempSS)
                 if (not gdtEntrySS.segPresent):
                     raise HirnwichseException(CPU_EXCEPTION_SS, tempSS)

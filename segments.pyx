@@ -78,7 +78,7 @@ cdef class GdtEntry:
         self.limit = entryData&0xffff
         self.base  |= ((entryData>>56)&BITMASK_BYTE)<<24
         self.limit |= ((entryData>>48)&0xf)<<16
-        # segment size: 1==32bit; 0==16bit; entrySize is 4 for 32bit and 2 for 16bit
+        # segment size: 1==32bit; 0==16bit; segSize is 4 for 32bit and 2 for 16bit
         self.segSize = OP_SIZE_DWORD if (self.flags & GDT_FLAG_SIZE) else OP_SIZE_WORD
         self.segPresent = (self.accessByte & GDT_ACCESS_PRESENT)!=0
         self.segIsCodeSeg = (self.accessByte & GDT_ACCESS_EXECUTABLE)!=0

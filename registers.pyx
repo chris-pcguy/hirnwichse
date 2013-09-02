@@ -598,40 +598,30 @@ cdef class Registers:
             raise HirnwichseException(CPU_EXCEPTION_UD)
         return regName
     cdef unsigned char getCond(self, unsigned char index):
+        cdef unsigned char origIndex, ret = 0
+        origIndex = index
+        index >>= 1
         if (index == 0x0): # O
-            return self.of
-        elif (index == 0x1): # NO
-            return not self.of
-        elif (index == 0x2): # B
-            return self.cf
-        elif (index == 0x3): # NB
-            return not self.cf
-        elif (index == 0x4): # Z
-            return self.zf
-        elif (index == 0x5): # NZ
-            return not self.zf
-        elif (index == 0x6): # BE
-            return self.cf or self.zf
-        elif (index == 0x7): # NBE
-            return not self.cf and not self.zf
-        elif (index == 0x8): # S
-            return self.sf
-        elif (index == 0x9): # NS
-            return not self.sf
-        elif (index == 0xa): # P
-            return self.pf
-        elif (index == 0xb): # NP
-            return not self.pf
-        elif (index == 0xc): # L
-            return self.sf != self.of
-        elif (index == 0xd): # NL
-            return self.sf == self.of
-        elif (index == 0xe): # LE
-            return self.zf or self.sf != self.of
-        elif (index == 0xf): # NLE
-            return not self.zf and self.sf == self.of
+            ret = self.of
+        elif (index == 0x1): # B
+            ret = self.cf
+        elif (index == 0x2): # Z
+            ret = self.zf
+        elif (index == 0x3): # BE
+            ret = self.cf or self.zf
+        elif (index == 0x4): # S
+            ret = self.sf
+        elif (index == 0x5): # P
+            ret = self.pf
+        elif (index == 0x6): # L
+            ret = self.sf != self.of
+        elif (index == 0x7): # LE
+            ret = self.zf or self.sf != self.of
         else:
             self.main.exitError("getCond: index {0:#04x} is invalid.", index)
+        if (origIndex & 0x1):
+            ret = not ret
+        return ret
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method):
         cdef unsigned char unsignedOverflow, signedOverflow, reg0Nibble, regSumuNibble, carried
         cdef unsigned int bitMaskHalf

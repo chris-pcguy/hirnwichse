@@ -1,4 +1,5 @@
-If in code are many REP operations, it could be that GUI-Events can't get executed.
+
+If there are many REP operations in the code, it could be that GUI-Events can't get executed.
   Probably this won't get fixed!
 
 Do character write over pygame_events? (cpuThread: videoMmArea-->EventList;; mainThread: EventList-->doOutput)
@@ -7,3 +8,9 @@ PCI
 Opcodes::interrupt
 ATA
 VM86
+
+
+tyndur 0.2.1 floppy image;
+after "aktiviere interrupts": opcodes::interrupt inter interrupt bug
+
+
