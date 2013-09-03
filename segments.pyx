@@ -18,11 +18,14 @@ cdef class Segment:
             self.base = <unsigned int>segmentIndex<<4
             #self.limit = 0xffff
             self.isValid = True
+            self.useGDT = False
             return
         gdtEntry = self.segments.getEntry(segmentIndex)
         if (gdtEntry is None):
             self.isValid = False
+            self.useGDT = True
             return
+        self.useGDT = True
         self.base = gdtEntry.base
         self.limit = gdtEntry.limit
         self.accessByte = gdtEntry.accessByte

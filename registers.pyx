@@ -235,7 +235,7 @@ cdef class Registers:
     cdef void reset(self):
         self.operSize = self.addrSize = self.cf = self.pf = self.af = self.zf = self.sf = self.tf = \
           self.if_flag = self.df = self.of = self.iopl = self.nt = self.rf = self.vm = self.ac = \
-          self.vif = self.vip = self.id = 0
+          self.vif = self.vip = self.id = self.cpl = 0
         self.resetPrefixes()
         self.segments.reset()
         self.regWriteDword(CPU_REGISTER_EFLAGS, FLAG_REQUIRED)
@@ -267,9 +267,7 @@ cdef class Registers:
         self.vip = (flags&FLAG_VIP)!=0
         self.id = (flags&FLAG_ID)!=0
     cdef unsigned char getCPL(self):
-        if (not (<Segments>self.segments).isInProtectedMode()):
-            return 0
-        return ((<Segment>self.segments.cs).segmentIndex&3)
+        return self.cpl
     cdef unsigned char getIOPL(self):
         return self.iopl
     cdef signed char getCurrentOpcodeSignedByte(self):
@@ -386,6 +384,10 @@ cdef class Registers:
                 segmentInstance.isValid = False
         if (segId == CPU_SEGMENT_CS):
             self.codeSegSize = segmentInstance.getSegSize()
+            if (segmentInstance.useGDT):
+                self.cpl = segValue & 0x3
+            else:
+                self.cpl = 0
         self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
         return segValue
     cdef signed long int regReadSigned(self, unsigned short regId, unsigned char regSize):
@@ -845,6 +847,27 @@ cdef class Registers:
                 else:
                     self.main.exitError("Registers::mmWriteValueWithOpSize: unknown valueOp {0:d}.", valueOp)
         return data
+    cdef void switchTSS(self):
+        self.regWriteDword(CPU_REGISTER_CR3, self.mmReadValueUnsignedDword(TSS_CR3, CPU_SEGMENT_TSS, False))
+        self.regWriteDword(CPU_REGISTER_EIP, self.mmReadValueUnsignedDword(TSS_EIP, CPU_SEGMENT_TSS, False))
+        self.regWriteDword(CPU_REGISTER_EFLAGS, self.mmReadValueUnsignedDword(TSS_EFLAGS, CPU_SEGMENT_TSS, False))
+        self.regWriteDword(CPU_REGISTER_EAX, self.mmReadValueUnsignedDword(TSS_EAX, CPU_SEGMENT_TSS, False))
+        self.regWriteDword(CPU_REGISTER_ECX, self.mmReadValueUnsignedDword(TSS_ECX, CPU_SEGMENT_TSS, False))
+        self.regWriteDword(CPU_REGISTER_EDX, self.mmReadValueUnsignedDword(TSS_EDX, CPU_SEGMENT_TSS, False))
+        self.regWriteDword(CPU_REGISTER_EBX, self.mmReadValueUnsignedDword(TSS_EBX, CPU_SEGMENT_TSS, False))
+        self.regWriteDword(CPU_REGISTER_EBP, self.mmReadValueUnsignedDword(TSS_EBP, CPU_SEGMENT_TSS, False))
+        self.regWriteDword(CPU_REGISTER_ESI, self.mmReadValueUnsignedDword(TSS_ESI, CPU_SEGMENT_TSS, False))
+        self.regWriteDword(CPU_REGISTER_EDI, self.mmReadValueUnsignedDword(TSS_EDI, CPU_SEGMENT_TSS, False))
+        self.segWrite(CPU_SEGMENT_ES, self.mmReadValueUnsignedWord(TSS_ES, CPU_SEGMENT_TSS, False))
+        self.segWrite(CPU_SEGMENT_CS, self.mmReadValueUnsignedWord(TSS_CS, CPU_SEGMENT_TSS, False))
+        self.segWrite(CPU_SEGMENT_DS, self.mmReadValueUnsignedWord(TSS_DS, CPU_SEGMENT_TSS, False))
+        self.segWrite(CPU_SEGMENT_FS, self.mmReadValueUnsignedWord(TSS_FS, CPU_SEGMENT_TSS, False))
+        self.segWrite(CPU_SEGMENT_GS, self.mmReadValueUnsignedWord(TSS_GS, CPU_SEGMENT_TSS, False))
+        self.segments.ldtr = self.mmReadValueUnsignedWord(TSS_LDT_SEG_SEL, CPU_SEGMENT_TSS, False)
+        
+        self.regWriteDword(CPU_REGISTER_ESP, self.mmReadValueUnsignedDword(TSS_ESP, CPU_SEGMENT_TSS, False))
+        self.segWrite(CPU_SEGMENT_SS, self.mmReadValueUnsignedWord(TSS_SS, CPU_SEGMENT_TSS, False))
+        # TODO: set iomap base address
     cdef void run(self):
         self.segments = Segments(self.main)
         self.segments.run()

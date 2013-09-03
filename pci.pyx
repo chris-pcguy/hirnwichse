@@ -22,30 +22,40 @@ cdef class PciDevice:
         self.pci = pci
         self.main = main
         self.deviceIndex = deviceIndex
+        self.readOnly = False
         self.configSpace = ConfigSpace(PCI_FUNCTION_CONFIG_SIZE, self.main)
         self.configSpace.csResetData(BITMASK_BYTE)
     cdef void reset(self):
         pass
-    cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned char dataSize): # return true means allowed
-        cdef unsigned char offset, headerType
-        cdef unsigned int data
+    cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize): # return true means allowed
+        cdef unsigned char offset, headerType, function
+        cdef unsigned int origData
         offset = mmAddress&0xff
+        function = (mmAddress >> PCI_FUNCTION_SHIFT) & 0x7
+        if (function): # TODO
+            self.main.notice("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", function)
         if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BASE_ADDRESS_5+4):
+            if (self.readOnly):
+                return False # TODO
             if ((offset & 3) != 0):
                 self.main.notice("PciDevice::checkWriteAccess: unaligned access!")
             headerType = self.getData((mmAddress & 0xffffff00) | PCI_HEADER_TYPE, OP_SIZE_BYTE)
             if (headerType >= 0x02):
-                self.main.notice("PciDevice::checkWriteAccess: headerType >= 0x02")
+                self.main.notice("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
                 return True
             elif (headerType == 0x01):
                 if (offset >= PCI_BASE_ADDRESS_2):
                     return True
-            data = self.configSpace.csReadValueUnsigned(mmAddress & 0xfffffffc, OP_SIZE_DWORD)
-            data = 0xfff00008
+            ###data = self.configSpace.csReadValueUnsigned(mmAddress & 0xfffffffc, OP_SIZE_DWORD)
+            if (data == BITMASK_DWORD):
+                return False
+            data = 0xffffffff if (data & 0x1) else 0xfff00008
             self.configSpace.csWriteValue(mmAddress & 0xfffffffc, data, OP_SIZE_DWORD)
             return False
         elif (offset == PCI_ROM_ADDRESS):
-            return False
+            origData = self.configSpace.csReadValueUnsigned(mmAddress & 0xfffffffc, OP_SIZE_DWORD)
+            if (self.readOnly):
+                return False
         return True
     cdef inline unsigned int getMmAddress(self, unsigned char bus, unsigned char device, unsigned char function, unsigned char register):
         #return (PCI_MEM_BASE | (bus<<PCI_BUS_SHIFT) | ((device&0x1f)<<PCI_DEVICE_SHIFT) | ((function&0x7)<<PCI_FUNCTION_SHIFT) | register)
@@ -53,7 +63,7 @@ cdef class PciDevice:
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize):
         return self.configSpace.csReadValueUnsigned(mmAddress, dataSize)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
-        if (not self.checkWriteAccess(mmAddress, dataSize)):
+        if (not self.checkWriteAccess(mmAddress, data, dataSize)):
             return
         self.configSpace.csWriteValue(mmAddress, data, dataSize)
     cdef void setVendorId(self, unsigned short vendorId):
@@ -65,6 +75,8 @@ cdef class PciDevice:
     cdef void setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId):
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
+    cdef void setReadOnly(self, unsigned char readOnly):
+        self.readOnly = readOnly
     cdef void run(self):
         self.configSpace.csWriteValue(PCI_ROM_ADDRESS, 0, OP_SIZE_DWORD)
 

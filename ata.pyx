@@ -14,6 +14,7 @@ DEF ATA_DRIVE_TYPE_CDROM = 2
 
 
 DEF ATA1_BASE = 0x1f0
+DEF ATA1_CTRL_BASE = 0x3f4
 DEF ATA2_BASE = 0x170
 DEF ATA3_BASE = 0x1e8
 DEF ATA4_BASE = 0x168
@@ -357,6 +358,9 @@ cdef class Ata:
         self.pciDevice = (<Pci>self.main.platform.pci).addDevice()
         self.pciDevice.setVendorDeviceId(0x8086, 0x7010)
         self.pciDevice.setDeviceClass(PCI_CLASS_PATA)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_0, (((ATA1_BASE) << 2) | 0x1), OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_1, (((ATA1_CTRL_BASE) << 2) | 0x1), OP_SIZE_DWORD)
+        self.pciDevice.setReadOnly(True)
     cdef void reset(self):
         cdef AtaController controller
         for controller in self.controller:

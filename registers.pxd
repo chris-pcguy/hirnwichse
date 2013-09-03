@@ -70,7 +70,7 @@ cdef class Registers:
     cdef RegStruct regs[CPU_REGISTERS]
     cdef public unsigned char repPrefix, segmentOverridePrefix, operandSizePrefix, \
                                 addressSizePrefix, codeSegSize, cf, pf, af, zf, sf, \
-                                tf, if_flag, df, of, iopl, nt, rf, vm, ac, vif, vip, id
+                                tf, if_flag, df, of, iopl, nt, rf, vm, ac, vif, vip, id, cpl
     cdef unsigned char operSize, addrSize
     cdef void reset(self)
     cdef void resetPrefixes(self)
@@ -285,6 +285,7 @@ cdef class Registers:
     cdef unsigned char mmWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride)
     cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned_value_types mmWriteValueWithOpSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
+    cdef void switchTSS(self)
     cdef inline unsigned char getSegSize(self, unsigned short segId):
         return (<Segment>(self.segments.getSegmentInstance(segId, True))).getSegSize()
     cdef inline unsigned char isSegPresent(self, unsigned short segId):

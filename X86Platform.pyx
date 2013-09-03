@@ -214,7 +214,8 @@ cdef class Platform:
                 romMemSize = size
                 mmAddr = 0x100000000-romMemSize
         self.loadRomToMem(romFileName, mmAddr, romSize)
-        (<Mm>self.main.mm).mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
+        if (not isRomOptional):
+            (<Mm>self.main.mm).mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
     cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         (<Mm>self.main.mm).mmAreaWrite(mmArea, offset, data, dataSize)
         if (offset >= self.vga.videoMemBase and (offset+dataSize) <= (self.vga.videoMemBase+self.vga.videoMemSize)):
@@ -231,7 +232,9 @@ cdef class Platform:
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
         romMmArea.readOnly = True
         if (self.main.vgaBiosFilename):
-            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xc0000, True)
+            ##self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xc0000, True)
+            (<Mm>self.main.mm).mmAddArea(0xc0000000, False)
+            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xc0000000, True)
         biosMmArea = (<Mm>self.main.mm).mmGetArea(0x0) # this would include the whole first megabyte.
         if (biosMmArea is None or not biosMmArea.valid):
             self.main.exitError("X86Platform::initMemory: biosMmArea is invalid!")
@@ -251,9 +254,8 @@ cdef class Platform:
         self.addWriteHandlers(DMA_SLAVE_CONTROLLER_PORTS, self.isadma, <OutPort>self.isadma.outPort)
         self.addWriteHandlers(DMA_EXT_PAGE_REG_PORTS, self.isadma, <OutPort>self.isadma.outPort)
         self.addWriteHandlers(PCI_CONTROLLER_PORTS, self.pci, <OutPort>self.pci.outPort)
-        self.addReadHandlers((0x1ce, 0x1cf, 0x3b4, 0x3b5, 0x3ba, 0x3c0, 0x3c1, 0x3c5, 0x3cc, 0x3c7, 0x3c8, 0x3c9, 0x3ca, 0x3d4, 0x3d5, 0x3da), self.vga, <InPort>self.vga.inPort)
-        self.addWriteHandlers((0x1ce, 0x1cf, 0x3b4, 0x3b5, 0x3ba, 0x3c0, 0x3c2, 0x3c4, 0x3c5, 0x3c6, 0x3c7, 0x3c8, 0x3c9, 0x3ca, 0x3ce, \
-                               0x3cf, 0x3d4, 0x3d5, 0x3da, 0x400, 0x401, 0x402, 0x403, 0x500, 0x504), self.vga, <OutPort>self.vga.outPort)
+        self.addReadHandlers(VGA_READ_PORTS, self.vga, <InPort>self.vga.inPort)
+        self.addWriteHandlers(VGA_WRITE_PORTS, self.vga, <OutPort>self.vga.outPort)
         self.addReadHandlers((0x60, 0x61, 0x64, 0x92), self.ps2, <InPort>self.ps2.inPort)
         self.addReadHandlers((0x40, 0x41, 0x42, 0x43), self.pit, <InPort>self.pit.inPort)
         self.addWriteHandlers((0x60, 0x61, 0x64, 0x92), self.ps2, <OutPort>self.ps2.outPort)
