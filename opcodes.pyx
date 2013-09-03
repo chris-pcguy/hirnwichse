@@ -495,7 +495,7 @@ cdef class Opcodes:
         return True
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal):
         cdef unsigned char segType
-        cdef unsigned short TSSsel
+        cdef unsigned short oldTSSsel
         cdef GdtEntry gdtEntry
         cdef Segment segment
         self.syncCR0State()
@@ -505,26 +505,25 @@ cdef class Opcodes:
                 raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
             segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
             if (segType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
-                segment = <Segment>(<Segments>self.registers.segments).getSegmentInstance(CPU_SEGMENT_TSS, True)
+                segment = (<Segment>self.registers.segments.tss)
+                if ((segVal & GDT_USE_LDT) or not self.registers.segments.inLimit(segVal)):
+                    raise HirnwichseException(CPU_EXCEPTION_TS, segVal)
+                if (segType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
+                    raise HirnwichseException(CPU_EXCEPTION_TS, segVal)
+                oldTSSsel = segment.segmentIndex
+                self.registers.segWrite(CPU_SEGMENT_TSS, segVal)
                 if (segment.segDPL < self.registers.getCPL() or segment.segDPL < (segment.segmentIndex&3)): # TODO:  1.: segment.segDPL < (segment.segmentIndex&3) ?!? / 2.: "or TSS descriptor indicates TSS not available"?!?
                     raise HirnwichseException(CPU_EXCEPTION_GP, segment.segmentIndex)
                 if (not segment.segPresent):
                     raise HirnwichseException(CPU_EXCEPTION_NP, segment.segmentIndex)
                 if (segment.limit < 0x67):
                     raise HirnwichseException(CPU_EXCEPTION_TS, segment.segmentIndex)
-                TSSsel = (<Segment>self.registers.segments.tss).segmentIndex
-                if ((segVal & GDT_USE_LDT) or not self.registers.segments.inLimit(segVal)):
-                    raise HirnwichseException(CPU_EXCEPTION_TS, segVal)
-                if (segType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
-                    self.main.notice("Opcodes::jumpFarDirect: nested-task-flag: exception_2 (segType: {0:#04x}; segVal: {1:#06x})", segType, segVal)
-                    raise HirnwichseException(CPU_EXCEPTION_TS, segVal)
-                self.registers.segWrite(CPU_SEGMENT_TSS, segVal)
                 self.registers.switchTSS()
-                segType = self.registers.segments.getSegType(TSSsel)
-                self.registers.segments.setSegType(TSSsel, (segType & ~0x2))
+                segType = self.registers.segments.getSegType(oldTSSsel)
+                self.registers.segments.setSegType(oldTSSsel, (segType & ~0x2))
                 segType = self.registers.segments.getSegType(segVal)
                 self.registers.segments.setSegType(segVal, (segType | 0x2))
-                if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.registers.regRead(CPU_REGISTER_EIP), 1)):
+                if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), 1)): # TODO
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 #self.main.notice("Opcodes::jumpFarDirect: sysSegType == {0:d}; method == {1:d} (TSS); TODO!", segType, method)
             #elif (not (segType & GDT_ACCESS_NORMAL_SEGMENT) and (segType != TABLE_ENTRY_SYSTEM_TYPE_LDT)):
@@ -1952,9 +1951,7 @@ cdef class Opcodes:
         elif (operOpcodeId == 3): # 3/CALL FAR
             op1 = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             segVal = self.registers.mmReadValueUnsignedWord(op1+self.registers.operSize, self.modRMInstance.rmNameSegId, True)
-            self.main.notice("GroupFF_3: test_1 (segVal: {0:#06x}; op1: {1:#06x})", segVal, op1)
             op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
-            self.main.notice("GroupFF_3: test_2 (op1: {0:#06x})", op1)
             return self.jumpFarDirect(OPCODE_CALL, segVal, op1)
         elif (operOpcodeId == 4): # 4/JMP NEAR
             op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
@@ -1962,9 +1959,7 @@ cdef class Opcodes:
         elif (operOpcodeId == 5): # 5/JMP FAR
             op1 = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             segVal = self.registers.mmReadValueUnsignedWord(op1+self.registers.operSize, self.modRMInstance.rmNameSegId, True)
-            self.main.notice("GroupFF_5: test_1 (segVal: {0:#06x}; op1: {1:#06x})", segVal, op1)
             op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
-            self.main.notice("GroupFF_5: test_2 (op1: {0:#06x})", op1)
             return self.jumpFarDirect(OPCODE_JUMP, segVal, op1)
         elif (operOpcodeId == 6): # 6/PUSH
             op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
@@ -2348,9 +2343,7 @@ cdef class Opcodes:
                     raise HirnwichseException(CPU_EXCEPTION_GP, not isSoftInt)
                 oldSS = self.registers.segRead(CPU_SEGMENT_SS)
                 oldESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
-                self.main.notice("interrupt_test_1: newSS: {0:#06x}", newSS)
                 self.registers.segWrite(CPU_SEGMENT_SS, newSS)
-                self.main.notice("interrupt_test_2")
                 self.registers.regWriteDword(CPU_REGISTER_ESP, newESP)
                 self.stackPushValue(oldSS, entrySize)
                 self.stackPushValue(oldESP, entrySize)
@@ -2394,7 +2387,8 @@ cdef class Opcodes:
             raise HirnwichseException(CPU_EXCEPTION_OF)
         return True
     cdef int iret(self):
-        cdef GdtEntry gdtEntryCS, gdtEntrySS, gdtEntryTSS
+        cdef GdtEntry gdtEntryCS, gdtEntryTSS
+        cdef Segment ss
         cdef unsigned char inProtectedMode, cpl, segType
         cdef unsigned short tempCS, tempSS, i, linkSel, TSSsel
         cdef unsigned int tempEFLAGS, currentEFLAGS, tempEIP, tempESP, eflagsMask = 0
@@ -2430,7 +2424,7 @@ cdef class Opcodes:
                 self.registers.segments.setSegType(TSSsel, (segType & ~0x2))
                 segType = self.registers.segments.getSegType(linkSel)
                 self.registers.segments.setSegType(linkSel, (segType | 0x2))
-                if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.regRead(CPU_REGISTER_EIP), 1)):
+                if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.regReadUnsignedDword(CPU_REGISTER_EIP), 1)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 return True
             if (not (tempCS&0xfff8)):
@@ -2449,24 +2443,17 @@ cdef class Opcodes:
                 raise HirnwichseException(CPU_EXCEPTION_NP, tempCS)
             if ((tempCS&3) > cpl): # outer privilege level; rpl > cpl
                 tempESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
-                #tempSS = self.registers.segRead(CPU_SEGMENT_SS)
-                if (not (<Segment>self.registers.segments.ss).isAddressInLimit(tempESP, (self.registers.operSize << 1))): # if currentESP is not in currentSS limits
-                    raise HirnwichseException(CPU_EXCEPTION_SS, 0)
-                tempESP = self.stackPopValue(True)
-                tempSS = self.stackPopValue(True)&BITMASK_WORD
+                tempSS = self.registers.segRead(CPU_SEGMENT_SS)
                 if (not (tempSS&0xfff8)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 if (not self.registers.segments.inLimit(tempSS)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempSS)
-                gdtEntrySS = <GdtEntry>self.registers.segments.getEntry(tempSS)
-                if (not gdtEntrySS):
-                    self.main.exitError("Opcodes::iret: not gdtEntrySS")
-                    return True
-                if ((self.registers.segRead(CPU_SEGMENT_SS)&3 != tempCS&3) or (not gdtEntrySS.segIsRW) or ((<Segment>self.registers.segments.ss).segDPL != tempCS&3)): # TODO: TODO!
-                    #self.main.notice("Opcodes::iret: test_4")
-                    #self.main.notice("Opcodes::iret: test_4_1 (c1=={0:d}; c2=={1:d}; c3=={2:d})", (self.registers.segRead(CPU_SEGMENT_SS)&3 != tempCS&3), (not gdtEntrySS.segIsRW), ((<Segment>self.registers.segments.ss).segDPL != tempCS&3))
+                ss = (<Segment>self.registers.segments.ss)
+                if ((tempSS&3 != tempCS&3) or (not ss.segIsRW) or (ss.segDPL != tempCS&3)): # TODO: TODO!
+                    self.main.notice("Opcodes::iret: test_4")
+                    self.main.notice("Opcodes::iret: test_4_1 (c1=={0:d}; c2=={1:d}; c3=={2:d})", (tempSS&3 != tempCS&3), (not ss.segIsRW), (ss.segDPL != tempCS&3))
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempSS)
-                if (not gdtEntrySS.segPresent):
+                if (not ss.segPresent):
                     raise HirnwichseException(CPU_EXCEPTION_SS, tempSS)
                 eflagsMask |= FLAG_VM
                 for i in (CPU_SEGMENT_DS, CPU_SEGMENT_ES, CPU_SEGMENT_FS, CPU_SEGMENT_GS):

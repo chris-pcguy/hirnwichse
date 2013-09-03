@@ -201,6 +201,8 @@ cdef class Gdt:
             raise HirnwichseException(CPU_EXCEPTION_NP, num)
         cpl = self.segments.cs.segmentIndex&3
         numSegDPL = gdtEntry.segDPL
+        if (segId == CPU_SEGMENT_TSS): # TODO?
+            return True
         if (segId == CPU_SEGMENT_SS): # TODO: TODO!
             ##if ((num&3 != cpl or numSegDPL != cpl) or \
             if (((gdtEntry.segIsCodeSeg) or (not gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW))):

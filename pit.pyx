@@ -137,7 +137,7 @@ cdef class Pit:
             else:
                 self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
         else:
-            self.main.exitError("inPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return 0
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef PitChannel channel
@@ -196,7 +196,7 @@ cdef class Pit:
             else:
                 self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
         else:
-            self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
     cpdef run(self):
         pass
         #self.main.platform.addHandlers((0x40, 0x41, 0x42, 0x43), self)
