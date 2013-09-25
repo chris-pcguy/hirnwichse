@@ -238,7 +238,7 @@ cdef class Registers:
           self.vif = self.vip = self.id = self.cpl = 0
         self.resetPrefixes()
         self.segments.reset()
-        self.regWriteDword(CPU_REGISTER_EFLAGS, FLAG_REQUIRED)
+        self.regWriteDwordEflags(FLAG_REQUIRED)
         #self.regWriteDword(CPU_REGISTER_CR0, 0x40000014)
         self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
         self.segWrite(CPU_SEGMENT_CS, 0xf000)
@@ -404,8 +404,12 @@ cdef class Registers:
         if (regSize == OP_SIZE_BYTE):
             return self.regReadUnsignedLowByte(regId)
         elif (regSize == OP_SIZE_WORD):
+            if (regId == CPU_REGISTER_FLAGS):
+                return self.readFlags() & BITMASK_WORD
             return self.regReadUnsignedWord(regId)
         elif (regSize == OP_SIZE_DWORD):
+            if (regId == CPU_REGISTER_EFLAGS):
+                return self.readFlags()
             return self.regReadUnsignedDword(regId)
         elif (regSize == OP_SIZE_QWORD):
             return self.regReadUnsignedQword(regId)
@@ -414,8 +418,12 @@ cdef class Registers:
         if (regSize == OP_SIZE_BYTE):
             return self.regWriteLowByte(regId, value)
         elif (regSize == OP_SIZE_WORD):
+            if (regId == CPU_REGISTER_FLAGS):
+                return self.regWriteWordFlags(value & BITMASK_WORD)
             return self.regWriteWord(regId, value)
         elif (regSize == OP_SIZE_DWORD):
+            if (regId == CPU_REGISTER_EFLAGS):
+                return self.regWriteDwordEflags(value)
             return self.regWriteDword(regId, value)
         elif (regSize == OP_SIZE_QWORD):
             return self.regWriteQword(regId, value)
@@ -661,7 +669,8 @@ cdef class Registers:
                 regSumu &= BITMASK_BYTE
             elif (regSize == OP_SIZE_WORD):
                 regSumu &= BITMASK_WORD
-            unsignedOverflow = ((not carried and regSumu > reg0) or (carried and regSumu >= reg0))
+            unsignedOverflow = ((regSumu+carried) > reg0)
+            #unsignedOverflow = ((not carried and regSumu > reg0) or (carried and regSumu >= reg0))
             self.pf = PARITY_TABLE[regSumu&BITMASK_BYTE]
             self.zf = regSumu==0
             reg0Nibble = reg0&0xf
@@ -850,7 +859,7 @@ cdef class Registers:
     cdef void switchTSS(self):
         self.regWriteDword(CPU_REGISTER_CR3, self.mmReadValueUnsignedDword(TSS_CR3, CPU_SEGMENT_TSS, False))
         self.regWriteDword(CPU_REGISTER_EIP, self.mmReadValueUnsignedDword(TSS_EIP, CPU_SEGMENT_TSS, False))
-        self.regWriteDword(CPU_REGISTER_EFLAGS, self.mmReadValueUnsignedDword(TSS_EFLAGS, CPU_SEGMENT_TSS, False))
+        self.regWriteDwordEflags(self.mmReadValueUnsignedDword(TSS_EFLAGS, CPU_SEGMENT_TSS, False))
         self.regWriteDword(CPU_REGISTER_EAX, self.mmReadValueUnsignedDword(TSS_EAX, CPU_SEGMENT_TSS, False))
         self.regWriteDword(CPU_REGISTER_ECX, self.mmReadValueUnsignedDword(TSS_ECX, CPU_SEGMENT_TSS, False))
         self.regWriteDword(CPU_REGISTER_EDX, self.mmReadValueUnsignedDword(TSS_EDX, CPU_SEGMENT_TSS, False))
@@ -864,7 +873,7 @@ cdef class Registers:
         self.segWrite(CPU_SEGMENT_FS, self.mmReadValueUnsignedWord(TSS_FS, CPU_SEGMENT_TSS, False))
         self.segWrite(CPU_SEGMENT_GS, self.mmReadValueUnsignedWord(TSS_GS, CPU_SEGMENT_TSS, False))
         self.segments.ldtr = self.mmReadValueUnsignedWord(TSS_LDT_SEG_SEL, CPU_SEGMENT_TSS, False)
-        
+
         self.regWriteDword(CPU_REGISTER_ESP, self.mmReadValueUnsignedDword(TSS_ESP, CPU_SEGMENT_TSS, False))
         self.segWrite(CPU_SEGMENT_SS, self.mmReadValueUnsignedWord(TSS_SS, CPU_SEGMENT_TSS, False))
         # TODO: set iomap base address

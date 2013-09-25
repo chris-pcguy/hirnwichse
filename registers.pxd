@@ -113,22 +113,16 @@ cdef class Registers:
         return <signed int>self.regs[regId]._union.dword.erx
     cdef inline signed long int regReadSignedQword(self, unsigned short regId):
         return <signed long int>self.regs[regId]._union.rrx
-    cdef signed long int regReadSigned(self, unsigned short regId, unsigned char regSize)
     cdef inline unsigned char regReadUnsignedLowByte(self, unsigned short regId):
         return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regReadUnsignedHighByte(self, unsigned short regId):
         return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regReadUnsignedWord(self, unsigned short regId):
-        if (regId == CPU_REGISTER_FLAGS):
-            return self.readFlags()
         return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regReadUnsignedDword(self, unsigned short regId):
-        if (regId == CPU_REGISTER_EFLAGS):
-            return self.readFlags()
         return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regReadUnsignedQword(self, unsigned short regId):
         return self.regs[regId]._union.rrx
-    cdef unsigned long int regReadUnsigned(self, unsigned short regId, unsigned char regSize)
     cdef inline unsigned char regWriteLowByte(self, unsigned short regId, unsigned char value):
         self.regs[regId]._union.word._union.byte.rl = value
         return value # returned value is unsigned!!
@@ -136,16 +130,18 @@ cdef class Registers:
         self.regs[regId]._union.word._union.byte.rh = value
         return value # returned value is unsigned!!
     cdef inline unsigned short regWriteWord(self, unsigned short regId, unsigned short value):
-        if (regId == CPU_REGISTER_FLAGS):
-            self.setFlags(value)
-        else:
-            self.regs[regId]._union.word._union.rx = value
+        self.regs[regId]._union.word._union.rx = value
         return value # returned value is unsigned!!
     cdef inline unsigned int regWriteDword(self, unsigned short regId, unsigned int value):
-        if (regId == CPU_REGISTER_EFLAGS):
-            self.setFlags(value)
-        else:
-            self.regs[regId]._union.dword.erx = value
+        self.regs[regId]._union.dword.erx = value
+        return value # returned value is unsigned!!
+    cdef inline unsigned short regWriteWordFlags(self, unsigned short value):
+        self.setFlags(value)
+        self.regs[CPU_REGISTER_FLAGS]._union.word._union.rx = value
+        return value # returned value is unsigned!!
+    cdef inline unsigned int regWriteDwordEflags(self, unsigned int value):
+        self.setFlags(value)
+        self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx = value
         return value # returned value is unsigned!!
     cdef inline unsigned long int regWriteQword(self, unsigned short regId, unsigned long int value):
         if (regId == CPU_REGISTER_RFLAGS):
@@ -153,6 +149,8 @@ cdef class Registers:
         else:
             self.regs[regId]._union.rrx = value
         return value # returned value is unsigned!!
+    cdef signed long int regReadSigned(self, unsigned short regId, unsigned char regSize)
+    cdef unsigned long int regReadUnsigned(self, unsigned short regId, unsigned char regSize)
     cdef unsigned long int regWrite(self, unsigned short regId, unsigned long int value, unsigned char regSize)
     cdef inline unsigned char regAddLowByte(self, unsigned short regId, unsigned char value):
         return self.regWriteLowByte(regId, (self.regReadUnsignedLowByte(regId)+value))
@@ -258,7 +256,7 @@ cdef class Registers:
             return ( value | <unsigned int>(1<<bit) )
         return ( value & <unsigned int>(~(1<<bit)) )
     cdef inline unsigned int clearEFLAG(self, unsigned int flags):
-        return self.regAndDword(CPU_REGISTER_EFLAGS, (~flags))
+        self.regWriteDwordEflags(self.readFlags() & (~flags))
     cdef inline unsigned int getFlagDword(self, unsigned short regId, unsigned int flags):
         return (self.regReadUnsignedDword(regId)&flags)
     cdef void setSZP(self, unsigned int value, unsigned char regSize)

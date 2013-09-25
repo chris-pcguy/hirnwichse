@@ -2112,6 +2112,7 @@ cdef class Opcodes:
         mmAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
         offsetAddr = self.registers.mmReadValueUnsigned(mmAddr, self.registers.operSize, self.modRMInstance.rmNameSegId, True)
         segmentAddr = self.registers.mmReadValueUnsignedWord(mmAddr+self.registers.operSize, self.modRMInstance.rmNameSegId, True)
+        self.main.debug("lfpFunc: test_1 (segId: {0:d}; segmentAddr: {1:#06x}; mmAddr: {2:#010x}; rmNameSegId: {3:d}; operSize: {4:d}; addrSize: {5:d})", segId, segmentAddr, mmAddr, self.modRMInstance.rmNameSegId, self.registers.operSize, self.registers.addrSize)
         self.registers.segWrite(segId, segmentAddr)
         self.modRMInstance.modRSave(self.registers.operSize, offsetAddr, OPCODE_SAVE)
         return True
@@ -2400,7 +2401,7 @@ cdef class Opcodes:
         tempEIP = self.stackPopValue(True)
         tempCS = self.stackPopValue(True)&BITMASK_WORD
         tempEFLAGS = self.stackPopValue(True)
-        currentEFLAGS = self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS)
+        currentEFLAGS = self.registers.readFlags()
         if (inProtectedMode):
             if (tempEFLAGS & FLAG_VM):
                 self.main.exitError("Opcodes::iret: VM86-Mode isn't supported yet.")
@@ -2478,16 +2479,16 @@ cdef class Opcodes:
             tempEFLAGS |= FLAG_REQUIRED
             currentEFLAGS &= ~eflagsMask
             currentEFLAGS |= tempEFLAGS
-            self.registers.regWriteDword(CPU_REGISTER_EFLAGS, currentEFLAGS)
+            self.registers.regWriteDwordEflags(currentEFLAGS)
         else:
             if (self.registers.operSize == OP_SIZE_DWORD):
                 tempEFLAGS = (tempEFLAGS & 0x257fd5)
-                tempEFLAGS |= self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS)&0x1a0000
+                tempEFLAGS |= self.registers.readFlags()&0x1a0000
                 tempEFLAGS |= FLAG_REQUIRED
-                self.registers.regWriteDword(CPU_REGISTER_EFLAGS, tempEFLAGS)
+                self.registers.regWriteDwordEflags(tempEFLAGS)
             else:
                 tempEFLAGS |= FLAG_REQUIRED
-                self.registers.regWriteWord(CPU_REGISTER_FLAGS, tempEFLAGS&BITMASK_WORD)
+                self.registers.regWriteWordFlags(tempEFLAGS&BITMASK_WORD)
             self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
             self.registers.segWrite(CPU_SEGMENT_CS, tempCS)
         return True
@@ -2771,14 +2772,14 @@ cdef class Opcodes:
         return True
     cdef int sahf(self):
         cdef unsigned short flagsVal
-        flagsVal = self.registers.regReadUnsignedWord(CPU_REGISTER_FLAGS)&0xff00
+        flagsVal = self.registers.readFlags()&0xff00
         flagsVal |= self.registers.regReadUnsignedHighByte(CPU_REGISTER_AH) & (FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_CF)
         flagsVal |= FLAG_REQUIRED
-        self.registers.regWriteWord(CPU_REGISTER_FLAGS, flagsVal)
+        self.registers.regWriteWordFlags(flagsVal)
         return True
     cdef int lahf(self):
         cdef unsigned char flagsVal
-        flagsVal = self.registers.regReadUnsignedWord(CPU_REGISTER_FLAGS) & (FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_CF)
+        flagsVal = self.registers.readFlags() & (FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_CF)
         flagsVal |= FLAG_REQUIRED
         self.registers.regWriteHighByte(CPU_REGISTER_AH, flagsVal)
         return True
@@ -2813,7 +2814,7 @@ cdef class Opcodes:
         cdef unsigned char stackAddrSize, nestingLevel, i
         cdef unsigned short sizeOp
         cdef unsigned int frameTemp, temp
-        #self.main.notice("Opcodes::enter: TODO!")
+        self.main.notice("Opcodes::enter: TODO!")
         sizeOp = self.registers.getCurrentOpcodeAddUnsignedWord()
         nestingLevel = self.registers.getCurrentOpcodeAddUnsignedByte()
         nestingLevel &= 0x1f

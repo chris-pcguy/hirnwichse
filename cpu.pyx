@@ -120,7 +120,7 @@ cdef class Cpu:
         self.main.notice("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESI), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_EDI))
         self.main.notice("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS))
+          self.registers.readFlags())
         self.main.notice("CS: {0:#06x}, SS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_CS), \
           self.registers.segRead(CPU_SEGMENT_SS))
         self.main.notice("DS: {0:#06x}, ES: {1:#06x}", self.registers.segRead(CPU_SEGMENT_DS), \
@@ -172,8 +172,12 @@ cdef class Cpu:
         if (self.main.debugEnabled):
             self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
             #self.cpuDump()
+            self.main.notice("doCycle: test_1 (addr: {0:#010x}; seg: {1:#06x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(0x103688), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(0x10368c))
         #if (self.savedEip == 0x and self.savedCs == 0x):
         #    self.cpuDump()
+        #if (self.savedEip == 0x10000f and self.savedCs == 0x0010):
+        #    self.cpuDump()
+        #    self.main.notice("doCycle: test_1 (addr: {0:#010x}; seg: {1:#06x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(0x103688), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(0x10368c))
         try:
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
