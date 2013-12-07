@@ -16,8 +16,11 @@ DEF ATA_DRIVE_TYPE_CDROM = 2
 DEF ATA1_BASE = 0x1f0
 DEF ATA1_CTRL_BASE = 0x3f4
 DEF ATA2_BASE = 0x170
+DEF ATA2_CTRL_BASE = 0x374
 DEF ATA3_BASE = 0x1e8
+DEF ATA3_CTRL_BASE = 0x3ec
 DEF ATA4_BASE = 0x168
+DEF ATA4_CTRL_BASE = 0x36c
 
 DEF ATA1_IRQ = 14
 DEF ATA2_IRQ = 15
@@ -138,7 +141,7 @@ cdef class AtaDrive:
     cdef void writeSectors(self, unsigned int sector, unsigned int count, bytes data):
         self.writeBytes(sector << SECTOR_SHIFT, count << SECTOR_SHIFT, data)
     cdef void run(self):
-        self.reset()
+        pass
 
 
 cdef class AtaController:
@@ -358,8 +361,16 @@ cdef class Ata:
         self.pciDevice = (<Pci>self.main.platform.pci).addDevice()
         self.pciDevice.setVendorDeviceId(0x8086, 0x7010)
         self.pciDevice.setDeviceClass(PCI_CLASS_PATA)
-        self.pciDevice.setData(PCI_BASE_ADDRESS_0, (((ATA1_BASE) << 2) | 0x1), OP_SIZE_DWORD)
-        self.pciDevice.setData(PCI_BASE_ADDRESS_1, (((ATA1_CTRL_BASE) << 2) | 0x1), OP_SIZE_DWORD)
+        #self.pciDevice.setData(PCI_BASE_ADDRESS_0, (((ATA1_BASE) << 2) | 0x1), OP_SIZE_DWORD)
+        #self.pciDevice.setData(PCI_BASE_ADDRESS_1, (((ATA1_CTRL_BASE) << 2) | 0x1), OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_0, (ATA1_BASE), OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_1, (ATA1_CTRL_BASE), OP_SIZE_DWORD)
+        #self.pciDevice.setData(PCI_BASE_ADDRESS_2, (((ATA2_BASE) << 2) | 0x1), OP_SIZE_DWORD)
+        #self.pciDevice.setData(PCI_BASE_ADDRESS_3, (((ATA2_CTRL_BASE) << 2) | 0x1), OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_2, (ATA2_BASE), OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_3, (ATA2_CTRL_BASE), OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_INTERRUPT_LINE, (14), OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_PROG_IF, (0), OP_SIZE_BYTE)
         self.pciDevice.setReadOnly(True)
     cdef void reset(self):
         cdef AtaController controller
@@ -406,7 +417,9 @@ cdef class Ata:
             (<AtaController>self.controller[3]).outPort(ioPortAddr-ATA4_BASE, data, dataSize)
     cdef void run(self):
         cdef AtaController controller
+        #self.reset()
         for controller in self.controller:
+            controller.reset(False)
             controller.run()
 
 

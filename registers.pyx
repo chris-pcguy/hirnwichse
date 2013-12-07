@@ -312,58 +312,58 @@ cdef class Registers:
         return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef signed char getCurrentOpcodeAddSignedByte(self):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+OP_SIZE_BYTE)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
         return self.mmReadValueSignedByte(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef signed short getCurrentOpcodeAddSignedWord(self):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+OP_SIZE_WORD)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
         return self.mmReadValueSignedWord(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef signed int getCurrentOpcodeAddSignedDword(self):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+OP_SIZE_DWORD)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
         return self.mmReadValueSignedDword(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef signed long int getCurrentOpcodeAddSignedQword(self):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+OP_SIZE_QWORD)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
         return self.mmReadValueSignedQword(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+numBytes)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
         return self.mmReadValueSigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef unsigned char getCurrentOpcodeAddUnsignedByte(self):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+OP_SIZE_BYTE)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
         return self.mmReadValueUnsignedByte(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef unsigned short getCurrentOpcodeAddUnsignedWord(self):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+OP_SIZE_WORD)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
         return self.mmReadValueUnsignedWord(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef unsigned int getCurrentOpcodeAddUnsignedDword(self):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+OP_SIZE_DWORD)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
         return self.mmReadValueUnsignedDword(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef unsigned long int getCurrentOpcodeAddUnsignedQword(self):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+OP_SIZE_QWORD)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
         return self.mmReadValueUnsignedQword(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes):
         cdef unsigned int opcodeAddr
-        opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (opcodeAddr+numBytes)&BITMASK_DWORD)
+        opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
         return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned int *retAddr):
         retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
         retAddr[0] = self.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.regWriteDword(CPU_REGISTER_EIP, (retAddr[0]+OP_SIZE_BYTE)&BITMASK_DWORD)
+        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
         return self.mmReadValueUnsignedByte(retAddr[0], CPU_SEGMENT_CS, False)
     cdef unsigned short segRead(self, unsigned short segId):
         IF STRICT_CHECKS:

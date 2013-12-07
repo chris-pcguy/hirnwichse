@@ -25,6 +25,8 @@ cdef class PciDevice:
         self.readOnly = False
         self.configSpace = ConfigSpace(PCI_FUNCTION_CONFIG_SIZE, self.main)
         self.configSpace.csResetData(BITMASK_BYTE)
+        self.configSpace.csWriteValue(PCI_ROM_ADDRESS, 0, OP_SIZE_DWORD)
+        self.configSpace.csWriteValue(PCI_HEADER_TYPE, PCI_HEADER_TYPE_STANDARD, OP_SIZE_BYTE)
     cdef void reset(self):
         pass
     cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize): # return true means allowed
@@ -78,11 +80,15 @@ cdef class PciDevice:
     cdef void setReadOnly(self, unsigned char readOnly):
         self.readOnly = readOnly
     cdef void run(self):
-        self.configSpace.csWriteValue(PCI_ROM_ADDRESS, 0, OP_SIZE_DWORD)
+        pass
 
 cdef class PciBridge(PciDevice):
     def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):
         PciDevice.__init__(self, bus, pci, main, deviceIndex)
+        self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
+        self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
+        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_PRIMARY_BUS), 0, OP_SIZE_BYTE)
+        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_HEADER_TYPE), PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
         #cdef unsigned int addr, limit
         PciDevice.setData(self, mmAddress, data, dataSize)
@@ -92,11 +98,6 @@ cdef class PciBridge(PciDevice):
         #    
     cdef void run(self):
         PciDevice.run(self)
-        self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
-        self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
-        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_PRIMARY_BUS), 0, OP_SIZE_BYTE)
-        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_HEADER_TYPE), PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
-
 cdef class PciBus:
     def __init__(self, Pci pci, object main, unsigned char busIndex):
         self.pci = pci

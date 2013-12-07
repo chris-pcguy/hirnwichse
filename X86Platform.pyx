@@ -46,18 +46,18 @@ cdef class Platform:
         self.pythonBios = PythonBios(self.main)
     cdef void resetDevices(self):
         self.cmos.reset()
-        self.pic.reset()
-        self.isadma.reset()
-        self.pci.reset()
-        self.ps2.reset()
-        self.vga.reset()
-        self.pit.reset()
+        #self.pic.reset()
+        #self.isadma.reset()
+        #self.pci.reset()
+        #self.ps2.reset()
+        #self.vga.reset()
+        #self.pit.reset()
         self.ata.reset()
-        self.floppy.reset()
+        #self.floppy.reset()
         self.parallel.reset()
         self.serial.reset()
-        self.gdbstub.reset()
-        self.pythonBios.reset()
+        #self.gdbstub.reset()
+        #self.pythonBios.reset()
     cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject):
         cdef PortHandler port
         cdef unsigned int i # 'i' can be longer than 65536
@@ -229,18 +229,18 @@ cdef class Platform:
         for i in range(self.main.memSize):
             (<Mm>self.main.mm).mmAddArea(SIZE_1MB*i, False)
         romMmArea = (<Mm>self.main.mm).mmAddArea(0xfff00000, False)
+        (<Mm>self.main.mm).mmAddArea(PCI_MEM_BASE, False)
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
-        romMmArea.readOnly = True
         if (self.main.vgaBiosFilename):
             ##self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xc0000, True)
-            (<Mm>self.main.mm).mmAddArea(0xc0000000, False)
-            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xc0000000, True)
+            self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), VGA_ROM_BASE, True)
         biosMmArea = (<Mm>self.main.mm).mmGetArea(0x0) # this would include the whole first megabyte.
         if (biosMmArea is None or not biosMmArea.valid):
             self.main.exitError("X86Platform::initMemory: biosMmArea is invalid!")
             return
         biosMmArea.writeClass = self
         biosMmArea.writeHandler = <MmAreaWriteType>self.systemWriteHandler
+        romMmArea.readOnly = True
     cdef void initDevicesPorts(self):
         self.addReadHandlers((0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
         self.addWriteHandlers((0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)

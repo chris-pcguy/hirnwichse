@@ -47,7 +47,8 @@ cdef class IsaDma:
     cdef object cpuInstance
     cdef SetHRQ setHRQ
     cdef tuple controller
-    cdef unsigned char extPageReg[16], HLDA, TC # extPageReg is unused.
+    cdef unsigned char extPageReg[16]
+    cdef unsigned char HLDA, TC # extPageReg is unused.
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef unsigned char getTC(self)

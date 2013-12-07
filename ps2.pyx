@@ -186,6 +186,7 @@ cdef class PS2:
                         self.appendToOutBytes(b'\xfa')
                         self.batInProgress = True
                         self.appendToOutBytes(b'\xaa')
+                        self.appendToOutBytes(b'\x00') # TODO: is this needed?
                     elif (data in (0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd)):
                         self.appendToOutBytes(b'\xfe')
                     else:

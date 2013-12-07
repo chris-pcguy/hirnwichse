@@ -222,7 +222,7 @@ cdef class Opcodes:
             retVal = self.outsFunc(self.registers.operSize)
         elif (opcode >= 0x70 and opcode <= 0x7f):
             retVal = self.jumpShort(OP_SIZE_BYTE, self.registers.getCond(opcode&0xf))
-        elif (opcode == 0x80):
+        elif (opcode in (0x80, 0x82)):
             retVal = self.opcodeGroup1_RM_ImmFunc(OP_SIZE_BYTE, True)
         elif (opcode == 0x81):
             retVal = self.opcodeGroup1_RM_ImmFunc(self.registers.operSize, False)
@@ -2814,10 +2814,13 @@ cdef class Opcodes:
         cdef unsigned char stackAddrSize, nestingLevel, i
         cdef unsigned short sizeOp
         cdef unsigned int frameTemp, temp
-        self.main.notice("Opcodes::enter: TODO!")
+        #self.main.notice("Opcodes::enter: TODO!")
+        #self.main.cpu.cpuDump()
         sizeOp = self.registers.getCurrentOpcodeAddUnsignedWord()
         nestingLevel = self.registers.getCurrentOpcodeAddUnsignedByte()
         nestingLevel &= 0x1f
+        #if (nestingLevel):
+        #    self.main.notice("Opcodes::enter: test1: sizeOp=={0:#06x}; nestingLevel=={1:d}!", sizeOp, nestingLevel)
         stackAddrSize = self.registers.getAddrSegSize(CPU_SEGMENT_SS)
         self.stackPushRegId(CPU_REGISTER_BP, stackAddrSize)
         if (stackAddrSize == OP_SIZE_WORD):

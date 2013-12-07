@@ -3,6 +3,7 @@ from misc cimport Misc
 from mm cimport Mm
 from X86Platform cimport Platform
 from cpu cimport Cpu
+from pci cimport Pci
 from pic cimport Pic, SetINTR
 from isadma cimport IsaDma, SetHRQ
 

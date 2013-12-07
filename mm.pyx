@@ -310,7 +310,7 @@ cdef class ConfigSpace:
     cpdef csFreeData(self):
         if (self.csData):
             free(self.csData)
-        self.csData = None
+        self.csData = NULL
     cdef bytes csRead(self, unsigned int offset, unsigned int size):
         if (not self.csData or not size or (offset+size) > self.csSize):
             self.main.debug("ConfigSpace::csRead: not self.csData || not size || offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
