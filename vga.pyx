@@ -229,10 +229,12 @@ cdef class Vga:
             self.main.exitError("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
         return page
     cdef void writeCharacterTeletype(self, unsigned char c, signed short attr, unsigned char page):
-        cdef unsigned char x, y, i
+        cdef unsigned char x, y, i, cols, rows
         cdef unsigned short cursorPos
         cdef unsigned int address
         page = self.getCorrectPage(page)
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
+        rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
         cursorPos = self.getCursorPosition(page)
         y, x = (cursorPos>>8), cursorPos&BITMASK_BYTE
         address = self.getAddrOfPos(x, y)
@@ -252,27 +254,28 @@ cdef class Vga:
         else:
             self.writeCharacter(address, c, attr)
             x += 1
-        if (x >= 80):
-            x -= 80
+        if (x >= cols):
+            x -= cols
             y += 1
-        if (y >= 25):
+        if (y >= rows):
             self.scrollUp(attr, 1)
-            y = 24
+            y = rows-1
         cursorPos = ((y<<8)|x)
         self.setCursorPosition(page, cursorPos)
     cdef void writeCharacterNoTeletype(self, unsigned char c, signed short attr, unsigned char page, unsigned short count):
-        cdef unsigned char x, y
+        cdef unsigned char x, y, cols
         cdef unsigned short cursorPos
         cdef unsigned int address
         page = self.getCorrectPage(page)
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
         cursorPos = self.getCursorPosition(page)
         x, y = cursorPos&BITMASK_BYTE, (cursorPos>>8)
         for i in range(count):
             address = self.getAddrOfPos(x, y)
             self.writeCharacter(address, c, attr)
             x += 1
-            if (x >= 80):
-                x -= 80
+            if (x >= cols):
+                x -= cols
                 y += 1
     cdef void writeCharacter(self, unsigned int address, unsigned char c, signed short attr):
         if (attr == -1):
@@ -280,8 +283,12 @@ cdef class Vga:
             return
         (<Mm>self.main.mm).mmPhyWriteValueSize(address, ((<unsigned short>attr<<8)|c)&BITMASK_WORD)
     cdef unsigned int getAddrOfPos(self, unsigned char x, unsigned char y):
+        cdef unsigned char page, cols, rows
         cdef unsigned int offset
-        offset = ((y*80)+x)<<1
+        page = self.getCorrectPage(0xff)
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
+        rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
+        offset = ((((cols*rows*2)|0x00ff)+1)*page)+(((y*cols)+x)<<1)
         return (self.videoMemBaseWithOffset+offset)
     cdef unsigned short getCursorPosition(self, unsigned char page): # returns y, x
         cdef unsigned short pos
@@ -299,25 +306,29 @@ cdef class Vga:
         (<Mm>self.main.mm).mmPhyWriteValueSize(VGA_CURSOR_BASE_ADDR+(page<<1), pos)
     cdef void scrollUp(self, signed short attr, unsigned short lines):
         cdef bytes oldData
-        cdef unsigned int oldAddr, dataSize
+        cdef unsigned char cols, rows
+        cdef unsigned int oldAddr, dataSize, fullSize
         self.setProcessVideoMem(False)
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
+        rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
+        fullSize = cols*rows*2
         oldAddr = self.getAddrOfPos(0, 0)
         if (lines == 0):
-            lines = 25
-            dataSize = 4000 # 160*25
+            lines = rows
+            dataSize = fullSize # default: 80*25*2
         else:
-            dataSize = 160*lines
-            (<Mm>self.main.mm).mmPhyCopy(oldAddr, oldAddr+dataSize, 4000-dataSize)
+            dataSize = cols*2*lines # default: 80*2*lines
+            (<Mm>self.main.mm).mmPhyCopy(oldAddr, oldAddr+dataSize, fullSize-dataSize)
         if (attr == -1):
-            attr = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(self.getAddrOfPos(79, 24)+1)
-        oldData = bytes([ 0x20, attr ])*80*lines
-        (<Mm>self.main.mm).mmPhyWrite(oldAddr+(4000-dataSize), oldData, dataSize)
+            attr = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(self.getAddrOfPos(cols-1, rows-1)+1)
+        oldData = bytes([ 0x20, attr ])*cols*lines
+        (<Mm>self.main.mm).mmPhyWrite(oldAddr+(fullSize-dataSize), oldData, dataSize)
         self.setProcessVideoMem(True)
-        oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, 4000)
-        (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, 4000)
+        oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, fullSize)
+        (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, fullSize)
     cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         cdef list rectList
-        cdef unsigned char x, y
+        cdef unsigned char x, y, cols, rows
         if (not self.ui):
             return
         if (not (self.getProcessVideoMem()) or not (self.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM)):
@@ -328,10 +339,11 @@ cdef class Vga:
             self.readFontData()
         rectList = list()
         offset &= 0xffffe
-        # TODO: hardcoded to 80x25
-        dataSize = min(dataSize, 4000) # 80*25*2
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
+        rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
+        dataSize = min(dataSize, cols*rows*2) # default: 80*25*2
         while (dataSize > 0 and not self.main.quitEmu):
-            y, x = divmod((offset-self.videoMemBaseWithOffset)//2, 80)
+            y, x = divmod((offset-self.videoMemBaseWithOffset)//2, cols)
             rectList.append(self.ui.putChar(x, y, mmArea.data[offset], mmArea.data[offset+1]))
             if (dataSize <= 2):
                 break

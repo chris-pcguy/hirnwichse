@@ -41,7 +41,7 @@ cdef class PythonBios:
             elif (ah == 0x0f): # get currMode; write it to AL
                 (<Registers>self.main.cpu.registers).regWriteLowByte(CPU_REGISTER_AL, (currMode|\
                     ((<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_VIDEO_CTL_ADDR)&0x80)))
-                (<Registers>self.main.cpu.registers).regWriteHighByte(CPU_REGISTER_AH, 80) # number of columns
+                (<Registers>self.main.cpu.registers).regWriteHighByte(CPU_REGISTER_AH, (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)) # number of columns
                 (<Registers>self.main.cpu.registers).regWriteHighByte(CPU_REGISTER_BH, (<Vga>self.main.platform.vga).getCorrectPage(0xff))
                 return True
             elif (currMode <= 0x7 or currMode in (0x12, 0x13)):
@@ -51,7 +51,9 @@ cdef class PythonBios:
                         # ah==0x09: bl for textmode/graphicsmode;; ah==0x0e: bl for textmode
                         if (ah == 0x0e):
                             (<Vga>self.main.platform.vga).writeCharacterTeletype(al, -1, 0xff)
-                        elif (ah == 0x09):
+                        elif (ah == 0x09): # TODO
+                            self.main.debug("pythonbios_vga_ah_0x09_test1: al=={0:#04x}; bh=={1:#04x}; bl=={2:#04x}; cx=={3:#06x}", al, bh, bl, cx)
+                            return False
                             (<Vga>self.main.platform.vga).writeCharacterNoTeletype(al, bl, bh, cx)
                         else: # ah == 0x0a
                             (<Vga>self.main.platform.vga).writeCharacterNoTeletype(al, -1, bh, cx)

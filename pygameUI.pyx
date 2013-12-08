@@ -64,7 +64,7 @@ cdef class PygameUI:
             charArray *= bgColor
             # It's not a good idea to render a character if fgColor == bgColor
             #   as it wouldn't be readable.
-            if (fgColor != bgColor):
+            if (fgColor != bgColor or 1):
                 i = character*self.charSize[1]
                 charData = self.fontData[i:i+self.charSize[1]]
                 for i in range(len(charData)):
