@@ -131,7 +131,7 @@ cdef class PS2:
                         (self.ppcbT2Spkr and PPCB_T2_SPKR) | \
                         (self.ppcbT2Out  and PPCB_T2_OUT))
             elif (ioPortAddr == 0x92):
-                return ((<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).getA20State() << 1)
+                return ((<Registers>(<Cpu>self.main.cpu).registers).A20Active << 1)
             else:
                 self.main.exitError("inPort: port {0:#04x} is not supported.", ioPortAddr)
         else:
@@ -197,7 +197,7 @@ cdef class PS2:
                 else:
                     if (self.lastUsedPort == 0x64):
                         if (self.lastUsedCmd == 0xd1): # port 0x64
-                            (<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).setA20State( (data & PS2_A20) != 0 )
+                            (<Registers>(<Cpu>self.main.cpu).registers).setA20Active( (data & PS2_A20) != 0 )
                             if (not (data & PS2_CPU_RESET)):
                                 (<Cpu>self.main.cpu).reset()
                         elif (self.lastUsedCmd == 0x60): # port 0x64
@@ -258,15 +258,15 @@ cdef class PS2:
                     if (self.outb):
                         self.main.exitError("ERROR: KBC::outPort: Port 0x64, data 0xd0: outb is set.")
                         return
-                    outputByte = ((self.irq1Requested << 4) | ((<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).getA20State() << 1) | 0x01)
+                    outputByte = ((self.irq1Requested << 4) | ((<Registers>(<Cpu>self.main.cpu).registers).A20Active << 1) | 0x01)
                     self.appendToOutBytesDoIrq(bytes([outputByte]))
                 elif (data == 0xd1):
                 #elif (data >= 0xd1 and data <= 0xd4):
                     self.needWriteBytes = 1
                 elif (data == 0xdd):
-                    (<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).setA20State( False )
+                    (<Registers>(<Cpu>self.main.cpu).registers).setA20Active(False)
                 elif (data == 0xdf):
-                    (<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).setA20State( True )
+                    (<Registers>(<Cpu>self.main.cpu).registers).setA20Active(True)
                 elif (data == 0xfe): # reset cpu
                     (<Cpu>self.main.cpu).reset()
                 elif ((data >= 0xf0 and data <= 0xfd) or data == 0xff):
@@ -282,7 +282,7 @@ cdef class PS2:
                 self.ppcbT2Spkr = (data & PPCB_T2_SPKR) != 0
                 self.ppcbT2Out  = (data & PPCB_T2_OUT)  != 0
             elif (ioPortAddr == 0x92):
-                (<Segments>(<Registers>(<Cpu>self.main.cpu).registers).segments).setA20State( (data & PS2_A20) != 0 )
+                (<Registers>(<Cpu>self.main.cpu).registers).setA20Active( (data & PS2_A20) != 0 )
             else:
                 self.main.exitError("outPort: port {0:#04x} is not supported. (data {1:#04x})", ioPortAddr, data)
         else:

@@ -11,7 +11,7 @@ cdef class Segment:
         segIsRW, segIsConforming, segIsNormal, segUse4K, segDPL, useGDT
     cdef unsigned short segmentIndex
     cdef unsigned int base, limit
-    cdef void loadSegment(self, unsigned short segmentIndex)
+    cdef void loadSegment(self, unsigned short segmentIndex, unsigned char protectedModeOn)
     cdef unsigned char getSegSize(self)
     cdef unsigned char isSegPresent(self)
     cdef unsigned char isCodeSeg(self)
@@ -46,8 +46,6 @@ cdef class Gdt:
               tableLimit, GDT_HARD_LIMIT)
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
-        if (self.segments.isPagingOn()):
-            self.tableBase = self.segments.paging.getPhysicalAddress(self.tableBase)
     cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
@@ -108,17 +106,8 @@ cdef class Segments:
     cdef Paging paging
     cdef Segment cs, ds, es, fs, gs, ss, tss
     cdef tuple segs
-    cdef unsigned char A20Active, protectedModeOn, pagingOn
     cdef unsigned short ldtr
     cdef void reset(self)
-    cdef inline unsigned char isInProtectedMode(self):
-        return self.protectedModeOn
-    cdef inline unsigned char isPagingOn(self):
-        return self.pagingOn
-    cdef inline unsigned char getA20State(self):
-        return self.A20Active
-    cdef inline void setA20State(self, unsigned char state):
-        self.A20Active = state
     cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness)
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char isCodeSeg(self, unsigned short num)

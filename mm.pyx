@@ -115,56 +115,8 @@ cdef class Mm:
             self.main.exitError("Mm::mmPhyRead: tempDataSize: {0:#06x} is not zero. (mmAddr: {1:#010x}, dataSize: {2:d})", tempDataSize, origMmAddr, dataSize)
             return b'\xff'*dataSize
         return data
-    cdef signed char mmPhyReadValueSignedByte(self, unsigned int mmAddr):
-        cdef MmArea mmArea = self.mmGetArea(mmAddr)
-        cdef unsigned char dataSize = OP_SIZE_BYTE
-        cdef unsigned int tempAddr
-        if (mmArea is None):
-            self.main.notice("Mm::mmPhyReadValueSignedByte: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
-            return <signed char>BITMASK_BYTE
-        tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
-        return (<signed char*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-    cdef signed short mmPhyReadValueSignedWord(self, unsigned int mmAddr):
-        cdef MmArea mmArea
-        cdef unsigned char dataSize = OP_SIZE_WORD
-        cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        if (mmAreas is None or not len(mmAreas)):
-            self.main.notice("Mm::mmPhyReadValueSignedWord: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
-            return <signed short>BITMASK_WORD
-        for mmArea in mmAreas:
-            tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
-            if (tempAddr+dataSize > SIZE_1MB):
-                return self.mmPhyReadValueSigned(mmAddr, dataSize)
-            return (<signed short*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-    cdef signed int mmPhyReadValueSignedDword(self, unsigned int mmAddr):
-        cdef MmArea mmArea
-        cdef unsigned char dataSize = OP_SIZE_DWORD
-        cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        if (mmAreas is None or not len(mmAreas)):
-            self.main.notice("Mm::mmPhyReadValueSignedDword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
-            return <signed int>BITMASK_DWORD
-        for mmArea in mmAreas:
-            tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
-            if (tempAddr+dataSize > SIZE_1MB):
-                return self.mmPhyReadValueSigned(mmAddr, dataSize)
-            return (<signed int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-    cdef signed long int mmPhyReadValueSignedQword(self, unsigned int mmAddr):
-        cdef MmArea mmArea
-        cdef unsigned char dataSize = OP_SIZE_QWORD
-        cdef unsigned int tempAddr
-        cdef list mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        if (mmAreas is None or not len(mmAreas)):
-            self.main.notice("Mm::mmPhyReadValueSignedQword: mmArea not found! (mmAddr: {0:#010x})", mmAddr)
-            return <signed long int>BITMASK_QWORD
-        for mmArea in mmAreas:
-            tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
-            if (tempAddr+dataSize > SIZE_1MB):
-                return self.mmPhyReadValueSigned(mmAddr, dataSize)
-            return (<signed long int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
     cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize):
-        return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=True)
+        return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=True)
     cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr):
         cdef MmArea mmArea = self.mmGetArea(mmAddr)
         cdef unsigned char dataSize = OP_SIZE_BYTE
@@ -214,7 +166,7 @@ cdef class Mm:
                 return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
             return (<unsigned long int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
     cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize):
-        return int.from_bytes(<bytes>(self.mmPhyRead(mmAddr, dataSize)), byteorder="little", signed=False)
+        return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=False)
     cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize):
         cdef MmArea mmArea
         cdef unsigned int tempAddr, tempSize, origMmAddr = mmAddr, tempDataSize = dataSize

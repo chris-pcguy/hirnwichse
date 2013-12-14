@@ -47,10 +47,14 @@ cdef class Mm:
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize)
-    cdef signed char mmPhyReadValueSignedByte(self, unsigned int mmAddr)
-    cdef signed short mmPhyReadValueSignedWord(self, unsigned int mmAddr)
-    cdef signed int mmPhyReadValueSignedDword(self, unsigned int mmAddr)
-    cdef signed long int mmPhyReadValueSignedQword(self, unsigned int mmAddr)
+    cdef inline signed char mmPhyReadValueSignedByte(self, unsigned int mmAddr):
+        return <signed char>self.mmPhyReadValueUnsignedByte(mmAddr)
+    cdef inline signed short mmPhyReadValueSignedWord(self, unsigned int mmAddr):
+        return <signed short>self.mmPhyReadValueUnsignedWord(mmAddr)
+    cdef inline signed int mmPhyReadValueSignedDword(self, unsigned int mmAddr):
+        return <signed int>self.mmPhyReadValueUnsignedDword(mmAddr)
+    cdef inline signed long int mmPhyReadValueSignedQword(self, unsigned int mmAddr):
+        return <signed long int>self.mmPhyReadValueUnsignedQword(mmAddr)
     cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize)
     cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr)
     cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr)

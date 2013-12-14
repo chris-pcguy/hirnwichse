@@ -109,6 +109,7 @@ cdef class Cpu:
             elif (opcode == OPCODE_PREFIX_LOCK):
                 self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
             opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
+        #self.main.notice("Cpu::parsePrefixes: operandSizePrefix=={0:d}, addressSizePrefix=={1:d}, segmentOverridePrefix=={2:d}, repPrefix=={3:#04x}", self.registers.operandSizePrefix, self.registers.addressSizePrefix, self.registers.segmentOverridePrefix, self.registers.repPrefix)
         return opcode
     cpdef cpuDump(self):
         self.main.notice("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EAX), \
@@ -159,6 +160,7 @@ cdef class Cpu:
             return
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
+        #self.registers.reloadCpuCache()
         self.cycles += CPU_CLOCK_TICK
         self.registers.resetPrefixes()
         #self.saveCurrentInstPointer()
@@ -172,7 +174,7 @@ cdef class Cpu:
         if (self.main.debugEnabled):
             self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
             #self.cpuDump()
-            self.main.notice("doCycle: test_1 (addr: {0:#010x}; seg: {1:#06x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(0x103688), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(0x10368c))
+            #self.main.notice("doCycle: test_1 (addr: {0:#010x}; seg: {1:#06x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(0x103688), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(0x10368c))
         #if (self.savedEip == 0x and self.savedCs == 0x):
         #    self.cpuDump()
         #if (self.savedEip == 0x10000f and self.savedCs == 0x0010):

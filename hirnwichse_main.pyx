@@ -1,7 +1,4 @@
 
-#cython: boundscheck=False
-#cython: wraparound=False
-
 
 from sys import argv, exit, stdout
 from argparse import ArgumentParser

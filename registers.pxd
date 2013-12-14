@@ -70,30 +70,35 @@ cdef class Registers:
     cdef RegStruct regs[CPU_REGISTERS]
     cdef public unsigned char repPrefix, segmentOverridePrefix, operandSizePrefix, \
                                 addressSizePrefix, codeSegSize, cf, pf, af, zf, sf, \
-                                tf, if_flag, df, of, iopl, nt, rf, vm, ac, vif, vip, id, cpl
+                                tf, if_flag, df, of, iopl, nt, rf, vm, ac, vif, vip, id, cpl, A20Active, protectedModeOn, pagingOn
     cdef unsigned char operSize, addrSize
+    cdef unsigned int cpuCacheBase, cpuCacheIndex
+    cdef bytes cpuCache
     cdef void reset(self)
     cdef void resetPrefixes(self)
+    cdef void reloadCpuCache(self)
+    cdef inline void checkCache(self, unsigned int mmAddr, unsigned char dataSize): # called on a memory write; reload cache for self-modifying-code
+        if (mmAddr >= self.cpuCacheBase and mmAddr+dataSize <= self.cpuCacheBase+CPU_CACHE_SIZE):
+            self.reloadCpuCache()
+    cdef void setA20Active(self, unsigned char A20Active)
+    cdef signed long int readFromCacheAddSigned(self, unsigned char numBytes)
+    cdef unsigned long int readFromCacheAddUnsigned(self, unsigned char numBytes)
+    cdef unsigned long int readFromCacheUnsigned(self, unsigned char numBytes)
     cdef inline void readCodeSegSize(self):
         self.getOpAddrCodeSegSize(&self.operSize, &self.addrSize)
     cdef unsigned int readFlags(self)
     cdef void setFlags(self, unsigned int flags)
     cdef unsigned char getCPL(self)
     cdef unsigned char getIOPL(self)
-    cdef signed char getCurrentOpcodeSignedByte(self)
-    cdef signed short getCurrentOpcodeSignedWord(self)
-    cdef signed int getCurrentOpcodeSignedDword(self)
-    cdef signed long int getCurrentOpcodeSignedQword(self)
-    cdef signed long int getCurrentOpcodeSigned(self, unsigned char numBytes)
     cdef unsigned char getCurrentOpcodeUnsignedByte(self)
-    cdef unsigned short getCurrentOpcodeUnsignedWord(self)
-    cdef unsigned int getCurrentOpcodeUnsignedDword(self)
-    cdef unsigned long int getCurrentOpcodeUnsignedQword(self)
-    cdef unsigned long int getCurrentOpcodeUnsigned(self, unsigned char numBytes)
-    cdef signed char getCurrentOpcodeAddSignedByte(self)
-    cdef signed short getCurrentOpcodeAddSignedWord(self)
-    cdef signed int getCurrentOpcodeAddSignedDword(self)
-    cdef signed long int getCurrentOpcodeAddSignedQword(self)
+    cdef inline signed char getCurrentOpcodeAddSignedByte(self):
+        return <signed char>self.getCurrentOpcodeAddUnsignedByte()
+    cdef inline signed short getCurrentOpcodeAddSignedWord(self):
+        return <signed short>self.getCurrentOpcodeAddUnsignedWord()
+    cdef inline signed int getCurrentOpcodeAddSignedDword(self):
+        return <signed int>self.getCurrentOpcodeAddUnsignedDword()
+    cdef inline signed long int getCurrentOpcodeAddSignedQword(self):
+        return <signed long int>self.getCurrentOpcodeAddUnsignedQword()
     cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes)
     cdef unsigned char getCurrentOpcodeAddUnsignedByte(self)
     cdef unsigned short getCurrentOpcodeAddUnsignedWord(self)
@@ -134,6 +139,8 @@ cdef class Registers:
         return value # returned value is unsigned!!
     cdef inline unsigned int regWriteDword(self, unsigned short regId, unsigned int value):
         self.regs[regId]._union.dword.erx = value
+        if (regId == CPU_REGISTER_EIP):
+            self.reloadCpuCache()
         return value # returned value is unsigned!!
     cdef inline unsigned short regWriteWordFlags(self, unsigned short value):
         self.setFlags(value)
@@ -269,10 +276,14 @@ cdef class Registers:
     #cpdef checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write)
     cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
     cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef signed char mmReadValueSignedByte(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
-    cdef signed short mmReadValueSignedWord(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
-    cdef signed int mmReadValueSignedDword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
-    cdef signed long int mmReadValueSignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
+    cdef inline signed char mmReadValueSignedByte(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
+        return <signed char>self.mmReadValueUnsignedByte(mmAddr, segId, allowOverride)
+    cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
+        return <signed short>self.mmReadValueUnsignedWord(mmAddr, segId, allowOverride)
+    cdef inline signed int mmReadValueSignedDword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
+        return <signed int>self.mmReadValueUnsignedDword(mmAddr, segId, allowOverride)
+    cdef inline signed long int mmReadValueSignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
+        return <signed long int>self.mmReadValueUnsignedQword(mmAddr, segId, allowOverride)
     cdef signed long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned char mmReadValueUnsignedByte(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
     cdef unsigned short mmReadValueUnsignedWord(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)

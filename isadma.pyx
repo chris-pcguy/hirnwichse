@@ -316,11 +316,15 @@ cdef class IsaDma:
             else:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
                 return
-            if (not ma_sl):
-                data &= BITMASK_BYTE
-            (<Mm>self.main.mm).mmPhyWriteValue(phyAddr, data, ma_sl+1)
+            if (ma_sl):
+                (<Mm>self.main.mm).mmPhyWriteValueWord(phyAddr, data&BITMASK_WORD)
+            else:
+                (<Mm>self.main.mm).mmPhyWriteValueByte(phyAddr, data&BITMASK_BYTE)
         elif (currChannel.transferDirection == 2): # MEM -> IODEV
-            data = (<Mm>self.main.mm).mmPhyReadValueUnsigned(phyAddr, ma_sl+1)
+            if (ma_sl):
+                data = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(phyAddr)
+            else:
+                data = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(phyAddr)
             if (currChannel.dmaMemActionInstance and currChannel.readFromMem is not NULL):
                 currChannel.readFromMem(currChannel.dmaMemActionInstance, data)
             else:

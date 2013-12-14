@@ -1,6 +1,5 @@
 
 from pic cimport Pic
-from segments cimport Segments
 from registers cimport Registers
 from cpu cimport Cpu
 

@@ -6,15 +6,15 @@ include "cpu_globals.pxi"
 
 
 cdef class Segment:
-    def __init__(self, Segments segments, unsigned short segmentIndex):
+    def __init__(self, Segments segments):
         self.segments = segments
-        self.isValid = False
+        self.isValid = True
         self.segSize = OP_SIZE_WORD
-        self.loadSegment(segmentIndex)
-    cdef void loadSegment(self, unsigned short segmentIndex):
+        self.base = self.segmentIndex = self.useGDT = 0
+    cdef void loadSegment(self, unsigned short segmentIndex, unsigned char protectedModeOn):
         cdef GdtEntry gdtEntry
         self.segmentIndex = segmentIndex
-        if (not self.segments.isInProtectedMode()):
+        if (not protectedModeOn):
             self.base = <unsigned int>segmentIndex<<4
             #self.limit = 0xffff
             self.isValid = True
@@ -226,11 +226,6 @@ cdef class Idt:
               tableLimit, IDT_HARD_LIMIT)
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
-        if (self.segments.isPagingOn()):
-            self.tableBase = self.segments.paging.getPhysicalAddress(self.tableBase)
-        if (self.segments.protectedModeOn and not self.tableLimit and self.tableBase):
-            self.segments.main.exitError("Idt::loadTable: tableLimit is zero.")
-            return
     cdef IdtEntry getEntry(self, unsigned char num):
         cdef unsigned long int address
         cdef IdtEntry idtEntry
@@ -305,8 +300,6 @@ cdef class Segments:
         self.main = main
     cdef void reset(self):
         self.ldtr = 0
-        self.A20Active = True # TODO: enabled A20-line by default. should it really be disabled by default?
-        self.protectedModeOn = self.pagingOn = False
     cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness):
         cdef Segment segment
         IF STRICT_CHECKS:
@@ -376,13 +369,13 @@ cdef class Segments:
         self.ldt = Gdt(self)
         self.idt = Idt(self)
         self.paging = Paging(self)
-        self.cs = Segment(self, 0)
-        self.ss = Segment(self, 0)
-        self.ds = Segment(self, 0)
-        self.es = Segment(self, 0)
-        self.fs = Segment(self, 0)
-        self.gs = Segment(self, 0)
-        self.tss = Segment(self, 0)
+        self.cs = Segment(self)
+        self.ss = Segment(self)
+        self.ds = Segment(self)
+        self.es = Segment(self)
+        self.fs = Segment(self)
+        self.gs = Segment(self)
+        self.tss = Segment(self)
         self.segs = (None, self.cs, self.ss, self.ds, self.es, self.fs, self.gs, self.tss)
 
 

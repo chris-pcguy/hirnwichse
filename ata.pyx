@@ -161,7 +161,7 @@ cdef class AtaController:
             driveType = ATA_DRIVE_TYPE_NONE
         self.driveId = 0
         self.drive = (AtaDrive(self, self.main, 0, driveType), AtaDrive(self, self.main, 1, driveType))
-        self.result = self.data = b""
+        self.result = self.data = b''
     cdef void reset(self, unsigned char swReset):
         cdef AtaDrive drive
         self.drq = self.err = self.useLBA = self.useLBA48 = False
@@ -193,7 +193,7 @@ cdef class AtaController:
         self.driveBusy = self.drq = False
         self.driveReady = self.err = True
         self.errorRegister = 4
-        self.result = self.data = b""
+        self.result = self.data = b''
         if (self.irq and self.irqEnabled):
             (<Pic>self.main.platform.pic).raiseIrq(self.irq)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):

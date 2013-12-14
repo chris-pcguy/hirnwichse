@@ -28,8 +28,8 @@ cdef class Opcodes:
     cdef inline void syncCR0State(self):
         cdef unsigned int value
         value = self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_PG | CR0_FLAG_PE))
-        (<Segments>self.registers.segments).protectedModeOn = (value & CR0_FLAG_PE)!=0
-        (<Segments>self.registers.segments).pagingOn = (value & CR0_FLAG_PG)!=0
+        self.registers.protectedModeOn = (value & CR0_FLAG_PE)!=0
+        self.registers.pagingOn = (value & CR0_FLAG_PG)!=0
     cdef inline unsigned int quirkCR0(self, unsigned int value):
         #value |= (CR0_FLAG_EM | CR0_FLAG_ET | CR0_FLAG_NE | CR0_FLAG_NW | CR0_FLAG_CD)
         return value
