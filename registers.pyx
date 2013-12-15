@@ -273,6 +273,8 @@ cdef class Registers:
     cdef unsigned long int readFromCacheUnsigned(self, unsigned char numBytes):
         cdef unsigned long int retVal
         retVal = int.from_bytes(self.cpuCache[self.cpuCacheIndex:self.cpuCacheIndex+numBytes], byteorder="little", signed=False)
+        if (self.cpuCacheIndex+numBytes >= CPU_CACHE_SIZE):
+            self.reloadCpuCache()
         return retVal
     cdef unsigned int readFlags(self):
         return (FLAG_REQUIRED | self.cf | (self.pf<<2) | (self.af<<4) | (self.zf<<6) | (self.sf<<7) | (self.tf<<8) | (self.if_flag<<9) | (self.df<<10) | \

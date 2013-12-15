@@ -1515,7 +1515,7 @@ cdef class Opcodes:
             elif (operOpcodeModId == 7): # INVLPG
                 # TODO: Don't invalidate everything!
                 (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsignedDword(CPU_REGISTER_CR3))
-                self.reloadCpuCache()
+                self.registers.reloadCpuCache()
             else:
                 self.main.notice("opcodeGroup0F_01: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
@@ -1598,7 +1598,7 @@ cdef class Opcodes:
                 self.main.notice("TODO: MOV CR2, R32")
             elif (self.modRMInstance.regName == CPU_REGISTER_CR3):
                 (<Paging>self.registers.segments.paging).invalidateTables(op2)
-                self.reloadCpuCache()
+                self.registers.reloadCpuCache()
             elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
                 if (op2 & CR4_FLAG_VME):
                     self.main.exitError("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT SUPPORTED yet.")
@@ -2402,7 +2402,7 @@ cdef class Opcodes:
         return True
     cdef int iret(self):
         cdef GdtEntry gdtEntryCS, gdtEntrySS, gdtEntryTSS
-        cdef unsigned char cpl, segType
+        cdef unsigned char cpl, newCpl, segType
         cdef unsigned short tempCS, tempSS, i, linkSel, TSSsel
         cdef unsigned int tempEFLAGS, currentEFLAGS, tempEIP, tempESP, oldESP, eflagsMask = 0
         tempEIP = self.stackPopValue(False) # this is here because esp should stay on
@@ -2415,7 +2415,7 @@ cdef class Opcodes:
         currentEFLAGS = self.registers.readFlags()
         oldESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
         if (self.registers.protectedModeOn):
-            cpl = self.registers.getCPL()
+            cpl = newCpl = self.registers.getCPL()
             if (currentEFLAGS & FLAG_VM):
                 self.main.exitError("Opcodes::iret: VM86-Mode isn't supported yet. (return from VM86-Mode)")
                 return True
@@ -2462,6 +2462,8 @@ cdef class Opcodes:
                 self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
                 return True
             elif ((tempCS&3) > cpl): # outer privilege level; rpl > cpl
+                if (not (<Segment>self.registers.segments.ss).isAddressInLimit(oldESP, 8 if (self.registers.operSize == OP_SIZE_DWORD) else 4)):
+                    raise HirnwichseException(CPU_EXCEPTION_SS, 0)
                 tempESP = self.stackPopValue(True)
                 tempSS = self.stackPopValue(True)&BITMASK_WORD
                 if (not (tempSS&0xfff8)):
@@ -2476,7 +2478,9 @@ cdef class Opcodes:
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempSS)
                 if (not gdtEntrySS.segPresent):
                     raise HirnwichseException(CPU_EXCEPTION_SS, tempSS)
-                eflagsMask |= FLAG_VM
+                if (self.registers.operSize == OP_SIZE_DWORD and not cpl):
+                    eflagsMask |= FLAG_VM
+                newCpl = tempCS & 0x3
                 for i in (CPU_SEGMENT_DS, CPU_SEGMENT_ES, CPU_SEGMENT_FS, CPU_SEGMENT_GS):
                     tempSS = self.registers.segRead(i)
                     if (((not self.registers.segments.isCodeSeg(tempSS)) or (self.registers.segments.isCodeSeg(tempSS) and not self.registers.segments.isSegConforming(tempSS))) and ((tempCS&3) > self.registers.segments.getSegDPL(tempSS))):
@@ -2498,10 +2502,6 @@ cdef class Opcodes:
                 raise HirnwichseException(CPU_EXCEPTION_NP, tempCS)
             if (not gdtEntryCS.isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
-            tempCS &= 0xfffc
-            tempCS |= cpl
-            self.registers.segWrite(CPU_SEGMENT_CS, tempCS)
-            self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
             eflagsMask |= FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | \
                           FLAG_TF | FLAG_DF | FLAG_OF | FLAG_NT
             if (self.registers.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
@@ -2517,6 +2517,10 @@ cdef class Opcodes:
             currentEFLAGS &= ~eflagsMask
             currentEFLAGS |= tempEFLAGS
             self.registers.regWriteDwordEflags(currentEFLAGS)
+            tempCS &= 0xfffc
+            tempCS |= newCpl
+            self.registers.segWrite(CPU_SEGMENT_CS, tempCS)
+            self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
         else:
             if (self.registers.operSize == OP_SIZE_DWORD):
                 tempEFLAGS = (tempEFLAGS & 0x257fd5)

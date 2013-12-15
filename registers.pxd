@@ -138,9 +138,14 @@ cdef class Registers:
         self.regs[regId]._union.word._union.rx = value
         return value # returned value is unsigned!!
     cdef inline unsigned int regWriteDword(self, unsigned short regId, unsigned int value):
+        cdef unsigned int realNewEip
         self.regs[regId]._union.dword.erx = value
         if (regId == CPU_REGISTER_EIP):
-            self.reloadCpuCache()
+            realNewEip = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, CPU_SEGMENT_CS, False)
+            if (realNewEip >= self.cpuCacheBase and realNewEip < self.cpuCacheBase+CPU_CACHE_SIZE):
+                self.cpuCacheIndex = realNewEip - self.cpuCacheBase
+            else:
+                self.reloadCpuCache()
         return value # returned value is unsigned!!
     cdef inline unsigned short regWriteWordFlags(self, unsigned short value):
         self.setFlags(value)
