@@ -248,11 +248,14 @@ cdef class Registers:
     cdef void resetPrefixes(self):
         self.operandSizePrefix = self.addressSizePrefix = self.segmentOverridePrefix = self.repPrefix = 0
     cdef void reloadCpuCache(self):
-        cdef unsigned int mmAddr
-        mmAddr = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, CPU_SEGMENT_CS, False)
-        self.cpuCache = (<Mm>self.main.mm).mmPhyRead(mmAddr, CPU_CACHE_SIZE)
-        self.cpuCacheBase = mmAddr
-        self.cpuCacheIndex = 0
+        IF (CPU_CACHE_SIZE):
+            cdef unsigned int mmAddr
+            mmAddr = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, CPU_SEGMENT_CS, False)
+            self.cpuCache = (<Mm>self.main.mm).mmPhyRead(mmAddr, CPU_CACHE_SIZE)
+            self.cpuCacheBase = mmAddr
+            self.cpuCacheIndex = 0
+        ELSE:
+            pass
     cdef void setA20Active(self, unsigned char A20Active):
         self.A20Active = A20Active
         self.reloadCpuCache()
@@ -302,30 +305,78 @@ cdef class Registers:
     cdef unsigned char getIOPL(self):
         return self.iopl
     cdef unsigned char getCurrentOpcodeUnsignedByte(self):
-        return <unsigned char>self.readFromCacheUnsigned(OP_SIZE_BYTE)
+        IF (CPU_CACHE_SIZE):
+            return <unsigned char>self.readFromCacheUnsigned(OP_SIZE_BYTE)
+        ELSE:
+            cdef unsigned int opcodeAddr
+            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            return self.mmReadValueUnsignedByte(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes):
-        self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
-        return self.readFromCacheAddSigned(numBytes)
+        IF (CPU_CACHE_SIZE):
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
+            return self.readFromCacheAddSigned(numBytes)
+        ELSE:
+            cdef unsigned int opcodeAddr
+            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
+            return self.mmReadValueSigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef unsigned char getCurrentOpcodeAddUnsignedByte(self):
-        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
-        return <unsigned char>self.readFromCacheAddUnsigned(OP_SIZE_BYTE)
+        IF (CPU_CACHE_SIZE):
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
+            return <unsigned char>self.readFromCacheAddUnsigned(OP_SIZE_BYTE)
+        ELSE:
+            cdef unsigned int opcodeAddr
+            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
+            return self.mmReadValueUnsignedByte(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef unsigned short getCurrentOpcodeAddUnsignedWord(self):
-        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
-        return <unsigned short>self.readFromCacheAddUnsigned(OP_SIZE_WORD)
+        IF (CPU_CACHE_SIZE):
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
+            return <unsigned short>self.readFromCacheAddUnsigned(OP_SIZE_WORD)
+        ELSE:
+            cdef unsigned int opcodeAddr
+            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
+            return self.mmReadValueUnsignedWord(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef unsigned int getCurrentOpcodeAddUnsignedDword(self):
-        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
-        return <unsigned int>self.readFromCacheAddUnsigned(OP_SIZE_DWORD)
+        IF (CPU_CACHE_SIZE):
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
+            return <unsigned int>self.readFromCacheAddUnsigned(OP_SIZE_DWORD)
+        ELSE:
+            cdef unsigned int opcodeAddr
+            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
+            return self.mmReadValueUnsignedDword(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef unsigned long int getCurrentOpcodeAddUnsignedQword(self):
-        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
-        return self.readFromCacheAddUnsigned(OP_SIZE_QWORD)
+        IF (CPU_CACHE_SIZE):
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
+            return self.readFromCacheAddUnsigned(OP_SIZE_QWORD)
+        ELSE:
+            cdef unsigned int opcodeAddr
+            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
+            return self.mmReadValueUnsignedQword(opcodeAddr, CPU_SEGMENT_CS, False)
     cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes):
-        self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
-        return self.readFromCacheAddUnsigned(numBytes)
+        IF (CPU_CACHE_SIZE):
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
+            return self.readFromCacheAddUnsigned(numBytes)
+        ELSE:
+            cdef unsigned int opcodeAddr
+            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
+            return self.mmReadValueUnsigned(opcodeAddr, numBytes, CPU_SEGMENT_CS, False)
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned int *retAddr):
-        retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
-        retAddr[0] = self.regs[CPU_REGISTER_EIP]._union.dword.erx
-        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
-        return <unsigned char>self.readFromCacheAddUnsigned(OP_SIZE_BYTE)
+        IF (CPU_CACHE_SIZE):
+            retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
+            retAddr[0] = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
+            return <unsigned char>self.readFromCacheAddUnsigned(OP_SIZE_BYTE)
+        ELSE:
+            cdef unsigned int opcodeAddr
+            retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
+            retAddr[0] = self.regs[CPU_REGISTER_EIP]._union.dword.erx
+            self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
+            return self.mmReadValueUnsignedByte(retAddr[0], CPU_SEGMENT_CS, False)
     cdef unsigned short segRead(self, unsigned short segId):
         IF STRICT_CHECKS:
             if (not segId or (segId not in CPU_REGISTER_SREG)):
