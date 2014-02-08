@@ -317,9 +317,9 @@ cdef class IsaDma:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
                 return
             if (ma_sl):
-                (<Mm>self.main.mm).mmPhyWriteValueWord(phyAddr, data&BITMASK_WORD)
+                (<Mm>self.main.mm).mmPhyWriteValue(phyAddr, <unsigned short>data, OP_SIZE_WORD)
             else:
-                (<Mm>self.main.mm).mmPhyWriteValueByte(phyAddr, data&BITMASK_BYTE)
+                (<Mm>self.main.mm).mmPhyWriteValue(phyAddr, <unsigned char>data, OP_SIZE_BYTE)
         elif (currChannel.transferDirection == 2): # MEM -> IODEV
             if (ma_sl):
                 data = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(phyAddr)

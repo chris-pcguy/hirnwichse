@@ -291,8 +291,8 @@ cdef class Paging:
         pageTableOffset = ((virtualAddress>>12)&0x3ff)<<2
         pageOffset = virtualAddress&0xfff
         self.readAddresses(virtualAddress)
-        (<Mm>self.segments.main.mm).mmPhyWriteValueSize(<unsigned int>(self.pageDirectoryBaseAddress+pageDirectoryOffset), <unsigned int>(self.pageDirectoryEntry | PAGE_WAS_USED)) # page directory
-        (<Mm>self.segments.main.mm).mmPhyWriteValueSize(<unsigned int>((self.pageDirectoryEntry&0xfffff000)+pageTableOffset), <unsigned int>(self.pageTableEntry | PAGE_WAS_USED)) # page table
+        (<Mm>self.segments.main.mm).mmPhyWriteValue(<unsigned int>(self.pageDirectoryBaseAddress+pageDirectoryOffset), <unsigned int>(self.pageDirectoryEntry | PAGE_WAS_USED), OP_SIZE_DWORD) # page directory
+        (<Mm>self.segments.main.mm).mmPhyWriteValue(<unsigned int>((self.pageDirectoryEntry&0xfffff000)+pageTableOffset), <unsigned int>(self.pageTableEntry | PAGE_WAS_USED), OP_SIZE_DWORD) # page table
         return (self.pageTableEntry&0xfffff000)+pageOffset
 
 cdef class Segments:

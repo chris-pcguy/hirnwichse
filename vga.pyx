@@ -229,11 +229,11 @@ cdef class Vga:
             self.main.exitError("VGA::getCorrectPage: page > 7 (page: {0:d})", page)
         return page
     cdef void writeCharacterTeletype(self, unsigned char c, signed short attr, unsigned char page):
-        cdef unsigned char x, y, i, cols, rows
-        cdef unsigned short cursorPos
+        cdef unsigned char x, y, i, rows
+        cdef unsigned short cursorPos, cols
         cdef unsigned int address
         page = self.getCorrectPage(page)
-        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_COLUMNS_ADDR)
         rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
         cursorPos = self.getCursorPosition(page)
         y, x = (cursorPos>>8), cursorPos&BITMASK_BYTE
@@ -263,11 +263,11 @@ cdef class Vga:
         cursorPos = ((y<<8)|x)
         self.setCursorPosition(page, cursorPos)
     cdef void writeCharacterNoTeletype(self, unsigned char c, signed short attr, unsigned char page, unsigned short count):
-        cdef unsigned char x, y, cols
-        cdef unsigned short cursorPos
+        cdef unsigned char x, y
+        cdef unsigned short cursorPos, cols
         cdef unsigned int address
         page = self.getCorrectPage(page)
-        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_COLUMNS_ADDR)
         cursorPos = self.getCursorPosition(page)
         x, y = cursorPos&BITMASK_BYTE, (cursorPos>>8)
         for i in range(count):
@@ -279,14 +279,15 @@ cdef class Vga:
                 y += 1
     cdef void writeCharacter(self, unsigned int address, unsigned char c, signed short attr):
         if (attr == -1):
-            (<Mm>self.main.mm).mmPhyWriteValueSize(address, c)
+            (<Mm>self.main.mm).mmPhyWriteValue(address, c, OP_SIZE_BYTE)
             return
-        (<Mm>self.main.mm).mmPhyWriteValueSize(address, ((<unsigned short>attr<<8)|c)&BITMASK_WORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(address, <unsigned short>((<unsigned short>attr<<8)|c), OP_SIZE_WORD)
     cdef unsigned int getAddrOfPos(self, unsigned char x, unsigned char y):
-        cdef unsigned char page, cols, rows
+        cdef unsigned char page, rows
+        cdef unsigned short cols
         cdef unsigned int offset
         page = self.getCorrectPage(0xff)
-        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_COLUMNS_ADDR)
         rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
         offset = ((((cols*rows*2)|0x00ff)+1)*page)+(((y*cols)+x)<<1)
         return (self.videoMemBaseWithOffset+offset)
@@ -303,13 +304,14 @@ cdef class Vga:
         if (page > 7):
             self.main.exitError("VGA::setCursorPosition: page > 7 (page: {0:d})", page)
             return
-        (<Mm>self.main.mm).mmPhyWriteValueSize(VGA_CURSOR_BASE_ADDR+(page<<1), pos)
+        (<Mm>self.main.mm).mmPhyWriteValue(VGA_CURSOR_BASE_ADDR+(page<<1), pos, OP_SIZE_WORD)
     cdef void scrollUp(self, signed short attr, unsigned short lines):
         cdef bytes oldData
-        cdef unsigned char cols, rows
+        cdef unsigned char rows
+        cdef unsigned short cols
         cdef unsigned int oldAddr, dataSize, fullSize
         self.setProcessVideoMem(False)
-        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_COLUMNS_ADDR)
         rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
         fullSize = cols*rows*2
         oldAddr = self.getAddrOfPos(0, 0)
@@ -328,7 +330,8 @@ cdef class Vga:
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, fullSize)
     cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         cdef list rectList
-        cdef unsigned char x, y, cols, rows
+        cdef unsigned char x, y, rows
+        cdef unsigned short cols
         if (not self.ui):
             return
         if (not (self.getProcessVideoMem()) or not (self.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM)):
@@ -339,7 +342,7 @@ cdef class Vga:
             self.readFontData()
         rectList = list()
         offset &= 0xffffe
-        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_COLUMNS_ADDR)
+        cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_COLUMNS_ADDR)
         rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
         dataSize = min(dataSize, cols*rows*2) # default: 80*25*2
         while (dataSize > 0 and not self.main.quitEmu):

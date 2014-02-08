@@ -169,24 +169,22 @@ cdef class Mm:
         return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=False)
     cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize):
         cdef MmArea mmArea
-        cdef unsigned int tempAddr, tempSize, origMmAddr = mmAddr, tempDataSize = dataSize
+        cdef unsigned int tempAddr, tempSize, origMmAddr = mmAddr, origDataSize = dataSize
         cdef list mmAreas
         mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        if (mmAreas is None):
-            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", origMmAddr, dataSize)
+        if (mmAreas is None or not len(mmAreas)):
+            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             return False
-        tempSize = min(SIZE_1MB, dataSize)
         for mmArea in mmAreas:
             tempAddr = (mmAddr-mmArea.start)&SIZE_1MB_MASK
-            tempSize = min(tempSize, tempDataSize)
+            tempSize = min(SIZE_1MB, dataSize)
             if (tempAddr+tempSize > SIZE_1MB):
-                tempSize = min(SIZE_1MB-tempAddr, tempDataSize)
+                tempSize = SIZE_1MB-tempAddr
             mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, data, tempSize)
             mmAddr += tempSize
-            tempDataSize -= tempSize
-            tempSize = dataSize-tempSize
-        if (tempDataSize):
-            self.main.exitError("Mm::mmPhyWrite: tempDataSize: {0:#06x} is not zero. (mmAddr: {1:#010x}, dataSize: {2:d})", tempDataSize, origMmAddr, dataSize)
+            dataSize -= tempSize
+        if (dataSize):
+            self.main.exitError("Mm::mmPhyWrite: dataSize: {0:#06x} is not zero. (mmAddr: {1:#010x}, origDataSize: {2:d})", dataSize, origMmAddr, origDataSize)
             return False
         return True
     cdef unsigned char mmPhyWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data):
@@ -204,10 +202,6 @@ cdef class Mm:
             dataSize = OP_SIZE_QWORD
         else:
             self.main.error("Mm::mmPhyWrite: invalid unsigned_value_types.")
-            return False
-        mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        if (mmAreas is None):
-            self.main.notice("Mm::mmPhyWrite: mmArea not found! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
             return False
         if (unsigned_value_types is unsigned_char):
             mmArea = self.mmGetArea(mmAddr)

@@ -174,6 +174,7 @@ cdef class Cpu:
         if (self.main.debugEnabled):
             self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
             self.cpuDump()
+            #self.main.notice("doCycle: test_1 ([0x500]: {0:#04x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(0x500))
             #self.main.notice("doCycle: test_1 (addr: {0:#010x}; seg: {1:#06x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(0x103688), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(0x10368c))
         #if (self.savedEip == 0x and self.savedCs == 0x):
         #    self.cpuDump()
@@ -199,13 +200,14 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doCycle: exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
-    cdef run(self):
+    cdef run(self, unsigned char infiniteCycles = True):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
         self.opcodes.registers = self.registers
         self.registers.run()
         self.opcodes.run()
         self.reset()
-        self.doInfiniteCycles()
+        if (infiniteCycles):
+            self.doInfiniteCycles()
     ###
 

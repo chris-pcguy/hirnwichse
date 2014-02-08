@@ -1481,8 +1481,8 @@ cdef class Opcodes:
                     (<Idt>self.registers.segments.idt).getBaseLimit(&base, &limit)
                 if (self.registers.operSize == OP_SIZE_WORD):
                     base &= 0xffffff
-                self.registers.mmWriteValueSize(mmAddr, limit, CPU_SEGMENT_DS, True)
-                self.registers.mmWriteValueSize(mmAddr+OP_SIZE_WORD, base, CPU_SEGMENT_DS, True)
+                self.registers.mmWriteValue(mmAddr, limit, OP_SIZE_WORD, CPU_SEGMENT_DS, True)
+                self.registers.mmWriteValue(mmAddr+OP_SIZE_WORD, base, OP_SIZE_DWORD, CPU_SEGMENT_DS, True)
             elif (operOpcodeModId in (2, 3)): # LGDT/LIDT
                 limit = self.registers.mmReadValueUnsignedWord(mmAddr, CPU_SEGMENT_DS, True)
                 base = self.registers.mmReadValueUnsignedDword(mmAddr+OP_SIZE_WORD, CPU_SEGMENT_DS, True)
@@ -1908,7 +1908,7 @@ cdef class Opcodes:
                     qop2 = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
                     qop2 <<= 32
                     qop2 |= self.registers.regReadUnsignedDword(CPU_REGISTER_EBX)
-                    (<Mm>self.main.mm).mmPhyWriteValueSize(op1, qop2)
+                    (<Mm>self.main.mm).mmPhyWriteValue(op1, qop2, OP_SIZE_QWORD)
                 else:
                     self.registers.zf = False
                     self.registers.regWriteDword(CPU_REGISTER_EDX, qop1>>32)
@@ -2962,7 +2962,7 @@ cdef class Opcodes:
             if (self.modRMInstance.mod == 3): # register operand
                 self.modRMInstance.modRMSave(self.registers.operSize, value, True, OPCODE_SAVE)
             else: # memory operands
-                self.registers.mmWriteValueSize(address, value, self.modRMInstance.rmNameSegId, True)
+                self.registers.mmWriteValue(address, value, OP_SIZE_BYTE, self.modRMInstance.rmNameSegId, True)
                 #self.main.notice("btFunc: test1.2: address=={0:#010x}; offset=={1:d}; value=={2:#04x}; state=={3:d}; segId=={4:d}", address, offset, value, state, self.modRMInstance.rmNameSegId)
                 #self.main.cpu.cpuDump() # dump after
         #elif (self.modRMInstance.mod != 3): # memory operands

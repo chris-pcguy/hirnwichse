@@ -98,6 +98,7 @@ cdef class PciBridge(PciDevice):
         #    
     cdef void run(self):
         PciDevice.run(self)
+
 cdef class PciBus:
     def __init__(self, Pci pci, object main, unsigned char busIndex):
         self.pci = pci

@@ -161,23 +161,27 @@ cdef class ModRMClass:
         if (self.mod != 3):
             mmAddr = self.getRMValueFull(self.registers.addrSize)
         if (regSize == OP_SIZE_BYTE):
+            value &= BITMASK_BYTE
             if (self.mod == 3):
                 if (self.rm <= 3):
-                    return self.registers.regWriteWithOpLowByte(self.rmName0, value&BITMASK_BYTE, valueOp)
+                    return self.registers.regWriteWithOpLowByte(self.rmName0, value, valueOp)
                 else: # self.rm >= 4
-                    return self.registers.regWriteWithOpHighByte(self.rmName0, value&BITMASK_BYTE, valueOp)
+                    return self.registers.regWriteWithOpHighByte(self.rmName0, value, valueOp)
             return self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned char>value, self.rmNameSegId, allowOverride, valueOp)&BITMASK_BYTE
         elif (regSize == OP_SIZE_WORD):
+            value &= BITMASK_WORD
             if (self.mod == 3):
-                return self.registers.regWriteWithOpWord(self.rmName0, value&BITMASK_WORD, valueOp)
+                return self.registers.regWriteWithOpWord(self.rmName0, value, valueOp)
             return self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned short>value, self.rmNameSegId, allowOverride, valueOp)&BITMASK_WORD
         elif (regSize == OP_SIZE_DWORD):
+            value &= BITMASK_DWORD
             if (self.mod == 3):
-                return self.registers.regWriteWithOpDword(self.rmName0, value&BITMASK_DWORD, valueOp)
+                return self.registers.regWriteWithOpDword(self.rmName0, value, valueOp)
             return self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned int>value, self.rmNameSegId, allowOverride, valueOp)&BITMASK_DWORD
         elif (regSize == OP_SIZE_QWORD):
+            value &= BITMASK_QWORD
             if (self.mod == 3):
-                return self.registers.regWriteWithOpQword(self.rmName0, value&BITMASK_QWORD, valueOp)
+                return self.registers.regWriteWithOpQword(self.rmName0, value, valueOp)
             return self.registers.mmWriteValueWithOpSize(mmAddr, <unsigned long int>value, self.rmNameSegId, allowOverride, valueOp)&BITMASK_QWORD
         self.main.exitError("ModRMClass::modRMSave: if; else.")
         return 0
