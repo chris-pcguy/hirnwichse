@@ -193,8 +193,8 @@ cdef class Vga:
         self.pciDevice.setReadOnly(True)
         self.ui = None
         if (not self.main.noUI):
-            self.ui = PygameUI(self, self.main)
-    cpdef tuple getColor(self, unsigned char color): # RGB
+            self.ui = PysdlUI(self, self.main)
+    cpdef unsigned int getColor(self, unsigned char color): # RGBA
         cdef unsigned char red, green, blue
         if (color >= 0x10):
             self.main.exitError("Vga::getColor: color_1 >= 0x10 (color_1=={0:#04x})", color)
@@ -207,7 +207,7 @@ cdef class Vga:
         red <<= 2
         green <<= 2
         blue <<= 2
-        return (red, green, blue)
+        return ((red << 24) | (green << 16) | (blue << 8) | 0xff)
     cdef void readFontData(self): # TODO
         cdef unsigned char charHeight
         cdef unsigned int posdata

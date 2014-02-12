@@ -1,7 +1,7 @@
 
 from mm cimport Mm, MmArea, MmAreaWriteType, ConfigSpace
 from pci cimport Pci, PciDevice
-from pygameUI cimport PygameUI
+from pysdlUI cimport PysdlUI
 
 
 cdef class VGA_REGISTER_RAW(ConfigSpace):
@@ -54,7 +54,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
 
 cdef class Vga:
     cpdef object main
-    cpdef PygameUI ui
+    cpdef PysdlUI ui
     cdef Sequencer seq
     cdef CRT crt
     cdef GDC gdc
@@ -64,7 +64,7 @@ cdef class Vga:
     cdef PciDevice pciDevice
     cdef unsigned char processVideoMem, needLoadFont
     cdef unsigned int videoMemBase, videoMemBaseWithOffset, videoMemSize
-    cpdef tuple getColor(self, unsigned char color) # RGB
+    cpdef unsigned int getColor(self, unsigned char color) # RGB
     cdef void readFontData(self)
     cdef void setProcessVideoMem(self, unsigned char processVideoMem)
     cdef unsigned char getProcessVideoMem(self)
