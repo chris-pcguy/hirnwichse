@@ -150,7 +150,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
                 self.vga.ui.clearScreen()
         elif (not prevVideoEnabled):
             if (self.vga.ui):
-                self.vga.ui.updateScreen(tuple())
+                self.vga.ui.updateScreen()
     cdef void setFlipFlop(self, unsigned char flipFlop):
         self.flipFlop = flipFlop
     cdef void setIndexData(self, unsigned int data, unsigned char dataSize):
@@ -329,7 +329,7 @@ cdef class Vga:
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, fullSize)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, fullSize)
     cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
-        cdef list rectList
+        #cdef list rectList
         cdef unsigned char x, y, rows
         cdef unsigned short cols
         if (not self.ui):
@@ -340,19 +340,20 @@ cdef class Vga:
             return
         if (self.needLoadFont):
             self.readFontData()
-        rectList = list()
+        #rectList = list()
         offset &= 0xffffe
         cols = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_COLUMNS_ADDR)
         rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
         dataSize = min(dataSize, cols*rows*2) # default: 80*25*2
         while (dataSize > 0 and not self.main.quitEmu):
             y, x = divmod((offset-self.videoMemBaseWithOffset)//2, cols)
-            rectList.append(self.ui.putChar(x, y, mmArea.data[offset], mmArea.data[offset+1]))
+            #rectList.append(self.ui.putChar(x, y, mmArea.data[offset], mmArea.data[offset+1]))
+            self.ui.putChar(x, y, mmArea.data[offset], mmArea.data[offset+1])
             if (dataSize <= 2):
                 break
             offset   += 2
             dataSize -= 2
-        self.ui.updateScreen(tuple(rectList))
+        self.ui.updateScreen()
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int retVal
         retVal = BITMASK_BYTE

@@ -17,8 +17,9 @@ cdef class PysdlUI:
     cpdef object putChar(self, unsigned char x, unsigned char y, unsigned char character, unsigned char colors) # returns rect
     cpdef setRepeatRate(self, unsigned short delay, unsigned short interval)
     cdef unsigned char keyToScancode(self, unsigned int key)
-    cpdef handleEvent(self, object event)
-    cpdef updateScreen(self, tuple rectList)
+    cpdef handleSingleEvent(self, object event)
+    cpdef updateScreen(self)
+    cpdef handleEventsWithoutWaiting(self)
     cpdef handleEvents(self)
     cpdef run(self)
 

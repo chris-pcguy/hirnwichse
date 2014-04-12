@@ -62,8 +62,8 @@ cdef class AtaDrive:
     cdef void loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType, translateReg, translateValue, translateValueTemp
         cdef unsigned int cylinders
-        if (not filename or not access(filename, F_OK | R_OK)):
-            self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", (self.ataController.controllerId << 1)+self.driveId, filename)
+        if (not filename):
+            self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable.", (self.ataController.controllerId << 1)+self.driveId)
             return
         self.filename = filename
         if (access(filename, F_OK | R_OK | W_OK)):

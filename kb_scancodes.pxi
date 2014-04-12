@@ -28,7 +28,7 @@ DEF TRANSLATION_8042 = (
 
 # BX_KEY_NBKEYS = 119
 
-DEF SCANCODES = (
+cdef tuple SCANCODES = (
  ( # BX_KEY_CTRL_L ( ibm 58)
    ( b'\x1D', b'\x9D' ),
    ( b'\x14', b'\xF0\x14' ),
@@ -728,7 +728,7 @@ DEF SCANCODES = (
  ( # BX_KEY_POWER_SLEEP
    ( b'\xE0\x5F', b'\xE0\xDF' ),
    ( b'\xE0\x3F', b'\xE0\xF0\x3F' ),
-   ( b'\x7F',     b'\xF0\x7F' ),
+   ( b'\x7F',     b'\xF0\x7F' ), # TODO: BUG: Don't use \x7F here!!!!! HACK: use cython's 'cdef tuple' instead of cython's 'DEF' (run-time instead of compile-time)
  ),
 
  ( # BX_KEY_POWER_POWER

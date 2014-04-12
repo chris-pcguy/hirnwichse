@@ -1,8 +1,4 @@
 
-from pic cimport Pic
-from ps2 cimport PS2
-from posix.unistd cimport usleep
-
 include "globals.pxi"
 
 

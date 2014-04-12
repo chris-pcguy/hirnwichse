@@ -22,12 +22,14 @@ cdef class PysdlUI:
         self.vga  = vga
         self.main = main
         self.window = self.screen = None
+        self.replicate8Bit = self.msbBlink = 1
         self.screenSize = 720, 400
         self.charSize = (UI_CHAR_WIDTH, 16)
         self.fontData = b'\x00'*VGA_FONTAREA_SIZE
     cpdef initPysdl(self):
         cdef unsigned short event
         sdl2.SDL_Init(sdl2.SDL_INIT_TIMER | sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
+        sdl2.SDL_SetHintWithPriority(sdl2.SDL_HINT_RENDER_DRIVER, b"opengl", sdl2.SDL_HINT_OVERRIDE)
         self.window = sdl2.ext.Window('Hirnwichse - THE x86 Emulator written in Python. (c) 2011-2014 by Christian Inci', self.screenSize, flags=sdl2.SDL_WINDOW_SHOWN)
         self.screen = self.window.get_surface()
         register(self.quitFunc)
@@ -318,35 +320,40 @@ cdef class PysdlUI:
         #    return 0x6a
         self.main.notice("keyToScancode: unknown key. (keyId: {0:d}, keyName: {1:s})", key, repr(sdl2.keyboard.SDL_GetKeyName(key)))
         return 0xff
-    cpdef handleEvent(self, object event):
+    cpdef handleSingleEvent(self, object event):
         if (event.type == sdl2.SDL_QUIT):
             self.quitFunc()
             exit(1)
         #elif (event.type == sdl2.SDL_VIDEOEXPOSE):
         elif (event.type == 512): # 512 == sdl2.SDL_VIDEOEXPOSE ?
-            self.updateScreen(tuple())
+            self.updateScreen()
         elif (event.type == sdl2.SDL_KEYDOWN):
             (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.sym), False)
         elif (event.type == sdl2.SDL_KEYUP):
             (<PS2>self.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.sym), True)
         else:
-            self.main.notice("PysdlUI::handleEvent: event.type == {0:d}", event.type)
-    cpdef updateScreen(self, tuple rectList):
+            self.main.notice("PysdlUI::handleSingleEvent: event.type == {0:d}", event.type)
+    cpdef updateScreen(self):
+        if (self.window and self.screen):
+            self.window.refresh() # TODO: BUG: SIGSEGV in nVidia's libGL
+    cpdef handleEventsWithoutWaiting(self):
+        cpdef object event
         try:
-            #if (len(rectList) > 0):
-            #    pygame.display.update(rectList)
-            #else:
-            self.window.refresh()
+            for event in sdl2.ext.get_events():
+                self.handleSingleEvent(event)
+                #sdl2.timer.SDL_Delay(200)
+        except (SystemExit, KeyboardInterrupt):
+            self.quitFunc()
         except:
             print_exc()
-            self.main.exitError('updateScreen: exception, exiting...')
+            self.main.exitError('handleEvents: exception, exiting...')
     cpdef handleEvents(self):
         cpdef object event
         event = sdl2.SDL_Event()
         try:
             while (not self.main.quitEmu):
                 sdl2.SDL_WaitEvent(ctypes.byref(event))
-                self.handleEvent(event)
+                self.handleSingleEvent(event)
                 #sdl2.timer.SDL_Delay(200)
         except (SystemExit, KeyboardInterrupt):
             self.quitFunc()
@@ -356,7 +363,8 @@ cdef class PysdlUI:
     cpdef run(self):
         try:
             self.initPysdl()
-            (<Misc>self.main.misc).createThread(self.handleEvents, True)
+            #self.handleEvents()
+            #(<Misc>self.main.misc).createThread(self.handleEvents, True)
         except:
             print_exc()
             self.main.exitError('run: exception, exiting...')

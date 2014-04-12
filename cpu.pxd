@@ -6,6 +6,8 @@ from isadma cimport IsaDma
 from segments cimport Segments
 from registers cimport Registers
 from opcodes cimport Opcodes
+from vga cimport Vga
+from pysdlUI cimport PysdlUI
 
 
 cdef class Cpu:
