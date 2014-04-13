@@ -23,14 +23,15 @@ cdef class PciDevice:
         self.main = main
         self.deviceIndex = deviceIndex
         self.readOnly = False
+        for i in range(6):
+            self.barSize[i] = 0
         self.configSpace = ConfigSpace(PCI_FUNCTION_CONFIG_SIZE, self.main)
-        self.configSpace.csResetData(BITMASK_BYTE)
-        self.configSpace.csWriteValue(PCI_ROM_ADDRESS, 0, OP_SIZE_DWORD)
+        self.configSpace.csResetData(0)
         self.configSpace.csWriteValue(PCI_HEADER_TYPE, PCI_HEADER_TYPE_STANDARD, OP_SIZE_BYTE)
     cdef void reset(self):
         pass
     cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize): # return true means allowed
-        cdef unsigned char offset, headerType, function
+        cdef unsigned char offset, headerType, function, memBarType, barIndex
         cdef unsigned int origData
         offset = mmAddress&0xff
         function = (mmAddress >> PCI_FUNCTION_SHIFT) & 0x7
@@ -41,6 +42,7 @@ cdef class PciDevice:
                 return False # TODO
             if ((offset & 3) != 0):
                 self.main.notice("PciDevice::checkWriteAccess: unaligned access!")
+            barIndex = (offset - 0x10) >> 2
             headerType = self.getData((mmAddress & 0xffffff00) | PCI_HEADER_TYPE, OP_SIZE_BYTE)
             if (headerType >= 0x02):
                 self.main.notice("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
@@ -48,10 +50,19 @@ cdef class PciDevice:
             elif (headerType == 0x01):
                 if (offset >= PCI_BASE_ADDRESS_2):
                     return True
-            ###data = self.configSpace.csReadValueUnsigned(mmAddress & 0xfffffffc, OP_SIZE_DWORD)
-            if (data == BITMASK_DWORD):
-                return False
-            data = 0xffffffff if (data & 0x1) else 0xfff00008
+            origData = self.configSpace.csReadValueUnsigned(mmAddress & 0xfffffffc, OP_SIZE_DWORD)
+            memBarType = (origData >> 1) & 0x3
+            if (origData & 0x1):
+                if (data == 0xfffffffc):
+                    data = 0xfffc
+            else:
+                if (not origData):
+                    data = origData
+                elif (memBarType != 0): #if (memBarType in (1, 2, 3)):
+                    self.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", memBarType)
+                    return True
+                elif (data == 0xfffffff0):
+                    data = (BITMASK_DWORD & (~(self.barSize[barIndex] - 1)))
             self.configSpace.csWriteValue(mmAddress & 0xfffffffc, data, OP_SIZE_DWORD)
             return False
         elif (offset == PCI_ROM_ADDRESS):
@@ -59,9 +70,6 @@ cdef class PciDevice:
             if (self.readOnly):
                 return False
         return True
-    cdef inline unsigned int getMmAddress(self, unsigned char bus, unsigned char device, unsigned char function, unsigned char register):
-        #return (PCI_MEM_BASE | (bus<<PCI_BUS_SHIFT) | ((device&0x1f)<<PCI_DEVICE_SHIFT) | ((function&0x7)<<PCI_FUNCTION_SHIFT) | register)
-        return (((function&0x7)<<PCI_FUNCTION_SHIFT) | register)
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize):
         return self.configSpace.csReadValueUnsigned(mmAddress, dataSize)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
@@ -69,16 +77,18 @@ cdef class PciDevice:
             return
         self.configSpace.csWriteValue(mmAddress, data, dataSize)
     cdef void setVendorId(self, unsigned short vendorId):
-        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_VENDOR_ID), vendorId, OP_SIZE_WORD)
+        self.setData(PCI_VENDOR_ID, vendorId, OP_SIZE_WORD)
     cdef void setDeviceId(self, unsigned short deviceId):
-        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_DEVICE_ID), deviceId, OP_SIZE_WORD)
+        self.setData(PCI_DEVICE_ID, deviceId, OP_SIZE_WORD)
     cdef void setDeviceClass(self, unsigned short deviceClass):
-        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_DEVICE_CLASS), deviceClass, OP_SIZE_WORD)
+        self.setData(PCI_DEVICE_CLASS, deviceClass, OP_SIZE_WORD)
     cdef void setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId):
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
     cdef void setReadOnly(self, unsigned char readOnly):
         self.readOnly = readOnly
+    cdef void setBarSize(self, unsigned char barIndex, unsigned char barSize):
+        self.barSize[barIndex] = barSize
     cdef void run(self):
         pass
 
@@ -87,14 +97,14 @@ cdef class PciBridge(PciDevice):
         PciDevice.__init__(self, bus, pci, main, deviceIndex)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
         self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
-        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_PRIMARY_BUS), 0, OP_SIZE_BYTE)
-        self.setData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_HEADER_TYPE), PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
+        self.setData(PCI_PRIMARY_BUS, 0, OP_SIZE_BYTE)
+        self.setData(PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
         #cdef unsigned int addr, limit
         PciDevice.setData(self, mmAddress, data, dataSize)
         #if (((mmAddress&0xff) == PCI_BRIDGE_MEM_LIMIT and dataSize == 2) or ((mmAddress&0xff) == PCI_BRIDGE_MEM_BASE and dataSize == 4)):
-        #    addr = <unsigned int>self.getData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_BRIDGE_MEM_BASE), OP_SIZE_WORD)<<16
-        #    limit = <unsigned int>self.getData(self.getMmAddress(self.bus.busIndex, self.deviceIndex, 0, PCI_BRIDGE_MEM_LIMIT), OP_SIZE_WORD)<<16
+        #    addr = <unsigned int>self.getData(PCI_BRIDGE_MEM_BASE, OP_SIZE_WORD)<<16
+        #    limit = <unsigned int>self.getData(PCI_BRIDGE_MEM_LIMIT, OP_SIZE_WORD)<<16
         #    
     cdef void run(self):
         PciDevice.run(self)

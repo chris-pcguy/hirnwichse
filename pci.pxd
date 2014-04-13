@@ -15,10 +15,10 @@ cdef class PciDevice:
     cdef Pci pci
     cdef PciBus bus
     cdef ConfigSpace configSpace
-    cdef unsigned char readOnly, deviceIndex, barsEnabled # barsEnabled is a bitmask
+    cdef unsigned char readOnly, deviceIndex
+    cdef unsigned char barSize[6] # size in bits
     cdef void reset(self)
     cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize)
-    cdef inline unsigned int getMmAddress(self, unsigned char bus, unsigned char device, unsigned char function, unsigned char register)
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize)
     cdef void setVendorId(self, unsigned short vendorId)
@@ -26,6 +26,7 @@ cdef class PciDevice:
     cdef void setDeviceClass(self, unsigned short deviceClass)
     cdef void setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId)
     cdef void setReadOnly(self, unsigned char readOnly)
+    cdef void setBarSize(self, unsigned char barIndex, unsigned char barSize)
     cdef void run(self)
 
 cdef class PciBridge(PciDevice):
