@@ -1647,8 +1647,8 @@ cdef class Opcodes:
             if (eaxId == 0x1):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x400)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8110)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8100) # TODO: disabled TSC feature.
+                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8110)
+                #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8100) # TODO: disabled TSC feature.
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
             elif (eaxId >= 0x2 and eaxId <= 0x5):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)

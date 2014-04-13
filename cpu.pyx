@@ -181,7 +181,7 @@ cdef class Cpu:
         #if (self.savedEip == 0x10000f and self.savedCs == 0x0010):
         #    self.cpuDump()
         #    self.main.notice("doCycle: test_1 (addr: {0:#010x}; seg: {1:#06x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(0x103688), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(0x10368c))
-        if (self.cycles & 0x0f == 0x00):
+        if (self.cycles & 0xfff == 0x00):
             if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
                 (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()
         try:

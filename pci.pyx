@@ -36,34 +36,39 @@ cdef class PciDevice:
         offset = mmAddress&0xff
         function = (mmAddress >> PCI_FUNCTION_SHIFT) & 0x7
         if (function): # TODO
-            self.main.notice("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", function)
-        if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BASE_ADDRESS_5+4):
-            if (self.readOnly):
-                return False # TODO
+            self.main.debug("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", function)
+            return False
+        if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_CAPABILITIES_POINTER):
+            #if (self.readOnly):
+            #    return False # TODO
             if ((offset & 3) != 0):
-                self.main.notice("PciDevice::checkWriteAccess: unaligned access!")
+                self.main.debug("PciDevice::checkWriteAccess: unaligned access!")
             barIndex = (offset - 0x10) >> 2
             headerType = self.getData((mmAddress & 0xffffff00) | PCI_HEADER_TYPE, OP_SIZE_BYTE)
             if (headerType >= 0x02):
-                self.main.notice("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
+                self.main.debug("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
                 return True
             elif (headerType == 0x01):
-                if (offset >= PCI_BASE_ADDRESS_2):
+                if (offset in (PCI_BRIDGE_IO_BASE_LOW, PCI_BRIDGE_IO_LIMIT_LOW, PCI_BRIDGE_PREF_MEM_BASE_LOW, PCI_BRIDGE_PREF_MEM_LIMIT_LOW, \
+                  PCI_BRIDGE_PREF_MEM_BASE_HIGH, PCI_BRIDGE_PREF_MEM_LIMIT_HIGH, PCI_BRIDGE_IO_BASE_HIGH, PCI_BRIDGE_IO_LIMIT_HIGH)):
+                    return False
+                elif (offset >= PCI_BASE_ADDRESS_2):
                     return True
-            origData = self.configSpace.csReadValueUnsigned(mmAddress & 0xfffffffc, OP_SIZE_DWORD)
-            memBarType = (origData >> 1) & 0x3
-            if (origData & 0x1):
-                if (data == 0xfffffffc):
-                    data = 0xfffc
-            else:
-                if (not origData):
-                    data = origData
-                elif (memBarType != 0): #if (memBarType in (1, 2, 3)):
-                    self.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", memBarType)
-                    return True
-                elif (data == 0xfffffff0):
-                    data = (BITMASK_DWORD & (~(self.barSize[barIndex] - 1)))
-            self.configSpace.csWriteValue(mmAddress & 0xfffffffc, data, OP_SIZE_DWORD)
+            if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BASE_ADDRESS_5+OP_SIZE_DWORD):
+                origData = self.configSpace.csReadValueUnsigned(mmAddress, OP_SIZE_DWORD)
+                memBarType = (origData >> 1) & 0x3
+                if (origData & 0x1):
+                    if (data == 0xfffffffc):
+                        data = 0xfffc
+                else:
+                    if (not origData):
+                        data = origData
+                    elif (memBarType != 0): #if (memBarType in (1, 2, 3)):
+                        self.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", memBarType)
+                        return True
+                    elif (data == 0xfffffff0):
+                        data = (BITMASK_DWORD & (~(self.barSize[barIndex] - 1)))
+                self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_DWORD)
             return False
         elif (offset == PCI_ROM_ADDRESS):
             origData = self.configSpace.csReadValueUnsigned(mmAddress & 0xfffffffc, OP_SIZE_DWORD)
@@ -97,8 +102,8 @@ cdef class PciBridge(PciDevice):
         PciDevice.__init__(self, bus, pci, main, deviceIndex)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
         self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
-        self.setData(PCI_PRIMARY_BUS, 0, OP_SIZE_BYTE)
-        self.setData(PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
+        #self.setData(PCI_PRIMARY_BUS, 0, OP_SIZE_BYTE)
+        #self.setData(PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
         #cdef unsigned int addr, limit
         PciDevice.setData(self, mmAddress, data, dataSize)

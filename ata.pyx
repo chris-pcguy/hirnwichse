@@ -236,14 +236,14 @@ cdef class AtaController:
                 if (ioPortAddr == 0x7 and self.irq):
                     (<Pic>self.main.platform.pic).lowerIrq(self.irq)
                 if (not drive.isLoaded):
-                    #self.main.notice("AtaController::inPort: drive isn't loaded: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}; ret: {4:#06x}", self.controllerId, self.driveId, ioPortAddr, dataSize, ret)
+                    #self.main.notice("AtaController::inPort: drive isn't loaded: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
                     return 0x00
                 ret = (self.driveBusy << 7) | (self.driveReady << 6) | (self.seekComplete << 4) | (self.drq << 3) | (self.err)
             elif (ioPortAddr == 0x1ff or ioPortAddr == 0x207):
                 self.main.exitError("AtaController::inPort: what??? ;controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
                 return BITMASK_BYTE
             else:
-                self.main.notice("AtaController::inPort: TODO: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}; ret: {4:#06x}", self.controllerId, self.driveId, ioPortAddr, dataSize, ret)
+                self.main.notice("AtaController::inPort: TODO: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
         else:
             self.main.exitError("AtaController::inPort: dataSize {0:d} not supported.", dataSize)
         return ret
