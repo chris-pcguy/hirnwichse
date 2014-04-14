@@ -22,8 +22,7 @@ cdef class PciDevice:
         self.pci = pci
         self.main = main
         self.deviceIndex = deviceIndex
-        self.readOnly = False
-        for i in range(6):
+        for i in range(7):
             self.barSize[i] = 0
         self.configSpace = ConfigSpace(PCI_FUNCTION_CONFIG_SIZE, self.main)
         self.configSpace.csResetData(0)
@@ -38,9 +37,7 @@ cdef class PciDevice:
         if (function): # TODO
             self.main.debug("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", function)
             return False
-        if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_CAPABILITIES_POINTER):
-            #if (self.readOnly):
-            #    return False # TODO
+        if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BRIDGE_ROM_ADDRESS+OP_SIZE_DWORD):
             if ((offset & 3) != 0):
                 self.main.debug("PciDevice::checkWriteAccess: unaligned access!")
             barIndex = (offset - 0x10) >> 2
@@ -52,28 +49,30 @@ cdef class PciDevice:
                 if (offset in (PCI_BRIDGE_IO_BASE_LOW, PCI_BRIDGE_IO_LIMIT_LOW, PCI_BRIDGE_PREF_MEM_BASE_LOW, PCI_BRIDGE_PREF_MEM_LIMIT_LOW, \
                   PCI_BRIDGE_PREF_MEM_BASE_HIGH, PCI_BRIDGE_PREF_MEM_LIMIT_HIGH, PCI_BRIDGE_IO_BASE_HIGH, PCI_BRIDGE_IO_LIMIT_HIGH)):
                     return False
-                elif (offset >= PCI_BASE_ADDRESS_2):
+                elif (offset >= PCI_BASE_ADDRESS_2 and offset != PCI_BRIDGE_ROM_ADDRESS):
                     return True
-            if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BASE_ADDRESS_5+OP_SIZE_DWORD):
+            if (offset >= PCI_BASE_ADDRESS_0 and offset <= PCI_BASE_ADDRESS_5):
                 origData = self.configSpace.csReadValueUnsigned(mmAddress, OP_SIZE_DWORD)
                 memBarType = (origData >> 1) & 0x3
                 if (origData & 0x1):
                     if (data == 0xfffffffc):
                         data = 0xfffc
                 else:
-                    if (not origData):
-                        data = origData
+                    if (not self.barSize[barIndex]):
+                        return False
                     elif (memBarType != 0): #if (memBarType in (1, 2, 3)):
                         self.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", memBarType)
                         return True
                     elif (data == 0xfffffff0):
-                        data = (BITMASK_DWORD & (~(self.barSize[barIndex] - 1)))
-                self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_DWORD)
+                        data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1)))
+            elif ((not headerType and offset == PCI_ROM_ADDRESS) or (headerType == 1 and offset == PCI_BRIDGE_ROM_ADDRESS)):
+                barIndex = 6
+                if (not self.barSize[barIndex]):
+                    return False
+                elif ((data & 0xfffff800) == 0xfffff800):
+                    data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1))) # TODO: is this correct?
+            self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_DWORD)
             return False
-        elif (offset == PCI_ROM_ADDRESS):
-            origData = self.configSpace.csReadValueUnsigned(mmAddress & 0xfffffffc, OP_SIZE_DWORD)
-            if (self.readOnly):
-                return False
         return True
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize):
         return self.configSpace.csReadValueUnsigned(mmAddress, dataSize)
@@ -90,8 +89,6 @@ cdef class PciDevice:
     cdef void setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId):
         self.setVendorId(vendorId)
         self.setDeviceId(deviceId)
-    cdef void setReadOnly(self, unsigned char readOnly):
-        self.readOnly = readOnly
     cdef void setBarSize(self, unsigned char barIndex, unsigned char barSize):
         self.barSize[barIndex] = barSize
     cdef void run(self):

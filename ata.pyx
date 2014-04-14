@@ -361,17 +361,8 @@ cdef class Ata:
         self.pciDevice = (<Pci>self.main.platform.pci).addDevice()
         self.pciDevice.setVendorDeviceId(0x8086, 0x7010)
         self.pciDevice.setDeviceClass(PCI_CLASS_PATA)
-        self.pciDevice.setData(PCI_BASE_ADDRESS_0, (((ATA1_BASE) << 2) | 0x1), OP_SIZE_DWORD)
-        self.pciDevice.setData(PCI_BASE_ADDRESS_1, (((ATA1_CTRL_BASE) << 2) | 0x1), OP_SIZE_DWORD)
-        self.pciDevice.setData(PCI_BASE_ADDRESS_2, (((ATA2_BASE) << 2) | 0x1), OP_SIZE_DWORD)
-        self.pciDevice.setData(PCI_BASE_ADDRESS_3, (((ATA2_CTRL_BASE) << 2) | 0x1), OP_SIZE_DWORD)
         self.pciDevice.setData(PCI_INTERRUPT_LINE, (14), OP_SIZE_BYTE)
         self.pciDevice.setData(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
-        self.pciDevice.setBarSize(0, 16)
-        self.pciDevice.setBarSize(1, 16)
-        self.pciDevice.setBarSize(2, 16)
-        self.pciDevice.setBarSize(3, 16)
-        self.pciDevice.setReadOnly(True)
     cdef void reset(self):
         cdef AtaController controller
         for controller in self.controller:

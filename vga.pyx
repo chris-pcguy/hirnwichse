@@ -189,8 +189,8 @@ cdef class Vga:
         self.pciDevice = (<Pci>self.main.platform.pci).addDevice()
         self.pciDevice.setVendorDeviceId(0x1234, 0x1111)
         self.pciDevice.setDeviceClass(PCI_CLASS_VGA)
-        self.pciDevice.setData(PCI_ROM_ADDRESS, (VGA_ROM_BASE | 0x1), OP_SIZE_DWORD)
-        self.pciDevice.setReadOnly(True)
+        #self.pciDevice.setBarSize(6, 16)
+        #self.pciDevice.setData(PCI_ROM_ADDRESS, ((VGA_ROM_BASE << 10) | 0x1), OP_SIZE_DWORD)
         self.ui = None
         if (not self.main.noUI):
             self.ui = PysdlUI(self, self.main)

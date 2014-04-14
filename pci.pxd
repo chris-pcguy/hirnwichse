@@ -15,8 +15,8 @@ cdef class PciDevice:
     cdef Pci pci
     cdef PciBus bus
     cdef ConfigSpace configSpace
-    cdef unsigned char readOnly, deviceIndex
-    cdef unsigned char barSize[6] # size in bits
+    cdef unsigned char deviceIndex
+    cdef unsigned char barSize[7] # size in bits
     cdef void reset(self)
     cdef unsigned char checkWriteAccess(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize)
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize)
@@ -25,7 +25,6 @@ cdef class PciDevice:
     cdef void setDeviceId(self, unsigned short deviceId)
     cdef void setDeviceClass(self, unsigned short deviceClass)
     cdef void setVendorDeviceId(self, unsigned short vendorId, unsigned short deviceId)
-    cdef void setReadOnly(self, unsigned char readOnly)
     cdef void setBarSize(self, unsigned char barIndex, unsigned char barSize)
     cdef void run(self)
 
