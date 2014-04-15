@@ -27,6 +27,7 @@ cdef class Cpu:
     cdef inline void setINTR(self, unsigned char state):
         self.INTR = state
         self.asyncEvent = True
+        self.cpuHalted = False
     cdef inline void setHRQ(self, unsigned char state):
         self.HRQ = state
         if (state):
@@ -149,6 +150,8 @@ cdef class Cpu:
                     if (self.asyncEvent):
                         self.handleAsyncEvent()
                         continue
+                    if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
+                        (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()
                     sleep(0.2)
                     continue
                 self.doCycle()

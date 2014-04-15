@@ -79,7 +79,7 @@ cdef class PysdlUI:
             charArray = sdl2.ext.pixels2d(newChar)
             # It's not a good idea to render a character if fgColor == bgColor
             #   as it wouldn't be readable.
-            if (fgColor != bgColor or 1): # TODO
+            if (fgColor != bgColor): # TODO
                 i = character*self.charSize[1]
                 charData = self.fontData[i:i+self.charSize[1]]
                 for i in range(len(charData)):

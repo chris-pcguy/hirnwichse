@@ -92,12 +92,14 @@ cdef class Idt:
 
 cdef class Paging:
     cdef Segments segments
+    cdef unsigned short pageOffset
+    cdef unsigned int pageDirectoryOffset, pageTableOffset
     cdef unsigned int pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress)
     cdef void readAddresses(self, unsigned int virtualAddress)
     cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress)
     cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress)
-    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress)
+    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned char written)
     
 cdef class Segments:
     cpdef object main

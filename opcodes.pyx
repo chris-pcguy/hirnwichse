@@ -1391,7 +1391,7 @@ cdef class Opcodes:
                     (<Segments>self.registers.segments).ldtr = op1
                     if (gdtEntry):
                         if (self.registers.protectedModeOn and self.registers.pagingOn):
-                            gdtEntry.base = self.registers.segments.paging.getPhysicalAddress(gdtEntry.base)
+                            gdtEntry.base = self.registers.segments.paging.getPhysicalAddress(gdtEntry.base, False)
                         (<Gdt>self.registers.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
                     else:
                         (<Gdt>self.registers.segments.ldt).loadTablePosition(0, 0)
@@ -1489,7 +1489,7 @@ cdef class Opcodes:
                 if (self.registers.operSize == OP_SIZE_WORD):
                     base &= 0xffffff
                 if (self.registers.protectedModeOn and self.registers.pagingOn):
-                    base = self.registers.segments.paging.getPhysicalAddress(base)
+                    base = self.registers.segments.paging.getPhysicalAddress(base, False)
                 if (operOpcodeModId == 2): # LGDT
                     (<Gdt>self.registers.segments.gdt).loadTablePosition(base, limit)
                 elif (operOpcodeModId == 3): # LIDT
