@@ -258,15 +258,15 @@ cdef class Paging: # TODO
         self.segments = segments
         self.invalidateTables(0)
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress):
-        self.pageDirectoryBaseAddress = pageDirectoryBaseAddress
-        self.pageDirectoryEntry = self.pageTableEntry = 0
+        self.pageDirectoryBaseAddress = (pageDirectoryBaseAddress&0xfffff000)
+        self.pageDirectoryOffset = self.pageTableOffset = self.pageDirectoryEntry = self.pageTableEntry = 0
     cdef void readAddresses(self, unsigned int virtualAddress):
-        self.pageDirectoryOffset = (virtualAddress>>22) * 4
-        self.pageTableOffset = ((virtualAddress>>12)&0x3ff) * 4
+        self.pageDirectoryOffset = (virtualAddress>>22) << 2
+        self.pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         self.pageOffset = virtualAddress&0xfff
-        self.pageDirectoryEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress+self.pageDirectoryOffset) # page directory
+        self.pageDirectoryEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
         if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
-            self.segments.main.exitError("Paging::readAddresses: PDE-Entry is not present.")
+            self.segments.main.exitError("Paging::readAddresses: PDE-Entry is not present. (entry: {0:#010x})", self.pageDirectoryEntry)
             return
         if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4mb page
             # size is 4mb if CR4/PSE is set
@@ -274,10 +274,9 @@ cdef class Paging: # TODO
             # I don't know which size is used if both, CR4/PSE && CR4/PAE, are set
             self.segments.main.exitError("Paging::readAddresses: 4mb pages are UNSUPPORTED yet.")
             return
-        self.pageTableEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword((self.pageDirectoryEntry&0xfffff000)+self.pageTableOffset) # page table
+        self.pageTableEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword((self.pageDirectoryEntry&0xfffff000)|self.pageTableOffset) # page table
         if (not (self.pageTableEntry & PAGE_PRESENT)):
-            self.segments.main.exitError("Paging::readAddresses: PTE-Entry is not present.")
-            return
+            self.segments.main.exitError("Paging::readAddresses: PTE-Entry is not present. (entry: {0:#010x})", self.pageTableEntry)
     cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress):
         self.readAddresses(virtualAddress)
         if (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE):
@@ -291,11 +290,12 @@ cdef class Paging: # TODO
     cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned char written):
         self.readAddresses(virtualAddress)
         if (not self.writeAccessAllowed(virtualAddress)):
-            self.segments.main.exitError("Paging::getPhysicalAddress: PDE- or PTE-Entry is not writable.")
+            self.segments.main.notice("Paging::getPhysicalAddress: PDE- or PTE-Entry is not writable. (virtualAddress: {0:#010x})", virtualAddress)
             return 0
-        (<Mm>self.segments.main.mm).mmPhyWriteValue(<unsigned int>(self.pageDirectoryBaseAddress+self.pageDirectoryOffset), <unsigned int>(self.pageDirectoryEntry | PAGE_WAS_USED | (((self.pageDirectoryEntry & PAGE_SIZE) and written) and PAGE_WRITTEN_ON_PAGE)), OP_SIZE_DWORD) # page directory
-        (<Mm>self.segments.main.mm).mmPhyWriteValue(<unsigned int>((self.pageDirectoryEntry&0xfffff000)+self.pageTableOffset), <unsigned int>(self.pageTableEntry | PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE)), OP_SIZE_DWORD) # page table
-        return (self.pageTableEntry&0xfffff000)+self.pageOffset
+        if (self.pageTableEntry & PAGE_PRESENT):
+            (<Mm>self.segments.main.mm).mmPhyWriteValue(<unsigned int>(self.pageDirectoryBaseAddress|self.pageDirectoryOffset), <unsigned int>(self.pageDirectoryEntry | PAGE_WAS_USED | (((self.pageDirectoryEntry & PAGE_SIZE) and written) and PAGE_WRITTEN_ON_PAGE)), OP_SIZE_DWORD) # page directory
+            (<Mm>self.segments.main.mm).mmPhyWriteValue(<unsigned int>((self.pageDirectoryEntry&0xfffff000)|self.pageTableOffset), <unsigned int>(self.pageTableEntry | PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE)), OP_SIZE_DWORD) # page table
+        return (self.pageTableEntry&0xfffff000)|self.pageOffset
 
 cdef class Segments:
     def __init__(self, object main):

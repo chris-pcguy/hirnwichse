@@ -913,6 +913,29 @@ cdef class Registers:
         self.regWriteDword(CPU_REGISTER_ESP, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_ESP))
         self.segWrite(CPU_SEGMENT_SS, (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_SS))
         # TODO: set iomap base address
+    cdef void saveTSS(self):
+        cdef unsigned int baseAddress
+        baseAddress = self.mmGetRealAddr(0, CPU_SEGMENT_TSS, False, True)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_EAX, self.regReadUnsignedDword(CPU_REGISTER_EAX), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_ECX, self.regReadUnsignedDword(CPU_REGISTER_ECX), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_EDX, self.regReadUnsignedDword(CPU_REGISTER_EDX), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_EBX, self.regReadUnsignedDword(CPU_REGISTER_EBX), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_EBP, self.regReadUnsignedDword(CPU_REGISTER_EBP), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_ESI, self.regReadUnsignedDword(CPU_REGISTER_ESI), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_EDI, self.regReadUnsignedDword(CPU_REGISTER_EDI), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_ES, self.segRead(CPU_SEGMENT_ES), OP_SIZE_WORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_CS, self.segRead(CPU_SEGMENT_CS), OP_SIZE_WORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_DS, self.segRead(CPU_SEGMENT_DS), OP_SIZE_WORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_FS, self.segRead(CPU_SEGMENT_FS), OP_SIZE_WORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_GS, self.segRead(CPU_SEGMENT_GS), OP_SIZE_WORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_LDT_SEG_SEL, self.segments.ldtr, OP_SIZE_WORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_CR3, self.regReadUnsignedDword(CPU_REGISTER_CR3), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_EIP, self.regReadUnsignedDword(CPU_REGISTER_EIP), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_EFLAGS, self.readFlags(), OP_SIZE_DWORD)
+
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_ESP, self.regReadUnsignedDword(CPU_REGISTER_ESP), OP_SIZE_DWORD)
+        (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_SS, self.segRead(CPU_SEGMENT_SS), OP_SIZE_WORD)
+        # TODO: set iomap base address
     cdef void run(self):
         self.segments = Segments(self.main)
         self.segments.run()

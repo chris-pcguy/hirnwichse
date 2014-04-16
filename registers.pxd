@@ -300,6 +300,7 @@ cdef class Registers:
     cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned_value_types mmWriteValueWithOpSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
     cdef void switchTSS(self)
+    cdef void saveTSS(self)
     cdef inline unsigned char getSegSize(self, unsigned short segId):
         return (<Segment>(self.segments.getSegmentInstance(segId, True))).getSegSize()
     cdef inline unsigned char isSegPresent(self, unsigned short segId):

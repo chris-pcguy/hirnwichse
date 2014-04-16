@@ -93,8 +93,7 @@ cdef class Idt:
 cdef class Paging:
     cdef Segments segments
     cdef unsigned short pageOffset
-    cdef unsigned int pageDirectoryOffset, pageTableOffset
-    cdef unsigned int pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
+    cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress)
     cdef void readAddresses(self, unsigned int virtualAddress)
     cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress)

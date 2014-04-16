@@ -499,6 +499,9 @@ cdef class Opcodes:
         cdef GdtEntry gdtEntry
         cdef Segment segment
         self.syncCR0State()
+        if (method == OPCODE_CALL):
+            self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
+            self.stackPushRegId(CPU_REGISTER_EIP, self.registers.operSize)
         if (self.registers.protectedModeOn):
             gdtEntry = <GdtEntry>self.registers.segments.getEntry(segVal)
             if (not gdtEntry or not gdtEntry.segPresent):
@@ -511,13 +514,16 @@ cdef class Opcodes:
                 if (segType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
                     raise HirnwichseException(CPU_EXCEPTION_TS, segVal)
                 oldTSSsel = segment.segmentIndex
+                self.registers.saveTSS()
                 self.registers.segWrite(CPU_SEGMENT_TSS, segVal)
-                if (segment.segDPL < self.registers.getCPL() or segment.segDPL < (segment.segmentIndex&3)): # TODO:  1.: segment.segDPL < (segment.segmentIndex&3) ?!? / 2.: "or TSS descriptor indicates TSS not available"?!?
+                if (segment.segDPL < self.registers.getCPL() or segment.segDPL < (self.registers.mmReadValueUnsignedWord(TSS_CS, CPU_SEGMENT_TSS, False)&3)): # TODO:  1.: segment.segDPL < (segment.segmentIndex&3) ?!? / 2.: "or TSS descriptor indicates TSS not available"?!?
                     raise HirnwichseException(CPU_EXCEPTION_GP, segment.segmentIndex)
                 if (not segment.segPresent):
                     raise HirnwichseException(CPU_EXCEPTION_NP, segment.segmentIndex)
                 if (segment.limit < 0x67):
                     raise HirnwichseException(CPU_EXCEPTION_TS, segment.segmentIndex)
+                if (method == OPCODE_CALL):
+                    self.registers.mmWriteValueWithOpSize(TSS_EFLAGS, (<unsigned int>FLAG_NT), CPU_SEGMENT_TSS, False, OPCODE_OR)
                 self.registers.switchTSS()
                 segType = self.registers.segments.getSegType(oldTSSsel)
                 self.registers.segments.setSegType(oldTSSsel, (segType & ~0x2))
@@ -526,15 +532,13 @@ cdef class Opcodes:
                 if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), 1)): # TODO
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 #self.main.notice("Opcodes::jumpFarDirect: sysSegType == {0:d}; method == {1:d} (TSS); TODO!", segType, method)
+                return True
             #elif (not (segType & GDT_ACCESS_NORMAL_SEGMENT) and (segType != TABLE_ENTRY_SYSTEM_TYPE_LDT)):
             #    self.main.exitError("Opcodes::jumpFarDirect: sysSegType {0:d} isn't supported yet.", segType)
             #    return True
             elif (not (segType & GDT_ACCESS_NORMAL_SEGMENT)):
                 self.main.exitError("Opcodes::jumpFarDirect: sysSegType {0:d} isn't supported yet.", segType)
                 return True
-        if (method == OPCODE_CALL):
-            self.stackPushSegId(CPU_SEGMENT_CS, self.registers.operSize)
-            self.stackPushRegId(CPU_REGISTER_EIP, self.registers.operSize)
         self.registers.segWrite(CPU_SEGMENT_CS, segVal)
         self.registers.regWriteDword(CPU_REGISTER_EIP, eipVal)
         return True
