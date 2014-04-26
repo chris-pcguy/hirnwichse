@@ -2461,15 +2461,27 @@ cdef class Opcodes:
                                             # it's original value in case of an exception.
         if (not self.registers.protectedModeOn and self.registers.operSize == OP_SIZE_DWORD and (tempEIP>>16)):
             raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+        oldESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
+        if (<signed int>(oldESP - (12 if (self.registers.operSize == OP_SIZE_DWORD) else 6)) < 0):
+            raise HirnwichseException(CPU_EXCEPTION_SS, 0)
         tempEIP = self.stackPopValue(True)
         tempCS = self.stackPopValue(True)&BITMASK_WORD
         tempEFLAGS = self.stackPopValue(True)
         currentEFLAGS = self.registers.readFlags()
-        oldESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
         if (self.registers.protectedModeOn):
             cpl = newCpl = self.registers.getCPL()
             if (currentEFLAGS & FLAG_VM):
-                self.main.exitError("Opcodes::iret: VM86-Mode isn't supported yet. (return from VM86-Mode)")
+                self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return from VM86-Mode)")
+                if (self.registers.getIOPL() < 3):
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                #if (not (<Segment>self.registers.segments.cs).isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
+                #    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                eflagsMask = FLAG_VM | FLAG_IOPL | FLAG_VIP | FLAG_VIF
+                tempEFLAGS &= ~eflagsMask
+                tempEFLAGS |= currentEFLAGS & eflagsMask
+                self.registers.regWrite(CPU_REGISTER_FLAGS, tempEFLAGS | FLAG_REQUIRED, self.registers.operSize)
+                self.registers.segWrite(CPU_SEGMENT_CS, tempCS)
+                self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
                 return True
             elif (currentEFLAGS & FLAG_NT):
                 self.main.notice("Opcodes::iret: Nested-Task-Flag isn't fully supported yet.")
@@ -2500,8 +2512,8 @@ cdef class Opcodes:
                 self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return to VM86-Mode)")
                 if (<signed int>(oldESP - 24) < 0):
                     raise HirnwichseException(CPU_EXCEPTION_SS, 0)
-                if (not (<Segment>self.registers.segments.cs).isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
-                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                #if (not (<Segment>self.registers.segments.cs).isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
+                #    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 self.registers.regWriteDwordEflags(tempEFLAGS | FLAG_REQUIRED)
                 self.registers.segWrite(CPU_SEGMENT_CS, tempCS)
                 self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP&BITMASK_WORD)
