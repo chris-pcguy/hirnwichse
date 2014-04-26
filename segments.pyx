@@ -19,6 +19,9 @@ cdef class Segment:
             #self.limit = 0xffff
             self.isValid = True
             self.useGDT = False
+            self.segSize = OP_SIZE_WORD
+            self.segPresent = True
+            self.segIsRW = True
             return
         gdtEntry = self.segments.getEntry(segmentIndex)
         if (gdtEntry is None):
@@ -189,6 +192,7 @@ cdef class Gdt:
         cdef unsigned char numSegDPL, cpl
         cdef GdtEntry gdtEntry
         if ((num&0xfff8) > self.tableLimit):
+            self.segments.main.notice("test1: segId=={0:#04d}, num=={1:#06x}, tableLimit=={2:#06x}", segId, num, self.tableLimit)
             raise HirnwichseException(CPU_EXCEPTION_GP, num)
         if (not (num&0xfff8)):
             if (segId == CPU_SEGMENT_CS or segId == CPU_SEGMENT_SS):

@@ -36,7 +36,7 @@ cdef class GDC(VGA_REGISTER_RAW):
     cdef void setData(self, unsigned int data, unsigned char dataSize)
 
 cdef class Sequencer(VGA_REGISTER_RAW):
-    pass
+    cdef void setData(self, unsigned int data, unsigned char dataSize)
 
 cdef class ExtReg(VGA_REGISTER_RAW):
     cdef unsigned char miscOutReg

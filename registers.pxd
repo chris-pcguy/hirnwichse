@@ -148,8 +148,8 @@ cdef class Registers:
                 self.reloadCpuCache()
         return value # returned value is unsigned!!
     cdef inline unsigned short regWriteWordFlags(self, unsigned short value):
-        self.setFlags(value)
         self.regs[CPU_REGISTER_FLAGS]._union.word._union.rx = value
+        self.setFlags(self.regs[CPU_REGISTER_FLAGS]._union.dword.erx)
         return value # returned value is unsigned!!
     cdef inline unsigned int regWriteDwordEflags(self, unsigned int value):
         self.setFlags(value)
@@ -299,8 +299,10 @@ cdef class Registers:
     cdef unsigned char mmWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride)
     cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
     cdef unsigned_value_types mmWriteValueWithOpSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
-    cdef void switchTSS(self)
-    cdef void saveTSS(self)
+    cdef void switchTSS16(self)
+    cdef void saveTSS16(self)
+    cdef void switchTSS32(self)
+    cdef void saveTSS32(self)
     cdef inline unsigned char getSegSize(self, unsigned short segId):
         return (<Segment>(self.segments.getSegmentInstance(segId, True))).getSegSize()
     cdef inline unsigned char isSegPresent(self, unsigned short segId):

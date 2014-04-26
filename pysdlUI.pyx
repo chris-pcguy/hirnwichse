@@ -80,7 +80,7 @@ cdef class PysdlUI:
             # It's not a good idea to render a character if fgColor == bgColor
             #   as it wouldn't be readable.
             if (fgColor != bgColor): # TODO
-                i = character*self.charSize[1]
+                i = character*VGA_FONTAREA_CHAR_HEIGHT
                 charData = self.fontData[i:i+self.charSize[1]]
                 for i in range(len(charData)):
                     j = charData[i]

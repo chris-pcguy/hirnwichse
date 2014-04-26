@@ -123,6 +123,13 @@ cdef class GDC(VGA_REGISTER_RAW):
 cdef class Sequencer(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_SEQ_AREA_SIZE, vga, main)
+    cdef void setData(self, unsigned int data, unsigned char dataSize):
+        VGA_REGISTER_RAW.setData(self, data, dataSize)
+        #if (self.getIndex() == VGA_GDC_MISC_GREG_INDEX):
+        #    if ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_A0000_128K):
+        #        self.vga.videoMemBase = 0xa0000
+        #        self.vga.videoMemSize = 0x20000
+        #    self.vga.needLoadFont = True
 
 cdef class ExtReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
@@ -214,9 +221,8 @@ cdef class Vga:
         if (not self.ui or not self.needLoadFont):
             return
         charHeight = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_VIDEO_CHAR_HEIGHT)
-        posdata = (<Mm>self.main.mm).mmGetAbsoluteAddressForInterrupt(0x43)
         self.ui.charSize = (UI_CHAR_WIDTH, charHeight)
-        self.ui.fontData = (<Mm>self.main.mm).mmPhyRead(posdata, VGA_FONTAREA_SIZE)
+        self.ui.fontData = (<Mm>self.main.mm).mmPhyRead(VGA_MEMAREA_ADDR, VGA_FONTAREA_SIZE)
         self.needLoadFont = False
     cdef void setProcessVideoMem(self, unsigned char processVideoMem):
         self.processVideoMem = processVideoMem
