@@ -32,9 +32,10 @@ cdef class Opcodes:
         self.registers.pagingOn = (value & CR0_FLAG_PG)!=0
     cdef inline unsigned int quirkCR0(self, unsigned int value):
         #value |= (CR0_FLAG_EM | CR0_FLAG_ET | CR0_FLAG_NE | CR0_FLAG_NW | CR0_FLAG_CD)
-        value |= CR0_FLAG_EM
-        value &= ~CR0_FLAG_ET
+        value |= (CR0_FLAG_EM | CR0_FLAG_NE)
+        value &= ~(CR0_FLAG_ET | CR0_FLAG_MP)
         return value
+    cdef int checkIOPL(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except -1
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal) except -1

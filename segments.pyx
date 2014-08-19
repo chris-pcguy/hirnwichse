@@ -145,7 +145,8 @@ cdef class Gdt:
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             else:
                 raise HirnwichseException(CPU_EXCEPTION_GP, num)
-        cpl = self.segments.cs.segmentIndex&3
+        #cpl = self.segments.cs.segmentIndex&3
+        cpl = self.segments.main.cpu.registers.cpl
         gdtEntry = self.getEntry(num)
         if (not gdtEntry or (isStackSegment and ( num&3 != cpl or \
           gdtEntry.segDPL != cpl))):# or 0):
@@ -167,7 +168,7 @@ cdef class Gdt:
         if (not gdtEntry):
             return False
         if (((self.getSegType(num) == 0) or not gdtEntry.segIsConforming) and \
-          ((self.segments.cs.segmentIndex&3 > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
+          ((self.segments.main.cpu.registers.cpl > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
             return False
         if (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW):
             return False
@@ -183,7 +184,7 @@ cdef class Gdt:
         if (not gdtEntry):
             return False
         if (((self.getSegType(num) == 0) or not gdtEntry.segIsConforming) and \
-          ((self.segments.cs.segmentIndex&3 > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
+          ((self.segments.main.cpu.registers.cpl > gdtEntry.segDPL) or (rpl > gdtEntry.segDPL))):
             return False
         if (not gdtEntry.segIsCodeSeg and gdtEntry.segIsRW):
             return True
@@ -203,7 +204,8 @@ cdef class Gdt:
             if (segId == CPU_SEGMENT_SS):
                 raise HirnwichseException(CPU_EXCEPTION_SS, num)
             raise HirnwichseException(CPU_EXCEPTION_NP, num)
-        cpl = self.segments.cs.segmentIndex&3
+        #cpl = self.segments.cs.segmentIndex&3
+        cpl = self.segments.main.cpu.registers.cpl
         numSegDPL = gdtEntry.segDPL
         if (segId == CPU_SEGMENT_TSS): # TODO?
             return True
@@ -234,7 +236,7 @@ cdef class Idt:
         cdef unsigned long int address
         cdef IdtEntry idtEntry
         if (not self.tableLimit):
-            self.segments.main.exitError("Idt::getEntry: tableLimit is zero.")
+            self.segments.main.notice("Idt::getEntry: tableLimit is zero.")
         address = self.tableBase+(num<<3)
         address = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedQword(address)
         idtEntry = IdtEntry(address)
@@ -259,42 +261,59 @@ cdef class Idt:
 
 cdef class Paging: # TODO
     def __init__(self, Segments segments):
+        self.instrFetch = False
         self.segments = segments
         self.invalidateTables(0)
+    cdef void setInstrFetch(self):
+        self.instrFetch = True
+    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written):
+        cdef unsigned int errorFlags
+        errorFlags = (self.pageTableEntry & PAGE_PRESENT) != 0
+        errorFlags |= written << 1
+        errorFlags |= ((self.segments.main.cpu.registers.cpl) != 0) << 2
+        # TODO: reserved bits are set ; only with 4MB pages ; << 3
+        errorFlags |= self.instrFetch << 4
+        self.segments.main.cpu.registers.regWriteDword(CPU_REGISTER_CR2, virtualAddress)
+        raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
+        #return 0
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress):
         self.pageDirectoryBaseAddress = (pageDirectoryBaseAddress&0xfffff000)
         self.pageDirectoryOffset = self.pageTableOffset = self.pageDirectoryEntry = self.pageTableEntry = 0
-    cdef void readAddresses(self, unsigned int virtualAddress):
+    cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written):
         self.pageDirectoryOffset = (virtualAddress>>22) << 2
         self.pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         self.pageOffset = virtualAddress&0xfff
         self.pageDirectoryEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
         if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
-            self.segments.main.exitError("Paging::readAddresses: PDE-Entry is not present. (entry: {0:#010x})", self.pageDirectoryEntry)
-            return
-        if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4mb page
-            # size is 4mb if CR4/PSE is set
-            # size is 2mb if CR4/PAE is set
+            self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present. (entry: {0:#010x})", self.pageDirectoryEntry)
+            self.doPF(virtualAddress, written)
+            return False
+        if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4MB page
+            # size is 4MB if CR4/PSE is set
+            # size is 2MB if CR4/PAE is set
             # I don't know which size is used if both, CR4/PSE && CR4/PAE, are set
-            self.segments.main.exitError("Paging::readAddresses: 4mb pages are UNSUPPORTED yet.")
-            return
+            self.segments.main.exitError("Paging::readAddresses: 4MB pages are UNSUPPORTED yet.")
+            return False
         self.pageTableEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword((self.pageDirectoryEntry&0xfffff000)|self.pageTableOffset) # page table
         if (not (self.pageTableEntry & PAGE_PRESENT)):
-            self.segments.main.exitError("Paging::readAddresses: PTE-Entry is not present. (entry: {0:#010x})", self.pageTableEntry)
+            self.segments.main.notice("Paging::readAddresses: PTE-Entry is not present. (entry: {0:#010x})", self.pageTableEntry)
+            self.doPF(virtualAddress, written)
+        return True
     cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress):
-        self.readAddresses(virtualAddress)
+        self.readAddresses(virtualAddress, True)
         if (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE):
             return True
         return False
     cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress):
-        self.readAddresses(virtualAddress)
+        self.readAddresses(virtualAddress, False)
         if (self.pageDirectoryEntry&PAGE_EVERY_RING and self.pageTableEntry&PAGE_EVERY_RING):
             return True
         return False
     cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned char written):
-        self.readAddresses(virtualAddress)
-        if (not self.writeAccessAllowed(virtualAddress)):
-            self.segments.main.notice("Paging::getPhysicalAddress: PDE- or PTE-Entry is not writable. (virtualAddress: {0:#010x})", virtualAddress)
+        self.readAddresses(virtualAddress, written)
+        self.instrFetch = False
+        if (written and not (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE)):
+            self.segments.main.notice("Paging::getPhysicalAddress: address is not writable. (virtualAddress: {0:#010x})", virtualAddress)
             self.segments.main.cpu.cpuDump()
             return 0
         if (self.pageTableEntry & PAGE_PRESENT):

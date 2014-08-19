@@ -490,14 +490,20 @@ cdef class Opcodes:
         if (self.registers.if_flag):
             self.main.notice("Opcodes::hlt: HLT was called with IF on.")
         return True
+    cdef int checkIOPL(self, unsigned short ioPortAddr, unsigned char dataSize): # return True if protected
+        cdef unsigned short bits
+        if (self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, CPU_SEGMENT_TSS, False) >= (<Segment>self.registers.segments.tss).limit):
+            return False
+        bits = self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR+(ioPortAddr>>3), CPU_SEGMENT_TSS, False)>>(ioPortAddr&0x7)
+        return (bits&((1<<dataSize)-1)) != 0
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         if (self.registers.protectedModeOn):
-            if (self.registers.getCPL() > self.registers.getIOPL()):
+            if (self.registers.getCPL() > self.registers.getIOPL() and self.checkIOPL(ioPortAddr, dataSize)):
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         return self.main.platform.inPort(ioPortAddr, dataSize)
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (self.registers.protectedModeOn):
-            if (self.registers.getCPL() > self.registers.getIOPL()):
+            if (self.registers.getCPL() > self.registers.getIOPL() and self.checkIOPL(ioPortAddr, dataSize)):
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         self.main.platform.outPort(ioPortAddr, data, dataSize)
         return True
@@ -534,7 +540,7 @@ cdef class Opcodes:
                 if (segment.limit < 0x67):
                     raise HirnwichseException(CPU_EXCEPTION_TS, segment.segmentIndex)
                 if (method == OPCODE_CALL):
-                    self.registers.mmWriteValueWithOpSize(TSS_32BIT_EFLAGS if (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS) else TSS_16BIT_FLAGS, (<unsigned int>FLAG_NT), CPU_SEGMENT_TSS, False, OPCODE_OR)
+                    self.registers.mmWriteValueWithOpSize(TSS_32BIT_EFLAGS if (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS) else TSS_16BIT_FLAGS, FLAG_NT, OP_SIZE_DWORD if (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS) else OP_SIZE_WORD, CPU_SEGMENT_TSS, False, OPCODE_OR)
                 if (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS):
                     self.registers.switchTSS32()
                 else:
@@ -1670,21 +1676,17 @@ cdef class Opcodes:
             if (eaxId == 0x1):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x400)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8110)
                 #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8100) # TODO: disabled TSC feature.
+                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8110)
+                #self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
-            elif (eaxId >= 0x2 and eaxId <= 0x5):
+            elif (eaxId in (0x2, 0x3, 0x4, 0x5, 0x80000001, 0x80000005, 0x80000006, 0x80000007)):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
             elif (eaxId == 0x80000000):
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x80000004)
-                self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
-            elif (eaxId == 0x80000001):
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
+                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x80000007)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)

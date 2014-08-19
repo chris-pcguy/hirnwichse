@@ -52,11 +52,11 @@ cdef class ModRMClass:
     cdef unsigned char rm, reg, mod, ss, regSize
     cdef unsigned short rmName0, rmName1, rmNameSegId, regName
     cdef signed long int rmName2
-    cdef unsigned short modRMOperands(self, unsigned char regSize, unsigned char modRMflags) except -1
+    cdef unsigned short modRMOperands(self, unsigned char regSize, unsigned char modRMflags) except? 0
     cdef unsigned long int getRMValueFull(self, unsigned char rmSize)
-    cdef signed long int modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride) except? -1
-    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride) except -1
-    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char allowOverride, unsigned char valueOp) except -1 # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
+    cdef signed long int modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride) except? 0
+    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride) except? 0
+    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char allowOverride, unsigned char valueOp) except? 0 # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
     cdef signed long int modRLoadSigned(self, unsigned char regSize)
     cdef unsigned long int modRLoadUnsigned(self, unsigned char regSize)
     cdef unsigned long int modRSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp)
@@ -137,16 +137,7 @@ cdef class Registers:
     cdef inline unsigned short regWriteWord(self, unsigned short regId, unsigned short value):
         self.regs[regId]._union.word._union.rx = value
         return value # returned value is unsigned!!
-    cdef inline unsigned int regWriteDword(self, unsigned short regId, unsigned int value):
-        cdef unsigned int realNewEip
-        self.regs[regId]._union.dword.erx = value
-        if (regId == CPU_REGISTER_EIP):
-            realNewEip = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, CPU_SEGMENT_CS, False, False)
-            if (realNewEip >= self.cpuCacheBase and realNewEip < self.cpuCacheBase+CPU_CACHE_SIZE):
-                self.cpuCacheIndex = realNewEip - self.cpuCacheBase
-            else:
-                self.reloadCpuCache()
-        return value # returned value is unsigned!!
+    cpdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value)
     cdef inline unsigned short regWriteWordFlags(self, unsigned short value):
         self.regs[CPU_REGISTER_FLAGS]._union.word._union.rx = value
         self.setFlags(self.regs[CPU_REGISTER_FLAGS]._union.dword.erx)
@@ -275,30 +266,30 @@ cdef class Registers:
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize)
     cdef void setSZP_A(self, unsigned int value, unsigned char regSize)
     cdef void setSZP_COA(self, unsigned int value, unsigned char regSize)
-    cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except -1
+    cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except? -1
     cdef unsigned char getCond(self, unsigned char index)
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method)
     #cpdef checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write)
-    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride, unsigned char written)
+    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride, unsigned char written) except? 0
     cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef inline signed char mmReadValueSignedByte(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
+    cdef inline signed char mmReadValueSignedByte(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1:
         return <signed char>self.mmReadValueUnsignedByte(mmAddr, segId, allowOverride)
-    cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
+    cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1:
         return <signed short>self.mmReadValueUnsignedWord(mmAddr, segId, allowOverride)
-    cdef inline signed int mmReadValueSignedDword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
+    cdef inline signed int mmReadValueSignedDword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1:
         return <signed int>self.mmReadValueUnsignedDword(mmAddr, segId, allowOverride)
-    cdef inline signed long int mmReadValueSignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride):
+    cdef inline signed long int mmReadValueSignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1:
         return <signed long int>self.mmReadValueUnsignedQword(mmAddr, segId, allowOverride)
-    cdef signed long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned char mmReadValueUnsignedByte(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned short mmReadValueUnsignedWord(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned char mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned char mmWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef unsigned_value_types mmWriteValueWithOpSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride, unsigned char valueOp)
+    cdef signed long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride) except? -1
+    cdef unsigned char mmReadValueUnsignedByte(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1
+    cdef unsigned short mmReadValueUnsignedWord(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1
+    cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1
+    cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1
+    cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride) except? -1
+    cdef unsigned char mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, unsigned short segId, unsigned char allowOverride) except? 0
+    cdef unsigned char mmWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride) except? 0
+    cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride) except? 0
+    cdef unsigned long int mmWriteValueWithOpSize(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp) except? 0
     cdef void switchTSS16(self)
     cdef void saveTSS16(self)
     cdef void switchTSS32(self)

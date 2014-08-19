@@ -282,6 +282,7 @@ class ThreadedTCPRequestHandler(BaseRequestHandler):
                 return
             (<GDBStubHandler>self.gdbHandler).connHandler = self
             (<GDBStubHandler>self.gdbHandler).connId += 1
+            (<GDBStubHandler>self.gdbHandler).main.quitEmu = False # allow to debug even after exitError()
             (<GDBStubHandler>self.gdbHandler).main.cpu.debugHalt = True
             (<GDBStubHandler>self.gdbHandler).main.cpu.debugSingleStep = False
             (<GDBStubHandler>self.gdbHandler).clearData()
