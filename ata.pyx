@@ -75,7 +75,7 @@ cdef class AtaDrive:
             self.isLoaded = True
             self.isWriteProtected = True
         else:
-            self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", (self.ataController.controllerId << 1)+self.driveId, filename)
+            self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", (self.ataController.controllerId << 1)+self.driveId, filename.decode())
             return
         self.fp.seek(0, SEEK_END)
         self.diskSize = self.fp.tell()

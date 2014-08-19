@@ -124,7 +124,7 @@ cdef class FloppyDrive:
     cdef void loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType, driveType
         if (not filename or not access(filename, F_OK | R_OK)):
-            self.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", self.driveId, filename)
+            self.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", self.driveId, filename.decode())
             return
         self.filename = filename
         driveType = self.getDiskType(getsize(self.filename))

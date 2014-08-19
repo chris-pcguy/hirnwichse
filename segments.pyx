@@ -295,6 +295,7 @@ cdef class Paging: # TODO
         self.readAddresses(virtualAddress)
         if (not self.writeAccessAllowed(virtualAddress)):
             self.segments.main.notice("Paging::getPhysicalAddress: PDE- or PTE-Entry is not writable. (virtualAddress: {0:#010x})", virtualAddress)
+            self.segments.main.cpu.cpuDump()
             return 0
         if (self.pageTableEntry & PAGE_PRESENT):
             (<Mm>self.segments.main.mm).mmPhyWriteValue(<unsigned int>(self.pageDirectoryBaseAddress|self.pageDirectoryOffset), <unsigned int>(self.pageDirectoryEntry | PAGE_WAS_USED | (((self.pageDirectoryEntry & PAGE_SIZE) and written) and PAGE_WRITTEN_ON_PAGE)), OP_SIZE_DWORD) # page directory

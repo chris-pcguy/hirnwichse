@@ -675,7 +675,7 @@ cdef class Registers:
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
             regSumu &= bitMaskHalf
-            signedOverflow = ( ((not reg0 and not reg1) and regSumu) or ((reg0 and reg1) and not regSumu) ) != 0
+            signedOverflow = ((not reg0 and not reg1) and regSumu != 0) or ((reg0 != 0 and reg1 != 0) and not regSumu)
             self.af = (regSumuNibble<(reg0Nibble+carried))
             self.cf = unsignedOverflow
             self.of = signedOverflow
@@ -698,7 +698,7 @@ cdef class Registers:
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
             regSumu &= bitMaskHalf
-            signedOverflow = ( ((reg0 and not reg1) and not regSumu) or ((not reg0 and reg1) and regSumu) ) != 0
+            signedOverflow = ((reg0 != 0 and not reg1) and not regSumu) or ((not reg0 and reg1 != 0) and regSumu != 0)
             self.af = ((regSumuNibble+carried)>reg0Nibble)
             self.cf = unsignedOverflow
             self.of = signedOverflow
@@ -717,7 +717,7 @@ cdef class Registers:
                 reg0 &= BITMASK_DWORD
                 reg1 &= BITMASK_DWORD
             self.af = False
-            self.cf = self.of = ((reg0 and reg1) and (regSumu < reg0 or regSumu < reg1))
+            self.cf = self.of = ((reg0 != 0 and reg1 != 0) and (regSumu < reg0 or regSumu < reg1))
             self.pf = PARITY_TABLE[regSumu&BITMASK_BYTE]
             self.zf = regSumu==0
             self.sf = (regSumu & bitMaskHalf) != 0

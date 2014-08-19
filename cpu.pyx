@@ -139,6 +139,7 @@ cdef class Cpu:
           self.registers.regReadUnsignedDword(CPU_REGISTER_DR3))
         self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}\n\n", self.registers.regReadUnsignedDword(CPU_REGISTER_DR6), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_DR7))
+        self.main.notice("Opcode: {0:#04x}", self.opcode)
     cdef void doInfiniteCycles(self):
         try:
             while (not self.main.quitEmu):
