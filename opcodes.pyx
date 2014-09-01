@@ -491,20 +491,24 @@ cdef class Opcodes:
             self.main.notice("Opcodes::hlt: HLT was called with IF on.")
         return True
     cdef int checkIOPL(self, unsigned short ioPortAddr, unsigned char dataSize): # return True if protected
-        cdef unsigned short bits
-        if (self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, CPU_SEGMENT_TSS, False) >= (<Segment>self.registers.segments.tss).limit):
+        cdef unsigned short ioMapBase, bits
+        if (not self.registers.protectedModeOn or self.registers.getCPL() <= self.registers.getIOPL()):
             return False
-        bits = self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR+(ioPortAddr>>3), CPU_SEGMENT_TSS, False)>>(ioPortAddr&0x7)
+        ioMapBase = self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, CPU_SEGMENT_TSS, False)
+        if (ioMapBase >= (<Segment>self.registers.segments.tss).limit):
+            self.main.debug("iomap base addr=={0:#06x}; tss limit=={1:#06x}", self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, CPU_SEGMENT_TSS, False), (<Segment>self.registers.segments.tss).limit)
+            return True
+        bits = self.registers.mmReadValueUnsignedWord(ioMapBase+(ioPortAddr>>3), CPU_SEGMENT_TSS, False)>>(ioPortAddr&0x7)
+        self.main.debug("iomap base addr=={0:#06x}; tss limit=={1:#06x}", self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, CPU_SEGMENT_TSS, False), (<Segment>self.registers.segments.tss).limit)
+        self.main.debug("bits=={0:#06x}; result=={1:d}; result==1 means gpf", bits, (bits&((1<<dataSize)-1)) != 0)
         return (bits&((1<<dataSize)-1)) != 0
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        if (self.registers.protectedModeOn):
-            if (self.registers.getCPL() > self.registers.getIOPL() and self.checkIOPL(ioPortAddr, dataSize)):
-                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+        if (self.registers.protectedModeOn and self.checkIOPL(ioPortAddr, dataSize)):
+            raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         return self.main.platform.inPort(ioPortAddr, dataSize)
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
-        if (self.registers.protectedModeOn):
-            if (self.registers.getCPL() > self.registers.getIOPL() and self.checkIOPL(ioPortAddr, dataSize)):
-                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+        if (self.registers.protectedModeOn and self.checkIOPL(ioPortAddr, dataSize)):
+            raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         self.main.platform.outPort(ioPortAddr, data, dataSize)
         return True
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal):

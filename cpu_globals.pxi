@@ -262,7 +262,7 @@ DEF PAGE_EVERY_RING = 0x4 # allow access from every ring
 DEF PAGE_WRITE_THROUGH_CACHING = 0x8
 DEF PAGE_NO_CACHING = 0x10
 DEF PAGE_WAS_USED = 0x20
-DEF PAGE_WRITTEN_ON_PAGE = 0x40 # if page_directory: set it on write access at 4mb pages;; if page_table: set it on write access
+DEF PAGE_WRITTEN_ON_PAGE = 0x40 # if page_directory: set it on write access at 4MB pages;; if page_table: set it on write access
 DEF PAGE_SIZE = 0x80
 
 

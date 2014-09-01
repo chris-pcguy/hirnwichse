@@ -76,7 +76,7 @@ cdef class Vga:
     cdef unsigned short getCursorPosition(self, unsigned char page)
     cdef void setCursorPosition(self, unsigned char page, unsigned short pos)
     cdef void scrollUp(self, signed short attr, unsigned short lines)
-    cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
+    cdef void vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cpdef run(self)

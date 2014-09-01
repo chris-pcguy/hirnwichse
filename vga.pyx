@@ -106,16 +106,17 @@ cdef class GDC(VGA_REGISTER_RAW):
     cdef void setData(self, unsigned int data, unsigned char dataSize):
         VGA_REGISTER_RAW.setData(self, data, dataSize)
         if (self.getIndex() == VGA_GDC_MISC_GREG_INDEX):
-            if ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_A0000_128K):
+            data = ((data >> 2) & VGA_GDC_MEMBASE_MASK)
+            if (data == VGA_GDC_MEMBASE_A0000_128K):
                 self.vga.videoMemBase = 0xa0000
                 self.vga.videoMemSize = 0x20000
-            elif ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_A0000_64K):
+            elif (data == VGA_GDC_MEMBASE_A0000_64K):
                 self.vga.videoMemBase = 0xa0000
                 self.vga.videoMemSize = 0x10000
-            elif ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_B0000_32K):
+            elif (data == VGA_GDC_MEMBASE_B0000_32K):
                 self.vga.videoMemBase = 0xb0000
                 self.vga.videoMemSize = 0x08000
-            elif ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_B8000_32K):
+            elif (data == VGA_GDC_MEMBASE_B8000_32K):
                 self.vga.videoMemBase = 0xb8000
                 self.vga.videoMemSize = 0x08000
             self.vga.needLoadFont = True
@@ -178,6 +179,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
         elif (self.vga.ui and index == VGA_ATTRCTRLREG_CONTROL_REG_INDEX):
             self.vga.ui.replicate8Bit = (data&VGA_ATTRCTRLREG_CONTROL_REG_LGE) != 0
             self.vga.ui.msbBlink = (data&VGA_ATTRCTRLREG_CONTROL_REG_BLINK) != 0
+            self.vga.ui.graphicalMode = (data&VGA_ATTRCTRLREG_CONTROL_REG_GRAPHICAL_MODE) != 0
 
 
 cdef class Vga:
@@ -334,15 +336,26 @@ cdef class Vga:
         self.setProcessVideoMem(True)
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, fullSize)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, fullSize)
-    cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
+    cdef void vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         #cdef list rectList
-        cdef unsigned char x, y, rows
-        cdef unsigned short cols
+        cdef unsigned short x, y, rows, cols
         if (not self.ui):
             return
         if (not (self.getProcessVideoMem()) or not (self.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM)):
             return
-        if (self.videoMemBase != 0xb8000): # only text-mode is supported yet.
+        if ((offset < self.videoMemBaseWithOffset) or ((offset+dataSize) > (self.videoMemBaseWithOffset+self.videoMemSize))):
+            return
+        if (self.ui.graphicalMode):
+            self.main.notice("vgaAreaWrite: graphicalMode: offset=={0:#06x}; data[offset]=={1:#04x}; dataSize=={2:d}", offset, mmArea.data[offset], dataSize)
+            if (dataSize == 65536):
+                return
+            while (dataSize > 0 and not self.main.quitEmu): # TODO; FIXME
+                #self.main.notice("test1: offset-basewithoffset=={0:#06x}", (offset-self.videoMemBaseWithOffset))
+                y, x = divmod((offset-self.videoMemBaseWithOffset), 320)
+                self.ui.putPixel(x, y, mmArea.data[offset])
+                offset   += 1
+                dataSize -= 1
+            self.ui.updateScreen()
             return
         if (self.needLoadFont):
             self.readFontData()
@@ -352,6 +365,7 @@ cdef class Vga:
         rows = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_ROWS_ADDR)+1
         dataSize = min(dataSize, cols*rows*2) # default: 80*25*2
         while (dataSize > 0 and not self.main.quitEmu):
+            #self.main.notice("test2: offset-basewithoffset=={0:#06x}", (offset-self.videoMemBaseWithOffset))
             y, x = divmod((offset-self.videoMemBaseWithOffset)//2, cols)
             #rectList.append(self.ui.putChar(x, y, mmArea.data[offset], mmArea.data[offset+1]))
             self.ui.putChar(x, y, mmArea.data[offset], mmArea.data[offset+1])
@@ -363,10 +377,11 @@ cdef class Vga:
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int retVal
         retVal = BITMASK_BYTE
+        self.main.notice("inPort: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize != OP_SIZE_BYTE):
             if (dataSize == OP_SIZE_WORD and ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
                 return BITMASK_WORD
-            self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+            self.main.exitError("inPort: port {0:#06x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         elif (ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
             return BITMASK_BYTE
         elif ((ioPortAddr >= 0x3b0 and ioPortAddr <= 0x3bf) and self.extreg.getColorEmulation()):
@@ -398,9 +413,11 @@ cdef class Vga:
         elif (ioPortAddr in (0x3ba, 0x3ca, 0x3da)):
             self.attrctrlreg.setFlipFlop(False)
         else:
-            self.main.exitError("inPort: port {0:#04x} isn't supported. (dataSize byte)", ioPortAddr)
+            self.main.exitError("inPort: port {0:#06x} isn't supported. (dataSize byte)", ioPortAddr)
         return retVal&BITMASK_BYTE
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
+        if (ioPortAddr not in (0x400, 0x401, 0x402, 0x403, 0x500, 0x504)):
+            self.main.notice("outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if ((ioPortAddr >= 0x3b0 and ioPortAddr <= 0x3bf) and self.extreg.getColorEmulation()):
                 self.main.notice("Vga::outPort: Trying to use mono-ports while being in color-mode.")
@@ -449,7 +466,7 @@ cdef class Vga:
                 stdout.write(chr(data))
                 stdout.flush()
             else:
-                self.main.exitError("outPort: port {0:#04x} isn't supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
+                self.main.exitError("outPort: port {0:#06x} isn't supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
         elif (dataSize == OP_SIZE_WORD):
             if (ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
                 return
@@ -457,9 +474,9 @@ cdef class Vga:
                 self.outPort(ioPortAddr, data&BITMASK_BYTE, OP_SIZE_BYTE)
                 self.outPort(ioPortAddr+1, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
             else:
-                self.main.exitError("outPort: port {0:#04x} isn't supported. (dataSize word, data {1:#04x})", ioPortAddr, data)
+                self.main.exitError("outPort: port {0:#06x} isn't supported. (dataSize word, data {1:#06x})", ioPortAddr, data)
         else:
-            self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} isn't supported.", ioPortAddr, dataSize)
+            self.main.exitError("outPort: port {0:#06x} with dataSize {1:d} isn't supported.", ioPortAddr, dataSize)
         return
     cpdef run(self):
         if (self.ui):

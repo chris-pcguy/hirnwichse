@@ -29,7 +29,7 @@ DEF SELECT_SLAVE_DRIVE = 0x10
 DEF USE_LBA = 0x40
 DEF USE_LBA28 = 0xa0
 DEF CONTROL_REG_SKC = 0x10
-DEF CONTROL_REG_SHOULD_BE_SET = 0x8 # according to bochs' rombios, this should ALWAYS be set.
+DEF CONTROL_REG_SHOULD_BE_SET = 0x8 # according to bochs' rombios, this should ALWAYS be set. (should != is)
 DEF CONTROL_REG_SRST = 0x4
 DEF CONTROL_REG_NIEN = 0x2
 
@@ -323,7 +323,7 @@ cdef class AtaController:
                 self.raiseAtaIrq()
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 if (not (data & CONTROL_REG_SHOULD_BE_SET)):
-                    self.main.exitError("AtaController::outPort: CONTROL_REG_SHOULD_BE_SET should be set! (obvious message is obvious.)")
+                    self.main.notice("AtaController::outPort: CONTROL_REG_SHOULD_BE_SET should be set! (obvious message is obvious.)")
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)
                 self.doReset = ((data & CONTROL_REG_SRST) == CONTROL_REG_SRST)

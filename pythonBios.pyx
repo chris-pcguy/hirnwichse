@@ -15,7 +15,7 @@ cdef class PythonBios:
         cdef unsigned char currMode, ah, al, bh, bl, dh, dl, fdcNum, fdCount, \
                             updateCursor, c, attr, attrInBuf, sector, head, tempByte
         cdef bytes data
-        #return False
+        return False
         ax = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_AX)
         cx = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_CX)
         dx = (<Registers>self.main.cpu.registers).regReadUnsignedWord(CPU_REGISTER_DX)
@@ -26,9 +26,9 @@ cdef class PythonBios:
         dh, dl = dx>>8, dx&BITMASK_BYTE
         bh, bl = bx>>8, bx&BITMASK_BYTE
         if (intNum == 0x10): # video; TODO: REWORK THIS AND THE VGA MODULE TOO!!!
-            #return False
+            return False
             currMode = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(VGA_MODE_ADDR)
-            ##self.main.debug("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
+            self.main.notice("PythonBios::videoFuncs: ax: {0:#06x}, currMode: {1:#04x}", ax, currMode)
             if (ah == 0x02): # set cursor position
                 (<Vga>self.main.platform.vga).setCursorPosition(bh, dx)
                 return True
@@ -87,7 +87,7 @@ cdef class PythonBios:
                 self.main.notice("PythonBios::interrupt: int: 0x10: currMode {0:d} not supported here. (ax: {1:#06x})", currMode, ax)
                 return False
         elif (intNum == 0x13): # data storage; floppy
-            #return False
+            return False
             fdcNum = 0
             if (dl in (2, 3)):
                 fdcNum = 1

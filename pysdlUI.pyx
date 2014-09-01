@@ -22,7 +22,8 @@ cdef class PysdlUI:
         self.vga  = vga
         self.main = main
         self.window = self.screen = None
-        self.replicate8Bit = self.msbBlink = 1
+        self.replicate8Bit = self.msbBlink = True
+        self.graphicalMode = False
         self.screenSize = 720, 400
         self.charSize = (UI_CHAR_WIDTH, 16)
         self.fontData = b'\x00'*VGA_FONTAREA_SIZE
@@ -46,7 +47,7 @@ cdef class PysdlUI:
     cpdef clearScreen(self):
         pass
         #self.screen.fill((0, 0, 0))
-    cpdef object getCharRect(self, unsigned char x, unsigned char y):
+    cpdef object getCharRect(self, unsigned short x, unsigned short y):
         cpdef object r
         try:
             r = sdl2.rect.SDL_Rect()
@@ -62,7 +63,9 @@ cdef class PysdlUI:
         blankSurface = sdl2.surface.SDL_CreateRGBSurface(0, self.charSize[0], self.charSize[1], 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x00000000).contents
         sdl2.surface.SDL_FillRect(blankSurface, None, bgColor)
         return blankSurface
-    cpdef object putChar(self, unsigned char x, unsigned char y, unsigned char character, unsigned char colors): # returns rect
+    cpdef object putPixel(self, unsigned short x, unsigned short y, unsigned char colors): # returns rect
+        return None
+    cpdef object putChar(self, unsigned short x, unsigned short y, unsigned char character, unsigned char colors): # returns rect
         cpdef object newRect, newChar, charArray
         cdef bytes charData
         cdef str lineData
