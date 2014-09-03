@@ -336,15 +336,14 @@ cdef class Vga:
         self.setProcessVideoMem(True)
         oldData = (<Mm>self.main.mm).mmPhyRead(oldAddr, fullSize)
         (<Mm>self.main.mm).mmPhyWrite(oldAddr, oldData, fullSize)
-    cdef void vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
+    cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         #cdef list rectList
         cdef unsigned short x, y, rows, cols
         if (not self.ui):
             return
         if (not (self.getProcessVideoMem()) or not (self.extreg.getMiscOutReg()&VGA_EXTREG_PROCESS_RAM)):
             return
-        if ((offset < self.videoMemBaseWithOffset) or ((offset+dataSize) > (self.videoMemBaseWithOffset+self.videoMemSize))):
-            return
+        # limit is already being handled in X86Platform::systemWriteHandler
         if (self.ui.graphicalMode):
             self.main.notice("vgaAreaWrite: graphicalMode: offset=={0:#06x}; data[offset]=={1:#04x}; dataSize=={2:d}", offset, mmArea.data[offset], dataSize)
             if (dataSize == 65536):
@@ -377,7 +376,7 @@ cdef class Vga:
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int retVal
         retVal = BITMASK_BYTE
-        self.main.notice("inPort: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
+        self.main.debug("inPort: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize != OP_SIZE_BYTE):
             if (dataSize == OP_SIZE_WORD and ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
                 return BITMASK_WORD
@@ -417,7 +416,7 @@ cdef class Vga:
         return retVal&BITMASK_BYTE
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (ioPortAddr not in (0x400, 0x401, 0x402, 0x403, 0x500, 0x504)):
-            self.main.notice("outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
+            self.main.debug("outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if ((ioPortAddr >= 0x3b0 and ioPortAddr <= 0x3bf) and self.extreg.getColorEmulation()):
                 self.main.notice("Vga::outPort: Trying to use mono-ports while being in color-mode.")

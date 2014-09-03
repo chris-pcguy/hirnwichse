@@ -96,11 +96,11 @@ cdef class Paging:
     cdef unsigned short pageOffset
     cdef void setInstrFetch(self)
     cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
-    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except? 0
+    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except 1
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress)
-    cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except? 0
-    cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress) except? -1
-    cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress) except? -1
+    cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except -1
+    cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress) except -1
+    cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress) except -1
     cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned char written) except? 0
     
 cdef class Segments:

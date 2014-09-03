@@ -81,7 +81,7 @@ cdef class AtaDrive:
         self.diskSize = self.fp.tell()
         self.fp.seek(0)
         self.writeValue(0, 0x40) # word 0 ; fixed drive
-        cylinders = self.diskSize / (HEADS * SPT)
+        cylinders = self.diskSize / (HEADS * (SPT << SECTOR_SHIFT))
         if (cylinders > 16383):
             cylinders = 16383
         self.writeValue(1, cylinders) # word 1 ; cylinders
@@ -93,7 +93,8 @@ cdef class AtaDrive:
         self.writeValue(21, SECTOR_SIZE) # increment in hdd block size
         self.writeValue(83, (1 << 10)) # supports lba48
         self.configSpace.csWriteValue(100 << 1, self.diskSize >> SECTOR_SHIFT, OP_SIZE_QWORD) # total number of addressable blocks. (diskSize >> SECTOR_SHIFT == diskSize/SECTOR_SIZE)
-        if (cylinders <= 1024): # hardcoded
+        #if (cylinders <= 1024): # hardcoded
+        if (cylinders <= 2048): # hardcoded
             translateValueTemp = ATA_TRANSLATE_NONE
         elif ((cylinders * HEADS) <= 131072):
             translateValueTemp = ATA_TRANSLATE_LARGE
@@ -391,12 +392,12 @@ cdef class Ata:
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         self.main.debug("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_WORD):
-            self.outPort(ioPortAddr, (data >> 8)&BITMASK_BYTE, OP_SIZE_BYTE)
             self.outPort(ioPortAddr, data & BITMASK_BYTE, OP_SIZE_BYTE)
+            self.outPort(ioPortAddr, (data >> 8)&BITMASK_BYTE, OP_SIZE_BYTE)
             return
         elif (dataSize == OP_SIZE_DWORD):
-            self.outPort(ioPortAddr, (data >> 16)&BITMASK_WORD, OP_SIZE_WORD)
             self.outPort(ioPortAddr, data & BITMASK_WORD, OP_SIZE_WORD)
+            self.outPort(ioPortAddr, (data >> 16)&BITMASK_WORD, OP_SIZE_WORD)
             return
         if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
             (<AtaController>self.controller[0]).outPort(ioPortAddr-ATA1_BASE, data, dataSize)

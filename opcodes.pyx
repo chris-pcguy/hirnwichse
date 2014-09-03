@@ -368,11 +368,6 @@ cdef class Opcodes:
         elif (opcode == 0xd7):
             retVal = self.xlatb()
         elif (opcode >= 0xd8 and opcode <= 0xdf):
-            self.main.notice("Opcodes::executeOpcode: FPU Opcodes: TODO!")
-            #if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)): # TODO
-            #    raise HirnwichseException(CPU_EXCEPTION_UD)
-            if (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS))):
-                raise HirnwichseException(CPU_EXCEPTION_NM)
             retVal = self.fpuOpcodes(opcode)
         elif (opcode == 0xe0):
             retVal = self.loopFunc(OPCODE_LOOPNE)
@@ -3042,6 +3037,9 @@ cdef class Opcodes:
         return True
     cdef int fpuOpcodes(self, unsigned char opcode):
         cdef unsigned char opcode2
+        self.main.notice("Opcodes::fpuOpcodes: FPU Opcodes: TODO!")
+        #if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)): # TODO
+        #    raise HirnwichseException(CPU_EXCEPTION_UD)
         opcode2 = self.registers.getCurrentOpcodeAddUnsignedByte()
         if (opcode in (0xdb, 0xdd, 0xdf)):
             if ((opcode == 0xdf and opcode2 == 0xe0) or \
@@ -3049,6 +3047,8 @@ cdef class Opcodes:
               (opcode == 0xdd and ((opcode2>>3)&7) == 7)): # FNSTSW/FINIT/FNSTSW
                 return True
         self.main.notice("Opcodes::fpuOpcodes: opcode=={0:#04x}, opcode2=={1:#04x}", opcode, opcode2)
+        if (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS))):
+            raise HirnwichseException(CPU_EXCEPTION_NM)
         raise HirnwichseException(CPU_EXCEPTION_UD)
         #return True
     cdef void run(self):
