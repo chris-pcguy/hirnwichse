@@ -64,6 +64,7 @@ cdef class Vga:
     cdef PciDevice pciDevice
     cdef unsigned char processVideoMem, needLoadFont
     cdef unsigned int videoMemBase, videoMemBaseWithOffset, videoMemSize
+    cdef double newTimer, oldTimer
     cpdef unsigned int getColor(self, unsigned char color) # RGB
     cdef void readFontData(self)
     cdef void setProcessVideoMem(self, unsigned char processVideoMem)

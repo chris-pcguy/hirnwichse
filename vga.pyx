@@ -1,5 +1,6 @@
 
 from sys import stdout
+from time import time
 
 include "globals.pxi"
 
@@ -195,6 +196,7 @@ cdef class Vga:
         self.extreg = ExtReg(self, self.main)
         self.attrctrlreg = AttrCtrlReg(self, self.main)
         self.processVideoMem = True
+        self.newTimer = self.oldTimer = 0.0
         self.pciDevice = (<Pci>self.main.platform.pci).addDevice()
         self.pciDevice.setVendorDeviceId(0x1234, 0x1111)
         self.pciDevice.setDeviceClass(PCI_CLASS_VGA)
@@ -354,7 +356,10 @@ cdef class Vga:
                 self.ui.putPixel(x, y, mmArea.data[offset])
                 offset   += 1
                 dataSize -= 1
-            self.ui.updateScreen()
+            self.newTimer = time()
+            if (self.newTimer - self.oldTimer >= 0.05):
+                self.oldTimer = self.newTimer
+                self.ui.updateScreen()
             return
         if (self.needLoadFont):
             self.readFontData()
@@ -372,7 +377,10 @@ cdef class Vga:
                 break
             offset   += 2
             dataSize -= 2
-        self.ui.updateScreen()
+        self.newTimer = time()
+        if (self.newTimer - self.oldTimer >= 0.05):
+            self.oldTimer = self.newTimer
+            self.ui.updateScreen()
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int retVal
         retVal = BITMASK_BYTE

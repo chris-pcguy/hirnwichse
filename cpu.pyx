@@ -174,17 +174,9 @@ cdef class Cpu:
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         self.registers.readCodeSegSize()
-        #self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
         if (self.main.debugEnabled):
             self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
             self.cpuDump()
-            #self.main.notice("doCycle: test_1 ([0x500]: {0:#04x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(0x500))
-            #self.main.notice("doCycle: test_1 (addr: {0:#010x}; seg: {1:#06x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(0x103688), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(0x10368c))
-        #if (self.savedEip == 0x and self.savedCs == 0x):
-        #    self.cpuDump()
-        #if (self.savedEip == 0x10000f and self.savedCs == 0x0010):
-        #    self.cpuDump()
-        #    self.main.notice("doCycle: test_1 (addr: {0:#010x}; seg: {1:#06x})", (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(0x103688), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(0x10368c))
         if (self.cycles & 0xfff == 0x00):
             if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
                 (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()

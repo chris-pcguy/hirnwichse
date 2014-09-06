@@ -2147,6 +2147,7 @@ cdef class Opcodes:
     cdef int xlatb(self):
         cdef unsigned char data
         cdef unsigned int baseValue
+        self.main.notice("Opcodes::xlatb: TODO!")
         baseValue = self.registers.regReadUnsigned(CPU_REGISTER_BX, self.registers.addrSize)
         data = self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL)
         data = self.registers.mmReadValueUnsignedByte((baseValue+data)&BITMASK_DWORD, CPU_SEGMENT_DS, True)

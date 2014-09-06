@@ -218,7 +218,7 @@ cdef class Platform:
             (<Mm>self.main.mm).mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
     cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         (<Mm>self.main.mm).mmAreaWrite(mmArea, offset, data, dataSize)
-        if (offset >= self.vga.videoMemBase and (offset+dataSize) <= (self.vga.videoMemBase+self.vga.videoMemSize)):
+        if (offset >= self.vga.videoMemBaseWithOffset and (offset+dataSize) <= (self.vga.videoMemBaseWithOffset+self.vga.videoMemSize)):
             self.vga.vgaAreaWrite(mmArea, offset, dataSize)
     cdef void initMemory(self):
         cdef MmArea biosMmArea, romMmArea

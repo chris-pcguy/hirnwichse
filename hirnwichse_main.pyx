@@ -46,8 +46,9 @@ cdef class Hirnwichse:
         self.hdaFilename = self.cmdArgs.hdaFilename.encode() # default: ''
         self.hdbFilename = self.cmdArgs.hdbFilename.encode() # default: ''
         self.cdromFilename = self.cmdArgs.cdromFilename.encode() # default: ''
-        self.fdaType    = self.cmdArgs.fdaType
-        self.fdbType    = self.cmdArgs.fdbType
+        self.bootFrom = self.cmdArgs.bootFrom # default: BOOT_FROM_FD
+        self.fdaType    = self.cmdArgs.fdaType # default: 4
+        self.fdbType    = self.cmdArgs.fdbType # default: 4
         self.memSize = self.cmdArgs.memSize
     cpdef quitFunc(self):
         self.quitEmu = True
