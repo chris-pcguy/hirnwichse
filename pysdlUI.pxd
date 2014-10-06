@@ -8,7 +8,7 @@ cdef class PysdlUI:
     cpdef object window, screen
     cdef bytes fontData
     cdef tuple screenSize, charSize
-    cdef unsigned char replicate8Bit, msbBlink, graphicalMode
+    cdef unsigned char mode9Bit, replicate8Bit, msbBlink, graphicalMode
     cpdef initPysdl(self)
     cpdef quitFunc(self)
     cpdef clearScreen(self)

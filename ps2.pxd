@@ -8,7 +8,7 @@ cdef class PS2:
     cpdef object main
     cdef public unsigned char ppcbT2Gate, ppcbT2Spkr, ppcbT2Out, kbdClockEnabled
     cdef unsigned char lastUsedPort, lastUsedCmd, needWriteBytes, irq1Requested, allowIrq1, sysf, \
-                        translateScancodes, currentScancodesSet, scanningEnabled, outb, batInProgress, timerPending
+                        translateScancodes, currentScancodesSet, scanningEnabled, inb, outb, batInProgress, timerPending
     cdef bytes outBuffer
     cdef void resetInternals(self, unsigned char powerUp)
     cdef void initDevice(self)

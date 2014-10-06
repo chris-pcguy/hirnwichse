@@ -40,6 +40,7 @@ DEF COMMAND_PACKET = 0xa0
 DEF COMMAND_IDENTIFY_DEVICE_PACKET = 0xa1
 DEF COMMAND_IDENTIFY_DEVICE = 0xec
 
+DEF PACKET_COMMAND_TEST_UNIT_READY = 0x00
 DEF PACKET_COMMAND_READ_CAPACITY = 0x25
 DEF PACKET_COMMAND_READ_10 = 0x28
 
@@ -207,16 +208,20 @@ cdef class AtaController:
             (<Pic>self.main.platform.pic).raiseIrq(self.irq)
         self.drq = True
         self.driveBusy = self.err = False
+        self.errorRegister = 0
     cdef void lowerAtaIrq(self):
         if (self.irq):
             (<Pic>self.main.platform.pic).lowerIrq(self.irq)
         self.driveReady = True
         self.drq = self.err = False
+        self.errorRegister = 0
     cdef void abortCommand(self):
+        self.errorCommand(0x04)
+    cdef void errorCommand(self, unsigned char errorRegister):
         self.cmd = 0
         self.driveBusy = self.drq = False
         self.driveReady = self.err = True
-        self.errorRegister = 4
+        self.errorRegister = errorRegister
         self.result = self.data = b''
         if (self.irq and self.irqEnabled):
             (<Pic>self.main.platform.pic).raiseIrq(self.irq)
@@ -227,9 +232,14 @@ cdef class AtaController:
         cdef unsigned long int lba
         drive = self.drive[self.driveId]
         cmd = self.data[0]
-        if (cmd == PACKET_COMMAND_READ_CAPACITY):
+        if (cmd == PACKET_COMMAND_TEST_UNIT_READY):
             if (int.from_bytes(self.data[1:], byteorder="big", signed=False)):
-                self.main.exitError("AtaController::handlePacket: rest of data packet is not zero! self.data == {0:s}", repr(self.data))
+                self.main.exitError("AtaController::handlePacket_1: rest of data packet is not zero! self.data == {0:s}", repr(self.data))
+                return
+            self.result = b''
+        elif (cmd == PACKET_COMMAND_READ_CAPACITY):
+            if (int.from_bytes(self.data[1:], byteorder="big", signed=False)):
+                self.main.exitError("AtaController::handlePacket_2: rest of data packet is not zero! self.data == {0:s}", repr(self.data))
                 return
             self.result += (drive.diskSize >> CD_SECTOR_SHIFT).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
             self.result += (CD_SECTOR_SIZE).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
@@ -305,9 +315,9 @@ cdef class AtaController:
             if (ioPortAddr == 0x0): # data port
                 self.data += bytes([data])
                 if (self.cmd == COMMAND_WRITE_LBA28):
-                    if (len(self.data) >> self.sectorShift >= self.sectorCount):
+                    if (len(self.data) >> drive.sectorShift >= self.sectorCount):
                         drive.writeSectors(self.lba, self.sectorCount, self.data)
-                        self.data = self.data[self.sectorCount << self.sectorShift:]
+                        self.data = self.data[self.sectorCount << drive.sectorShift:]
                         self.lowerAtaIrq()
                     else:
                         self.raiseAtaIrq()

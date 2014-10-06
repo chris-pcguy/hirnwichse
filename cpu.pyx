@@ -32,7 +32,7 @@ cdef class Cpu:
         self.HRQ = state
         if (state):
             self.asyncEvent = True
-    cdef void handleAsyncEvent(self):
+    cpdef handleAsyncEvent(self):
         cdef unsigned char irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
         oldIF = self.registers.if_flag
@@ -176,7 +176,7 @@ cdef class Cpu:
         self.registers.readCodeSegSize()
         if (self.main.debugEnabled):
             self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-            self.cpuDump()
+            #self.cpuDump()
         if (self.cycles & 0xfff == 0x00):
             if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
                 (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()

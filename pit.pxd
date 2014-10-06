@@ -8,7 +8,7 @@ cdef class PitChannel:
     cdef unsigned char channelId, bcdMode, counterMode, counterWriteMode, \
       counterFlipFlop, timerEnabled, readBackStatusValue, readBackStatusIssued
     cdef unsigned int counterValue, counterStartValue, counterLatchValue
-    cdef float tempTimerValue
+    cdef double tempTimerValue
     cpdef readBackCount(self)
     cpdef readBackStatus(self)
     cpdef mode0Func(self)

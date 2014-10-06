@@ -1,5 +1,6 @@
 
 include "globals.pxi"
+import time
 
 
 DEF READBACK_DONT_LATCH_COUNT  = 0x20
@@ -26,6 +27,7 @@ cdef class PitChannel:
     cpdef mode0Func(self):
         self.timerEnabled = False
         usleep(int(self.tempTimerValue))
+        self.counterValue = 0
         if (self.channelId == 0): # just raise IRQ on channel0
             (<Pic>self.main.platform.pic).raiseIrq(0)
         elif (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Gate):
@@ -33,22 +35,27 @@ cdef class PitChannel:
         else:
             self.main.notice("mode0Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
     cpdef mode2Func(self): # TODO
-        if (not self.counterValue or self.counterMode not in (2, 3)):
-            self.main.notice("mode2Func: channelId {0:d}: counterValue{1:d} == 0 or counterMode{2:d} not in (2, 3) .", self.channelId, self.counterValue, self.counterMode)
-            return
-        ##self.counterValue = 0
-        ##if (not self.counterValue):
-        self.counterValue = self.counterStartValue
-        usleep(int(self.tempTimerValue))
-        if (self.channelId == 0): # just raise IRQ on channel0
-            (<Pic>self.main.platform.pic).raiseIrq(0)
-        elif (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Gate):
-            (<PS2>self.main.platform.ps2).ppcbT2Out = True
-        else:
-            self.main.notice("mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
-        ##if (self.counterModeTimer and self.counterMode in (2, 3) and (not self.main.quitEmu)):
-        ##    self.counterModeTimer = self.main.misc.createThread(self.mode2Func, True)
-        ##self.timerEnabled = True
+        while (self.timerEnabled and self.counterValue and self.counterMode in (2, 3) and (not self.main.quitEmu)):
+            #IF 1:
+            #if (not self.counterValue or self.counterMode not in (2, 3)):
+            #    self.main.notice("mode2Func: channelId {0:d}: counterValue{1:d} == 0 or counterMode{2:d} not in (2, 3) .", self.channelId, self.counterValue, self.counterMode)
+            #    return
+            ##self.counterValue = 0
+            ##if (not self.counterValue):
+            with nogil:
+                usleep(int(self.tempTimerValue))
+            self.counterValue = 1
+            if (self.channelId == 0): # just raise IRQ on channel0
+                #self.main.notice("mode2Func: raiseIrq(0)")
+                (<Pic>self.main.platform.pic).raiseIrq(0)
+            elif (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Gate):
+                (<PS2>self.main.platform.ps2).ppcbT2Out = True
+            else:
+                self.main.notice("mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
+            self.counterValue = self.counterStartValue
+            #if (self.timerEnabled and self.counterValue and self.counterMode in (2, 3) and (not self.main.quitEmu)):
+            #    self.main.misc.createThread(self.mode2Func, True)
+            ##self.timerEnabled = True
     cpdef timerFunc(self): # TODO
         if (self.timerEnabled):
             if (self.counterMode == 0):
@@ -75,10 +82,7 @@ cdef class PitChannel:
                 self.main.exitError("runTimer: counterValue is 0")
                 return
         self.counterValue = self.counterStartValue
-        if (self.counterMode == 0):
-            self.tempTimerValue = 1.0/(1.193182/self.counterValue)
-        elif (self.counterMode in (2, 3)):
-            self.tempTimerValue = 1193182000/self.counterValue
+        self.tempTimerValue = 1.0/(1.193182/self.counterValue)
         if (self.counterMode not in (0, 2, 3)):
             self.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})", self.counterMode, self.channelId)
             return

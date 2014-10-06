@@ -121,17 +121,20 @@ cdef class GDC(VGA_REGISTER_RAW):
                 self.vga.videoMemBase = 0xb8000
                 self.vga.videoMemSize = 0x08000
             self.vga.needLoadFont = True
+            #self.vga.ui.graphicalMode = (data&VGA_GDC_ALPHA_DIS) != 0
 
 cdef class Sequencer(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_SEQ_AREA_SIZE, vga, main)
     cdef void setData(self, unsigned int data, unsigned char dataSize):
         VGA_REGISTER_RAW.setData(self, data, dataSize)
-        #if (self.getIndex() == VGA_GDC_MISC_GREG_INDEX):
+        #if (self.getIndex() == VGA_SEQ_CHARMAP_SEL_INDEX):
         #    if ((data & VGA_GDC_MEMBASE_MASK) == VGA_GDC_MEMBASE_A0000_128K):
         #        self.vga.videoMemBase = 0xa0000
         #        self.vga.videoMemSize = 0x20000
         #    self.vga.needLoadFont = True
+        if (self.getIndex() == VGA_SEQ_CLOCKING_MODE_REG_INDEX):
+            self.vga.ui.mode9Bit = (data&VGA_SEQ_MODE_9BIT) == 0
 
 cdef class ExtReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
@@ -225,7 +228,7 @@ cdef class Vga:
         if (not self.ui or not self.needLoadFont):
             return
         charHeight = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(VGA_VIDEO_CHAR_HEIGHT)
-        self.ui.charSize = (UI_CHAR_WIDTH, charHeight)
+        self.ui.charSize = (9 if (self.ui.mode9Bit) else 8, charHeight)
         self.ui.fontData = (<Mm>self.main.mm).mmPhyRead(VGA_MEMAREA_ADDR, VGA_FONTAREA_SIZE)
         self.needLoadFont = False
     cdef void setProcessVideoMem(self, unsigned char processVideoMem):
@@ -348,11 +351,12 @@ cdef class Vga:
         # limit is already being handled in X86Platform::systemWriteHandler
         if (self.ui.graphicalMode):
             self.main.notice("vgaAreaWrite: graphicalMode: offset=={0:#06x}; data[offset]=={1:#04x}; dataSize=={2:d}", offset, mmArea.data[offset], dataSize)
-            if (dataSize == 65536):
-                return
+            #if (dataSize > 64000):
+            #    dataSize = 64000 # 320*200
             while (dataSize > 0 and not self.main.quitEmu): # TODO; FIXME
                 #self.main.notice("test1: offset-basewithoffset=={0:#06x}", (offset-self.videoMemBaseWithOffset))
-                y, x = divmod((offset-self.videoMemBaseWithOffset), 320)
+                y, x = divmod((offset-self.videoMemBaseWithOffset), 640) #320)
+                #x = ((x%80)<<3)+(x//80)
                 self.ui.putPixel(x, y, mmArea.data[offset])
                 offset   += 1
                 dataSize -= 1

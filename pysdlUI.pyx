@@ -22,10 +22,10 @@ cdef class PysdlUI:
         self.vga  = vga
         self.main = main
         self.window = self.screen = None
-        self.replicate8Bit = self.msbBlink = True
+        self.replicate8Bit = self.mode9Bit = self.msbBlink = True
         self.graphicalMode = False
-        self.screenSize = 720, 400
-        self.charSize = (UI_CHAR_WIDTH, 16)
+        self.screenSize = 720, 480
+        self.charSize = (9, 16)
         self.fontData = b'\x00'*VGA_FONTAREA_SIZE
     cpdef initPysdl(self):
         cdef unsigned short event
@@ -64,6 +64,27 @@ cdef class PysdlUI:
         sdl2.surface.SDL_FillRect(blankSurface, None, bgColor)
         return blankSurface
     cpdef object putPixel(self, unsigned short x, unsigned short y, unsigned char colors): # returns rect
+        cpdef object newRect, colorObject, newPixel
+        cdef unsigned int bgColor
+        try:
+            bgColor = 0xff
+            newRect = sdl2.rect.SDL_Rect(x, y, 1, 1)
+            #newRect = sdl2.rect.SDL_Rect(x<<1, y<<1, 2, 2)
+            newPixel = sdl2.surface.SDL_CreateRGBSurface(0, 1, 1, 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x00000000).contents
+            # bgColor == RGBA; colors == (A?)RGB
+            if ((colors)&1):
+                bgColor |= 0xff00
+            if ((colors>>1)&1):
+                bgColor |= 0xff0000
+            if ((colors>>2)&1):
+                bgColor |= 0xff000000
+            sdl2.surface.SDL_FillRect(newPixel, None, bgColor)
+            if (self.screen):
+                sdl2.SDL_BlitScaled(newPixel, None, self.screen, newRect)
+            return newRect
+        except:
+            print_exc()
+            self.main.exitError('putChar: exception, exiting...')
         return None
     cpdef object putChar(self, unsigned short x, unsigned short y, unsigned char character, unsigned char colors): # returns rect
         cpdef object newRect, newChar, charArray
@@ -87,16 +108,19 @@ cdef class PysdlUI:
                 charData = self.fontData[i:i+self.charSize[1]]
                 for i in range(len(charData)):
                     j = charData[i]
-                    if (self.replicate8Bit and (character&0xe0==0xc0)):
-                        j = (j << 1) | (j&1)
+                    if (self.mode9Bit):
+                        if (self.replicate8Bit and (character&0xe0==0xc0)):
+                            j = (j << 1) | (j&1)
+                        else:
+                            j <<= 1
+                        lineData = '{0:09b}'.format(j)
                     else:
-                        j <<= 1
-                    lineData = '{0:09b}'.format(j)
+                        lineData = '{0:08b}'.format(j)
                     for j in range(len(lineData)):
                         if (int(lineData[j])):
                             charArray[j][i] = fgColor
             if (self.screen):
-                sdl2.SDL_BlitSurface(newChar, None, self.screen, newRect)
+                sdl2.SDL_BlitScaled(newChar, None, self.screen, newRect)
             return newRect
         except:
             print_exc()

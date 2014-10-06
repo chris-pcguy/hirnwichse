@@ -2381,10 +2381,10 @@ cdef class Opcodes:
                 if (not gdtEntrySS.segPresent):
                     raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
                 if (idtEntry.entrySize == OP_SIZE_DWORD):
-                    if ((not oldVM and <signed int>(newESP - (24 if (errorCode != -1) else 20)) < 0) or (oldVM and <signed int>(newESP - (40 if (errorCode != -1) else 36)) < 0)):
+                    if ((not oldVM and (newESP - (24 if (errorCode != -1) else 20)) >= newESP) or (oldVM and (newESP - (40 if (errorCode != -1) else 36)) >= newESP)):
                         raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
                 else:
-                    if ((not oldVM and <signed int>(newESP - (12 if (errorCode != -1) else 10)) < 0) or (oldVM and <signed int>(newESP - (20 if (errorCode != -1) else 18)) < 0)):
+                    if ((not oldVM and (newESP - (12 if (errorCode != -1) else 10)) >= newESP) or (oldVM and (newESP - (20 if (errorCode != -1) else 18)) >= newESP)):
                         raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
                 if (not gdtEntryCS.isAddressInLimit(entryEip, OP_SIZE_BYTE)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, not isSoftInt)
@@ -2409,10 +2409,10 @@ cdef class Opcodes:
                 if (gdtEntryCS.segIsConforming or (gdtEntryCS.segDPL == cpl)):
                     oldESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
                     if (idtEntry.entrySize == OP_SIZE_DWORD):
-                        if (<signed int>(oldESP - (16 if (errorCode != -1) else 12)) < 0):
+                        if ((oldESP - (16 if (errorCode != -1) else 12)) >= oldESP):
                             raise HirnwichseException(CPU_EXCEPTION_SS, not isSoftInt)
                     else:
-                        if (<signed int>(oldESP - (8 if (errorCode != -1) else 6)) < 0):
+                        if ((oldESP - (8 if (errorCode != -1) else 6)) >= oldESP):
                             raise HirnwichseException(CPU_EXCEPTION_SS, not isSoftInt)
                     if (not gdtEntryCS.isAddressInLimit(entryEip, OP_SIZE_BYTE)):
                         raise HirnwichseException(CPU_EXCEPTION_GP, not isSoftInt)
@@ -2464,7 +2464,7 @@ cdef class Opcodes:
         if (not self.registers.protectedModeOn and self.registers.operSize == OP_SIZE_DWORD and (tempEIP>>16)):
             raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         oldESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
-        if (<signed int>(oldESP - (12 if (self.registers.operSize == OP_SIZE_DWORD) else 6)) < 0):
+        if ((oldESP - (12 if (self.registers.operSize == OP_SIZE_DWORD) else 6)) >= oldESP):
             raise HirnwichseException(CPU_EXCEPTION_SS, 0)
         tempEIP = self.stackPopValue(True)
         tempCS = self.stackPopValue(True)&BITMASK_WORD
@@ -2512,7 +2512,7 @@ cdef class Opcodes:
                 return True
             elif ((tempEFLAGS & FLAG_VM) and not cpl):
                 self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return to VM86-Mode)")
-                if (<signed int>(oldESP - 24) < 0):
+                if ((oldESP - 24) >= oldESP):
                     raise HirnwichseException(CPU_EXCEPTION_SS, 0)
                 #if (not (<Segment>self.registers.segments.cs).isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
                 #    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
@@ -2530,7 +2530,7 @@ cdef class Opcodes:
                 self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
                 return True
             elif ((tempCS&3) > cpl): # outer privilege level; rpl > cpl
-                if (<signed int>(oldESP - (8 if (self.registers.operSize == OP_SIZE_DWORD) else 4)) < 0):
+                if ((oldESP - (8 if (self.registers.operSize == OP_SIZE_DWORD) else 4)) >= oldESP):
                     raise HirnwichseException(CPU_EXCEPTION_SS, 0)
                 tempESP = self.stackPopValue(True)
                 tempSS = self.stackPopValue(True)&BITMASK_WORD
@@ -3042,10 +3042,11 @@ cdef class Opcodes:
         #if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)): # TODO
         #    raise HirnwichseException(CPU_EXCEPTION_UD)
         opcode2 = self.registers.getCurrentOpcodeAddUnsignedByte()
-        if (opcode in (0xdb, 0xdd, 0xdf)):
+        if (opcode in (0xd9, 0xdb, 0xdd, 0xdf)):
             if ((opcode == 0xdf and opcode2 == 0xe0) or \
               (opcode == 0xdb and opcode2 == 0xe3) or \
-              (opcode == 0xdd and ((opcode2>>3)&7) == 7)): # FNSTSW/FINIT/FNSTSW
+              (opcode == 0xd9 and ((opcode2>>3)&7) == 7) or \
+              (opcode == 0xdd and ((opcode2>>3)&7) in (6, 7))): # FNSTSW/FINIT/FNSTSW
                 return True
         self.main.notice("Opcodes::fpuOpcodes: opcode=={0:#04x}, opcode2=={1:#04x}", opcode, opcode2)
         if (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS))):

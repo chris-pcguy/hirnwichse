@@ -8,6 +8,7 @@ include "globals.pxi"
 include "kb_scancodes.pxi"
 
 DEF KBC_IRQ = 1 # keyboard controller's IRQnum
+DEF TIMER_IRQ = 0
 
 DEF PS2_CPU_RESET = 0x01
 DEF PS2_A20 = 0x02
@@ -28,7 +29,7 @@ cdef class PS2:
         self.lastUsedCmd = 0
         self.ppcbT2Gate = self.ppcbT2Spkr = self.ppcbT2Out = False
         self.irq1Requested = self.sysf = False
-        self.outb = self.batInProgress = False
+        self.outb = self.inb = self.batInProgress = False
         self.kbdClockEnabled = self.allowIrq1 = True
         self.translateScancodes = self.scanningEnabled = True
         self.timerPending = 0
@@ -97,16 +98,20 @@ cdef class PS2:
         cdef unsigned char retByte
         retByte = 0
         if (dataSize == OP_SIZE_BYTE):
+            self.main.notice("PS2: inPort: port {0:#04x}; savedCs=={1:#06x}; savedEip=={2:#06x}", ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x64):
                 if (len(self.outBuffer)):
                     self.outb = True # TODO: HACK
                     #if (self.allowIrq1): # TODO: delete this again!?!
                     #    self.irq1Requested = True
                     #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
-                return (0x10 | \
+                retByte = (0x10 | \
                         ((self.lastUsedPort != 0x60) << 3) | \
                         (self.sysf << 2) | \
+                        (self.inb << 1) | \
                         self.outb)
+                self.main.notice("PS2: inPort: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                return retByte
             elif (ioPortAddr == 0x60):
                 self.outb = False
                 self.irq1Requested = False
@@ -139,6 +144,7 @@ cdef class PS2:
         return 0
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
+            self.main.notice("PS2: outPort: port {0:#04x} ; data {1:#04x}", ioPortAddr, data)
             if (ioPortAddr == 0x60):
                 if (not self.needWriteBytes):
                     if (not self.kbdClockEnabled):
@@ -237,9 +243,12 @@ cdef class PS2:
                     (self.allowIrq1) )]))
                 elif (data == 0x60): # write keyboard mode
                     self.needWriteBytes = 1
+                elif (data == 0xa4): # check if password is set
+                    self.appendToOutBytesDoIrq(b'\xf1') # no password is set
                 elif (data in (0xa7, 0xa8, 0xa9)): # 0xa7: disable mouse, 0xa8: enable mouse, 0xa9: test mouse port
                     self.main.notice("PS2::outPort: mouse isn't supported yet. (data: {0:#04x})", data)
-                    self.appendToOutBytes(b'\xfe')
+                    if (data == 0xa9):
+                        self.appendToOutBytesDoIrq(b'\x00') # return success anyway
                 elif (data == 0xaa):
                     self.outBuffer = bytes()
                     self.outb = False
@@ -278,6 +287,10 @@ cdef class PS2:
                     self.lastUsedPort = ioPortAddr
                     self.lastUsedCmd = data
             elif (ioPortAddr == 0x61):
+                if (data & PORT_61H_LOWER_TIMER_IRQ):
+                    (<Pic>self.main.platform.pic).lowerIrq(TIMER_IRQ)
+                #else:
+                #    (<Pic>self.main.platform.pic).raiseIrq(TIMER_IRQ)
                 self.ppcbT2Gate = (data & PPCB_T2_GATE) != 0
                 self.ppcbT2Spkr = (data & PPCB_T2_SPKR) != 0
                 self.ppcbT2Out  = (data & PPCB_T2_OUT)  != 0

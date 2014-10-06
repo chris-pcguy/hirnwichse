@@ -37,6 +37,7 @@ cdef class AtaController:
     cdef void raiseAtaIrq(self)
     cdef void lowerAtaIrq(self)
     cdef void abortCommand(self)
+    cdef void errorCommand(self, unsigned char errorRegister)
     cdef void handlePacket(self)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
