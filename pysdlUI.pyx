@@ -67,17 +67,11 @@ cdef class PysdlUI:
         cpdef object newRect, colorObject, newPixel
         cdef unsigned int bgColor
         try:
-            bgColor = 0xff
             newRect = sdl2.rect.SDL_Rect(x, y, 1, 1)
             #newRect = sdl2.rect.SDL_Rect(x<<1, y<<1, 2, 2)
             newPixel = sdl2.surface.SDL_CreateRGBSurface(0, 1, 1, 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x00000000).contents
             # bgColor == RGBA; colors == (A?)RGB
-            if ((colors)&1):
-                bgColor |= 0xff00
-            if ((colors>>1)&1):
-                bgColor |= 0xff0000
-            if ((colors>>2)&1):
-                bgColor |= 0xff000000
+            bgColor = self.vga.getColor(colors)
             sdl2.surface.SDL_FillRect(newPixel, None, bgColor)
             if (self.screen):
                 sdl2.SDL_BlitScaled(newPixel, None, self.screen, newRect)

@@ -218,8 +218,7 @@ cdef class Platform:
             (<Mm>self.main.mm).mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
     cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         (<Mm>self.main.mm).mmAreaWrite(mmArea, offset, data, dataSize)
-        if (offset >= self.vga.videoMemBaseWithOffset and (offset+dataSize) <= (self.vga.videoMemBaseWithOffset+self.vga.videoMemSize)):
-            self.vga.vgaAreaWrite(mmArea, offset, dataSize)
+        self.vga.vgaAreaWrite(mmArea, offset, dataSize)
     cdef void initMemory(self):
         cdef MmArea biosMmArea, romMmArea
         cdef unsigned int i
@@ -232,7 +231,7 @@ cdef class Platform:
         (<Mm>self.main.mm).mmAddArea(PCI_MEM_BASE, False)
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
         if (self.main.vgaBiosFilename):
-            ##self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), 0xc0000, True)
+            ##self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), VGA_ROM_BASE, True)
             self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), VGA_ROM_BASE, True)
         biosMmArea = (<Mm>self.main.mm).mmGetArea(0x0) # this would include the whole first megabyte.
         if (biosMmArea is None or not biosMmArea.valid):

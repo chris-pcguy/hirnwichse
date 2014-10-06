@@ -25,7 +25,6 @@ cdef class PciDevice:
         for i in range(7):
             self.barSize[i] = 0
         self.configSpace = ConfigSpace(PCI_FUNCTION_CONFIG_SIZE, self.main)
-        self.configSpace.csResetData(0)
         self.configSpace.csWriteValue(PCI_HEADER_TYPE, PCI_HEADER_TYPE_STANDARD, OP_SIZE_BYTE)
     cdef void reset(self):
         pass

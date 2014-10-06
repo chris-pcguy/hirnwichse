@@ -62,10 +62,11 @@ cdef class Vga:
     cdef ExtReg extreg
     cdef AttrCtrlReg attrctrlreg
     cdef PciDevice pciDevice
-    cdef unsigned char processVideoMem, needLoadFont
+    cdef ConfigSpace plane0, plane1, plane2, plane3
+    cdef unsigned char processVideoMem, needLoadFont, selectedPlanes
     cdef unsigned int videoMemBase, videoMemBaseWithOffset, videoMemSize
     cdef double newTimer, oldTimer
-    cpdef unsigned int getColor(self, unsigned char color) # RGB
+    cpdef unsigned int getColor(self, unsigned char color) # RGBA
     cdef void readFontData(self)
     cdef void setProcessVideoMem(self, unsigned char processVideoMem)
     cdef unsigned char getProcessVideoMem(self)
