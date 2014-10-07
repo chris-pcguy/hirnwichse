@@ -63,7 +63,7 @@ cdef class Vga:
     cdef AttrCtrlReg attrctrlreg
     cdef PciDevice pciDevice
     cdef ConfigSpace plane0, plane1, plane2, plane3
-    cdef unsigned char processVideoMem, needLoadFont, selectedPlanes
+    cdef unsigned char processVideoMem, needLoadFont, selectedPlanes, charSelA, charSelB, chain4, oddEvenDisabled, extMem
     cdef unsigned int videoMemBase, videoMemBaseWithOffset, videoMemSize
     cdef double newTimer, oldTimer
     cpdef unsigned int getColor(self, unsigned char color) # RGBA
@@ -78,6 +78,7 @@ cdef class Vga:
     cdef unsigned short getCursorPosition(self, unsigned char page)
     cdef void setCursorPosition(self, unsigned char page, unsigned short pos)
     cdef void scrollUp(self, signed short attr, unsigned short lines)
+    cdef vgaAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)

@@ -43,7 +43,6 @@ cdef class Platform:
         self.parallel = Parallel(self.main)
         self.serial   = Serial(self.main)
         self.gdbstub  = GDBStub(self.main)
-        self.pythonBios = PythonBios(self.main)
     cdef void resetDevices(self):
         self.cmos.reset()
         #self.pic.reset()
@@ -57,7 +56,6 @@ cdef class Platform:
         self.parallel.reset()
         self.serial.reset()
         #self.gdbstub.reset()
-        #self.pythonBios.reset()
     cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject):
         cdef PortHandler port
         cdef unsigned int i # 'i' can be longer than 65536
@@ -216,9 +214,14 @@ cdef class Platform:
         self.loadRomToMem(romFileName, mmAddr, romSize)
         if (not isRomOptional):
             (<Mm>self.main.mm).mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
+    cdef bytes systemReadHandler(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
+        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE):
+            return self.vga.vgaAreaRead(mmArea, offset, dataSize)
+        return (<Mm>self.main.mm).mmAreaRead(mmArea, offset, dataSize)
     cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         (<Mm>self.main.mm).mmAreaWrite(mmArea, offset, data, dataSize)
-        self.vga.vgaAreaWrite(mmArea, offset, dataSize)
+        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE):
+            self.vga.vgaAreaWrite(mmArea, offset, dataSize)
     cdef void initMemory(self):
         cdef MmArea biosMmArea, romMmArea
         cdef unsigned int i
@@ -237,6 +240,8 @@ cdef class Platform:
         if (biosMmArea is None or not biosMmArea.valid):
             self.main.exitError("X86Platform::initMemory: biosMmArea is invalid!")
             return
+        biosMmArea.readClass = self
+        biosMmArea.readHandler = <MmAreaReadType>self.systemReadHandler
         biosMmArea.writeClass = self
         biosMmArea.writeHandler = <MmAreaWriteType>self.systemWriteHandler
         romMmArea.readOnly = True
@@ -288,7 +293,6 @@ cdef class Platform:
         self.parallel.run()
         self.serial.run()
         self.gdbstub.run()
-        self.pythonBios.run()
     cpdef run(self):
         try:
             self.initMemory()

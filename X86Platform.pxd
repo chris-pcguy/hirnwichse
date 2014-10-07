@@ -1,6 +1,6 @@
 
 from misc cimport Misc
-from mm cimport Mm, MmArea, MmAreaWriteType
+from mm cimport Mm, MmArea, MmAreaReadType, MmAreaWriteType
 from cmos cimport Cmos
 from isadma cimport IsaDma
 from pic cimport Pic
@@ -13,7 +13,6 @@ from floppy cimport Floppy
 from serial_dev cimport Serial
 from parallel cimport Parallel
 from gdbstub cimport GDBStub
-from pythonBios cimport PythonBios
 
 ctypedef unsigned int (*InPort)(self, unsigned short, unsigned char)
 ctypedef void (*OutPort)(self, unsigned short, unsigned int, unsigned char)
@@ -39,7 +38,6 @@ cdef class Platform:
     cdef public Serial serial
     cdef public Parallel parallel
     cdef public GDBStub gdbstub
-    cdef public PythonBios pythonBios
     cdef public Cmos cmos
     cdef list ports
     cdef void initDevices(self)
@@ -53,6 +51,7 @@ cdef class Platform:
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize)
     cdef void loadRom(self, bytes romFileName, unsigned long int mmAddr, unsigned char isRomOptional)
+    cdef bytes systemReadHandler(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
     cdef void initMemory(self)
     cdef void initDevicesPorts(self)

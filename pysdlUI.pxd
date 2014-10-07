@@ -6,7 +6,7 @@ from ps2 cimport PS2
 cdef class PysdlUI:
     cpdef object main, vga
     cpdef object window, screen
-    cdef bytes fontData
+    cdef bytes fontDataA, fontDataB
     cdef tuple screenSize, charSize
     cdef unsigned char mode9Bit, replicate8Bit, msbBlink, graphicalMode
     cpdef initPysdl(self)

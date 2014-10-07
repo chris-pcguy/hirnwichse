@@ -26,7 +26,8 @@ cdef class PysdlUI:
         self.graphicalMode = False
         self.screenSize = 720, 480
         self.charSize = (9, 16)
-        self.fontData = b'\x00'*VGA_FONTAREA_SIZE
+        self.fontDataA = b'\x00'*VGA_FONTAREA_SIZE
+        self.fontDataB = b'\x00'*VGA_FONTAREA_SIZE
     cpdef initPysdl(self):
         cdef unsigned short event
         sdl2.SDL_Init(sdl2.SDL_INIT_TIMER | sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
@@ -78,7 +79,7 @@ cdef class PysdlUI:
             return newRect
         except:
             print_exc()
-            self.main.exitError('putChar: exception, exiting...')
+            self.main.exitError('putPixel: exception, exiting...')
         return None
     cpdef object putChar(self, unsigned short x, unsigned short y, unsigned char character, unsigned char colors): # returns rect
         cpdef object newRect, newChar, charArray
@@ -88,18 +89,20 @@ cdef class PysdlUI:
         try:
             newRect = self.getCharRect(x, y)
             fgColor = self.vga.getColor(colors&0xf)
-            colors >>= 4
             if (self.msbBlink):
-                bgColor = self.vga.getColor(colors&0x7)
+                bgColor = self.vga.getColor((colors>>4)&0x7)
             else:
-                bgColor = self.vga.getColor(colors)
+                bgColor = self.vga.getColor((colors>>4))
             newChar = self.getBlankChar(bgColor)
-            charArray = sdl2.ext.pixels2d(newChar)
             # It's not a good idea to render a character if fgColor == bgColor
             #   as it wouldn't be readable.
             if (fgColor != bgColor): # TODO
+                charArray = sdl2.ext.pixels2d(newChar)
                 i = character*VGA_FONTAREA_CHAR_HEIGHT
-                charData = self.fontData[i:i+self.charSize[1]]
+                if (colors & 8):
+                    charData = self.fontDataA[i:i+self.charSize[1]]
+                else:
+                    charData = self.fontDataB[i:i+self.charSize[1]]
                 for i in range(len(charData)):
                     j = charData[i]
                     if (self.mode9Bit):
