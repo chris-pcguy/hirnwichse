@@ -1,11 +1,12 @@
 
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+
+include "globals.pxi"
 
 from sys import argv, exit, stdout
 from argparse import ArgumentParser
 from atexit import register
 from traceback import print_exc
-
-include "globals.pxi"
 
 
 

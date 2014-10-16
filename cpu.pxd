@@ -3,7 +3,7 @@ from misc cimport Misc
 from mm cimport Mm
 from pic cimport Pic
 from isadma cimport IsaDma
-from segments cimport Segments
+from segments cimport Segments, Segment
 from registers cimport Registers
 from opcodes cimport Opcodes
 from vga cimport Vga

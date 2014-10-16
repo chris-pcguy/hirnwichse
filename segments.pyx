@@ -1,13 +1,16 @@
 
-from misc import HirnwichseException
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
 include "globals.pxi"
 include "cpu_globals.pxi"
 
+from misc import HirnwichseException
+
 
 cdef class Segment:
-    def __init__(self, Segments segments):
+    def __init__(self, Segments segments, unsigned short segId):
         self.segments = segments
+        self.segId = segId
         self.isValid = True
         self.segSize = OP_SIZE_WORD
         self.base = self.segmentIndex = self.useGDT = 0
@@ -42,10 +45,6 @@ cdef class Segment:
         self.segIsNormal = gdtEntry.segIsNormal
         self.segUse4K = gdtEntry.segUse4K
         self.segDPL = gdtEntry.segDPL
-    cdef unsigned char getSegSize(self):
-        return self.segSize
-    cdef unsigned char isSegPresent(self):
-        return self.segPresent
     cdef unsigned char isCodeSeg(self):
         return self.segIsCodeSeg
     ### isSegReadableWritable:
@@ -266,7 +265,10 @@ cdef class Paging: # TODO
         self.invalidateTables(0)
     cdef void setInstrFetch(self):
         self.instrFetch = True
-    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written):
+    cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress):
+        self.pageDirectoryBaseAddress = (pageDirectoryBaseAddress&0xfffff000)
+        self.pageDirectoryOffset = self.pageTableOffset = self.pageDirectoryEntry = self.pageTableEntry = 0
+    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except 1:
         cdef unsigned int errorFlags
         errorFlags = (self.pageTableEntry & PAGE_PRESENT) != 0
         errorFlags |= written << 1
@@ -276,10 +278,7 @@ cdef class Paging: # TODO
         self.segments.main.cpu.registers.regWriteDword(CPU_REGISTER_CR2, virtualAddress)
         raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
         #return 0
-    cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress):
-        self.pageDirectoryBaseAddress = (pageDirectoryBaseAddress&0xfffff000)
-        self.pageDirectoryOffset = self.pageTableOffset = self.pageDirectoryEntry = self.pageTableEntry = 0
-    cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written):
+    cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except -1:
         self.pageDirectoryOffset = (virtualAddress>>22) << 2
         self.pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         self.pageOffset = virtualAddress&0xfff
@@ -299,17 +298,17 @@ cdef class Paging: # TODO
             self.segments.main.notice("Paging::readAddresses: PTE-Entry is not present. (entry: {0:#010x})", self.pageTableEntry)
             self.doPF(virtualAddress, written)
         return True
-    cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress):
+    cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress) except -1:
         self.readAddresses(virtualAddress, True)
         if (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE):
             return True
         return False
-    cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress):
+    cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress) except -1:
         self.readAddresses(virtualAddress, False)
         if (self.pageDirectoryEntry&PAGE_EVERY_RING and self.pageTableEntry&PAGE_EVERY_RING):
             return True
         return False
-    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned char written):
+    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned char written) except? 0:
         self.readAddresses(virtualAddress, written)
         self.instrFetch = False
         if (written and not (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE)):
@@ -326,15 +325,11 @@ cdef class Segments:
         self.main = main
     cdef void reset(self):
         self.ldtr = 0
-    cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness):
+    cdef Segment getSegment(self, unsigned short segmentId, unsigned char checkForValidness):
         cdef Segment segment
-        IF STRICT_CHECKS:
-            if (not segmentId or (segmentId not in CPU_REGISTER_SREG)):
-                self.main.exitError("Segments::getSegmentInstance: invalid segmentId {0:d}", segmentId)
-                return None
         segment = self.segs[segmentId]
         if (checkForValidness and not segment.isValid):
-            self.main.notice("Segments::getSegmentInstance: segment with ID {0:d} isn't valid.", segmentId)
+            self.main.notice("Segments::getSegment: segment with ID {0:d} isn't valid.", segmentId)
             raise HirnwichseException(CPU_EXCEPTION_GP, segment.segmentIndex)
         return segment
     cdef GdtEntry getEntry(self, unsigned short num):
@@ -395,13 +390,13 @@ cdef class Segments:
         self.ldt = Gdt(self)
         self.idt = Idt(self)
         self.paging = Paging(self)
-        self.cs = Segment(self)
-        self.ss = Segment(self)
-        self.ds = Segment(self)
-        self.es = Segment(self)
-        self.fs = Segment(self)
-        self.gs = Segment(self)
-        self.tss = Segment(self)
+        self.cs = Segment(self, CPU_SEGMENT_CS)
+        self.ss = Segment(self, CPU_SEGMENT_SS)
+        self.ds = Segment(self, CPU_SEGMENT_DS)
+        self.es = Segment(self, CPU_SEGMENT_ES)
+        self.fs = Segment(self, CPU_SEGMENT_FS)
+        self.gs = Segment(self, CPU_SEGMENT_GS)
+        self.tss = Segment(self, CPU_SEGMENT_TSS)
         self.segs = (None, self.cs, self.ss, self.ds, self.es, self.fs, self.gs, self.tss)
 
 

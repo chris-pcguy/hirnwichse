@@ -1,9 +1,11 @@
 
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+
+include "globals.pxi"
+
 from os import access, F_OK, R_OK, W_OK, SEEK_END
 from os.path import getsize
 
-
-include "globals.pxi"
 
 DEF HEADS = 16
 DEF SPT = 63

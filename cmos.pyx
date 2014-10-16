@@ -1,7 +1,9 @@
 
-from time import gmtime
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
 include "globals.pxi"
+
+from time import gmtime
 
 
 cdef class Cmos:
@@ -10,6 +12,7 @@ cdef class Cmos:
         self.dt = self.oldDt = None
         self.cmosIndex = 0
         self.equipmentDefaultValue = 0x0
+        self.configSpace = ConfigSpace(128, self.main)
     cdef inline void setEquipmentDefaultValue(self, unsigned char value):
         self.equipmentDefaultValue = value
     cdef unsigned char getEquipmentDefaultValue(self):
@@ -144,7 +147,6 @@ cdef class Cmos:
             self.main.exitError("outPort: dataSize {0:d} not supported. (port: {1:#06x})", dataSize, ioPortAddr)
         return
     cdef void run(self):
-        self.configSpace = ConfigSpace(128, self.main)
         self.reset()
         ##self.updateTime()
         #self.main.platform.addHandlers((0x70, 0x71), self)

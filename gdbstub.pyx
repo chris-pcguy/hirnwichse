@@ -1,12 +1,14 @@
 
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+
+include "globals.pxi"
+include "cpu_globals.pxi"
+
 from sys import exit
 from atexit import register
 from socket import error as SocketError, IPPROTO_TCP, TCP_NODELAY
 from socketserver import BaseRequestHandler, ThreadingMixIn, TCPServer
 from traceback import print_exc
-
-include "globals.pxi"
-include "cpu_globals.pxi"
 
 # with MUCH help from qemu's gdbstub.c
 

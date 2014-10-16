@@ -1,11 +1,13 @@
 
-from os import access, F_OK, R_OK, W_OK
-from os.path import getsize
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
 # This file contains (much) code from the Bochs Emulator (c) by it's developers
 
-
 include "globals.pxi"
+
+from os import access, F_OK, R_OK, W_OK
+from os.path import getsize
+
 
 DEF FDC_FIRST_PORTBASE  = 0x3f0
 DEF FDC_SECOND_PORTBASE = 0x370

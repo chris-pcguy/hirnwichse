@@ -1,13 +1,13 @@
 
-from sys import exit
-from time import sleep
-from traceback import print_exc
-from misc import HirnwichseException
-
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
 include "globals.pxi"
 include "cpu_globals.pxi"
 
+from sys import exit
+from time import sleep
+from traceback import print_exc
+from misc import HirnwichseException
 
 
 cdef class Cpu:
@@ -48,7 +48,7 @@ cdef class Cpu:
     cpdef exception(self, unsigned char exceptionId, signed int errorCode=-1):
         self.main.notice("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
-            self.registers.segWrite(CPU_SEGMENT_CS, self.savedCs)
+            self.registers.segWriteSegment((<Segment>self.registers.segments.cs), self.savedCs)
             self.registers.regWriteDword(CPU_REGISTER_EIP, self.savedEip)
         #if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
         #    self.savedEip = <unsigned int>(self.savedEip+1)
@@ -93,24 +93,23 @@ cdef class Cpu:
             elif (opcode == OPCODE_PREFIX_ADDR):
                 self.registers.addressSizePrefix = True
             elif (opcode == OPCODE_PREFIX_CS):
-                self.registers.segmentOverridePrefix = CPU_SEGMENT_CS
+                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.cs)
             elif (opcode == OPCODE_PREFIX_SS):
-                self.registers.segmentOverridePrefix = CPU_SEGMENT_SS
+                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.ss)
             elif (opcode == OPCODE_PREFIX_DS):
-                self.registers.segmentOverridePrefix = CPU_SEGMENT_DS
+                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.ds)
             elif (opcode == OPCODE_PREFIX_ES):
-                self.registers.segmentOverridePrefix = CPU_SEGMENT_ES
+                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.es)
             elif (opcode == OPCODE_PREFIX_FS):
-                self.registers.segmentOverridePrefix = CPU_SEGMENT_FS
+                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.fs)
             elif (opcode == OPCODE_PREFIX_GS):
-                self.registers.segmentOverridePrefix = CPU_SEGMENT_GS
+                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.gs)
             elif (opcode in OPCODE_PREFIX_REPS):
                 self.registers.repPrefix = opcode
             ### TODO: I don't think, that we ever need lockPrefix.
             elif (opcode == OPCODE_PREFIX_LOCK):
                 self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
             opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
-        #self.main.notice("Cpu::parsePrefixes: operandSizePrefix=={0:d}, addressSizePrefix=={1:d}, segmentOverridePrefix=={2:d}, repPrefix=={3:#04x}", self.registers.operandSizePrefix, self.registers.addressSizePrefix, self.registers.segmentOverridePrefix, self.registers.repPrefix)
         return opcode
     cpdef cpuDump(self):
         self.main.notice("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EAX), \

@@ -1,11 +1,13 @@
 
-# This file contains code from The Bochs Project. Thanks to them!
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
-from time import sleep
-from traceback import print_exc
+# This file contains code from The Bochs Project. Thanks to them!
 
 include "globals.pxi"
 include "kb_scancodes.pxi"
+
+from time import sleep
+from traceback import print_exc
 
 DEF KBC_IRQ = 1 # keyboard controller's IRQnum
 DEF TIMER_IRQ = 0

@@ -1,10 +1,12 @@
 
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+
+include "globals.pxi"
+
 from os import stat
 from os.path import join
 from sys import exit
 from traceback import print_exc
-
-include "globals.pxi"
 
 
 DEF DMA_MASTER_CONTROLLER_PORTS = (0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,

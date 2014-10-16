@@ -1,11 +1,5 @@
 #!/usr/bin/env python3.4
 
-#cython: boundscheck=False
-#cython: wraparound=False
-#cython: cdivision=True
-#cython: cdivision_warnings=True
-#cython: profiling=True
-
 from sys import exit
 from pyximport import install
 from traceback import print_exc

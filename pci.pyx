@@ -1,4 +1,5 @@
 
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
 include "globals.pxi"
 
@@ -8,7 +9,8 @@ cdef class PciAddress:
         self.calculateAddress(address)
     cdef unsigned int getMmAddress(self):
         #return (PCI_MEM_BASE | (self.bus<<PCI_BUS_SHIFT) | (self.device<<PCI_DEVICE_SHIFT) | (self.function<<PCI_FUNCTION_SHIFT) | self.register)
-        return ((self.function<<PCI_FUNCTION_SHIFT) | self.register)
+        #return ((self.function<<PCI_FUNCTION_SHIFT) | self.register)
+        return self.register
     cdef void calculateAddress(self, unsigned int address):
         self.enableBit = (address>>31)
         self.bus = (address>>PCI_BUS_SHIFT)&BITMASK_BYTE
@@ -40,7 +42,7 @@ cdef class PciDevice:
             if ((offset & 3) != 0):
                 self.main.debug("PciDevice::checkWriteAccess: unaligned access!")
             barIndex = (offset - 0x10) >> 2
-            headerType = self.getData((mmAddress & 0xffffff00) | PCI_HEADER_TYPE, OP_SIZE_BYTE)
+            headerType = self.getData(PCI_HEADER_TYPE, OP_SIZE_BYTE)
             if (headerType >= 0x02):
                 self.main.debug("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
                 return True
@@ -51,7 +53,7 @@ cdef class PciDevice:
                 elif (offset >= PCI_BASE_ADDRESS_2 and offset != PCI_BRIDGE_ROM_ADDRESS):
                     return True
             if (offset >= PCI_BASE_ADDRESS_0 and offset <= PCI_BASE_ADDRESS_5):
-                origData = self.configSpace.csReadValueUnsigned(mmAddress, OP_SIZE_DWORD)
+                origData = self.configSpace.csReadValueUnsigned(offset, OP_SIZE_DWORD)
                 memBarType = (origData >> 1) & 0x3
                 if (origData & 0x1):
                     if (data == 0xfffffffc):
@@ -70,7 +72,7 @@ cdef class PciDevice:
                     return False
                 elif ((data & 0xfffff800) == 0xfffff800):
                     data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1))) # TODO: is this correct?
-            self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_DWORD)
+            self.configSpace.csWriteValue(offset, data, OP_SIZE_DWORD)
             return False
         return True
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize):
@@ -123,20 +125,18 @@ cdef class PciBus:
         pciDevice.run()
         self.deviceList.append(pciDevice)
         return pciDevice
-    cdef PciDevice getDeviceByIndex(self, unsigned char index):
+    cdef PciDevice getDeviceByIndex(self, unsigned char deviceIndex):
         cdef PciDevice deviceHandle
-        try:
-            deviceHandle = self.deviceList[index]
-            if (deviceHandle):
+        cdef unsigned char deviceLength = len(self.deviceList)
+        if (deviceIndex < deviceLength):
+            deviceHandle = self.deviceList[deviceIndex]
+            if (deviceHandle is not None):
                 return deviceHandle
-        except IndexError:
-            pass
         return None
     cdef void run(self):
-        cdef unsigned char deviceIndex
         cdef PciDevice deviceHandle
         for deviceHandle in self.deviceList:
-            if (deviceHandle):
+            if (deviceHandle is not None):
                 deviceHandle.run()
     ####
 
@@ -157,14 +157,13 @@ cdef class Pci:
     cdef PciDevice getDevice(self, unsigned char busIndex, unsigned char deviceIndex):
         cdef PciBus busHandle
         cdef PciDevice deviceHandle
-        try:
+        cdef unsigned char busLength = len(self.busList)
+        if (busIndex < busLength):
             busHandle = self.busList[busIndex]
-            if (busHandle):
+            if (busHandle is not None):
                 deviceHandle = busHandle.getDeviceByIndex(deviceIndex)
-                if (deviceHandle):
+                if (deviceHandle is not None):
                     return deviceHandle
-        except IndexError:
-            pass
         return None
     cdef unsigned int readRegister(self, unsigned int address, unsigned char dataSize):
         cdef PciDevice deviceHandle
@@ -173,8 +172,8 @@ cdef class Pci:
         pciAddressHandle = PciAddress(address)
         deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
         if (deviceHandle):
-            if (not pciAddressHandle.enableBit):
-                self.main.notice("Pci::readRegister: Warning: tried to read without enableBit set.")
+            if (not pciAddressHandle.enableBit or pciAddressHandle.function):
+                self.main.notice("Pci::readRegister: Warning: tried to read without enableBit or with function set.")
             return deviceHandle.getData(pciAddressHandle.getMmAddress(), dataSize)
         else:
             self.main.debug("Pci::readRegister: deviceHandle is NULL")
@@ -186,8 +185,8 @@ cdef class Pci:
         pciAddressHandle = PciAddress(address)
         deviceHandle = self.getDevice(pciAddressHandle.bus, pciAddressHandle.device)
         if (deviceHandle):
-            if (not pciAddressHandle.enableBit):
-                self.main.notice("Pci::writeRegister: Warning: tried to write without enableBit set.")
+            if (not pciAddressHandle.enableBit or pciAddressHandle.function):
+                self.main.notice("Pci::writeRegister: Warning: tried to read without enableBit or with function set.")
             deviceHandle.setData(pciAddressHandle.getMmAddress(), data, dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int ret = BITMASK_DWORD

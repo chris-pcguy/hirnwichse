@@ -1,10 +1,11 @@
 
+include "globals.pxi"
+include "cpu_globals.pxi"
+
 from misc cimport Misc
 from mm cimport Mm
 from segments cimport Segment, GdtEntry, Gdt, Idt, Paging, Segments
 
-include "globals.pxi"
-include "cpu_globals.pxi"
 
 ctypedef fused unsigned_value_types:
     unsigned char
@@ -49,8 +50,9 @@ cdef:
 cdef class ModRMClass:
     cpdef object main
     cdef Registers registers
+    cdef Segment rmNameSeg
     cdef unsigned char rm, reg, mod, ss, regSize
-    cdef unsigned short rmName0, rmName1, rmNameSegId, regName
+    cdef unsigned short rmName0, rmName1, regName
     cdef signed long int rmName2
     cdef unsigned short modRMOperands(self, unsigned char regSize, unsigned char modRMflags) except? 0
     cdef unsigned long int getRMValueFull(self, unsigned char rmSize)
@@ -68,7 +70,8 @@ cdef class Registers:
     cdef Registers registers
     cdef Segments segments
     cdef RegStruct regs[CPU_REGISTERS]
-    cdef public unsigned char repPrefix, segmentOverridePrefix, operandSizePrefix, \
+    cdef Segment segmentOverridePrefix
+    cdef public unsigned char repPrefix, operandSizePrefix, \
                                 addressSizePrefix, codeSegSize, cf, pf, af, zf, sf, \
                                 tf, if_flag, df, of, iopl, nt, rf, vm, ac, vif, vip, id, cpl, A20Active, protectedModeOn, pagingOn
     cdef unsigned char operSize, addrSize
@@ -108,6 +111,7 @@ cdef class Registers:
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned int *retAddr)
     cdef unsigned short segRead(self, unsigned short segId)
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue)
+    cdef unsigned short segWriteSegment(self, Segment segment, unsigned short segValue)
     cdef inline signed char regReadSignedLowByte(self, unsigned short regId):
         return <signed char>self.regs[regId]._union.word._union.byte.rl
     cdef inline signed char regReadSignedHighByte(self, unsigned short regId):
@@ -270,37 +274,32 @@ cdef class Registers:
     cdef unsigned char getCond(self, unsigned char index)
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method)
     #cpdef checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write)
-    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride, unsigned char written) except? 0
-    cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char allowOverride)
-    cdef inline signed char mmReadValueSignedByte(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1:
-        return <signed char>self.mmReadValueUnsignedByte(mmAddr, segId, allowOverride)
-    cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1:
-        return <signed short>self.mmReadValueUnsignedWord(mmAddr, segId, allowOverride)
-    cdef inline signed int mmReadValueSignedDword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1:
-        return <signed int>self.mmReadValueUnsignedDword(mmAddr, segId, allowOverride)
-    cdef inline signed long int mmReadValueSignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1:
-        return <signed long int>self.mmReadValueUnsignedQword(mmAddr, segId, allowOverride)
-    cdef signed long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride) except? -1
-    cdef unsigned char mmReadValueUnsignedByte(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1
-    cdef unsigned short mmReadValueUnsignedWord(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1
-    cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1
-    cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, unsigned short segId, unsigned char allowOverride) except? -1
-    cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, unsigned short segId, unsigned char allowOverride) except? -1
-    cdef unsigned char mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, unsigned short segId, unsigned char allowOverride) except? 0
-    cdef unsigned char mmWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data, unsigned short segId, unsigned char allowOverride) except? 0
-    cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride) except? 0
-    cdef unsigned long int mmWriteValueWithOpSize(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, unsigned short segId, unsigned char allowOverride, unsigned char valueOp) except? 0
+    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride, unsigned char written) except? 0
+    cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride)
+    cdef inline signed char mmReadValueSignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1:
+        return <signed char>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
+    cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1:
+        return <signed short>self.mmReadValueUnsignedWord(mmAddr, segment, allowOverride)
+    cdef inline signed int mmReadValueSignedDword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1:
+        return <signed int>self.mmReadValueUnsignedDword(mmAddr, segment, allowOverride)
+    cdef inline signed long int mmReadValueSignedQword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1:
+        return <signed long int>self.mmReadValueUnsignedQword(mmAddr, segment, allowOverride)
+    cdef signed long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? -1
+    cdef unsigned char mmReadValueUnsignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1
+    cdef unsigned short mmReadValueUnsignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1
+    cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1
+    cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1
+    cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? -1
+    cdef unsigned char mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, Segment segment, unsigned char allowOverride) except? 0
+    cdef unsigned char mmWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data, Segment segment, unsigned char allowOverride) except? 0
+    cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? 0
+    cdef unsigned long int mmWriteValueWithOpSize(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride, unsigned char valueOp) except? 0
     cdef void switchTSS16(self)
     cdef void saveTSS16(self)
     cdef void switchTSS32(self)
     cdef void saveTSS32(self)
-    cdef inline unsigned char getSegSize(self, unsigned short segId):
-        return (<Segment>(self.segments.getSegmentInstance(segId, True))).getSegSize()
-    cdef inline unsigned char isSegPresent(self, unsigned short segId):
-        return (((<Segment>(self.segments.getSegmentInstance(segId, True))).accessByte & GDT_ACCESS_PRESENT) != 0)
-    cdef inline unsigned char getAddrSegSize(self, unsigned short segId):
-        segId = self.getSegSize(segId)&BITMASK_BYTE
-        return ((((segId==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
+    cdef inline unsigned char getAddrSegSize(self, Segment segment):
+        return ((((segment.segSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef inline void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
         opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
         addrSize[0] = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)

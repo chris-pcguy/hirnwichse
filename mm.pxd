@@ -1,9 +1,10 @@
 
-from misc cimport Misc
-from libc.stdlib cimport calloc, malloc, free
-from libc.string cimport strncpy, memcpy, memset, memmove
-
 include "globals.pxi"
+
+from misc cimport Misc
+from libc.stdlib cimport malloc
+from libc.string cimport memmove, memset
+
 
 ctypedef fused unsigned_value_types:
     unsigned char
@@ -22,7 +23,6 @@ ctypedef void (*MmAreaWriteType)(self, MmArea, unsigned int, char *, unsigned in
 
 cdef class MmArea:
     cdef unsigned char readOnly, valid
-    cdef unsigned int start, end
     cdef char *data
     cdef object readClass
     cdef object writeClass
@@ -32,17 +32,13 @@ cdef class MmArea:
 
 cdef class Mm:
     cpdef object main
-    cdef list mmAreas
+    cdef tuple mmAreas
     cdef MmArea mmAddArea(self, unsigned int mmBaseAddr, unsigned char mmReadOnly)
     cdef void mmMallocArea(self, MmArea mmArea, unsigned char clearByte)
-    cdef void mmDelArea(self, unsigned int mmAddr)
     cdef MmArea mmGetArea(self, unsigned int mmAddr)
-    cdef list mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)
+    cdef tuple mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)
     cdef void mmSetReadOnly(self, unsigned int mmAddr, unsigned char mmReadOnly)
     cdef inline char *mmGetDataPointer(self, MmArea mmArea, unsigned int offset):
-        if (not mmArea.valid or mmArea.data is NULL):
-            self.main.exitError("Mm::mmGetDataPointer: not mmArea.(valid/data). (address: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmArea.start+offset, self.main.cpu.savedEip, self.main.cpu.savedCs)
-            return NULL
         return <char*>(mmArea.data+offset)
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
@@ -73,7 +69,6 @@ cdef class ConfigSpace:
     cdef unsigned char clearByte
     cdef unsigned int csSize
     cdef void csResetData(self, unsigned char clearByte = ?)
-    cpdef csFreeData(self)
     cdef bytes csRead(self, unsigned int offset, unsigned int size)
     cdef void csWrite(self, unsigned int offset, bytes data, unsigned int size)
     cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size)
@@ -82,8 +77,6 @@ cdef class ConfigSpace:
     cdef signed long int csReadValueSignedBE(self, unsigned int offset, unsigned char size)
     cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size)
     cdef unsigned long int csWriteValueBE(self, unsigned int offset, unsigned long int data, unsigned char size)
-    cdef unsigned long int csAddValue(self, unsigned int offset, unsigned long int data, unsigned char size)
-    cdef unsigned long int csSubValue(self, unsigned int offset, unsigned long int data, unsigned char size)
 
 
 

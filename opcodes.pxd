@@ -1,10 +1,10 @@
 
+include "cpu_globals.pxi"
+
 from misc cimport Misc
 from segments cimport GdtEntry, IdtEntry, Gdt, Idt, Paging, Segment, Segments
 from registers cimport ModRMClass, Registers
 from mm cimport Mm
-
-include "cpu_globals.pxi"
 
 
 cdef class Opcodes:
@@ -84,11 +84,11 @@ cdef class Opcodes:
     cdef int popaWD(self) except -1
     cdef int pushfWD(self) except -1
     cdef int popfWD(self) except -1
-    cdef int stackPopSegId(self, unsigned short segId) except -1
+    cdef int stackPopSegment(self, Segment segment) except -1
     cdef int stackPopRegId(self, unsigned short regId, unsigned char regSize) except -1
     cdef unsigned int stackPopValue(self, unsigned char increaseStackAddr)
     cdef int stackPushValue(self, unsigned int value, unsigned char operSize) except -1
-    cdef int stackPushSegId(self, unsigned short segId, unsigned char operSize) except -1
+    cdef int stackPushSegment(self, Segment segment, unsigned char operSize) except -1
     cdef int stackPushRegId(self, unsigned short regId, unsigned char operSize) except -1
     cdef int pushIMM(self, unsigned char immIsByte) except -1
     cdef int imulR_RM_ImmFunc(self, unsigned char immIsByte) except -1

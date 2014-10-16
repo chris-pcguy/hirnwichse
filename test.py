@@ -1,10 +1,4 @@
-#!/usr/bin/env python3
-
-#cython: boundscheck=False
-#cython: wraparound=False
-#cython: cdivision=True
-#cython: cdivision_warnings=True
-#cython: profiling=True
+#!/usr/bin/env python3.4
 
 from sys import exit
 from pyximport import install

@@ -1,19 +1,17 @@
 
-from mm cimport Mm, ConfigSpace
-
 include "globals.pxi"
 include "cpu_globals.pxi"
+
+from mm cimport Mm, ConfigSpace
 
 
 cdef class Segment:
     cdef Segments segments
     cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, \
         segIsRW, segIsConforming, segIsNormal, segUse4K, segDPL, useGDT
-    cdef unsigned short segmentIndex
+    cdef unsigned short segmentIndex, segId
     cdef unsigned int base, limit
     cdef void loadSegment(self, unsigned short segmentIndex, unsigned char protectedModeOn)
-    cdef unsigned char getSegSize(self)
-    cdef unsigned char isSegPresent(self)
     cdef unsigned char isCodeSeg(self)
     cdef unsigned char isSegReadableWritable(self)
     cdef unsigned char isSegConforming(self)
@@ -50,8 +48,6 @@ cdef class Gdt:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
     cdef GdtEntry getEntry(self, unsigned short num)
-    cdef inline unsigned char getSegSize(self, unsigned short num):
-        return self.getEntry(num).segSize
     cdef inline unsigned char getSegType(self, unsigned short num):
         return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsignedByte(self.tableBase+num+5) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
     cdef inline void setSegType(self, unsigned short num, unsigned char segmentType):
@@ -94,10 +90,10 @@ cdef class Paging:
     cdef Segments segments
     cdef unsigned char instrFetch
     cdef unsigned short pageOffset
-    cdef void setInstrFetch(self)
     cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
-    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except 1
+    cdef void setInstrFetch(self)
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress)
+    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except 1
     cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except -1
     cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress) except -1
     cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress) except -1
@@ -112,7 +108,7 @@ cdef class Segments:
     cdef tuple segs
     cdef unsigned short ldtr
     cdef void reset(self)
-    cdef Segment getSegmentInstance(self, unsigned short segmentId, unsigned char checkForValidness)
+    cdef Segment getSegment(self, unsigned short segmentId, unsigned char checkForValidness)
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char isCodeSeg(self, unsigned short num)
     cdef unsigned char isSegReadableWritable(self, unsigned short num)

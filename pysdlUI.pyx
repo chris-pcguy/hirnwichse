@@ -1,4 +1,8 @@
 
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+
+include "globals.pxi"
+
 from sys import exit
 from traceback import print_exc
 from atexit import register
@@ -6,7 +10,6 @@ import numpy
 import sdl2, sdl2.ext
 import ctypes
 
-include "globals.pxi"
 
 #DEF EVENT_LIST = ( sdl2.SDL_ACTIVEEVENT, sdl2.SDL_MOUSEMOTION, sdl2.SDL_MOUSEBUTTONDOWN, sdl2.SDL_MOUSEBUTTONUP,\
 #                   sdl2.SDL_JOYAXISMOTION, sdl2.SDL_JOYBALLMOTION, sdl2.SDL_JOYHATMOTION, sdl2.SDL_JOYBUTTONDOWN,\
