@@ -92,7 +92,8 @@ cdef class ModRMClass:
                     self.rmName2 = self.registers.getCurrentOpcodeAddSignedByte()
                 elif (self.mod == 2):
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
-            self.rmNameSeg = self.registers.segmentOverridePrefix or self.rmNameSeg
+            if (self.registers.segmentOverridePrefix is not None):
+                self.rmNameSeg = self.registers.segmentOverridePrefix
         return True
     cdef unsigned long int getRMValueFull(self, unsigned char rmSize):
         cdef unsigned long int retAddr
@@ -470,6 +471,8 @@ cdef class Registers:
                 return self.regWriteDwordEflags(value)
             return self.regWriteDword(regId, value)
         elif (regSize == OP_SIZE_QWORD):
+            if (regId == CPU_REGISTER_RFLAGS):
+                return self.regWriteDwordEflags(value)
             return self.regWriteQword(regId, value)
         return 0
     cpdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value):

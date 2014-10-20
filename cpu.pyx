@@ -163,6 +163,9 @@ cdef class Cpu:
             return
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
+        if (self.registers.tf):
+            self.main.exitError("CPU::doCycle: TF-flag isn't supported yet!")
+            return
         #self.registers.reloadCpuCache()
         self.cycles += CPU_CLOCK_TICK
         self.registers.resetPrefixes()
