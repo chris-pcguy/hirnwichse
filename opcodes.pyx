@@ -570,7 +570,6 @@ cdef class Opcodes:
         return self.jumpFarDirect(OPCODE_JUMP, cs, eip)
     cdef int loopFunc(self, unsigned char loopType) except -1:
         cdef unsigned char oldZF
-        cdef unsigned int countOrNewEip
         cdef signed char rel8
         oldZF = self.registers.zf
         rel8 = self.registers.getCurrentOpcodeAddSignedByte()
@@ -580,10 +579,10 @@ cdef class Opcodes:
             return True
         elif (loopType == OPCODE_LOOPNE and oldZF):
             return True
-        countOrNewEip = (self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)+rel8)
         if (self.registers.operSize == OP_SIZE_WORD):
-            countOrNewEip &= BITMASK_WORD
-        self.registers.regWriteDword(CPU_REGISTER_EIP, countOrNewEip)
+            self.registers.regAddWord(CPU_REGISTER_EIP, rel8)
+        else:
+            self.registers.regAddDword(CPU_REGISTER_EIP, rel8)
         return True
     cdef int opcodeR_RM(self, unsigned char opcode, unsigned char operSize) except -1:
         cdef unsigned int op1, op2
@@ -1153,7 +1152,10 @@ cdef class Opcodes:
         offset = offsetSize
         if (cond):
             offset = self.registers.getCurrentOpcodeAddSigned(offsetSize)
-        self.registers.regAddDword(CPU_REGISTER_EIP, offset)
+        if (self.registers.operSize == OP_SIZE_WORD):
+            self.registers.regAddWord(CPU_REGISTER_EIP, offset)
+        else:
+            self.registers.regAddDword(CPU_REGISTER_EIP, offset)
         return True
     cdef int callNearRel16_32(self) except -1:
         cdef signed int offset

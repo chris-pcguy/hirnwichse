@@ -5,10 +5,10 @@ from ps2 cimport PS2
 
 cdef class PysdlUI:
     cpdef object main, vga
-    cpdef object window, screen
+    cpdef object window, screen, renderer
     cdef bytes fontDataA, fontDataB
     cdef tuple screenSize, charSize
-    cdef unsigned char mode9Bit, replicate8Bit, msbBlink, graphicalMode
+    cdef unsigned char mode9Bit, replicate8Bit, msbBlink
     cpdef initPysdl(self)
     cpdef quitFunc(self)
     cpdef clearScreen(self)

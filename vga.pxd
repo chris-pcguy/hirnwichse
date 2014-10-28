@@ -38,12 +38,6 @@ cdef class GDC(VGA_REGISTER_RAW):
 cdef class Sequencer(VGA_REGISTER_RAW):
     cdef void setData(self, unsigned int data, unsigned char dataSize)
 
-cdef class ExtReg(VGA_REGISTER_RAW):
-    cdef unsigned char miscOutReg
-    cdef unsigned char getColorEmulation(self)
-    cdef unsigned char getMiscOutReg(self)
-    cdef void setMiscOutReg(self, unsigned char value)
-
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     cdef unsigned char flipFlop, videoEnabled
     cdef void setIndex(self, unsigned short index)
@@ -59,27 +53,21 @@ cdef class Vga:
     cdef CRT crt
     cdef GDC gdc
     cdef DAC dac
-    cdef ExtReg extreg
     cdef AttrCtrlReg attrctrlreg
     cdef PciDevice pciDevice
     cdef ConfigSpace plane0, plane1, plane2, plane3
-    cdef unsigned char processVideoMem, needLoadFont, readMap, writeMap, charSelA, charSelB, chain4, oddEvenDisabled, extMem, readMode, writeMode, bitMask
-    cdef unsigned int videoMemBase, videoMemBaseWithOffset, videoMemSize
+    cdef unsigned char latchReg[4]
+    cdef unsigned char processVideoMem, needLoadFont, readMap, writeMap, charSelA, charSelB, chain4, oddEvenReadDisabled, oddEvenWriteDisabled, extMem, readMode, writeMode, bitMask, resetReg, enableResetReg, logicOp, rotateCount, charHeight, graphicalMode, miscReg
+    cdef unsigned short vde
+    cdef unsigned int videoMemBase, videoMemBaseWithOffset, offset, textOffset, videoMemSize
     cdef double newTimer, oldTimer
     cpdef unsigned int getColor(self, unsigned char color) # RGBA
     cdef void readFontData(self)
     cdef void setProcessVideoMem(self, unsigned char processVideoMem)
     cdef unsigned char getProcessVideoMem(self)
-    cdef unsigned char getCorrectPage(self, unsigned char page)
-    cdef void writeCharacterTeletype(self, unsigned char c, signed short attr, unsigned char page)
-    cdef void writeCharacterNoTeletype(self, unsigned char c, signed short attr, unsigned char page, unsigned short count)
-    cdef void writeCharacter(self, unsigned int address, unsigned char c, signed short attr)
-    cdef unsigned int getAddrOfPos(self, unsigned char x, unsigned char y)
-    cdef unsigned short getCursorPosition(self, unsigned char page)
-    cdef void setCursorPosition(self, unsigned char page, unsigned short pos)
-    cdef void scrollUp(self, signed short attr, unsigned short lines)
-    cdef vgaAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
-    cdef vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
+    cdef unsigned char translateByte(self, unsigned char data, unsigned char plane)
+    cdef bytes vgaAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
+    cdef void vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cpdef run(self)

@@ -24,9 +24,8 @@ cdef class PysdlUI:
     def __init__(self, object vga, object main):
         self.vga  = vga
         self.main = main
-        self.window = self.screen = None
+        self.window = self.screen = self.renderer = None
         self.replicate8Bit = self.mode9Bit = self.msbBlink = True
-        self.graphicalMode = False
         self.screenSize = 720, 480
         self.charSize = (9, 16)
         self.fontDataA = b'\x00'*VGA_FONTAREA_SIZE
@@ -37,6 +36,7 @@ cdef class PysdlUI:
         sdl2.SDL_SetHintWithPriority(sdl2.SDL_HINT_RENDER_DRIVER, b"opengl", sdl2.SDL_HINT_OVERRIDE)
         self.window = sdl2.ext.Window('Hirnwichse - THE x86 Emulator written in Python. (c) 2011-2014 by Christian Inci', self.screenSize, flags=sdl2.SDL_WINDOW_SHOWN)
         self.screen = self.window.get_surface()
+        self.renderer = sdl2.ext.Renderer(self.screen)
         register(self.quitFunc)
         for event in EVENT_LIST:
             sdl2.SDL_EventState(event, sdl2.SDL_IGNORE)
@@ -68,18 +68,19 @@ cdef class PysdlUI:
         sdl2.surface.SDL_FillRect(blankSurface, None, bgColor)
         return blankSurface
     cpdef object putPixel(self, unsigned short x, unsigned short y, unsigned char colors): # returns rect
-        cpdef object newRect, colorObject, newPixel
+        cpdef object newRect, colorObject
         cdef unsigned int bgColor
         try:
-            newRect = sdl2.rect.SDL_Rect(x, y, 1, 1)
+            #newRect = sdl2.rect.SDL_Rect(x, y, 1, 1)
             #newRect = sdl2.rect.SDL_Rect(x<<1, y<<1, 2, 2)
-            newPixel = sdl2.surface.SDL_CreateRGBSurface(0, 1, 1, 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x00000000).contents
             # bgColor == RGBA; colors == (A?)RGB
             bgColor = self.vga.getColor(colors)
-            sdl2.surface.SDL_FillRect(newPixel, None, bgColor)
-            if (self.screen):
-                sdl2.SDL_BlitScaled(newPixel, None, self.screen, newRect)
-            return newRect
+            colorObject = sdl2.ext.RGBA(bgColor)
+            #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
+            if (self.renderer):
+                #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
+                self.renderer.draw_point((x, y), colorObject)
+            #return newRect
         except:
             print_exc()
             self.main.exitError('putPixel: exception, exiting...')
@@ -87,8 +88,7 @@ cdef class PysdlUI:
     cpdef object putChar(self, unsigned short x, unsigned short y, unsigned char character, unsigned char colors): # returns rect
         cpdef object newRect, newChar, charArray
         cdef bytes charData
-        cdef str lineData
-        cdef unsigned int i, j, fgColor, bgColor
+        cdef unsigned int i, j, k, fgColor, bgColor
         try:
             newRect = self.getCharRect(x, y)
             fgColor = self.vga.getColor(colors&0xf)
@@ -109,16 +109,16 @@ cdef class PysdlUI:
                 for i in range(len(charData)):
                     j = charData[i]
                     if (self.mode9Bit):
+                        j <<= 1
                         if (self.replicate8Bit and (character&0xe0==0xc0)):
-                            j = (j << 1) | (j&1)
-                        else:
-                            j <<= 1
-                        lineData = '{0:09b}'.format(j)
-                    else:
-                        lineData = '{0:08b}'.format(j)
-                    for j in range(len(lineData)):
-                        if (int(lineData[j])):
-                            charArray[j][i] = fgColor
+                            j |= (j&2)>>1
+                    k = 0
+                    while (j):
+                        if (j & (0x100 if (self.mode9Bit) else 0x80)):
+                            charArray[k][i] = fgColor
+                        k += 1
+                        j <<= 1
+                        j &= 0x1ff if (self.mode9Bit) else 0xff
             if (self.screen):
                 sdl2.SDL_BlitScaled(newChar, None, self.screen, newRect)
             return newRect
@@ -362,7 +362,7 @@ cdef class PysdlUI:
             self.main.notice("PysdlUI::handleSingleEvent: event.type == {0:d}", event.type)
     cpdef updateScreen(self):
         if (self.window and self.screen):
-            self.window.refresh() # TODO: BUG: SIGSEGV in nVidia's libGL
+            self.window.refresh()
     cpdef handleEventsWithoutWaiting(self):
         cpdef object event
         try:
