@@ -43,6 +43,7 @@ DEF COMMAND_IDENTIFY_DEVICE_PACKET = 0xa1
 DEF COMMAND_IDENTIFY_DEVICE = 0xec
 
 DEF PACKET_COMMAND_TEST_UNIT_READY = 0x00
+DEF PACKET_COMMAND_REQUEST_SENSE = 0x03
 DEF PACKET_COMMAND_READ_CAPACITY = 0x25
 DEF PACKET_COMMAND_READ_10 = 0x28
 
@@ -234,16 +235,27 @@ cdef class AtaController:
         cdef unsigned long int lba
         drive = self.drive[self.driveId]
         cmd = self.data[0]
+        if (not drive.isLoaded):
+            self.errorCommand(0x2)
         if (cmd == PACKET_COMMAND_TEST_UNIT_READY):
             if (int.from_bytes(self.data[1:], byteorder="big", signed=False)):
                 self.main.exitError("AtaController::handlePacket_1: rest of data packet is not zero! self.data == {0:s}", repr(self.data))
                 return
-            self.result = b''
+            self.result = b'\x00'*8
+        elif (cmd == PACKET_COMMAND_REQUEST_SENSE):
+            self.result = b'\x00'*12
+            if (not drive.isLoaded):
+                self.result += b'\x3a'
+            else:
+                self.result += b'\x00'
+            self.result += b'\x00'
+            #self.result += b'\x04\x01'
+            self.result += b'\x00'*4
         elif (cmd == PACKET_COMMAND_READ_CAPACITY):
             if (int.from_bytes(self.data[1:], byteorder="big", signed=False)):
                 self.main.exitError("AtaController::handlePacket_2: rest of data packet is not zero! self.data == {0:s}", repr(self.data))
                 return
-            self.result += (drive.diskSize >> CD_SECTOR_SHIFT).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+            self.result = (drive.diskSize >> CD_SECTOR_SHIFT).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
             self.result += (CD_SECTOR_SIZE).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
         elif (cmd == PACKET_COMMAND_READ_10):
             if (0 not in (self.data[1], self.data[6], self.data[9], self.data[10], self.data[11])):
@@ -259,8 +271,10 @@ cdef class AtaController:
         cdef unsigned char ret = BITMASK_BYTE
         drive = self.drive[self.driveId]
         if (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr >= 0x1 and ioPortAddr <= 0x5 and (not (<AtaDrive>self.drive[0]).isLoaded) and (not (<AtaDrive>self.drive[1]).isLoaded)):
-                return 0
+            #if (ioPortAddr >= 0x1 and ioPortAddr <= 0x5 and not drive.isLoaded):
+            #    return 0
+            if (not drive.isLoaded):
+                return BITMASK_BYTE
             if (ioPortAddr == 0x0): # data port
                 if (not len(self.result)):
                     self.lowerAtaIrq()
@@ -275,14 +289,10 @@ cdef class AtaController:
             elif (ioPortAddr == 0x1):
                 return self.errorRegister
             elif (ioPortAddr == 0x2):
-                if (not drive.isLoaded): # HACK!
-                    return BITMASK_BYTE
-                elif (self.cmd == COMMAND_PACKET and not len(self.result)):
+                if (self.cmd == COMMAND_PACKET and not len(self.result)):
                     self.sectorCountByte = 3
                 ret = self.sectorCountByte & BITMASK_BYTE
             elif (ioPortAddr == 0x3):
-                if (not drive.isLoaded): # HACK!
-                    return BITMASK_BYTE
                 ret = self.sector & BITMASK_BYTE
             elif (ioPortAddr == 0x4):
                 if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
@@ -369,8 +379,11 @@ cdef class AtaController:
                 self.useLBA48 = ((data & USE_LBA28) != USE_LBA28)
                 self.head = data & 0xf
             elif (ioPortAddr == 0x7): # command port
-                if (self.driveId and not drive.isLoaded):
-                    self.main.notice("AtaController::outPort: selected slave, but it's not present; return")
+                #if (self.driveId and not drive.isLoaded):
+                #    self.main.notice("AtaController::outPort: selected slave, but it's not present; return")
+                if (not drive.isLoaded):
+                    self.main.notice("AtaController::outPort: it's not present; return")
+                    self.errorCommand(0x2)
                     return
                 self.cmd = data
                 self.result = self.data = b''

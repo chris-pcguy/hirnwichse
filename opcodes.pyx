@@ -2915,6 +2915,7 @@ cdef class Opcodes:
     cdef int leave(self) except -1:
         cdef unsigned char stackAddrSize
         #self.main.notice("Opcodes::leave: TODO!")
+        #self.main.cpu.cpuDump()
         stackAddrSize = self.registers.getAddrSegSize((<Segment>self.registers.segments.ss))
         if (stackAddrSize == OP_SIZE_WORD):
             self.registers.regWriteWord(CPU_REGISTER_SP, self.registers.regReadUnsignedWord(CPU_REGISTER_BP))

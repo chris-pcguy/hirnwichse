@@ -163,22 +163,25 @@ cdef class Cpu:
             return
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
-        if (self.registers.tf):
-            self.main.exitError("CPU::doCycle: TF-flag isn't supported yet!")
-            return
         #self.registers.reloadCpuCache()
         self.cycles += CPU_CLOCK_TICK
         self.registers.resetPrefixes()
         #self.saveCurrentInstPointer()
+        if (self.registers.tf):
+            self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet!")
+            self.registers.tf = False
+            self.exception(CPU_EXCEPTION_DB, -1)
+            return
         if (self.asyncEvent):
             self.handleAsyncEvent()
+            return
         self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         self.registers.readCodeSegSize()
         if (self.main.debugEnabled):
             self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-            #self.cpuDump()
+            self.cpuDump()
         if (self.cycles & 0xfff == 0x00):
             if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
                 (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()

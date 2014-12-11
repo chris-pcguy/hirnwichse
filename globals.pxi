@@ -261,6 +261,6 @@ DEF VGA_WRITE_PORTS = (0x1ce, 0x1cf, 0x3b4, 0x3b5, 0x3ba, 0x3c0, 0x3c2, 0x3c4, 0
 
 
 DEF BITMASKS_80 = (None, 0x80, 0x8000, None, 0x80000000, None, None, None, 0x8000000000000000)
-DEF BITMASKS_FF = (None, 0xff, 0xffff, None, 0xffffffff, None, None, None, 0xffffffffffffffff)
+DEF BITMASKS_FF = (None, BITMASK_BYTE, BITMASK_WORD, None, BITMASK_DWORD, None, None, None, BITMASK_QWORD)
 
 
