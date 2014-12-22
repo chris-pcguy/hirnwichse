@@ -34,7 +34,7 @@ cdef class PysdlUI:
         cdef unsigned short event
         sdl2.SDL_Init(sdl2.SDL_INIT_TIMER | sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
         sdl2.SDL_SetHintWithPriority(sdl2.SDL_HINT_RENDER_DRIVER, b"opengl", sdl2.SDL_HINT_OVERRIDE)
-        self.window = sdl2.ext.Window('Hirnwichse - THE x86 Emulator written in Python. (c) 2011-2014 by Christian Inci', self.screenSize, flags=sdl2.SDL_WINDOW_SHOWN)
+        self.window = sdl2.ext.Window('Hirnwichse', self.screenSize, flags=sdl2.SDL_WINDOW_SHOWN)
         self.screen = self.window.get_surface()
         self.renderer = sdl2.ext.Renderer(self.screen)
         register(self.quitFunc)

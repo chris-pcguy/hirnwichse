@@ -51,11 +51,7 @@ cdef class PS2:
         if (self.outb):
             self.main.notice("KBC::appendToOutBytesDoIrq: self.outb!=0")
             return
-        self.appendToOutBytesJustAppend(data)
-        self.outb = True
-        if (self.allowIrq1):
-            self.irq1Requested = True
-            (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+        self.appendToOutBytesImm(data)
     cpdef setKeyboardRepeatRate(self, unsigned char data): # input is data from cmd 0xf3
         cdef unsigned short delay, interval
         interval = data&0x1f
@@ -77,17 +73,26 @@ cdef class PS2:
         if (self.main.platform.vga.ui is not None):
             self.main.platform.vga.ui.setRepeatRate(delay, interval)
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
-        cdef unsigned char sc
-        cdef bytes scancode
+        cdef unsigned char sc, escaped
+        cdef bytes scancode, returnedScancode
         ###self.main.debug("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         if ((not self.kbdClockEnabled) or (not self.scanningEnabled) or (keyId == 0xff)):
             return
         ###self.main.debug("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         scancode = SCANCODES[keyId][self.currentScancodesSet][keyUp]
         if (self.translateScancodes):
+            returnedScancode = b""
+            escaped = 0x00
             for sc in scancode:
-                #self.appendToOutBytesJustAppend( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
-                self.appendToOutBytesImm( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
+                if (sc == 0xf0):
+                    escaped = 0x80
+                else:
+                    returnedScancode += bytes([ TRANSLATION_8042[sc] | escaped ])
+                    escaped = 0x00
+            #self.appendToOutBytesJustAppend( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
+            #self.appendToOutBytesImm( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
+            #self.appendToOutBytesImm( bytes([ TRANSLATION_8042[sc] ]) )
+            self.appendToOutBytesImm( returnedScancode )
         else:
             #self.appendToOutBytesJustAppend(scancode)
             self.appendToOutBytesImm(scancode)
@@ -100,7 +105,7 @@ cdef class PS2:
         cdef unsigned char retByte
         retByte = 0
         if (dataSize == OP_SIZE_BYTE):
-            self.main.notice("PS2: inPort: port {0:#04x}; savedCs=={1:#06x}; savedEip=={2:#06x}", ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
+            self.main.debug("PS2: inPort_1: port {0:#04x}; savedCs=={1:#06x}; savedEip=={2:#06x}", ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x64):
                 if (len(self.outBuffer)):
                     self.outb = True # TODO: HACK
@@ -112,7 +117,7 @@ cdef class PS2:
                         (self.sysf << 2) | \
                         (self.inb << 1) | \
                         self.outb)
-                self.main.notice("PS2: inPort: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                self.main.debug("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x60):
                 self.outb = False
@@ -132,6 +137,7 @@ cdef class PS2:
                 #(<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
                 #if (len(self.outBuffer)):
                 #    self.activateTimer()
+                self.main.debug("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x61):
                 return ((self.ppcbT2Gate and PPCB_T2_GATE) | \
@@ -146,7 +152,7 @@ cdef class PS2:
         return 0
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
-            self.main.notice("PS2: outPort: port {0:#04x} ; data {1:#04x}", ioPortAddr, data)
+            self.main.debug("PS2: outPort: port {0:#04x} ; data {1:#04x}", ioPortAddr, data)
             if (ioPortAddr == 0x60):
                 if (not self.needWriteBytes):
                     if (not self.kbdClockEnabled):
@@ -223,6 +229,7 @@ cdef class PS2:
                                 self.appendToOutBytes(bytes([ self.currentScancodesSet+1 ]))
                             elif (data in (0x01, 0x02, 0x03)):
                                 self.currentScancodesSet = data-1
+                                self.main.notice("outPort: self.currentScancodesSet is now set to {0:d}. (port {1:#04x}; data {2:#04x})", self.currentScancodesSet, ioPortAddr, data)
                                 self.appendToOutBytes(b'\xfa')
                             else:
                                 self.appendToOutBytes(b'\xff')

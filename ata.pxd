@@ -34,6 +34,7 @@ cdef class AtaController:
     cdef unsigned int sectorCount, cylinder
     cdef unsigned long int lba
     cdef void reset(self, unsigned char swReset)
+    cdef void convertToLBA28(self)
     cdef void raiseAtaIrq(self)
     cdef void lowerAtaIrq(self)
     cdef void abortCommand(self)
