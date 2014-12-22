@@ -2931,6 +2931,7 @@ cdef class Opcodes:
         cdef unsigned short op1, op2
         self.main.notice("Opcodes::arpl: TODO!")
         if (not self.registers.protectedModeOn):
+            self.main.notice("Opcodes::arpl: called while not being in the protected mode. raising UD!")
             raise HirnwichseException(CPU_EXCEPTION_UD)
         self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
         op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)

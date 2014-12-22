@@ -30,8 +30,7 @@ DEF ATA2_IRQ = 15
 DEF SELECT_SLAVE_DRIVE = 0x10
 DEF USE_LBA = 0x40
 DEF USE_LBA28 = 0xa0
-DEF CONTROL_REG_SKC = 0x10
-DEF CONTROL_REG_SHOULD_BE_SET = 0x8 # according to bochs' rombios, this should ALWAYS be set. (should != is)
+DEF CONTROL_REG_HOB = 0x80
 DEF CONTROL_REG_SRST = 0x4
 DEF CONTROL_REG_NIEN = 0x2
 
@@ -44,8 +43,11 @@ DEF COMMAND_IDENTIFY_DEVICE = 0xec
 
 DEF PACKET_COMMAND_TEST_UNIT_READY = 0x00
 DEF PACKET_COMMAND_REQUEST_SENSE = 0x03
+DEF PACKET_COMMAND_INQUIRY = 0x12
+DEF PACKET_COMMAND_START_STOP_UNIT = 0x1b
 DEF PACKET_COMMAND_READ_CAPACITY = 0x25
 DEF PACKET_COMMAND_READ_10 = 0x28
+DEF PACKET_COMMAND_READ_12 = 0xa8
 
 DEF FD_HD_SECTOR_SIZE = 512
 DEF FD_HD_SECTOR_SHIFT = 9
@@ -65,9 +67,11 @@ cdef class AtaDrive:
         if (self.driveType == ATA_DRIVE_TYPE_CDROM):
             self.sectorShift = CD_SECTOR_SHIFT
             self.sectorSize = CD_SECTOR_SIZE
+            self.driveCode = 0xeb14
         else:
             self.sectorShift = FD_HD_SECTOR_SHIFT
             self.sectorSize = FD_HD_SECTOR_SIZE
+            self.driveCode = 0x0
         self.configSpace = ConfigSpace(512, self.main)
     cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector):
         return (cylinder*HEADS+head)*SPT+(sector-1)
@@ -112,6 +116,8 @@ cdef class AtaDrive:
         self.writeValue(49, (1 << 9)) # supports lba
         self.writeValue(83, (1 << 10)) # supports lba48
         self.writeValue(86, (1 << 10)) # supports lba48
+        if (not self.driveId):
+            self.writeValue(93, (1 << 12)) # is master drive
         self.configSpace.csWriteValue(60 << 1, self.diskSize >> self.sectorShift, OP_SIZE_DWORD) # total number of addressable blocks. (diskSize >> self.sectorShift == diskSize/self.sectorSize)
         self.configSpace.csWriteValue(100 << 1, self.diskSize >> self.sectorShift, OP_SIZE_QWORD) # total number of addressable blocks. (diskSize >> self.sectorShift == diskSize/self.sectorSize)
         #if (cylinders <= 1024): # hardcoded
@@ -193,7 +199,7 @@ cdef class AtaController:
         self.result = self.data = b''
     cdef void reset(self, unsigned char swReset):
         cdef AtaDrive drive
-        self.drq = self.err = self.useLBA = self.useLBA48 = False
+        self.drq = self.err = self.useLBA = self.useLBA48 = self.HOB = False
         self.seekComplete = self.irqEnabled = True
         self.cmd = 0
         self.errorRegister = 0
@@ -221,51 +227,68 @@ cdef class AtaController:
     cdef void abortCommand(self):
         self.errorCommand(0x04)
     cdef void errorCommand(self, unsigned char errorRegister):
+        cdef AtaDrive drive
+        drive = self.drive[self.driveId]
         self.cmd = 0
         self.driveBusy = self.drq = False
         self.driveReady = self.err = True
         self.errorRegister = errorRegister
         self.result = self.data = b''
+        if (self.errorRegister == 0x2): # NO MEDIA
+            self.cylinder = BITMASK_WORD
+        #elif (self.errorRegister == 0x4): # ABORTED
+        else:
+            self.cylinder = drive.driveCode
+        self.sectorCount = self.sector = 0
         if (self.irq and self.irqEnabled):
             (<Pic>self.main.platform.pic).raiseIrq(self.irq)
     cdef void handlePacket(self):
         cdef AtaDrive drive
-        cdef unsigned char cmd
+        cdef unsigned char cmd, dataSize
         cdef unsigned int sectorCount
         cdef unsigned long int lba
         drive = self.drive[self.driveId]
         cmd = self.data[0]
+        #self.main.notice("AtaController::handlePacket_0: self.data == {0:s}", repr(self.data))
         if (not drive.isLoaded):
+            self.main.notice("AtaController::handlePacket: drive is not loaded! self.data == {0:s}", repr(self.data))
             self.errorCommand(0x2)
         if (cmd == PACKET_COMMAND_TEST_UNIT_READY):
-            if (int.from_bytes(self.data[1:], byteorder="big", signed=False)):
-                self.main.exitError("AtaController::handlePacket_1: rest of data packet is not zero! self.data == {0:s}", repr(self.data))
-                return
             self.result = b'\x00'*8
         elif (cmd == PACKET_COMMAND_REQUEST_SENSE):
+            #self.main.exitError("AtaController::handlePacket_3: test exit! self.data == {0:s}", repr(self.data))
             self.result = b'\x00'*12
             if (not drive.isLoaded):
-                self.result += b'\x3a'
+                self.result += b'\x3a\x00\x04\x01\x00\x00'
             else:
-                self.result += b'\x00'
-            self.result += b'\x00'
-            #self.result += b'\x04\x01'
-            self.result += b'\x00'*4
-        elif (cmd == PACKET_COMMAND_READ_CAPACITY):
-            if (int.from_bytes(self.data[1:], byteorder="big", signed=False)):
-                self.main.exitError("AtaController::handlePacket_2: rest of data packet is not zero! self.data == {0:s}", repr(self.data))
+                self.result += b'\x00'*6
+        elif (cmd == PACKET_COMMAND_INQUIRY):
+            dataSize = self.data[4]
+            if (dataSize < 36):
+                self.main.exitError("AtaController::handlePacket_6: allocation length is < 36! self.data == {0:s}", repr(self.data))
                 return
+            if (drive.driveType == ATA_DRIVE_TYPE_CDROM):
+                self.result = drive.readValue(0).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+            else:
+                self.result = b'\x00'*2
+            self.result += b'\x00\x21'
+            self.result += bytes([dataSize-5])
+            self.result += b'\x00'*(dataSize-5)
+        elif (cmd == PACKET_COMMAND_START_STOP_UNIT):
+            pass
+        elif (cmd == PACKET_COMMAND_READ_CAPACITY):
             self.result = (drive.diskSize >> CD_SECTOR_SHIFT).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
             self.result += (CD_SECTOR_SIZE).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
         elif (cmd == PACKET_COMMAND_READ_10):
-            if (0 not in (self.data[1], self.data[6], self.data[9], self.data[10], self.data[11])):
-                self.main.exitError("AtaController::handlePacket: self.data[1,6,9,10 or 11] are not zero! self.data == {0:s}", repr(self.data))
-                return
             lba = int.from_bytes(self.data[2:2+OP_SIZE_DWORD], byteorder="big", signed=False)
             sectorCount = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
             self.result = drive.readSectors(lba, sectorCount)
+        elif (cmd == PACKET_COMMAND_READ_12):
+            lba = int.from_bytes(self.data[2:2+OP_SIZE_DWORD], byteorder="big", signed=False)
+            sectorCount = int.from_bytes(self.data[6:6+OP_SIZE_DWORD], byteorder="big", signed=False)
+            self.result = drive.readSectors(lba, sectorCount)
         else:
-            self.main.exitError("AtaController::handlePacket: cmd is unknown! cmd == {0:#04x}", cmd)
+            self.main.exitError("AtaController::handlePacket: cmd is unknown! cmd == {0:#04x}, self.data == {1:s}", cmd, repr(self.data))
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef AtaDrive drive
         cdef unsigned char ret = BITMASK_BYTE
@@ -274,7 +297,9 @@ cdef class AtaController:
             #if (ioPortAddr >= 0x1 and ioPortAddr <= 0x5 and not drive.isLoaded):
             #    return 0
             if (not drive.isLoaded):
-                return BITMASK_BYTE
+                #self.main.notice("AtaController::inPort: drive is not loaded, returning BITMASK_BYTE; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                self.errorCommand(0x2)
+                #return BITMASK_BYTE
             if (ioPortAddr == 0x0): # data port
                 if (not len(self.result)):
                     self.lowerAtaIrq()
@@ -289,17 +314,37 @@ cdef class AtaController:
             elif (ioPortAddr == 0x1):
                 return self.errorRegister
             elif (ioPortAddr == 0x2):
-                if (self.cmd == COMMAND_PACKET and not len(self.result)):
-                    self.sectorCountByte = 3
-                ret = self.sectorCountByte & BITMASK_BYTE
+                if (self.useLBA):
+                    if (self.HOB and self.useLBA48):
+                        return ((self.sectorCount & 0xff00) >> 8)
+                    else:
+                        return (self.sectorCount & 0x00ff)
+                elif (self.cmd == COMMAND_PACKET and not len(self.result)):
+                    self.sectorCount = 3
+                ret = self.sectorCount & BITMASK_BYTE
             elif (ioPortAddr == 0x3):
+                if (self.useLBA):
+                    if (self.HOB and self.useLBA48):
+                        return ((self.lba & 0x0000ff000000) >> 24)
+                    else:
+                        return (self.lba & 0x0000000000ff)
                 ret = self.sector & BITMASK_BYTE
             elif (ioPortAddr == 0x4):
-                if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
+                if (self.useLBA):
+                    if (self.HOB and self.useLBA48):
+                        return ((self.lba & 0x00ff00000000) >> 32)
+                    else:
+                        return ((self.lba & 0x00000000ff00) >> 8)
+                elif (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
                     self.cylinder = len(self.result) # return length
                 ret = self.cylinder & BITMASK_BYTE
             elif (ioPortAddr == 0x5):
-                if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
+                if (self.useLBA):
+                    if (self.HOB and self.useLBA48):
+                        return ((self.lba & 0xff0000000000) >> 40)
+                    else:
+                        return ((self.lba & 0x000000ff0000) >> 16)
+                elif (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
                     self.cylinder = len(self.result) # return length
                 ret = (self.cylinder >> 8) & BITMASK_BYTE
             elif (ioPortAddr == 0x6):
@@ -308,8 +353,8 @@ cdef class AtaController:
                 if (ioPortAddr == 0x7 and self.irq):
                     (<Pic>self.main.platform.pic).lowerIrq(self.irq)
                 if (not drive.isLoaded):
-                    #self.main.notice("AtaController::inPort: drive isn't loaded: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
-                    return 0x00
+                    self.main.notice("AtaController::inPort: drive isn't loaded: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                    self.errorCommand(0x2)
                 ret = (self.driveBusy << 7) | (self.driveReady << 6) | (self.seekComplete << 4) | (self.drq << 3) | (self.err)
             elif (ioPortAddr == 0x1ff or ioPortAddr == 0x207):
                 self.main.exitError("AtaController::inPort: what??? ;controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
@@ -334,43 +379,57 @@ cdef class AtaController:
                     else:
                         self.raiseAtaIrq()
                 elif (self.cmd == COMMAND_PACKET):
+                    #self.main.notice("AtaController::outPort_0: len(self.data) == {0:d}, self.data == {1:s}", len(self.data), repr(self.data))
                     if (len(self.data) >= 12):
                         self.handlePacket()
-                        self.raiseAtaIrq()
+                        if (not self.err):
+                            self.raiseAtaIrq()
                     else:
                         self.lowerAtaIrq()
                 else:
                     self.main.exitError("AtaController::outPort: unknown command 1: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}; cmd: {5:#04x}", self.controllerId, self.driveId, ioPortAddr, data, dataSize, self.cmd)
                     return
             elif (ioPortAddr == 0x1):
-                pass
+                if (data):
+                    self.main.notice("AtaController::outPort: overlapping packet and/or DMA is not supported yet: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
             elif (ioPortAddr == 0x2):
-                if (not self.sectorCountFlipFlop):
-                    self.sectorCount = (self.sectorCount & 0x00ff) | ((data & BITMASK_BYTE) << 8)
+                if (self.useLBA48):
+                    if (not self.sectorCountFlipFlop):
+                        self.sectorCount = (self.sectorCount & 0x00ff) | ((data & BITMASK_BYTE) << 8)
+                    else:
+                        self.sectorCount = (self.sectorCount & 0xff00) | (data & BITMASK_BYTE)
+                    self.sectorCountFlipFlop = not self.sectorCountFlipFlop
                 else:
-                    self.sectorCount = (self.sectorCount & 0xff00) | (data & BITMASK_BYTE)
-                self.sectorCountByte = (data & BITMASK_BYTE)
-                self.sectorCountFlipFlop = not self.sectorCountFlipFlop
+                    self.sectorCount = (data & BITMASK_BYTE)
             elif (ioPortAddr == 0x3):
-                if (not self.sectorLowFlipFlop):
-                    self.lba = (self.lba & 0xffff00ffffff) | ((data & BITMASK_BYTE) << 24)
+                if (self.useLBA48):
+                    if (not self.sectorLowFlipFlop):
+                        self.lba = (self.lba & 0xffff00ffffff) | ((data & BITMASK_BYTE) << 24)
+                    else:
+                        self.lba = (self.lba & 0xffffffffff00) | (data & BITMASK_BYTE)
+                    self.sectorLowFlipFlop = not self.sectorLowFlipFlop
                 else:
-                    self.lba = (self.lba & 0xffffffffff00) | (data & BITMASK_BYTE)
-                self.sectorLowFlipFlop = not self.sectorLowFlipFlop
-                self.sector = data & BITMASK_BYTE
+                    self.lba = (self.lba & 0xffff00) | (data & BITMASK_BYTE)
+                self.sector = (data & BITMASK_BYTE)
             elif (ioPortAddr == 0x4):
-                if (not self.sectorMiddleFlipFlop):
-                    self.lba = (self.lba & 0xff00ffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 32)
+                if (self.useLBA48):
+                    if (not self.sectorMiddleFlipFlop):
+                        self.lba = (self.lba & 0xff00ffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 32)
+                    else:
+                        self.lba = (self.lba & 0xffffffff00ff) | ((data & BITMASK_BYTE) << 8)
+                    self.sectorMiddleFlipFlop = not self.sectorMiddleFlipFlop
                 else:
-                    self.lba = (self.lba & 0xffffffff00ff) | ((data & BITMASK_BYTE) << 8)
-                self.sectorMiddleFlipFlop = not self.sectorMiddleFlipFlop
+                    self.lba = (self.lba & 0xff00ff) | ((data & BITMASK_BYTE) << 8)
                 self.cylinder = (self.cylinder & 0xff00) | (data & BITMASK_BYTE)
             elif (ioPortAddr == 0x5):
-                if (not self.sectorHighFlipFlop):
-                    self.lba = (self.lba & 0x00ffffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 40)
+                if (self.useLBA48):
+                    if (not self.sectorHighFlipFlop):
+                        self.lba = (self.lba & 0x00ffffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 40)
+                    else:
+                        self.lba = (self.lba & 0xffffff00ffff) | ((data & BITMASK_BYTE) << 16)
+                    self.sectorHighFlipFlop = not self.sectorHighFlipFlop
                 else:
-                    self.lba = (self.lba & 0xffffff00ffff) | ((data & BITMASK_BYTE) << 16)
-                self.sectorHighFlipFlop = not self.sectorHighFlipFlop
+                    self.lba = (self.lba & 0x00ffff) | ((data & BITMASK_BYTE) << 16)
                 self.cylinder = (self.cylinder & 0x00ff) | ((data & BITMASK_BYTE) << 8)
             elif (ioPortAddr == 0x6):
                 self.driveId = ((data & SELECT_SLAVE_DRIVE) == SELECT_SLAVE_DRIVE)
@@ -387,16 +446,14 @@ cdef class AtaController:
                     return
                 self.cmd = data
                 self.result = self.data = b''
+                self.HOB = False
                 if (not self.useLBA):
-                    self.sectorCount &= BITMASK_BYTE
                     self.lba = drive.ChsToSector(self.cylinder, self.head, self.sector)
-                    self.sectorCount = self.sectorCountByte
                     self.main.debug("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}", self.lba, self.cylinder, self.head, self.sector)
-                elif (not self.useLBA48):
-                    self.lba = ((self.lba >> 24) & 0x0ffffff) | (self.head << 24)
-                    self.sectorCount >>= 8
                 if (data == COMMAND_RESET):
-                    self.result = b'\x00\x01\x01\xeb\x14\x00'
+                    self.result = b'\x00\x01\x01'
+                    self.result += (drive.driveCode).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+                    self.result += b'\x00'
                 elif (data in (COMMAND_IDENTIFY_DEVICE, COMMAND_IDENTIFY_DEVICE_PACKET)):
                     if ((self.controllerId == 0 and data == COMMAND_IDENTIFY_DEVICE_PACKET) or (self.controllerId == 1 and data == COMMAND_IDENTIFY_DEVICE)):
                         self.abortCommand()
@@ -411,25 +468,20 @@ cdef class AtaController:
                     return
                 self.raiseAtaIrq()
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
-                if (not (data & CONTROL_REG_SHOULD_BE_SET)):
-                    self.main.notice("AtaController::outPort: CONTROL_REG_SHOULD_BE_SET should be set! (obvious message is obvious.)")
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)
                 self.doReset = ((data & CONTROL_REG_SRST) == CONTROL_REG_SRST)
+                self.HOB = ((data & CONTROL_REG_HOB) == CONTROL_REG_HOB)
                 self.main.debug("AtaController::outPort: test2: prevReset=={0:d}; doReset=={1:d}; resetInProgress=={2:d}", prevReset, self.doReset, self.resetInProgress)
+                #if (drive.isLoaded): # TODO: FIXME: is this needed?
+                #    self.driveId = 0
                 if (drive.isLoaded):
-                    self.driveId = 0
-                    if (self.controllerId == 0): # HACK: HD
-                        self.cylinder = 0
-                    elif (self.controllerId == 1): # HACK: CD
-                        self.cylinder = 0xeb14
-                    else:
-                        self.main.exitError("AtaController::outPort: self.controllerId {0:d} is not in (0, 1).", self.controllerId)
-                        return
+                    self.lba = self.head = 0
+                    self.cylinder = drive.driveCode
+                    self.sectorCount = self.sector = 1
                 else:
-                    self.cylinder = BITMASK_WORD
-                self.lba = self.head = 0
-                self.sectorCount = self.sectorCountByte = self.sector = 1
+                    self.lba = self.cylinder = self.sectorCount = BITMASK_WORD
+                    self.head = self.sector = BITMASK_BYTE
                 self.sectorCountFlipFlop = self.sectorHighFlipFlop = self.sectorMiddleFlipFlop = self.sectorLowFlipFlop = False
                 if (not prevReset and self.doReset):
                     self.reset(True)
@@ -440,7 +492,6 @@ cdef class AtaController:
                 self.main.notice("AtaController::outPort: TODO: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
         else:
             self.main.exitError("AtaController::outPort: dataSize {0:d} not supported.", dataSize)
-        return
     cdef void run(self):
         (<Cmos>self.main.platform.cmos).writeValue(CMOS_HDD_DRIVE_TYPE, 0, OP_SIZE_BYTE)
         if (self.controllerId == 0):

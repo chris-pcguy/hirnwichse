@@ -329,7 +329,7 @@ cdef class Vga:
             return b'\x00'*dataSize
         if (offset >= self.videoMemBaseWithOffset and (offset+dataSize) <= (self.videoMemBaseWithOffset+self.videoMemSize)):
             for i in range(dataSize):
-                tempOffset = (offset-self.videoMemBaseWithOffset)
+                tempOffset = (offset+i-self.videoMemBaseWithOffset)
                 if (self.chain4):
                     selectedPlanes = (tempOffset & 3)
                     tempOffset >>= 2
@@ -338,28 +338,26 @@ cdef class Vga:
                     tempOffset >>= 1
                 else:
                     selectedPlanes = self.readMap
-                offset += 1
             self.latchReg[0] = (<unsigned char>self.plane0.csData[tempOffset])
             self.latchReg[1] = (<unsigned char>self.plane1.csData[tempOffset])
             self.latchReg[2] = (<unsigned char>self.plane2.csData[tempOffset])
             self.latchReg[3] = (<unsigned char>self.plane3.csData[tempOffset])
-            return bytes([self.latchReg[selectedPlanes]])
+            return mmArea.data[offset:offset+dataSize]
         return (<Mm>self.main.mm).mmAreaRead(mmArea, offset, dataSize)
     cdef void vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         #cdef list rectList
         cdef unsigned char selectedPlanes, data, color
         cdef unsigned short x, y, rows
-        cdef unsigned int tempOffset, i, origOffset, pixelData
+        cdef unsigned int tempOffset, i, j, pixelData
         if (not self.ui):
             return
         if (not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
             return
         if (not self.writeMap):
             return
-        origOffset = offset
         if (offset >= self.videoMemBaseWithOffset and (offset+dataSize) <= (self.videoMemBaseWithOffset+self.videoMemSize)):
             for i in range(dataSize):
-                tempOffset = (offset-self.videoMemBaseWithOffset)
+                tempOffset = (offset+i-self.videoMemBaseWithOffset)
                 selectedPlanes = self.writeMap
                 if (self.chain4):
                     selectedPlanes &= (tempOffset & 3)
@@ -370,7 +368,7 @@ cdef class Vga:
                     else:
                         selectedPlanes &= 10 # plane 1 and 3
                     tempOffset >>= 1
-                data = mmArea.data[offset]
+                data = mmArea.data[offset+i]
                 if (selectedPlanes & 1):
                     self.plane0.csWrite(tempOffset, self.translateByte(data, 0), OP_SIZE_BYTE)
                 if (selectedPlanes & 2):
@@ -379,16 +377,14 @@ cdef class Vga:
                     self.plane2.csWrite(tempOffset, self.translateByte(data, 2), OP_SIZE_BYTE)
                 if (selectedPlanes & 8):
                     self.plane3.csWrite(tempOffset, self.translateByte(data, 3), OP_SIZE_BYTE)
-                offset += 1
         else:
             return
-        offset = origOffset
         tempOffset = (offset-self.videoMemBaseWithOffset)
         if (self.graphicalMode):
             if (not self.chain4 and (tempOffset >= VGA_PLANE_SIZE or dataSize > VGA_PLANE_SIZE)):
                 self.main.exitError("vgaAreaWrite: self.extMem and dataSize > VGA_PLANE_SIZE (dataSize: {0:d})", dataSize)
                 return
-            for i in range(dataSize):
+            for j in range(dataSize):
                 if (not self.chain4):
                     y, x = divmod(tempOffset, 80)
                     pixelData = (<unsigned char>self.plane0.csData[tempOffset])
@@ -425,6 +421,7 @@ cdef class Vga:
             tempOffset >>= 2
         elif (not self.oddEvenWriteDisabled):
             tempOffset >>= 1
+        dataSize = max(1, dataSize>>1)
         for i in range(dataSize):
             y, x = divmod(tempOffset, self.textOffset>>1)
             #rectList.append(self.ui.putChar(x, y, (<unsigned char>self.plane0.csData[tempOffset]), (<unsigned char>self.plane1.csData[tempOffset])))
@@ -534,9 +531,9 @@ cdef class Vga:
                 self.outPort(ioPortAddr, data&BITMASK_BYTE, OP_SIZE_BYTE)
                 self.outPort(ioPortAddr+1, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
             else:
-                self.main.exitError("outPort: port {0:#06x} isn't supported. (dataSize word, data {1:#06x})", ioPortAddr, data)
+                self.main.notice("outPort: port {0:#06x} isn't supported. (dataSize word, data {1:#06x})", ioPortAddr, data)
         else:
-            self.main.exitError("outPort: port {0:#06x} with dataSize {1:d} isn't supported.", ioPortAddr, dataSize)
+            self.main.notice("outPort: port {0:#06x} with dataSize {1:d} isn't supported. (data {2:#06x})", ioPortAddr, dataSize, data)
         return
     cpdef run(self):
         if (self.ui):

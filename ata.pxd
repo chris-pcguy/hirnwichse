@@ -9,7 +9,7 @@ cdef class AtaDrive:
     cdef AtaController ataController
     cdef ConfigSpace configSpace
     cdef unsigned char driveId, driveType, isLoaded, isWriteProtected, sectorShift
-    cdef unsigned short sectorSize
+    cdef unsigned short sectorSize, driveCode
     cdef unsigned long int diskSize
     cdef bytes filename
     cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector)
@@ -29,8 +29,8 @@ cdef class AtaController:
     cdef Ata ata
     cdef tuple drive
     cdef bytes result, data
-    cdef unsigned char controllerId, driveId, useLBA, useLBA48, irqEnabled, doReset, driveBusy, resetInProgress, driveReady, errorRegister, \
-        drq, seekComplete, err, irq, cmd, sector, head, sectorCountByte, sectorCountFlipFlop, sectorHighFlipFlop, sectorMiddleFlipFlop, sectorLowFlipFlop
+    cdef unsigned char controllerId, driveId, useLBA, useLBA48, irqEnabled, HOB, doReset, driveBusy, resetInProgress, driveReady, errorRegister, \
+        drq, seekComplete, err, irq, cmd, sector, head, sectorCountFlipFlop, sectorHighFlipFlop, sectorMiddleFlipFlop, sectorLowFlipFlop
     cdef unsigned int sectorCount, cylinder
     cdef unsigned long int lba
     cdef void reset(self, unsigned char swReset)
