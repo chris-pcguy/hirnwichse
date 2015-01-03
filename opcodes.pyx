@@ -1625,11 +1625,23 @@ cdef class Opcodes:
         elif (operOpcode == 0x23): # MOV DRn, R32
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_DREG)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, self.modRMInstance.modRMLoadUnsigned(OP_SIZE_DWORD, True), OPCODE_SAVE)
-        elif (operOpcode == 0x31): # RDTSC
-            if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_TSD) or not cpl or not self.registers.protectedModeOn):
+        elif (operOpcode in (0x30, 0x31, 0x32)): # WRMSR, RDTSC, RDMSR
+            if (operOpcode == 0x31 and self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_TSD) and cpl != 0 and self.registers.protectedModeOn): # RDTSC
+                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+            elif (cpl != 0):
+                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+            eaxId = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
+            eaxIsInvalid = (eaxId >= 0x40000000 and eaxId <= 0x400000ff)
+            if (operOpcode != 0x31 and eaxIsInvalid):
+                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+            if (operOpcode == 0x31 or (operOpcode == 0x32 and eaxId == 0x10)):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, (self.main.cpu.cycles&BITMASK_DWORD))
                 self.registers.regWriteDword(CPU_REGISTER_EDX, ((self.main.cpu.cycles>>32)&BITMASK_DWORD))
+            elif (operOpcode == 0x30 and eaxId == 0x10):
+                self.main.cpu.cycles = self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
+                self.main.cpu.cycles |= <unsigned long int>self.registers.regReadUnsignedDword(CPU_REGISTER_EDX)<<32
             else:
+                self.main.notice("Opcodes::group0F: MSR: Unimplemented! (operOpcode=={0:#04x}; eaxId=={1:#010x})", operOpcode, eaxId)
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         elif (operOpcode == 0x38): # MOVBE
             self.main.notice("Opcodes::opcodeGroup0F: MOVBE: TODO!")
@@ -1660,11 +1672,9 @@ cdef class Opcodes:
             eaxId = self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
             eaxIsInvalid = (eaxId >= 0x40000000 and eaxId <= 0x4fffffff)
             if (eaxId == 0x1):
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x400)
+                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x600)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8100) # TODO: disabled TSC feature.
                 self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8110)
-                #self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
             elif (eaxId in (0x2, 0x3, 0x4, 0x5, 0x80000001, 0x80000005, 0x80000006, 0x80000007)):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)

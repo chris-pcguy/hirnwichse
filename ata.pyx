@@ -300,7 +300,6 @@ cdef class AtaController:
             self.result = drive.readSectors(lba, sectorCount)
         else:
             self.main.exitError("AtaController::handlePacket: cmd is unknown! cmd == {0:#04x}, self.data == {1:s}", cmd, repr(self.data))
-        self.result = self.result.ljust(self.cylinder, b'\x00')
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef AtaDrive drive
         cdef unsigned char ret = BITMASK_BYTE
@@ -326,13 +325,13 @@ cdef class AtaController:
             elif (ioPortAddr == 0x1):
                 return self.errorRegister
             elif (ioPortAddr == 0x2):
-                if (self.useLBA):
+                if (self.cmd == COMMAND_PACKET and not len(self.result)):
+                    self.sectorCount = 3
+                elif (self.useLBA):
                     if (self.HOB and self.useLBA48):
                         return ((self.sectorCount & 0xff00) >> 8)
                     else:
                         return (self.sectorCount & 0x00ff)
-                elif (self.cmd == COMMAND_PACKET and not len(self.result)):
-                    self.sectorCount = 3
                 ret = self.sectorCount & BITMASK_BYTE
             elif (ioPortAddr == 0x3):
                 if (self.useLBA):
@@ -342,22 +341,22 @@ cdef class AtaController:
                         return (self.lba & 0x0000000000ff)
                 ret = self.sector & BITMASK_BYTE
             elif (ioPortAddr == 0x4):
-                if (self.useLBA):
+                if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
+                    self.cylinder = len(self.result) # return length
+                elif (self.useLBA):
                     if (self.HOB and self.useLBA48):
                         return ((self.lba & 0x00ff00000000) >> 32)
                     else:
                         return ((self.lba & 0x00000000ff00) >> 8)
-                elif (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
-                    self.cylinder = len(self.result) # return length
                 ret = self.cylinder & BITMASK_BYTE
             elif (ioPortAddr == 0x5):
-                if (self.useLBA):
+                if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
+                    self.cylinder = len(self.result) # return length
+                elif (self.useLBA):
                     if (self.HOB and self.useLBA48):
                         return ((self.lba & 0xff0000000000) >> 40)
                     else:
                         return ((self.lba & 0x000000ff0000) >> 16)
-                elif (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
-                    self.cylinder = len(self.result) # return length
                 ret = (self.cylinder >> 8) & BITMASK_BYTE
             elif (ioPortAddr == 0x6):
                 ret = (0xa0) | (self.useLBA << 6) | (self.driveId << 4) | (((self.lba >> 24) if (self.useLBA) else self.head) & 0xf)

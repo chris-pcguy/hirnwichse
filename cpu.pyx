@@ -139,7 +139,7 @@ cdef class Cpu:
         self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_DR6), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_DR7))
         self.main.notice("Opcode: {0:#04x}\n\n", self.opcode)
-    cdef void doInfiniteCycles(self):
+    cpdef doInfiniteCycles(self):
         try:
             while (not self.main.quitEmu):
                 if (self.cpuHalted and self.main.exitIfCpuHalted):
@@ -158,7 +158,7 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
-    cdef void doCycle(self):
+    cpdef doCycle(self):
         if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
             return
         if (self.debugHalt and self.debugSingleStep):
@@ -181,7 +181,7 @@ cdef class Cpu:
         self.registers.readCodeSegSize()
         if (self.main.debugEnabled):
             self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-            self.cpuDump()
+            #self.cpuDump()
         if (self.cycles & 0xfff == 0x00):
             if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
                 (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()
@@ -204,7 +204,7 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doCycle: exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
-    cdef run(self, unsigned char infiniteCycles = True):
+    cpdef run(self, unsigned char infiniteCycles = True):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)
         self.opcodes.registers = self.registers

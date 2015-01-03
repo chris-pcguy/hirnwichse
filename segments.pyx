@@ -262,13 +262,18 @@ cdef class Paging: # TODO
     def __init__(self, Segments segments):
         self.instrFetch = False
         self.segments = segments
+        self.pageDirectory = ConfigSpace(PAGE_DIRECTORY_LENGTH, self.segments.main)
         self.invalidateTables(0)
     cdef void setInstrFetch(self):
         self.instrFetch = True
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress):
         self.pageDirectoryBaseAddress = (pageDirectoryBaseAddress&0xfffff000)
         self.pageDirectoryOffset = self.pageTableOffset = self.pageDirectoryEntry = self.pageTableEntry = 0
-    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except 1:
+        if (self.pageDirectoryBaseAddress):
+            self.pageDirectory.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.pageDirectoryBaseAddress, PAGE_DIRECTORY_LENGTH), PAGE_DIRECTORY_LENGTH)
+        else:
+            self.pageDirectory.csResetData()
+    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except -1:
         cdef unsigned int errorFlags
         errorFlags = (self.pageTableEntry & PAGE_PRESENT) != 0
         errorFlags |= written << 1
@@ -282,9 +287,9 @@ cdef class Paging: # TODO
         self.pageDirectoryOffset = (virtualAddress>>22) << 2
         self.pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         self.pageOffset = virtualAddress&0xfff
-        self.pageDirectoryEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
+        self.pageDirectoryEntry = self.pageDirectory.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
         if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
-            self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present. (entry: {0:#010x})", self.pageDirectoryEntry)
+            self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present. (entry: {0:#010x}; addr: {1:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset)
             self.doPF(virtualAddress, written)
             return False
         if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4MB page
@@ -295,7 +300,7 @@ cdef class Paging: # TODO
             return False
         self.pageTableEntry = (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword((self.pageDirectoryEntry&0xfffff000)|self.pageTableOffset) # page table
         if (not (self.pageTableEntry & PAGE_PRESENT)):
-            self.segments.main.notice("Paging::readAddresses: PTE-Entry is not present. (entry: {0:#010x})", self.pageTableEntry)
+            self.segments.main.notice("Paging::readAddresses: PTE-Entry is not present. (entry: {0:#010x}; addr: {1:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&0xfffff000)|self.pageTableOffset)
             self.doPF(virtualAddress, written)
         return True
     cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress) except -1:

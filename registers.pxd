@@ -67,7 +67,6 @@ cdef class ModRMClass:
 
 cdef class Registers:
     cpdef object main
-    cdef Registers registers
     cdef Segments segments
     cdef RegStruct regs[CPU_REGISTERS]
     cdef Segment segmentOverridePrefix

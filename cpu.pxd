@@ -30,8 +30,8 @@ cdef class Cpu:
     cpdef handleException(self, object exception)
     cdef unsigned char parsePrefixes(self, unsigned char opcode)
     cpdef cpuDump(self)
-    cdef void doInfiniteCycles(self)
-    cdef void doCycle(self)
-    cdef run(self, unsigned char infiniteCycles = ?)
+    cpdef doInfiniteCycles(self)
+    cpdef doCycle(self)
+    cpdef run(self, unsigned char infiniteCycles = ?)
 
 

@@ -59,7 +59,7 @@ cdef class ModRMClass:
                 self.rmName0 &= 3
         else:
             self.regSize = self.registers.addrSize
-            if (self.registers.addrSize == OP_SIZE_WORD):
+            if (self.regSize == OP_SIZE_WORD):
                 self.rmName0 = CPU_MODRM_16BIT_RM0[self.rm]
                 self.rmName1 = CPU_MODRM_16BIT_RM1[self.rm]
                 if (self.mod == 0 and self.rm == 6):
@@ -71,7 +71,7 @@ cdef class ModRMClass:
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedWord()
                 if (self.rmName0 == CPU_REGISTER_BP): # TODO: damn, that can't be correct!?!
                     self.rmNameSeg = (<Segment>self.registers.segments.ss)
-            elif (self.registers.addrSize == OP_SIZE_DWORD):
+            elif (self.regSize == OP_SIZE_DWORD):
                 if (self.rm == 4): # If RM==4; then SIB
                     modRMByte = self.registers.getCurrentOpcodeAddUnsignedByte()
                     self.rm  = modRMByte&0x7
@@ -108,7 +108,7 @@ cdef class ModRMClass:
         elif (self.regSize == OP_SIZE_QWORD):
             retAddr = self.registers.regReadUnsignedQword(self.rmName0)&BITMASK_QWORD
         if (self.rmName1 != CPU_REGISTER_NONE):
-            retAddr = (retAddr+(self.registers.regReadUnsigned(self.rmName1, self.registers.addrSize)<<self.ss))&BITMASK_QWORD
+            retAddr = (retAddr+(self.registers.regReadUnsigned(self.rmName1, self.regSize)<<self.ss))&BITMASK_QWORD
         retAddr = (retAddr+self.rmName2)&BITMASK_QWORD
         if (rmSize == OP_SIZE_BYTE):
             return retAddr&BITMASK_BYTE
@@ -136,7 +136,7 @@ cdef class ModRMClass:
             elif (regSize == OP_SIZE_QWORD):
                 returnInt = self.registers.regReadSignedQword(self.rmName0)
         else:
-            mmAddr = self.getRMValueFull(self.registers.addrSize)
+            mmAddr = self.getRMValueFull(self.regSize)
             returnInt = self.registers.mmReadValueSigned(mmAddr, regSize, self.rmNameSeg, allowOverride)
         return returnInt
     cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride) except? 0:
@@ -155,14 +155,14 @@ cdef class ModRMClass:
             elif (regSize == OP_SIZE_QWORD):
                 returnInt = self.registers.regReadUnsignedQword(self.rmName0)
         else:
-            mmAddr = self.getRMValueFull(self.registers.addrSize)
+            mmAddr = self.getRMValueFull(self.regSize)
             returnInt = self.registers.mmReadValueUnsigned(mmAddr, regSize, self.rmNameSeg, allowOverride)
         return returnInt
     cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char allowOverride, unsigned char valueOp) except? 0:
         # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
         cdef unsigned long int mmAddr
         if (self.mod != 3):
-            mmAddr = self.getRMValueFull(self.registers.addrSize)
+            mmAddr = self.getRMValueFull(self.regSize)
         if (regSize == OP_SIZE_BYTE):
             value &= BITMASK_BYTE
             if (self.mod == 3):
@@ -237,7 +237,6 @@ cdef class ModRMClass:
 
 cdef class Registers:
     def __init__(self, object main):
-        self.registers = self
         self.main = main
     cdef void reset(self):
         self.operSize = self.addrSize = self.cf = self.pf = self.af = self.zf = self.sf = self.tf = \
@@ -252,7 +251,7 @@ cdef class Registers:
         #self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
         self.regWriteDword(CPU_REGISTER_CR0, 0x60000024)
         self.regWriteDword(CPU_REGISTER_EDX, 0x500)
-        self.segWriteSegment((<Segment>self.registers.segments.cs), 0xf000)
+        self.segWriteSegment((<Segment>self.segments.cs), 0xf000)
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef void resetPrefixes(self):
         self.operandSizePrefix = self.addressSizePrefix = self.repPrefix = 0
@@ -260,7 +259,7 @@ cdef class Registers:
     cdef void reloadCpuCache(self):
         IF (CPU_CACHE_SIZE):
             cdef unsigned int mmAddr
-            mmAddr = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, (<Segment>self.registers.segments.cs), False, False)
+            mmAddr = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, (<Segment>self.segments.cs), False, False)
             self.cpuCache = (<Mm>self.main.mm).mmPhyRead(mmAddr, CPU_CACHE_SIZE)
             self.cpuCacheBase = mmAddr
             self.cpuCacheIndex = 0
@@ -321,7 +320,7 @@ cdef class Registers:
             cdef unsigned int opcodeAddr
             opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueUnsignedByte(opcodeAddr, (<Segment>self.registers.segments.cs), False)
+            return self.mmReadValueUnsignedByte(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes):
         IF (CPU_CACHE_SIZE):
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
@@ -331,7 +330,7 @@ cdef class Registers:
             opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueSigned(opcodeAddr, numBytes, (<Segment>self.registers.segments.cs), False)
+            return self.mmReadValueSigned(opcodeAddr, numBytes, (<Segment>self.segments.cs), False)
     cdef unsigned char getCurrentOpcodeAddUnsignedByte(self):
         IF (CPU_CACHE_SIZE):
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
@@ -341,7 +340,7 @@ cdef class Registers:
             opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueUnsignedByte(opcodeAddr, (<Segment>self.registers.segments.cs), False)
+            return self.mmReadValueUnsignedByte(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef unsigned short getCurrentOpcodeAddUnsignedWord(self):
         IF (CPU_CACHE_SIZE):
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
@@ -351,7 +350,7 @@ cdef class Registers:
             opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueUnsignedWord(opcodeAddr, (<Segment>self.registers.segments.cs), False)
+            return self.mmReadValueUnsignedWord(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef unsigned int getCurrentOpcodeAddUnsignedDword(self):
         IF (CPU_CACHE_SIZE):
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
@@ -361,7 +360,7 @@ cdef class Registers:
             opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueUnsignedDword(opcodeAddr, (<Segment>self.registers.segments.cs), False)
+            return self.mmReadValueUnsignedDword(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef unsigned long int getCurrentOpcodeAddUnsignedQword(self):
         IF (CPU_CACHE_SIZE):
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
@@ -371,7 +370,7 @@ cdef class Registers:
             opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueUnsignedQword(opcodeAddr, (<Segment>self.registers.segments.cs), False)
+            return self.mmReadValueUnsignedQword(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes):
         IF (CPU_CACHE_SIZE):
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
@@ -381,7 +380,7 @@ cdef class Registers:
             opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueUnsigned(opcodeAddr, numBytes, (<Segment>self.registers.segments.cs), False)
+            return self.mmReadValueUnsigned(opcodeAddr, numBytes, (<Segment>self.segments.cs), False)
     cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned int *retAddr):
         IF (CPU_CACHE_SIZE):
             retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
@@ -394,7 +393,7 @@ cdef class Registers:
             retAddr[0] = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueUnsignedByte(retAddr[0], (<Segment>self.registers.segments.cs), False)
+            return self.mmReadValueUnsignedByte(retAddr[0], (<Segment>self.segments.cs), False)
     cdef unsigned short segRead(self, unsigned short segId):
         return self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue):
@@ -480,7 +479,7 @@ cdef class Registers:
         self.regs[regId]._union.dword.erx = value
         IF (CPU_CACHE_SIZE):
             if (regId == CPU_REGISTER_EIP):
-                realNewEip = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, (<Segment>self.registers.segments.cs), False, False)
+                realNewEip = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, (<Segment>self.segments.cs), False, False)
                 if (realNewEip >= self.cpuCacheBase and realNewEip < self.cpuCacheBase+CPU_CACHE_SIZE):
                     self.cpuCacheIndex = realNewEip - self.cpuCacheBase
                 else:
@@ -940,7 +939,7 @@ cdef class Registers:
         return data
     cdef void switchTSS16(self):
         cdef unsigned int baseAddress
-        baseAddress = self.mmGetRealAddr(0, (<Segment>self.registers.segments.tss), False, False)
+        baseAddress = self.mmGetRealAddr(0, (<Segment>self.segments.tss), False, False)
         self.regWriteWord(CPU_REGISTER_AX, (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_AX))
         self.regWriteWord(CPU_REGISTER_CX, (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_CX))
         self.regWriteWord(CPU_REGISTER_DX, (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DX))
@@ -948,18 +947,18 @@ cdef class Registers:
         self.regWriteWord(CPU_REGISTER_BP, (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_BP))
         self.regWriteWord(CPU_REGISTER_SI, (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SI))
         self.regWriteWord(CPU_REGISTER_DI, (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DI))
-        self.segWriteSegment((<Segment>self.registers.segments.es), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_ES))
-        self.segWriteSegment((<Segment>self.registers.segments.cs), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_CS))
-        self.segWriteSegment((<Segment>self.registers.segments.ds), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DS))
+        self.segWriteSegment((<Segment>self.segments.es), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_ES))
+        self.segWriteSegment((<Segment>self.segments.cs), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_CS))
+        self.segWriteSegment((<Segment>self.segments.ds), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DS))
         self.segments.ldtr = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_LDT_SEG_SEL)
         self.regWriteWord(CPU_REGISTER_IP, (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_IP))
         self.regWriteWordFlags((<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_FLAGS))
 
         self.regWriteWord(CPU_REGISTER_SP, (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SP))
-        self.segWriteSegment((<Segment>self.registers.segments.ss), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SS))
+        self.segWriteSegment((<Segment>self.segments.ss), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SS))
     cdef void saveTSS16(self):
         cdef unsigned int baseAddress
-        baseAddress = self.mmGetRealAddr(0, (<Segment>self.registers.segments.tss), False, True)
+        baseAddress = self.mmGetRealAddr(0, (<Segment>self.segments.tss), False, True)
         (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_16BIT_AX, self.regReadUnsignedWord(CPU_REGISTER_AX), OP_SIZE_WORD)
         (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_16BIT_CX, self.regReadUnsignedWord(CPU_REGISTER_CX), OP_SIZE_WORD)
         (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_16BIT_DX, self.regReadUnsignedWord(CPU_REGISTER_DX), OP_SIZE_WORD)
@@ -978,7 +977,7 @@ cdef class Registers:
         (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_16BIT_SS, self.segRead(CPU_SEGMENT_SS), OP_SIZE_WORD)
     cdef void switchTSS32(self):
         cdef unsigned int baseAddress
-        baseAddress = self.mmGetRealAddr(0, (<Segment>self.registers.segments.tss), False, False)
+        baseAddress = self.mmGetRealAddr(0, (<Segment>self.segments.tss), False, False)
         self.regWriteDword(CPU_REGISTER_EAX, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EAX))
         self.regWriteDword(CPU_REGISTER_ECX, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ECX))
         self.regWriteDword(CPU_REGISTER_EDX, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EDX))
@@ -986,22 +985,22 @@ cdef class Registers:
         self.regWriteDword(CPU_REGISTER_EBP, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EBP))
         self.regWriteDword(CPU_REGISTER_ESI, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESI))
         self.regWriteDword(CPU_REGISTER_EDI, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EDI))
-        self.segWriteSegment((<Segment>self.registers.segments.es), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_ES))
-        self.segWriteSegment((<Segment>self.registers.segments.cs), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_CS))
-        self.segWriteSegment((<Segment>self.registers.segments.ds), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_DS))
-        self.segWriteSegment((<Segment>self.registers.segments.fs), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_FS))
-        self.segWriteSegment((<Segment>self.registers.segments.gs), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_GS))
+        self.segWriteSegment((<Segment>self.segments.es), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_ES))
+        self.segWriteSegment((<Segment>self.segments.cs), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_CS))
+        self.segWriteSegment((<Segment>self.segments.ds), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_DS))
+        self.segWriteSegment((<Segment>self.segments.fs), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_FS))
+        self.segWriteSegment((<Segment>self.segments.gs), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_GS))
         self.segments.ldtr = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_LDT_SEG_SEL)
         self.regWriteDword(CPU_REGISTER_CR3, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_CR3))
         self.regWriteDword(CPU_REGISTER_EIP, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EIP))
         self.regWriteDwordEflags((<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EFLAGS))
 
         self.regWriteDword(CPU_REGISTER_ESP, (<Mm>self.main.mm).mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESP))
-        self.segWriteSegment((<Segment>self.registers.segments.ss), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_SS))
+        self.segWriteSegment((<Segment>self.segments.ss), (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_SS))
         # TODO: set iomap base address
     cdef void saveTSS32(self):
         cdef unsigned int baseAddress
-        baseAddress = self.mmGetRealAddr(0, (<Segment>self.registers.segments.tss), False, True)
+        baseAddress = self.mmGetRealAddr(0, (<Segment>self.segments.tss), False, True)
         (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_32BIT_EAX, self.regReadUnsignedDword(CPU_REGISTER_EAX), OP_SIZE_DWORD)
         (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_32BIT_ECX, self.regReadUnsignedDword(CPU_REGISTER_ECX), OP_SIZE_DWORD)
         (<Mm>self.main.mm).mmPhyWriteValue(baseAddress + TSS_32BIT_EDX, self.regReadUnsignedDword(CPU_REGISTER_EDX), OP_SIZE_DWORD)
