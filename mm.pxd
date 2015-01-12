@@ -61,7 +61,6 @@ cdef class Mm:
     cdef unsigned char mmPhyWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data)
     cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize)
     cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
-    cdef unsigned int mmGetAbsoluteAddressForInterrupt(self, unsigned char intNum)
 
 cdef class ConfigSpace:
     cpdef object main

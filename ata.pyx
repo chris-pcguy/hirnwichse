@@ -213,7 +213,7 @@ cdef class AtaController:
         for drive in self.drive:
             drive.reset()
     cdef void convertToLBA28(self):
-        if (self.useLBA48):
+        if (self.useLBA and self.useLBA48):
             self.sectorCount >>= 8
             self.lba >>= 24
             self.lba = (self.lba & 0xffffff) | (<unsigned long int>(self.head) << 24)
@@ -332,14 +332,14 @@ cdef class AtaController:
                         return ((self.sectorCount & 0xff00) >> 8)
                     else:
                         return (self.sectorCount & 0x00ff)
-                ret = self.sectorCount & BITMASK_BYTE
+                ret = <unsigned char>self.sectorCount
             elif (ioPortAddr == 0x3):
                 if (self.useLBA):
                     if (self.HOB and self.useLBA48):
                         return ((self.lba & 0x0000ff000000) >> 24)
                     else:
                         return (self.lba & 0x0000000000ff)
-                ret = self.sector & BITMASK_BYTE
+                ret = <unsigned char>self.sector
             elif (ioPortAddr == 0x4):
                 if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
                     self.cylinder = len(self.result) # return length
@@ -348,7 +348,7 @@ cdef class AtaController:
                         return ((self.lba & 0x00ff00000000) >> 32)
                     else:
                         return ((self.lba & 0x00000000ff00) >> 8)
-                ret = self.cylinder & BITMASK_BYTE
+                ret = <unsigned char>self.cylinder
             elif (ioPortAddr == 0x5):
                 if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
                     self.cylinder = len(self.result) # return length
@@ -357,7 +357,7 @@ cdef class AtaController:
                         return ((self.lba & 0xff0000000000) >> 40)
                     else:
                         return ((self.lba & 0x000000ff0000) >> 16)
-                ret = (self.cylinder >> 8) & BITMASK_BYTE
+                ret = <unsigned char>(self.cylinder >> 8)
             elif (ioPortAddr == 0x6):
                 ret = (0xa0) | (self.useLBA << 6) | (self.driveId << 4) | (((self.lba >> 24) if (self.useLBA) else self.head) & 0xf)
             elif (ioPortAddr == 0x7 or ioPortAddr == 0x1fe or ioPortAddr == 0x206):
@@ -404,44 +404,44 @@ cdef class AtaController:
                 if (data):
                     self.main.notice("AtaController::outPort: overlapping packet and/or DMA is not supported yet: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
             elif (ioPortAddr == 0x2):
-                if (self.useLBA48):
+                if (self.useLBA and self.useLBA48):
                     if (not self.sectorCountFlipFlop):
-                        self.sectorCount = (self.sectorCount & 0x00ff) | ((data & BITMASK_BYTE) << 8)
+                        self.sectorCount = (self.sectorCount & 0x00ff) | ((<unsigned char>data) << 8)
                     else:
-                        self.sectorCount = (self.sectorCount & 0xff00) | (data & BITMASK_BYTE)
+                        self.sectorCount = (self.sectorCount & 0xff00) | (<unsigned char>data)
                     self.sectorCountFlipFlop = not self.sectorCountFlipFlop
                 else:
-                    self.sectorCount = (data & BITMASK_BYTE)
+                    self.sectorCount = (<unsigned char>data)
             elif (ioPortAddr == 0x3):
-                if (self.useLBA48):
+                if (self.useLBA and self.useLBA48):
                     if (not self.sectorLowFlipFlop):
-                        self.lba = (self.lba & 0xffff00ffffff) | ((data & BITMASK_BYTE) << 24)
+                        self.lba = (self.lba & 0xffff00ffffff) | (<unsigned long int>(<unsigned char>data) << 24)
                     else:
-                        self.lba = (self.lba & 0xffffffffff00) | (data & BITMASK_BYTE)
+                        self.lba = (self.lba & 0xffffffffff00) | (<unsigned char>data)
                     self.sectorLowFlipFlop = not self.sectorLowFlipFlop
                 else:
-                    self.lba = (self.lba & 0xffff00) | (data & BITMASK_BYTE)
-                self.sector = (data & BITMASK_BYTE)
+                    self.lba = (self.lba & 0xffff00) | (<unsigned char>data)
+                self.sector = (<unsigned char>data)
             elif (ioPortAddr == 0x4):
-                if (self.useLBA48):
+                if (self.useLBA and self.useLBA48):
                     if (not self.sectorMiddleFlipFlop):
-                        self.lba = (self.lba & 0xff00ffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 32)
+                        self.lba = (self.lba & 0xff00ffffffff) | (<unsigned long int>(<unsigned char>data) << 32)
                     else:
-                        self.lba = (self.lba & 0xffffffff00ff) | ((data & BITMASK_BYTE) << 8)
+                        self.lba = (self.lba & 0xffffffff00ff) | ((<unsigned char>data) << 8)
                     self.sectorMiddleFlipFlop = not self.sectorMiddleFlipFlop
                 else:
-                    self.lba = (self.lba & 0xff00ff) | ((data & BITMASK_BYTE) << 8)
-                self.cylinder = (self.cylinder & 0xff00) | (data & BITMASK_BYTE)
+                    self.lba = (self.lba & 0xff00ff) | ((<unsigned char>data) << 8)
+                self.cylinder = (self.cylinder & 0xff00) | (<unsigned char>data)
             elif (ioPortAddr == 0x5):
-                if (self.useLBA48):
+                if (self.useLBA and self.useLBA48):
                     if (not self.sectorHighFlipFlop):
-                        self.lba = (self.lba & 0x00ffffffffff) | (<unsigned long int>(data & BITMASK_BYTE) << 40)
+                        self.lba = (self.lba & 0x00ffffffffff) | (<unsigned long int>(<unsigned char>data) << 40)
                     else:
-                        self.lba = (self.lba & 0xffffff00ffff) | ((data & BITMASK_BYTE) << 16)
+                        self.lba = (self.lba & 0xffffff00ffff) | ((<unsigned char>data) << 16)
                     self.sectorHighFlipFlop = not self.sectorHighFlipFlop
                 else:
-                    self.lba = (self.lba & 0x00ffff) | ((data & BITMASK_BYTE) << 16)
-                self.cylinder = (self.cylinder & 0x00ff) | ((data & BITMASK_BYTE) << 8)
+                    self.lba = (self.lba & 0x00ffff) | ((<unsigned char>data) << 16)
+                self.cylinder = (self.cylinder & 0x00ff) | ((<unsigned char>data) << 8)
             elif (ioPortAddr == 0x6):
                 self.driveId = ((data & SELECT_SLAVE_DRIVE) == SELECT_SLAVE_DRIVE)
                 drive = self.drive[self.driveId]
@@ -522,7 +522,12 @@ cdef class Ata:
         self.pciDevice.setVendorDeviceId(0x8086, 0x7010)
         self.pciDevice.setDeviceClass(PCI_CLASS_PATA)
         self.pciDevice.setData(PCI_INTERRUPT_LINE, (14), OP_SIZE_BYTE)
-        self.pciDevice.setData(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_PROG_IF, 0x05, OP_SIZE_BYTE) # 0x80 means, that DMA is supported
+        self.pciDevice.setData(PCI_BASE_ADDRESS_0, 0x1f0, OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_1, 0x3f4, OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_2, 0x170, OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_3, 0x374, OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_4, 0, OP_SIZE_DWORD)
     cdef void reset(self):
         cdef AtaController controller
         for controller in self.controller:
@@ -553,12 +558,12 @@ cdef class Ata:
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         self.main.debug("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_WORD):
-            self.outPort(ioPortAddr, data & BITMASK_BYTE, OP_SIZE_BYTE)
-            self.outPort(ioPortAddr, (data >> 8)&BITMASK_BYTE, OP_SIZE_BYTE)
+            self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
+            self.outPort(ioPortAddr, <unsigned char>(data >> 8), OP_SIZE_BYTE)
             return
         elif (dataSize == OP_SIZE_DWORD):
-            self.outPort(ioPortAddr, data & BITMASK_WORD, OP_SIZE_WORD)
-            self.outPort(ioPortAddr, (data >> 16)&BITMASK_WORD, OP_SIZE_WORD)
+            self.outPort(ioPortAddr, <unsigned short>data, OP_SIZE_WORD)
+            self.outPort(ioPortAddr, <unsigned short>(data >> 16), OP_SIZE_WORD)
             return
         if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
             (<AtaController>self.controller[0]).outPort(ioPortAddr-ATA1_BASE, data, dataSize)

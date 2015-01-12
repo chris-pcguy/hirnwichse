@@ -146,7 +146,7 @@ cdef class Cpu:
                     self.main.quitFunc()
                     exit(1)
                     return
-                elif ((self.cpuHalted and not self.main.exitIfCpuHalted) or (self.debugHalt and not self.debugSingleStep)):
+                elif ((self.debugHalt and not self.debugSingleStep) or (self.cpuHalted and not self.main.exitIfCpuHalted)):
                     if (self.asyncEvent):
                         self.handleAsyncEvent()
                         continue
@@ -159,8 +159,6 @@ cdef class Cpu:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
     cpdef doCycle(self):
-        if (self.cpuHalted or self.main.quitEmu or (self.debugHalt and not self.debugSingleStep)):
-            return
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
         #self.registers.reloadCpuCache()
@@ -182,7 +180,7 @@ cdef class Cpu:
         if (self.main.debugEnabled):
             self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
             #self.cpuDump()
-        if (self.cycles & 0xfff == 0x00):
+        if (<unsigned short>self.cycles == 0x00):
             if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
                 (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()
         try:

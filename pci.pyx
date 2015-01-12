@@ -13,10 +13,10 @@ cdef class PciAddress:
         return self.register
     cdef void calculateAddress(self, unsigned int address):
         self.enableBit = (address>>31)
-        self.bus = (address>>PCI_BUS_SHIFT)&BITMASK_BYTE
+        self.bus = <unsigned char>(address>>PCI_BUS_SHIFT)
         self.device = (address>>PCI_DEVICE_SHIFT)&0x1f
         self.function = (address>>PCI_FUNCTION_SHIFT)&0x7
-        self.register = address&BITMASK_BYTE
+        self.register = <unsigned char>address
 
 cdef class PciDevice:
     def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):

@@ -98,26 +98,24 @@ cdef class ModRMClass:
     cdef unsigned long int getRMValueFull(self, unsigned char rmSize):
         cdef unsigned long int retAddr
         if (self.regSize in (OP_SIZE_BYTE, OP_SIZE_WORD)):
-            retAddr = self.registers.regReadUnsignedWord(self.rmName0)&BITMASK_WORD
+            retAddr = self.registers.regReadUnsignedWord(self.rmName0)
             if (self.regSize == OP_SIZE_BYTE):
                 if (self.rm >= 4):
                     retAddr >>= 8
-                retAddr &= BITMASK_BYTE
+                retAddr = <unsigned char>retAddr
         elif (self.regSize == OP_SIZE_DWORD):
-            retAddr = self.registers.regReadUnsignedDword(self.rmName0)&BITMASK_DWORD
+            retAddr = self.registers.regReadUnsignedDword(self.rmName0)
         elif (self.regSize == OP_SIZE_QWORD):
-            retAddr = self.registers.regReadUnsignedQword(self.rmName0)&BITMASK_QWORD
+            retAddr = self.registers.regReadUnsignedQword(self.rmName0)
         if (self.rmName1 != CPU_REGISTER_NONE):
-            retAddr = (retAddr+(self.registers.regReadUnsigned(self.rmName1, self.regSize)<<self.ss))&BITMASK_QWORD
-        retAddr = (retAddr+self.rmName2)&BITMASK_QWORD
+            retAddr = (retAddr+(self.registers.regReadUnsigned(self.rmName1, self.regSize)<<self.ss))
+        retAddr = (retAddr+self.rmName2)
         if (rmSize == OP_SIZE_BYTE):
-            return retAddr&BITMASK_BYTE
+            return <unsigned char>retAddr
         elif (rmSize == OP_SIZE_WORD):
-            return retAddr&BITMASK_WORD
+            return <unsigned short>retAddr
         elif (rmSize == OP_SIZE_DWORD):
-            return retAddr&BITMASK_DWORD
-        #elif (rmSize == OP_SIZE_QWORD):
-        #    return retAddr&BITMASK_QWORD
+            return <unsigned int>retAddr
         return retAddr
     cdef signed long int modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride) except? 0:
         # NOTE: imm == unsigned ; disp == signed
@@ -164,28 +162,27 @@ cdef class ModRMClass:
         if (self.mod != 3):
             mmAddr = self.getRMValueFull(self.regSize)
         if (regSize == OP_SIZE_BYTE):
-            value &= BITMASK_BYTE
+            value = <unsigned char>value
             if (self.mod == 3):
                 if (self.rm <= 3):
                     return self.registers.regWriteWithOpLowByte(self.rmName0, value, valueOp)
                 else: # self.rm >= 4
                     return self.registers.regWriteWithOpHighByte(self.rmName0, value, valueOp)
-            return self.registers.mmWriteValueWithOpSize(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)&BITMASK_BYTE
+            return <unsigned char>self.registers.mmWriteValueWithOpSize(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)
         elif (regSize == OP_SIZE_WORD):
-            value &= BITMASK_WORD
+            value = <unsigned short>value
             if (self.mod == 3):
                 return self.registers.regWriteWithOpWord(self.rmName0, value, valueOp)
-            return self.registers.mmWriteValueWithOpSize(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)&BITMASK_WORD
+            return <unsigned short>self.registers.mmWriteValueWithOpSize(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)
         elif (regSize == OP_SIZE_DWORD):
-            value &= BITMASK_DWORD
+            value = <unsigned int>value
             if (self.mod == 3):
                 return self.registers.regWriteWithOpDword(self.rmName0, value, valueOp)
-            return self.registers.mmWriteValueWithOpSize(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)&BITMASK_DWORD
+            return <unsigned int>self.registers.mmWriteValueWithOpSize(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)
         elif (regSize == OP_SIZE_QWORD):
-            value &= BITMASK_QWORD
             if (self.mod == 3):
                 return self.registers.regWriteWithOpQword(self.rmName0, value, valueOp)
-            return self.registers.mmWriteValueWithOpSize(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)&BITMASK_QWORD
+            return self.registers.mmWriteValueWithOpSize(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)
         self.main.exitError("ModRMClass::modRMSave: if; else.")
         return 0
     cdef signed long int modRLoadSigned(self, unsigned char regSize):
@@ -218,19 +215,18 @@ cdef class ModRMClass:
         return retVal
     cdef unsigned long int modRSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp):
         if (regSize == OP_SIZE_BYTE):
-            value &= BITMASK_BYTE
+            value = <unsigned char>value
             if (self.reg <= 3):
                 return self.registers.regWriteWithOpLowByte(self.regName, value, valueOp)
             else: #elif (self.reg >= 4):
                 return self.registers.regWriteWithOpHighByte(self.regName, value, valueOp)
         elif (regSize == OP_SIZE_WORD):
-            value &= BITMASK_WORD
+            value = <unsigned short>value
             return self.registers.regWriteWithOpWord(self.regName, value, valueOp)
         elif (regSize == OP_SIZE_DWORD):
-            value &= BITMASK_DWORD
+            value = <unsigned int>value
             return self.registers.regWriteWithOpDword(self.regName, value, valueOp)
         elif (regSize == OP_SIZE_QWORD):
-            value &= BITMASK_QWORD
             return self.registers.regWriteWithOpQword(self.regName, value, valueOp)
 
 
@@ -449,7 +445,7 @@ cdef class Registers:
             return self.regReadUnsignedLowByte(regId)
         elif (regSize == OP_SIZE_WORD):
             if (regId == CPU_REGISTER_FLAGS):
-                return self.readFlags() & BITMASK_WORD
+                return <unsigned short>self.readFlags()
             return self.regReadUnsignedWord(regId)
         elif (regSize == OP_SIZE_DWORD):
             if (regId == CPU_REGISTER_EFLAGS):
@@ -463,7 +459,7 @@ cdef class Registers:
             return self.regWriteLowByte(regId, value)
         elif (regSize == OP_SIZE_WORD):
             if (regId == CPU_REGISTER_FLAGS):
-                return self.regWriteWordFlags(value & BITMASK_WORD)
+                return self.regWriteWordFlags(<unsigned short>value)
             return self.regWriteWord(regId, value)
         elif (regSize == OP_SIZE_DWORD):
             if (regId == CPU_REGISTER_EFLAGS):
@@ -519,10 +515,10 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             return self.regXorLowByte(regId, value)
         elif (valueOp == OPCODE_NEG):
-            value = (-value)&BITMASK_BYTE
+            value = (-value)
             return self.regWriteLowByte(regId, value)
         elif (valueOp == OPCODE_NOT):
-            value = (~value)&BITMASK_BYTE
+            value = (~value)
             return self.regWriteLowByte(regId, value)
         else:
             self.main.notice("REGISTERS::regWriteWithOpLowByte: unknown valueOp {0:d}.", valueOp)
@@ -545,10 +541,10 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             return self.regXorHighByte(regId, value)
         elif (valueOp == OPCODE_NEG):
-            value = (-value)&BITMASK_BYTE
+            value = (-value)
             return self.regWriteHighByte(regId, value)
         elif (valueOp == OPCODE_NOT):
-            value = (~value)&BITMASK_BYTE
+            value = (~value)
             return self.regWriteHighByte(regId, value)
         else:
             self.main.notice("REGISTERS::regWriteWithOpHighByte: unknown valueOp {0:d}.", valueOp)
@@ -571,10 +567,10 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             return self.regXorWord(regId, value)
         elif (valueOp == OPCODE_NEG):
-            value = (-value)&BITMASK_WORD
+            value = (-value)
             return self.regWriteWord(regId, value)
         elif (valueOp == OPCODE_NOT):
-            value = (~value)&BITMASK_WORD
+            value = (~value)
             return self.regWriteWord(regId, value)
         else:
             self.main.notice("REGISTERS::regWriteWithOpWord: unknown valueOp {0:d}.", valueOp)
@@ -597,10 +593,10 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             return self.regXorDword(regId, value)
         elif (valueOp == OPCODE_NEG):
-            value = (-value)&BITMASK_DWORD
+            value = (-value)
             return self.regWriteDword(regId, value)
         elif (valueOp == OPCODE_NOT):
-            value = (~value)&BITMASK_DWORD
+            value = (~value)
             return self.regWriteDword(regId, value)
         else:
             self.main.notice("REGISTERS::regWriteWithOpDword: unknown valueOp {0:d}.", valueOp)
@@ -623,10 +619,10 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             return self.regXorQword(regId, value)
         elif (valueOp == OPCODE_NEG):
-            value = (-value)&BITMASK_QWORD
+            value = (-value)
             return self.regWriteQword(regId, value)
         elif (valueOp == OPCODE_NOT):
-            value = (~value)&BITMASK_QWORD
+            value = (~value)
             return self.regWriteQword(regId, value)
         else:
             self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp {0:d}.", valueOp)
@@ -634,7 +630,7 @@ cdef class Registers:
     cdef void setSZP(self, unsigned int value, unsigned char regSize):
         self.sf = (value&BITMASKS_80[regSize])!=0
         self.zf = value==0
-        self.pf = PARITY_TABLE[value&BITMASK_BYTE]
+        self.pf = PARITY_TABLE[<unsigned char>value]
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.of = False
@@ -699,27 +695,27 @@ cdef class Registers:
             if (method == OPCODE_ADC and self.cf):
                 carried = True
             if (regSize == OP_SIZE_BYTE):
-                reg0 &= BITMASK_BYTE
-                reg1 &= BITMASK_BYTE
+                reg0 = <unsigned char>reg0
+                reg1 = <unsigned char>reg1
                 if (carried): reg1 += 1
                 regSumu = (reg0+reg1)
-                unsignedOverflow = regSumu!=(regSumu&BITMASK_BYTE)
-                regSumu &= BITMASK_BYTE
+                unsignedOverflow = regSumu!=(<unsigned char>regSumu)
+                regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
-                reg0 &= BITMASK_WORD
-                reg1 &= BITMASK_WORD
+                reg0 = <unsigned short>reg0
+                reg1 = <unsigned short>reg1
                 if (carried): reg1 += 1
                 regSumu = (reg0+reg1)
-                unsignedOverflow = regSumu!=(regSumu&BITMASK_WORD)
-                regSumu &= BITMASK_WORD
+                unsignedOverflow = regSumu!=(<unsigned short>regSumu)
+                regSumu = <unsigned short>regSumu
             elif (regSize == OP_SIZE_DWORD):
-                reg0 &= BITMASK_DWORD
-                reg1 &= BITMASK_DWORD
+                reg0 = <unsigned int>reg0
+                reg1 = <unsigned int>reg1
                 if (carried): reg1 += 1
                 regSumu = (reg0+reg1)
-                unsignedOverflow = regSumu!=(regSumu&BITMASK_DWORD)
-                regSumu &= BITMASK_DWORD
-            self.pf = PARITY_TABLE[regSumu&BITMASK_BYTE]
+                unsignedOverflow = regSumu!=(<unsigned int>regSumu)
+                regSumu = <unsigned int>regSumu
+            self.pf = PARITY_TABLE[<unsigned char>regSumu]
             self.zf = not regSumu
             reg0Nibble = reg0&0xf
             regSumuNibble = regSumu&0xf
@@ -734,13 +730,13 @@ cdef class Registers:
             if (method == OPCODE_SBB and self.cf):
                 carried = True
                 reg1 += 1
-            regSumu = (reg0-reg1)&BITMASK_DWORD
+            regSumu = <unsigned int>(reg0-reg1)
             if (regSize == OP_SIZE_BYTE):
-                regSumu &= BITMASK_BYTE
+                regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
-                regSumu &= BITMASK_WORD
+                regSumu = <unsigned short>regSumu
             unsignedOverflow = ((regSumu+carried) > reg0)
-            self.pf = PARITY_TABLE[regSumu&BITMASK_BYTE]
+            self.pf = PARITY_TABLE[<unsigned char>regSumu]
             self.zf = not regSumu
             reg0Nibble = reg0&0xf
             regSumuNibble = regSumu&0xf
@@ -753,26 +749,26 @@ cdef class Registers:
             self.sf = regSumu!=0
         elif (method in (OPCODE_MUL, OPCODE_IMUL)):
             if (regSize == OP_SIZE_BYTE):
-                reg0 &= BITMASK_BYTE
-                reg1 &= BITMASK_BYTE
+                reg0 = <unsigned char>reg0
+                reg1 = <unsigned char>reg1
                 regSumu = (reg0*reg1)
-                unsignedOverflow = regSumu!=(regSumu&BITMASK_BYTE)
-                regSumu &= BITMASK_BYTE
+                unsignedOverflow = regSumu!=(<unsigned char>regSumu)
+                regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
-                reg0 &= BITMASK_WORD
-                reg1 &= BITMASK_WORD
+                reg0 = <unsigned short>reg0
+                reg1 = <unsigned short>reg1
                 regSumu = (reg0*reg1)
-                unsignedOverflow = regSumu!=(regSumu&BITMASK_WORD)
-                regSumu &= BITMASK_WORD
+                unsignedOverflow = regSumu!=(<unsigned short>regSumu)
+                regSumu = <unsigned short>regSumu
             elif (regSize == OP_SIZE_DWORD):
-                reg0 &= BITMASK_DWORD
-                reg1 &= BITMASK_DWORD
+                reg0 = <unsigned int>reg0
+                reg1 = <unsigned int>reg1
                 regSumu = (reg0*reg1)
-                unsignedOverflow = regSumu!=(regSumu&BITMASK_DWORD)
-                regSumu &= BITMASK_DWORD
+                unsignedOverflow = regSumu!=(<unsigned int>regSumu)
+                regSumu = <unsigned int>regSumu
             self.af = False
             self.cf = self.of = unsignedOverflow
-            self.pf = PARITY_TABLE[regSumu&BITMASK_BYTE]
+            self.pf = PARITY_TABLE[<unsigned char>regSumu]
             self.zf = not regSumu
             self.sf = (regSumu & bitMaskHalf) != 0
     """
@@ -809,7 +805,7 @@ cdef class Registers:
     cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride, unsigned char written) except? 0:
         if (allowOverride and self.segmentOverridePrefix is not None):
             segment = self.segmentOverridePrefix
-        mmAddr = (segment.base+mmAddr)&BITMASK_DWORD
+        mmAddr += segment.base
         # TODO: check for limit asf...
         if (self.vm):
             self.main.debug("Registers::mmGetRealAddr: TODO. (VM is on)")

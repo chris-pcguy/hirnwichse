@@ -485,7 +485,7 @@ cdef class Vga:
         else:
             self.main.exitError("inPort: port {0:#06x} isn't supported. (dataSize byte)", ioPortAddr)
         self.main.debug("Vga::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
-        return retVal&BITMASK_BYTE
+        return <unsigned char>retVal
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (ioPortAddr not in (0x400, 0x401, 0x402, 0x403, 0x500, 0x504)):
             self.main.debug("outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
@@ -542,8 +542,8 @@ cdef class Vga:
             if (ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
                 return
             elif (ioPortAddr in (0x3b4, 0x3c4, 0x3ce, 0x3d4)):
-                self.outPort(ioPortAddr, data&BITMASK_BYTE, OP_SIZE_BYTE)
-                self.outPort(ioPortAddr+1, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
+                self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
+                self.outPort(ioPortAddr+1, <unsigned char>(data>>8), OP_SIZE_BYTE)
             else:
                 self.main.notice("outPort: port {0:#06x} isn't supported. (dataSize word, data {1:#06x})", ioPortAddr, data)
         else:

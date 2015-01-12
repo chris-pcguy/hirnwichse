@@ -117,19 +117,19 @@ cdef class Pit:
                     channel.readBackStatusIssued = False
                     retVal = channel.readBackStatusValue
                 elif (channel.counterWriteMode == 1): # LSB
-                    retVal = channel.counterValue&BITMASK_BYTE
+                    retVal = <unsigned char>channel.counterValue
                 elif (channel.counterWriteMode == 2): # MSB
-                    retVal = (channel.counterValue>>8)&BITMASK_BYTE
+                    retVal = <unsigned char>(channel.counterValue>>8)
                 elif (channel.counterWriteMode in (0, 3)): # LSB;MSB
                     if (not channel.counterFlipFlop):
                         if (channel.counterWriteMode == 0): # TODO?
                             channel.counterLatchValue = channel.counterValue
-                        retVal = channel.counterValue&BITMASK_BYTE
+                        retVal = <unsigned char>channel.counterValue
                     else:
                         if (channel.counterWriteMode == 0):
-                            retVal = (channel.counterLatchValue>>8)&BITMASK_BYTE
+                            retVal = <unsigned char>(channel.counterLatchValue>>8)
                         else:
-                            retVal = (channel.counterValue>>8)&BITMASK_BYTE
+                            retVal = <unsigned char>(channel.counterValue>>8)
                     channel.counterFlipFlop = not channel.counterFlipFlop
                 else:
                     self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", channel.counterWriteMode)
@@ -151,12 +151,12 @@ cdef class Pit:
                 channel = self.channels[channelId]
                 if (channel.counterWriteMode in (0, 3)): # LSB;MSB
                     if (not channel.counterFlipFlop):
-                        channel.counterStartValue = data&BITMASK_BYTE
+                        channel.counterStartValue = <unsigned char>data
                     else:
-                        channel.counterStartValue |= (data&BITMASK_BYTE)<<8
+                        channel.counterStartValue |= (<unsigned char>data)<<8
                     channel.counterFlipFlop = not channel.counterFlipFlop
                 elif (channel.counterWriteMode in (1, 2)): # 1==LSB/2==MSB
-                    channel.counterStartValue = data&BITMASK_BYTE
+                    channel.counterStartValue = <unsigned char>data
                     if (channel.counterWriteMode == 2): # MSB
                         channel.counterStartValue <<= 8
                     channel.counterFlipFlop = False

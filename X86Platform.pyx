@@ -174,13 +174,9 @@ cdef class Platform:
         cdef unsigned short portNum
         try:
             if (dataSize == OP_SIZE_BYTE):
-                data &= BITMASK_BYTE
+                data = <unsigned char>data
             elif (dataSize == OP_SIZE_WORD):
-                data &= BITMASK_WORD
-            elif (dataSize == OP_SIZE_DWORD):
-                data &= BITMASK_DWORD
-            elif (dataSize == OP_SIZE_QWORD):
-                data &= BITMASK_QWORD
+                data = <unsigned short>data
             for port in self.ports:
                 if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.outPort is NULL):
                     continue

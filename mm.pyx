@@ -178,19 +178,14 @@ cdef class Mm:
                 return True
     cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
-            data &= BITMASK_BYTE
+            data = <unsigned char>data
         elif (dataSize == OP_SIZE_WORD):
-            data &= BITMASK_WORD
+            data = <unsigned short>data
         elif (dataSize == OP_SIZE_DWORD):
-            data &= BITMASK_DWORD
+            data = <unsigned int>data
         return self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
     cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize):
         self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
-    cdef unsigned int mmGetAbsoluteAddressForInterrupt(self, unsigned char intNum):
-        cdef unsigned int posdata
-        posdata = (<Mm>self.main.mm).mmPhyReadValueUnsignedDword((<unsigned short>intNum<<2))
-        posdata = (((posdata>>12)&0xffff0)+(posdata&BITMASK_WORD))
-        return posdata
 
 
 cdef class ConfigSpace:
@@ -225,20 +220,20 @@ cdef class ConfigSpace:
         return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=True)
     cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size):
         if (size == OP_SIZE_BYTE):
-            data &= BITMASK_BYTE
+            data = <unsigned char>data
         elif (size == OP_SIZE_WORD):
-            data &= BITMASK_WORD
+            data = <unsigned short>data
         elif (size == OP_SIZE_DWORD):
-            data &= BITMASK_DWORD
+            data = <unsigned int>data
         self.csWrite(offset, data.to_bytes(length=size, byteorder="little", signed=False), size)
         return data
     cdef unsigned long int csWriteValueBE(self, unsigned int offset, unsigned long int data, unsigned char size): # Big Endian
         if (size == OP_SIZE_BYTE):
-            data &= BITMASK_BYTE
+            data = <unsigned char>data
         elif (size == OP_SIZE_WORD):
-            data &= BITMASK_WORD
+            data = <unsigned short>data
         elif (size == OP_SIZE_DWORD):
-            data &= BITMASK_DWORD
+            data = <unsigned int>data
         self.csWrite(offset, data.to_bytes(length=size, byteorder="big", signed=False), size)
         return data
 
