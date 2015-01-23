@@ -272,6 +272,7 @@ cdef class Paging: # TODO
         if (self.pageDirectoryBaseAddress):
             self.pageDirectory.csWrite(0, (<Mm>self.segments.main.mm).mmPhyRead(self.pageDirectoryBaseAddress, PAGE_DIRECTORY_LENGTH), PAGE_DIRECTORY_LENGTH)
         else:
+            self.segments.main.debug("Paging::invalidateTables: addr&0xfffff000 == 0. (addr: {0:#010x})", pageDirectoryBaseAddress)
             self.pageDirectory.csResetData()
     cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except -1:
         cdef unsigned int errorFlags
@@ -289,9 +290,12 @@ cdef class Paging: # TODO
         self.pageOffset = virtualAddress&0xfff
         self.pageDirectoryEntry = self.pageDirectory.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
         if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
-            self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present. (entry: {0:#010x}; addr: {1:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset)
-            self.doPF(virtualAddress, written)
-            return False
+            self.invalidateTables(self.pageDirectoryBaseAddress) # TODO: FIXME: HACK
+            self.pageDirectoryEntry = self.pageDirectory.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
+            if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
+                self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present. (entry: {0:#010x}; addr: {1:#010x}; newData: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, (<Mm>self.segments.main.mm).mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset))
+                self.doPF(virtualAddress, written)
+                return False
         if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4MB page
             # size is 4MB if CR4/PSE is set
             # size is 2MB if CR4/PAE is set

@@ -39,7 +39,6 @@ cdef class Cpu:
         if (self.INTR and oldIF ):
             irqVector = (<Pic>self.main.platform.pic).IAC()
             self.opcodes.interrupt(irqVector)
-            ##self.saveCurrentInstPointer() # TODO: do we need this here?
         elif (self.HRQ):
             (<IsaDma>self.main.platform.isadma).raiseHLDA()
         if (not ((self.INTR and oldIF ) or self.HRQ) ):
@@ -172,7 +171,6 @@ cdef class Cpu:
             return
         if (self.asyncEvent):
             self.handleAsyncEvent()
-            return
         self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)

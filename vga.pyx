@@ -134,6 +134,9 @@ cdef class GDC(VGA_REGISTER_RAW):
         elif (self.getIndex() == VGA_GDC_READ_MAP_SEL_INDEX):
             self.vga.readMap = data&3
         elif (self.getIndex() == VGA_GDC_MODE_REG_INDEX):
+            self.vga.shift256 = (data&0x40)!=0
+            if ((data&0x20)!=0 and not self.vga.shift256):
+                self.main.notice("Vga::GDC: TODO: shift256 == 0 and shiftReg == 1")
             self.vga.oddEvenReadDisabled = (data&0x10)==0
             self.vga.readMode = (data >> 3)&1
             self.vga.writeMode = data&3
@@ -188,20 +191,15 @@ cdef class Sequencer(VGA_REGISTER_RAW):
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga, object main):
         VGA_REGISTER_RAW.__init__(self, VGA_ATTRCTRLREG_AREA_SIZE, vga, main)
-        self.videoEnabled = True
         self.csWriteValue(VGA_ATTRCTRLREG_CONTROL_REG_INDEX, VGA_ATTRCTRLREG_CONTROL_REG_LGE, 1)
         self.csWriteValue(VGA_ATTRCTRLREG_COLOR_SELECT_REG_INDEX, 0, 1)
         self.setFlipFlop(False)
+        self.setIndex(0)
     cdef void setIndex(self, unsigned short index):
-        cdef unsigned char prevVideoEnabled = self.videoEnabled
         VGA_REGISTER_RAW.setIndex(self, index&0x1f)
-        self.videoEnabled = (index & VGA_ATTRCTRLREG_VIDEO_ENABLED) != 0
-        if (not self.videoEnabled):
-            if (self.vga.ui):
-                self.vga.ui.clearScreen()
-        elif (not prevVideoEnabled):
-            if (self.vga.ui):
-                self.vga.ui.updateScreen()
+        self.paletteEnabled = (index & VGA_ATTRCTRLREG_PALETTE_ENABLED) == 0
+        if (index == VGA_ATTRCTRLREG_PALETTE_ENABLED):
+            self.setFlipFlop(False)
     cdef void setFlipFlop(self, unsigned char flipFlop):
         self.flipFlop = flipFlop
     cdef void setIndexData(self, unsigned int data, unsigned char dataSize):
@@ -216,12 +214,15 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
         return data
     cdef void setData(self, unsigned int data, unsigned char dataSize):
         cdef unsigned short index = self.getIndex()
+        if (index < 0x10 and not self.paletteEnabled):
+            return
         VGA_REGISTER_RAW.setData(self, data, dataSize)
         if (self.vga.ui and index == VGA_ATTRCTRLREG_CONTROL_REG_INDEX):
             self.vga.ui.replicate8Bit = (data&VGA_ATTRCTRLREG_CONTROL_REG_LGE) != 0
             self.vga.ui.msbBlink = (data&VGA_ATTRCTRLREG_CONTROL_REG_BLINK) != 0
             self.vga.palette54 = (data&VGA_ATTRCTRLREG_CONTROL_REG_PALETTE54) != 0
             self.vga.graphicalMode = (data&VGA_ATTRCTRLREG_CONTROL_REG_GRAPHICAL_MODE) != 0
+            self.vga.enable8Bit = (data&VGA_ATTRCTRLREG_CONTROL_REG_8BIT) != 0
         elif (index == VGA_ATTRCTRLREG_COLOR_SELECT_REG_INDEX):
             self.colorSelect = data&0xf
 
@@ -233,7 +234,7 @@ cdef class Vga:
         self.videoMemSize = 0x08000
         self.needLoadFont = False
         self.readMap = self.writeMap = self.charSelA = self.charSelB = self.chain4 = self.oddEvenReadDisabled = self.oddEvenWriteDisabled = self.extMem = self.readMode = \
-            self.writeMode = self.resetReg = self.enableResetReg = self.logicOp = self.rotateCount = self.graphicalMode = self.palette54 = 0
+            self.writeMode = self.resetReg = self.enableResetReg = self.logicOp = self.rotateCount = self.graphicalMode = self.palette54 = self.enable8Bit = self.shift256 = 0
         self.offset = 80
         self.textOffset = 160
         self.bitMask = 0xff
@@ -262,14 +263,18 @@ cdef class Vga:
             self.ui = PysdlUI(self, self.main)
     cpdef unsigned int getColor(self, unsigned char color): # RGBA
         cdef unsigned char red, green, blue
-        if (color >= 0x10):
-            self.main.exitError("Vga::getColor: color_1 >= 0x10 (color_1=={0:#04x})", color)
-            return 0xff
-        color = (<unsigned char>self.attrctrlreg.csData[color])
-        if (self.palette54):
-            color = (color & 0xf) | (self.attrctrlreg.colorSelect << 4)
-        else:
-            color = (color & 0x3f) | ((self.attrctrlreg.colorSelect & 0xc) << 4)
+        if (not self.enable8Bit):
+            if (not self.attrctrlreg.paletteEnabled):
+                if (color >= 0x10):
+                    self.main.exitError("Vga::getColor: color_1 >= 0x10 (color_1=={0:#04x})", color)
+                    return 0xff
+                color = (<unsigned char>self.attrctrlreg.csData[color])
+            else:
+                color = 0
+            if (self.palette54):
+                color = (color & 0xf) | (self.attrctrlreg.colorSelect << 4)
+            else:
+                color = (color & 0x3f) | ((self.attrctrlreg.colorSelect & 0xc) << 4)
         red, green, blue = self.dac.csRead(color*3, 3)
         red <<= 2
         green <<= 2
@@ -396,14 +401,16 @@ cdef class Vga:
                 return
             for j in range(dataSize):
                 if (not self.chain4):
-                    y, x = divmod(tempOffset, 80)
-                    if (y >= 480):
-                        break
                     pixelData = (<unsigned char>self.plane0.csData[tempOffset])
                     pixelData |= (<unsigned char>self.plane1.csData[tempOffset])<<8
                     pixelData |= (<unsigned char>self.plane2.csData[tempOffset])<<16
                     pixelData |= (<unsigned char>self.plane3.csData[tempOffset])<<24
+                    y, x = divmod(tempOffset, 80)
+                    y *= self.charHeight
                     for i in range(8):
+                        if (x >= 80):
+                            y += 1
+                            x -= 80
                         color = 0
                         if (pixelData & (1<<(((~i)&7)+24))):
                             color |= 0x8
@@ -414,11 +421,30 @@ cdef class Vga:
                         if (pixelData & (1<<(((~i)&7)))):
                             color |= 0x1
                         #self.main.notice("Vga::vgaAreaWrite: putPixel: (x<<3)+i: {0:d}; y: {1:d}; color: {2:#04x}", (x<<3)+i, y, color)
-                        self.ui.putPixel((x<<3)+i, y, color)
+                        for j in range(self.charHeight):
+                            self.ui.putPixel((x<<3)+i, y+j, color)
                 else:
-                    y, x = divmod(tempOffset, 320)
-                    self.ui.putPixel(x, y, mmArea.data[offset])
-                offset     += 1
+                    if (self.shift256):
+                        #selectedPlanes = tempOffset&3
+                        selectedPlanes = 3
+                        if (not selectedPlanes):
+                            color = (<unsigned char>self.plane0.csData[tempOffset&0xfffc])
+                        elif (selectedPlanes == 1):
+                            color = (<unsigned char>self.plane1.csData[tempOffset&0xfffc])
+                        elif (selectedPlanes == 2):
+                            color = (<unsigned char>self.plane2.csData[tempOffset&0xfffc])
+                        elif (selectedPlanes == 3):
+                            color = (<unsigned char>self.plane3.csData[tempOffset&0xfffc])
+                        y, x = divmod(tempOffset, 320)
+                        y *= self.charHeight
+                        if (not self.enable8Bit):
+                            self.main.exitError("Vga::vgaAreaWrite: TODO: shift256 and not enable8Bit")
+                            return
+                        for j in range(self.charHeight):
+                            self.ui.putPixel(x, y+j, color)
+                    else:
+                        y, x = divmod(tempOffset, 320)
+                        self.ui.putPixel(x, y, (<unsigned char>self.plane0.csData[tempOffset]))
                 tempOffset += 1
             self.newTimer = time()
             if (self.newTimer - self.oldTimer >= 0.05):

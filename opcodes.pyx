@@ -3002,10 +3002,10 @@ cdef class Opcodes:
         return True
     cdef int fpuOpcodes(self, unsigned char opcode) except -1:
         cdef unsigned char opcode2
-        self.main.notice("Opcodes::fpuOpcodes: FPU Opcodes: TODO!")
         #if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)): # TODO
         #    raise HirnwichseException(CPU_EXCEPTION_UD)
         opcode2 = self.registers.getCurrentOpcodeUnsignedByte()
+        self.main.notice("Opcodes::fpuOpcodes: FPU Opcodes: TODO! (opcode=={0:#04x}; opcode2=={1:#04x})", opcode, opcode2)
         if (opcode in (0xd9, 0xdb, 0xdd, 0xdf)):
             if ((opcode == 0xdf and opcode2 == 0xe0) or \
               (opcode == 0xdb and opcode2 == 0xe3) or \

@@ -38,7 +38,7 @@ cdef class Sequencer(VGA_REGISTER_RAW):
     cdef void setData(self, unsigned int data, unsigned char dataSize)
 
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
-    cdef unsigned char flipFlop, videoEnabled, colorSelect
+    cdef unsigned char flipFlop, paletteEnabled, colorSelect
     cdef void setIndex(self, unsigned short index)
     cdef void setFlipFlop(self, unsigned char flipFlop)
     cdef void setIndexData(self, unsigned int data, unsigned char dataSize)
@@ -56,7 +56,7 @@ cdef class Vga:
     cdef PciDevice pciDevice
     cdef ConfigSpace plane0, plane1, plane2, plane3
     cdef unsigned char latchReg[4]
-    cdef unsigned char processVideoMem, needLoadFont, readMap, writeMap, charSelA, charSelB, chain4, oddEvenReadDisabled, oddEvenWriteDisabled, extMem, readMode, writeMode, bitMask, resetReg, enableResetReg, logicOp, rotateCount, charHeight, graphicalMode, miscReg, palette54
+    cdef unsigned char processVideoMem, needLoadFont, readMap, writeMap, charSelA, charSelB, chain4, oddEvenReadDisabled, oddEvenWriteDisabled, extMem, readMode, writeMode, bitMask, resetReg, enableResetReg, logicOp, rotateCount, charHeight, graphicalMode, miscReg, palette54, enable8Bit, shift256
     cdef unsigned short vde
     cdef unsigned int videoMemBase, videoMemBaseWithOffset, offset, textOffset, videoMemSize
     cdef double newTimer, oldTimer
