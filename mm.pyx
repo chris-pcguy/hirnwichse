@@ -140,6 +140,7 @@ cdef class Mm:
                 self.main.notice("Mm::mmPhyWrite: not mmArea.valid! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, tempSize)
             mmAddr += tempSize
             dataSize -= tempSize
+            data = data[tempSize:]
         return True
     cdef unsigned char mmPhyWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data):
         cdef MmArea mmArea

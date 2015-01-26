@@ -45,8 +45,14 @@ cdef class PitChannel:
             #    return
             ##self.counterValue = 0
             ##if (not self.counterValue):
-            with nogil:
-                usleep(int(self.tempTimerValue))
+            if (self.channelId == 0):
+                (<Pic>self.main.platform.pic).lowerIrq(0)
+            elif (self.channelId == 2 and (<PS2>self.main.platform.ps2).ppcbT2Gate):
+                (<PS2>self.main.platform.ps2).ppcbT2Out = False
+            #self.tempTimerValue *= 1000000
+            #with nogil:
+            #    usleep(int(self.tempTimerValue))
+            time.sleep(self.tempTimerValue/5e3) # TODO: FIXME: HACK
             self.counterValue = 1
             if (self.channelId == 0): # just raise IRQ on channel0
                 #self.main.notice("mode2Func: raiseIrq(0)")

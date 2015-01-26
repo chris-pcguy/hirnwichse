@@ -10,7 +10,7 @@ cdef class AtaDrive:
     cdef ConfigSpace configSpace
     cdef unsigned char driveId, driveType, isLoaded, isWriteProtected, sectorShift
     cdef unsigned short sectorSize, driveCode
-    cdef unsigned long int diskSize
+    cdef unsigned long int sectors
     cdef bytes filename
     cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector)
     cdef inline unsigned short readValue(self, unsigned char index)

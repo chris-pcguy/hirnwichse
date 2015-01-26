@@ -39,7 +39,7 @@ DEF FDC_CMD_MF = 0x40 # command is using mfm
 DEF FDC_CMD_MT = 0x80 # command is using multi-track
 DEF FDC_SECTOR_SIZE = 512
 
-DEF FDC_CMDLENGTH_TABLE = (0, 0, 0, 3, 2, 9, 9, 2, 1, 0, 2, 0, 0, 0, 0, 3)
+DEF FDC_CMDLENGTH_TABLE = (0, 0, 0, 3, 2, 9, 9, 2, 1, 0, 2, 0, 0, 0, 0, 3, 1)
 
 
 cdef class FloppyMedia:
@@ -221,10 +221,8 @@ cdef class FloppyController:
             self.msr |= (FDC_MSR_RQM | FDC_MSR_BUSY)
         self.addToCommand(command)
         cmd = self.command[0]&0x1f
-        try:
+        if (cmd < len(FDC_CMDLENGTH_TABLE)):
             cmdLength = FDC_CMDLENGTH_TABLE[cmd]
-        except IndexError:
-            cmdLength = 0
         if (not cmdLength):
             self.main.exitError("FDC: addCommand: invalid command: {0:#04x}", cmd)
             return
@@ -330,6 +328,8 @@ cdef class FloppyController:
                 self.addToResult((<FloppyDrive>self.drive[drive]).sector)
                 self.addToResult(2)
                 self.raiseFloppyIrq()
+            elif (cmd == 0x10):
+                self.addToResult(0x90)
             else:
                 self.main.exitError("FDC_CTRL::handleResult: unknown command: {0:#04x}", cmd)
         else:
@@ -473,6 +473,9 @@ cdef class FloppyController:
                 self.resetSensei -= 1
             elif (not self.pendingIrq):
                 self.st0 = 0x80
+            self.handleResult()
+            return
+        elif (cmd == 0x10): # get version
             self.handleResult()
             return
         elif (cmd == 0xa): # read id

@@ -148,11 +148,11 @@ cdef class Cpu:
                 elif ((self.debugHalt and not self.debugSingleStep) or (self.cpuHalted and not self.main.exitIfCpuHalted)):
                     if (self.asyncEvent):
                         self.handleAsyncEvent()
+                    else:
+                        if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
+                            (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()
+                        sleep(0.2)
                         continue
-                    if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
-                        (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()
-                    sleep(0.2)
-                    continue
                 self.doCycle()
         except:
             print_exc()
@@ -176,7 +176,7 @@ cdef class Cpu:
             self.opcode = self.parsePrefixes(self.opcode)
         self.registers.readCodeSegSize()
         if (self.main.debugEnabled):
-            self.main.debug("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
+            self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
             #self.cpuDump()
         if (<unsigned short>self.cycles == 0x00):
             if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):

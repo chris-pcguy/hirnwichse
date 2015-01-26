@@ -63,7 +63,7 @@ cdef class AtaDrive:
         self.driveType = driveType
         self.isLoaded = False
         self.isWriteProtected = True
-        self.diskSize = 0
+        self.sectors = 0
         if (self.driveType == ATA_DRIVE_TYPE_CDROM):
             self.sectorShift = CD_SECTOR_SHIFT
             self.sectorSize = CD_SECTOR_SIZE
@@ -100,26 +100,27 @@ cdef class AtaDrive:
             self.main.notice("HD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", (self.ataController.controllerId << 1)+self.driveId, filename.decode())
             return
         self.fp.seek(0, SEEK_END)
-        self.diskSize = self.fp.tell()
+        self.sectors = self.fp.tell() >> self.sectorShift
         self.fp.seek(0)
-        #self.writeValue(0, 0x80) # word 0 ; fixed drive
-        cylinders = self.diskSize / (HEADS * (SPT << self.sectorShift))
+        cylinders = self.sectors / (HEADS * SPT)
         if (cylinders > 16383):
             cylinders = 16383
-        self.writeValue(1, cylinders) # word 1 ; cylinders
-        self.writeValue(3, HEADS) # word 3 ; heads
-        self.writeValue(4, SPT << self.sectorShift) # word 4 ; spt * self.sectorSize
-        self.writeValue(5, self.sectorSize) # hdd block size
-        self.writeValue(6, SPT) # word 6 ; spt
-        self.writeValue(20, 2) # type
-        self.writeValue(21, self.sectorSize) # increment in hdd block size
+        if (self.ataController.controllerId == 0 and self.driveId in (0, 1)):
+            self.writeValue(1, cylinders) # word 1 ; cylinders
+            self.writeValue(3, HEADS) # word 3 ; heads
+            self.writeValue(4, SPT << self.sectorShift) # word 4 ; spt * self.sectorSize
+            self.writeValue(5, self.sectorSize) # hdd block size
+            self.writeValue(6, SPT) # word 6 ; spt
+            self.writeValue(20, 2) # type
+            self.writeValue(21, self.sectorSize) # increment in hdd block size
+            self.writeValue(83, (1 << 10)) # supports lba48
+            self.writeValue(86, (1 << 10)) # supports lba48
+            if (not self.driveId):
+                self.writeValue(93, (1 << 12)) # is master drive
+            self.writeValue(60, <unsigned short>self.sectors) # total number of addressable blocks.
+            self.configSpace.csWriteValue(100 << 1, self.sectors, OP_SIZE_QWORD) # total number of addressable blocks.
+        self.writeValue(48, 1) # supports dword access
         self.writeValue(49, (1 << 9)) # supports lba
-        self.writeValue(83, (1 << 10)) # supports lba48
-        self.writeValue(86, (1 << 10)) # supports lba48
-        if (not self.driveId):
-            self.writeValue(93, (1 << 12)) # is master drive
-        self.configSpace.csWriteValue(60 << 1, self.diskSize >> self.sectorShift, OP_SIZE_DWORD) # total number of addressable blocks. (diskSize >> self.sectorShift == diskSize/self.sectorSize)
-        self.configSpace.csWriteValue(100 << 1, self.diskSize >> self.sectorShift, OP_SIZE_QWORD) # total number of addressable blocks. (diskSize >> self.sectorShift == diskSize/self.sectorSize)
         #if (cylinders <= 1024): # hardcoded
         if (cylinders <= 2048): # hardcoded
             translateValueTemp = ATA_TRANSLATE_NONE
@@ -147,7 +148,7 @@ cdef class AtaDrive:
             else:
                 (<Cmos>self.main.platform.cmos).writeValue(CMOS_HD1_CONTROL_BYTE, 0x80, OP_SIZE_BYTE) # hardcoded
         else:
-            self.writeValue(0, 0x0580) # word 0 ; atapi; removable drive
+            self.writeValue(0, 0x85c0) # word 0 ; atapi; removable drive
             self.writeValue(85, (1 << 4)) # supports packet
     cdef bytes readBytes(self, unsigned long int offset, unsigned int size):
         cdef bytes data
@@ -285,7 +286,7 @@ cdef class AtaController:
         elif (cmd == PACKET_COMMAND_START_STOP_UNIT):
             pass
         elif (cmd == PACKET_COMMAND_READ_CAPACITY):
-            lba = (drive.diskSize >> CD_SECTOR_SHIFT)
+            lba = drive.sectors - 1 # TODO: FIXME: 0-based?
             if (lba > BITMASK_DWORD):
                 lba = BITMASK_DWORD
             self.result = lba.to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)

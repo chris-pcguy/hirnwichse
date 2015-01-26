@@ -56,7 +56,7 @@ cdef class PicChannel:
         self.mappedSlavesOnMasterMask = 0x4 # master
         self.slaveOnThisMasterIrq = 2 # slave
     cdef void clearHighestInterrupt(self):
-        cdef unsigned char irq, lowestPrioriry, highestPriority
+        cdef unsigned char irq, lowestPriority, highestPriority
         lowestPriority = self.lowestPriority
         highestPriority = lowestPriority+1
         if (highestPriority > 7):
@@ -166,6 +166,7 @@ cdef class Pic:
             self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
             ma_sl = True
+            irq -= 8
         (<PicChannel>self.channels[ma_sl]).raiseIrq(irq)
     cdef void lowerIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
@@ -173,6 +174,7 @@ cdef class Pic:
             self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
             ma_sl = True
+            irq -= 8
         (<PicChannel>self.channels[ma_sl]).lowerIrq(irq)
     cdef unsigned char IAC(self):
         cdef PicChannel master, slave

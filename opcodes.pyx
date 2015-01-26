@@ -521,7 +521,25 @@ cdef class Opcodes:
             if (not gdtEntry or not gdtEntry.segPresent):
                 raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
             segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
-            if ((segType & TABLE_ENTRY_SYSTEM_TYPE_MASK_WITHOUT_BUSY) in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
+            if (segType == TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE):
+                self.main.notice("Opcodes::jumpFarDirect: task-gates aren't fully implemented yet.")
+                if (gdtEntry.segDPL < self.registers.getCPL() or gdtEntry.segDPL < segVal&3):
+                    raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+                if (not gdtEntry.segPresent):
+                    raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
+                segVal = gdtEntry.base
+                self.main.notice("Opcodes::jumpFarDirect: task-gates test1: segVal {0:#06x}", segVal)
+                gdtEntry = <GdtEntry>self.registers.segments.getEntry(segVal)
+                if ((segVal & GDT_USE_LDT) or (gdtEntry.segIsRW) or not self.registers.segments.inLimit(segVal)): # segIsRW means busy here
+                    raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+                if (not gdtEntry.segPresent):
+                    raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
+                self.registers.segWriteSegment((<Segment>self.registers.segments.tss), segVal)
+                self.registers.switchTSS32()
+                if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), OP_SIZE_BYTE)):
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                return True
+            elif ((segType & TABLE_ENTRY_SYSTEM_TYPE_MASK_WITHOUT_BUSY) in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
                 segment = (<Segment>self.registers.segments.tss)
                 if ((segVal & GDT_USE_LDT) or not self.registers.segments.inLimit(segVal)):
                     raise HirnwichseException(CPU_EXCEPTION_TS, segVal)
@@ -557,7 +575,7 @@ cdef class Opcodes:
             #    self.main.exitError("Opcodes::jumpFarDirect: sysSegType {0:d} isn't supported yet.", segType)
             #    return True
             elif (not (segType & GDT_ACCESS_NORMAL_SEGMENT)):
-                self.main.exitError("Opcodes::jumpFarDirect: sysSegType {0:d} isn't supported yet.", segType)
+                self.main.exitError("Opcodes::jumpFarDirect: sysSegType {0:d} isn't supported yet. (segVal {1:#06x}; eipVal {2:#010x})", segType, segVal, eipVal)
                 return True
         self.registers.segWriteSegment((<Segment>self.registers.segments.cs), segVal)
         self.registers.regWriteDword(CPU_REGISTER_EIP, eipVal)
@@ -2275,6 +2293,7 @@ cdef class Opcodes:
         if (intNum == -1):
             isSoftInt = True
             intNum = self.registers.getCurrentOpcodeAddUnsignedByte()
+        self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}", intNum)
         if (self.registers.protectedModeOn):
             if (oldVM and (self.registers.iopl < 3) and isSoftInt):
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
@@ -2286,7 +2305,17 @@ cdef class Opcodes:
             entryPresent = idtEntry.entryPresent
             entrySize = idtEntry.entrySize
             if (entryType == TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE):
-                self.main.exitError("Opcodes::interrupt: task-gates aren't implemented yet.")
+                self.main.notice("Opcodes::interrupt: task-gates aren't fully implemented yet.")
+                gdtEntryCS = <GdtEntry>self.registers.segments.getEntry(entrySegment)
+                entrySegment = gdtEntryCS.base
+                if ((entrySegment & GDT_USE_LDT) or (entrySegment & 0x1f == 0x1) or not self.registers.segments.inLimit(entrySegment)):
+                    raise HirnwichseException(CPU_EXCEPTION_GP, (<Misc>self.main.misc).calculateInterruptErrorcode(entrySegment, 0, not isSoftInt))
+                if (not gdtEntryCS.segPresent):
+                    raise HirnwichseException(CPU_EXCEPTION_NP, (<Misc>self.main.misc).calculateInterruptErrorcode(entrySegment, 0, not isSoftInt))
+                self.registers.segWriteSegment((<Segment>self.registers.segments.tss), entrySegment)
+                self.registers.switchTSS32()
+                if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), OP_SIZE_BYTE)):
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 return True
             elif (entryType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TRAP_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
                 self.main.exitError("Opcodes::interrupt: unknown entryType {0:d}.", entryType)
@@ -2472,7 +2501,7 @@ cdef class Opcodes:
                 self.registers.segments.setSegType(TSSsel, (segType & ~0x2))
                 segType = self.registers.segments.getSegType(linkSel)
                 self.registers.segments.setSegType(linkSel, (segType | 0x2))
-                if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.regReadUnsignedDword(CPU_REGISTER_EIP), OP_SIZE_BYTE)):
+                if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), OP_SIZE_BYTE)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 return True
             elif ((tempEFLAGS & FLAG_VM) and not cpl):

@@ -196,6 +196,7 @@ cdef class Gdt:
             raise HirnwichseException(CPU_EXCEPTION_GP, num)
         if (not (num&0xfff8)):
             if (segId == CPU_SEGMENT_CS or segId == CPU_SEGMENT_SS):
+                self.segments.main.notice("test4: segId=={0:#04d}, num=={1:#06x}, tableLimit=={2:#06x}", segId, num, self.tableLimit)
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             return False
         gdtEntry = self.getEntry(num)

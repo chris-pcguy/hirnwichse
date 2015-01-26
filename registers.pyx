@@ -83,7 +83,7 @@ cdef class ModRMClass:
                         self.rmNameSeg = (<Segment>self.registers.segments.ss)
                 if (self.mod == 0 and self.rm == 5):
                     self.rmName0 = CPU_REGISTER_NONE
-                    self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
+                    self.rmName2 = self.registers.getCurrentOpcodeAddSignedDword()
                 else:
                     self.rmName0 = self.rm
                     if (self.rmName0 == CPU_REGISTER_EBP):
@@ -809,8 +809,10 @@ cdef class Registers:
         # TODO: check for limit asf...
         if (self.vm):
             self.main.debug("Registers::mmGetRealAddr: TODO. (VM is on)")
-        if (self.protectedModeOn and self.pagingOn): # TODO: is a20 even being applied after paging is enabled? (on the physical address... or even the virtual one?)
-            return (<Paging>(<Segments>self.segments).paging).getPhysicalAddress(mmAddr, written)
+        if (self.protectedModeOn): # TODO: is a20 even being applied after paging is enabled? (on the physical address... or even the virtual one?)
+            if (self.pagingOn):
+                return (<Paging>(<Segments>self.segments).paging).getPhysicalAddress(mmAddr, written)
+            return mmAddr
         if (self.A20Active): # A20 Active? if True == on, else off
             if (segment.segSize != OP_SIZE_WORD or segment.base >= SIZE_1MB):
                 return mmAddr
