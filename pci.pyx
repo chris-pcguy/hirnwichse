@@ -202,13 +202,13 @@ cdef class Pci:
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
                 ret = self.readRegister((self.address&0xfffffffc)+(ioPortAddr&3), dataSize)
             else:
-                self.main.exitError("inPort: port {0:#04x} is not supported. (dataSize {1:d})", ioPortAddr, dataSize)
+                self.main.exitError("PCI::inPort: port {0:#06x} is not supported. (dataSize {1:d})", ioPortAddr, dataSize)
         else:
-            self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
-        self.main.debug("inPort: port {0:#04x}. (dataSize {1:d}; ret {2:#06x})", ioPortAddr, dataSize, ret)
+            self.main.exitError("PCI::inPort: port {0:#06x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+        self.main.debug("PCI::inPort: port {0:#06x}. (dataSize {1:d}; ret {2:#06x})", ioPortAddr, dataSize, ret)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
-        self.main.debug("outPort: port {0:#04x}. (dataSize {1:d}; data {2:#06x})", ioPortAddr, dataSize, data)
+        self.main.debug("PCI::outPort: port {0:#06x}. (dataSize {1:d}; data {2:#06x})", ioPortAddr, dataSize, data)
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0x4d0):
                 data &= 0xf8
@@ -232,9 +232,9 @@ cdef class Pci:
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
                 self.writeRegister((self.address&0xfffffffc)+(ioPortAddr&3), data, dataSize)
             else:
-                self.main.exitError("outPort: port {0:#04x} is not supported. (data == {1:#04x}, dataSize {2:d})", ioPortAddr, data, dataSize)
+                self.main.exitError("PCI::outPort: port {0:#06x} is not supported. (data == {1:#04x}, dataSize {2:d})", ioPortAddr, data, dataSize)
         else:
-            self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("PCI::outPort: dataSize {0:d} not supported.", dataSize)
         return
     cdef void run(self):
         cdef unsigned char busIndex

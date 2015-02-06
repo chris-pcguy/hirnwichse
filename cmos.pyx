@@ -131,7 +131,7 @@ cdef class Cmos:
                 tempIndex = self.cmosIndex&0x7f
                 self.writeValue(tempIndex, data, OP_SIZE_BYTE)
                 if (tempIndex == CMOS_STATUS_REGISTER_A):
-                    self.main.notice("CMOS::outPort: RTC not supported yet.")
+                    self.main.notice("CMOS::outPort: RTC not supported yet. (data=={0:#04x})", data)
                 elif (tempIndex == CMOS_EXT_MEMORY_L):
                     self.writeValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
                 elif (tempIndex == CMOS_EXT_MEMORY_H):

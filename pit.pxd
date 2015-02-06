@@ -3,7 +3,7 @@ from ps2 cimport PS2
 from posix.unistd cimport usleep
 
 cdef class PitChannel:
-    cpdef object main
+    cpdef object main, threadObject
     cdef Pit pit
     cdef unsigned char channelId, bcdMode, counterMode, counterWriteMode, \
       counterFlipFlop, timerEnabled, readBackStatusValue, readBackStatusIssued

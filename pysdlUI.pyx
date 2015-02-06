@@ -74,11 +74,9 @@ cdef class PysdlUI:
             #newRect = sdl2.rect.SDL_Rect(x, y, 1, 1)
             #newRect = sdl2.rect.SDL_Rect(x<<1, y<<1, 2, 2)
             # bgColor == RGBA; colors == (A?)RGB
-            #bgColor = self.vga.getColor(colors)
             if (self.msbBlink):
-                bgColor = self.vga.getColor(colors&0x7)
-            else:
-                bgColor = self.vga.getColor(colors)
+                colors &= 0x7
+            bgColor = self.vga.getColor(colors)
             colorObject = sdl2.ext.RGBA(bgColor)
             #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
             if (self.renderer):
@@ -96,10 +94,7 @@ cdef class PysdlUI:
         try:
             newRect = self.getCharRect(x, y)
             fgColor = self.vga.getColor(colors&0xf)
-            if (self.msbBlink):
-                bgColor = self.vga.getColor((colors>>4)&0x7)
-            else:
-                bgColor = self.vga.getColor((colors>>4))
+            bgColor = self.vga.getColor((colors>>4)&0x7 if (self.msbBlink) else (colors>>4))
             newChar = self.getBlankChar(bgColor)
             # It's not a good idea to render a character if fgColor == bgColor
             #   as it wouldn't be readable.

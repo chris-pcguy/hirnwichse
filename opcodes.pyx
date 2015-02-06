@@ -1267,8 +1267,6 @@ cdef class Opcodes:
         cdef unsigned int stackAddr
         stackAddrSize = self.registers.getAddrSegSize((<Segment>self.registers.segments.ss))
         stackAddr = self.registers.regReadUnsigned(CPU_REGISTER_SP, stackAddrSize)
-        if (self.registers.protectedModeOn and stackAddr < operSize):
-            raise HirnwichseException(CPU_EXCEPTION_SS, 0)
         stackAddr = (stackAddr-operSize)
         if (stackAddrSize == OP_SIZE_WORD):
             stackAddr = <unsigned short>stackAddr
@@ -1647,7 +1645,7 @@ cdef class Opcodes:
             if (operOpcode != 0x31 and eaxIsInvalid):
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             if (operOpcode == 0x31 or (operOpcode == 0x32 and eaxId == 0x10)):
-                self.registers.regWriteDword(CPU_REGISTER_EAX, <unsigned int>self.main.cpu.cycles)
+                self.registers.regWriteDword(CPU_REGISTER_EAX, <unsigned int>(self.main.cpu.cycles))
                 self.registers.regWriteDword(CPU_REGISTER_EDX, <unsigned int>(self.main.cpu.cycles>>32))
             elif (operOpcode == 0x30 and eaxId == 0x10):
                 self.main.cpu.cycles = self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
@@ -1686,7 +1684,7 @@ cdef class Opcodes:
             if (eaxId == 0x1):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x600)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8110)
+                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8112)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
             elif (eaxId in (0x2, 0x3, 0x4, 0x5, 0x80000001, 0x80000005, 0x80000006, 0x80000007)):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
@@ -3034,13 +3032,16 @@ cdef class Opcodes:
         #if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)): # TODO
         #    raise HirnwichseException(CPU_EXCEPTION_UD)
         opcode2 = self.registers.getCurrentOpcodeUnsignedByte()
-        self.main.notice("Opcodes::fpuOpcodes: FPU Opcodes: TODO! (opcode=={0:#04x}; opcode2=={1:#04x})", opcode, opcode2)
-        if (opcode in (0xd9, 0xdb, 0xdd, 0xdf)):
+        self.main.notice("Opcodes::fpuOpcodes: FPU Opcodes: TODO! (opcode=={0:#04x}; opcode2=={1:#04x}; savedEip: {2:#010x}, savedCs: {3:#06x})", opcode, opcode2, self.main.cpu.savedEip, self.main.cpu.savedCs)
+        if (opcode in (0xd9, 0xdb, 0xdd, 0xde, 0xdf)):
             if ((opcode == 0xdf and opcode2 == 0xe0) or \
               (opcode == 0xdb and opcode2 == 0xe3) or \
+              (opcode == 0xde and opcode2 in (0x05, 0x60, 0x63)) or \
               (opcode == 0xd9 and ((opcode2>>3)&7) == 7) or \
               (opcode == 0xdd and ((opcode2>>3)&7) in (6, 7))): # FNSTSW/FINIT/FNSTSW
-                if (opcode == 0xdd and ((opcode2>>3)&7) == 6):
+                if ((opcode == 0xdd and ((opcode2>>3)&7) in (6, 7)) or \
+                  (opcode == 0xd9 and ((opcode2>>3)&7) == 7) or \
+                  (opcode == 0xde and opcode2 in (0x60, 0x63))):
                     self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE) # FNSAVE
                 else:
                     self.registers.getCurrentOpcodeAddUnsignedByte()

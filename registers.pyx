@@ -288,12 +288,14 @@ cdef class Registers:
         return (FLAG_REQUIRED | self.cf | (self.pf<<2) | (self.af<<4) | (self.zf<<6) | (self.sf<<7) | (self.tf<<8) | (self.if_flag<<9) | (self.df<<10) | \
           (self.of<<11) | (self.iopl<<12) | (self.nt<<14) | (self.rf<<16) | (self.vm<<17) | (self.ac<<18) | (self.vif<<19) | (self.vip<<20) | (self.id<<21))
     cdef void setFlags(self, unsigned int flags):
+        cdef unsigned char ifEnabled
         self.cf = (flags&FLAG_CF)!=0
         self.pf = (flags&FLAG_PF)!=0
         self.af = (flags&FLAG_AF)!=0
         self.zf = (flags&FLAG_ZF)!=0
         self.sf = (flags&FLAG_SF)!=0
         self.tf = (flags&FLAG_TF)!=0
+        ifEnabled = ((not self.if_flag) and ((flags&FLAG_IF)!=0))
         self.if_flag = (flags&FLAG_IF)!=0
         self.df = (flags&FLAG_DF)!=0
         self.of = (flags&FLAG_OF)!=0
@@ -305,6 +307,8 @@ cdef class Registers:
         self.vif = (flags&FLAG_VIF)!=0
         self.vip = (flags&FLAG_VIP)!=0
         self.id = (flags&FLAG_ID)!=0
+        if (ifEnabled):
+            self.main.cpu.asyncEvent = True
     cdef unsigned char getCPL(self):
         return self.cpl
     cdef unsigned char getIOPL(self):

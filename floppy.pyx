@@ -6,7 +6,7 @@
 include "globals.pxi"
 
 from os import access, F_OK, R_OK, W_OK
-from os.path import getsize
+from os.path import getsize, samefile
 
 
 DEF FDC_FIRST_PORTBASE  = 0x3f0
@@ -145,6 +145,7 @@ cdef class FloppyDrive:
         else:
             self.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", self.driveId, filename)
             return
+        self.DIR |= 0x80
         if (self.driveId in (0, 1)):
             cmosDiskType = (<Cmos>self.main.platform.cmos).readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
             if (self.driveId == 0):
@@ -165,6 +166,9 @@ cdef class FloppyDrive:
         self.fp.seek(oldPos)
         return data
     cdef bytes readSectors(self, unsigned int sector, unsigned int count): # count in sectors
+        if (sector == 0): # HACK
+            if (not samefile(self.fp.fileno(), self.filename)):
+                self.loadDrive(self.filename)
         return self.readBytes(sector<<9, count<<9)
     cdef void writeBytes(self, unsigned int offset, unsigned int size, bytes data):
         cdef unsigned int oldPos

@@ -329,6 +329,7 @@ cdef class PS2:
                     self.lastUsedCmd = data
             elif (ioPortAddr == 0x61):
                 if (data & PORT_61H_LOWER_TIMER_IRQ):
+                    self.main.debug("PS2::outPort: lowerIrq")
                     (<Pic>self.main.platform.pic).lowerIrq(TIMER_IRQ)
                 #else:
                 #    (<Pic>self.main.platform.pic).raiseIrq(TIMER_IRQ)

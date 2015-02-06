@@ -26,8 +26,9 @@ cdef class Cpu:
         self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
     cdef inline void setINTR(self, unsigned char state):
         self.INTR = state
-        self.asyncEvent = True
-        self.cpuHalted = False
+        if (state):
+            self.asyncEvent = True
+            self.cpuHalted = False
     cdef inline void setHRQ(self, unsigned char state):
         self.HRQ = state
         if (state):

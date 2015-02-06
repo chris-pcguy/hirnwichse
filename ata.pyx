@@ -222,12 +222,14 @@ cdef class AtaController:
                 self.sectorCount = BITMASK_BYTE+1
     cdef void raiseAtaIrq(self):
         if (self.irq and self.irqEnabled):
+            self.main.debug("AtaController::raiseAtaIrq: raiseIrq")
             (<Pic>self.main.platform.pic).raiseIrq(self.irq)
         self.drq = True
         self.driveBusy = self.err = False
         self.errorRegister = 0
     cdef void lowerAtaIrq(self):
         if (self.irq):
+            self.main.debug("AtaController::lowerAtaIrq: lowerIrq")
             (<Pic>self.main.platform.pic).lowerIrq(self.irq)
         self.driveReady = True
         self.drq = self.err = False

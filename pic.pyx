@@ -73,11 +73,11 @@ cdef class PicChannel:
                 break
     cdef void servicePicChannel(self):
         cdef unsigned char highestPriority, irq, maxIrq, unmaskedRequests
+        if (self.intr):
+            return
         highestPriority = self.lowestPriority+1
         if (highestPriority > 7):
             highestPriority = 0
-        if (self.intr):
-            return
         maxIrq = highestPriority
         if (not self.specialMask):
             if (self.isr):
@@ -93,7 +93,7 @@ cdef class PicChannel:
         if (unmaskedRequests):
             irq = highestPriority
             while (not self.main.quitEmu):
-                if ( not (self.specialMask and ((self.isr >> irq) & 0x01)) ):
+                if ( not (self.specialMask and (self.isr & (1 << irq))) ):
                     if (unmaskedRequests & (1 << irq)):
                         self.intr = True
                         self.irq = irq
@@ -111,14 +111,14 @@ cdef class PicChannel:
     cdef void raiseIrq(self, unsigned char irq):
         cdef unsigned char mask
         mask = (1 << (irq&7))
-        if ((irq >= 0 and irq < 16) and (not (self.IRQ_in & mask))):
+        if (not (self.IRQ_in & mask)):
             self.IRQ_in |= mask
             self.irr |= mask
             self.servicePicChannel()
     cdef void lowerIrq(self, unsigned char irq):
         cdef unsigned char mask
         mask = (1 << (irq&7))
-        if ((irq >= 0 and irq < 16) and (self.IRQ_in & mask)):
+        if (self.IRQ_in & mask):
             self.IRQ_in &= (~mask)
             self.irr &= (~mask)
     cdef unsigned char getCmdByte(self):
@@ -162,6 +162,7 @@ cdef class Pic:
         (<PicChannel>self.channels[channel]).edgeLevel = edgeLevel
     cdef void raiseIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
+        self.main.debug("Pic::raiseIrq: irq=={0:d}", irq)
         if (irq > 15):
             self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
@@ -170,12 +171,28 @@ cdef class Pic:
         (<PicChannel>self.channels[ma_sl]).raiseIrq(irq)
     cdef void lowerIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
+        self.main.debug("Pic::lowerIrq: irq=={0:d}", irq)
         if (irq > 15):
             self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", irq)
         if (irq >= 8):
             ma_sl = True
             irq -= 8
         (<PicChannel>self.channels[ma_sl]).lowerIrq(irq)
+    cdef unsigned char isClear(self, unsigned char irq):
+        cdef PicChannel ch
+        cdef unsigned char temp1, temp2, temp3
+        cdef unsigned char ma_sl = False
+        if (irq > 15):
+            self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", irq)
+        if (irq >= 8):
+            ma_sl = True
+            irq -= 8
+        ch = (<PicChannel>self.channels[ma_sl])
+        temp1 = ch.isr # & (1<<irq) # commented out because the PS/2 keyboard has a lower priority.
+        temp2 = ch.irr # & (1<<irq)
+        temp3 = ch.imr & (1<<irq)
+        self.main.debug("Pic::isClear: irq=={0:d}; ma_sl=={1:d}; isr=={2:#04x}; irr=={3:#04x}; imr=={4:#04x}; specialMask=={5:d}; intr=={6:d}; if_flag=={7:d}", irq, ma_sl, ch.isr, ch.irr, ch.imr, ch.specialMask, ch.intr, self.cpuInstance.registers.if_flag)
+        return not (temp1 or temp2 or temp3 or ch.intr)
     cdef unsigned char IAC(self):
         cdef PicChannel master, slave
         cdef unsigned char vector
@@ -195,7 +212,7 @@ cdef class Pic:
             vector = master.getIrqBasePort() + master.irq
         else:
             slave.intr = False
-            master.IRQ_in &= ~(1 << 2)
+            master.IRQ_in &= 0xfb
             if (not slave.irr):
                 return slave.getIrqBasePort()+7
             vector = slave.getIrqBasePort() + slave.irq
@@ -209,7 +226,7 @@ cdef class Pic:
         master.servicePicChannel()
         return vector
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        cdef unsigned char channel, oldStep
+        cdef unsigned char channel
         if (ioPortAddr in PIC_PIC1_PORTS):
             channel = 0
         elif (ioPortAddr in PIC_PIC2_PORTS):
@@ -252,8 +269,11 @@ cdef class Pic:
                     (<PicChannel>self.channels[channel]).lowestPriority = 7
                     (<PicChannel>self.channels[channel]).setCmdByte(data)
                     (<PicChannel>self.channels[channel]).step = PIC_DATA_STEP_ICW2
-                    if (channel == 1):
+                    if (channel):
                         (<PicChannel>self.channels[0]).IRQ_in &= 0xfb
+                    else:
+                        if (self.cpuInstance and self.setINTR is not NULL):
+                            self.setINTR(self.cpuInstance, False)
                     if (data & 0x02 or data & 0x08):
                         self.main.exitError("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, dataSize == byte).", data, ioPortAddr)
                     return
