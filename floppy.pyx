@@ -39,7 +39,7 @@ DEF FDC_CMD_MF = 0x40 # command is using mfm
 DEF FDC_CMD_MT = 0x80 # command is using multi-track
 DEF FDC_SECTOR_SIZE = 512
 
-DEF FDC_CMDLENGTH_TABLE = (0, 0, 0, 3, 2, 9, 9, 2, 1, 0, 2, 0, 0, 0, 0, 3, 1)
+DEF FDC_CMDLENGTH_TABLE = (0, 0, 0, 3, 2, 9, 9, 2, 1, 0, 2, 0, 0, 0, 10, 3, 1)
 
 
 cdef class FloppyMedia:
@@ -323,6 +323,17 @@ cdef class FloppyController:
             elif (cmd == 0x8):
                 self.addToResult(self.st0)
                 self.addToResult((<FloppyDrive>self.drive[drive]).cylinder)
+            elif (cmd == 0xe):
+                self.addToResult((<FloppyDrive>self.drive[0]).cylinder)
+                self.addToResult((<FloppyDrive>self.drive[1]).cylinder)
+                self.addToResult(0x00)
+                self.addToResult(0x00)
+                self.addToResult(0x00)
+                self.addToResult((self.msr & FDC_MSR_NODMA) != 0)
+                self.addToResult((<FloppyDrive>self.drive[drive]).eot)
+                self.addToResult(0x00)
+                self.addToResult(0x00)
+                self.addToResult(0x00)
             elif (cmd in (0x5, 0x6, 0xa, 0xd)):
                 self.addToResult(self.st0)
                 self.addToResult(self.st1)
@@ -477,6 +488,9 @@ cdef class FloppyController:
                 self.resetSensei -= 1
             elif (not self.pendingIrq):
                 self.st0 = 0x80
+            self.handleResult()
+            return
+        elif (cmd == 0xe): # dump registers
             self.handleResult()
             return
         elif (cmd == 0x10): # get version
