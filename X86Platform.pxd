@@ -1,6 +1,6 @@
 
-from misc cimport Misc
-from mm cimport Mm, MmArea, MmAreaReadType, MmAreaWriteType
+from hirnwichse_main cimport Hirnwichse
+from mm cimport MmArea, MmAreaReadType, MmAreaWriteType
 from cmos cimport Cmos
 from isadma cimport IsaDma
 from pic cimport Pic
@@ -26,7 +26,7 @@ cdef class PortHandler:
 
 
 cdef class Platform:
-    cpdef object main
+    cdef Hirnwichse main
     cdef public IsaDma isadma
     cdef public PS2 ps2
     cdef public Pic pic

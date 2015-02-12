@@ -2,6 +2,7 @@
 include "globals.pxi"
 include "cpu_globals.pxi"
 
+from hirnwichse_main cimport Hirnwichse
 from mm cimport Mm, ConfigSpace
 
 
@@ -38,22 +39,13 @@ cdef class Gdt:
     cdef Segments segments
     cdef unsigned short tableLimit
     cdef unsigned int tableBase
-    cdef inline void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit):
-        if (tableLimit > GDT_HARD_LIMIT):
-            self.segments.main.exitError("Gdt::loadTablePosition: tableLimit {0:#06x} > GDT_HARD_LIMIT {1:#06x}.", \
-              tableLimit, GDT_HARD_LIMIT)
-            return
-        self.tableBase, self.tableLimit = tableBase, tableLimit
+    cdef void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit)
     cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
     cdef GdtEntry getEntry(self, unsigned short num)
-    cdef inline unsigned char getSegType(self, unsigned short num):
-        return ((<Mm>self.segments.main.mm).mmPhyReadValueUnsignedByte(self.tableBase+num+5) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
-    cdef inline void setSegType(self, unsigned short num, unsigned char segmentType):
-        (<Mm>self.segments.main.mm).mmPhyWriteValue(self.tableBase+num+5, <unsigned char>(((<Mm>self.segments.main.mm).\
-          mmPhyReadValueUnsignedByte(self.tableBase+num+5) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
-            (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)), OP_SIZE_BYTE)
+    cdef unsigned char getSegType(self, unsigned short num)
+    cdef void setSegType(self, unsigned short num, unsigned char segmentType)
     cdef inline unsigned char isSegPresent(self, unsigned short num):
         return self.getEntry(num).segPresent
     cdef inline unsigned char isCodeSeg(self, unsigned short num):
@@ -92,7 +84,8 @@ cdef class Paging:
     cdef unsigned char instrFetch
     cdef unsigned short pageOffset
     cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
-    cdef void setInstrFetch(self)
+    cdef inline void setInstrFetch(self):
+        self.instrFetch = True
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress)
     cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except -1
     cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except -1
@@ -101,7 +94,7 @@ cdef class Paging:
     cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned char written) except? 0
     
 cdef class Segments:
-    cpdef object main
+    cdef Hirnwichse main
     cdef Gdt gdt, ldt
     cdef Idt idt
     cdef Paging paging

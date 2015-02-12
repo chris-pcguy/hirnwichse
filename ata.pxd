@@ -1,11 +1,12 @@
 
+from hirnwichse_main cimport Hirnwichse
 from cmos cimport Cmos
 from pic cimport Pic
 from mm cimport ConfigSpace
 from pci cimport Pci, PciDevice
 
 cdef class AtaDrive:
-    cpdef object main, fp
+    cpdef object fp
     cdef AtaController ataController
     cdef ConfigSpace configSpace
     cdef unsigned char driveId, driveType, isLoaded, isWriteProtected, sectorShift
@@ -25,7 +26,6 @@ cdef class AtaDrive:
 
 
 cdef class AtaController:
-    cpdef object main
     cdef Ata ata
     cdef tuple drive
     cdef bytes result, data
@@ -34,6 +34,7 @@ cdef class AtaController:
     cdef unsigned int sectorCount, cylinder
     cdef unsigned long int lba
     cdef void reset(self, unsigned char swReset)
+    cdef inline void LbaToCHS(self)
     cdef void convertToLBA28(self)
     cdef void raiseAtaIrq(self)
     cdef void lowerAtaIrq(self)
@@ -46,7 +47,7 @@ cdef class AtaController:
 
 
 cdef class Ata:
-    cpdef object main
+    cdef Hirnwichse main
     cdef tuple controller
     cdef PciDevice pciDevice
     cdef void reset(self)

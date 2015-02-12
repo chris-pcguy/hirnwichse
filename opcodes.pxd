@@ -1,6 +1,7 @@
 
 include "cpu_globals.pxi"
 
+from hirnwichse_main cimport Hirnwichse
 from misc cimport Misc
 from segments cimport GdtEntry, IdtEntry, Gdt, Idt, Paging, Segment, Segments
 from registers cimport ModRMClass, Registers
@@ -8,28 +9,19 @@ from mm cimport Mm
 
 
 cdef class Opcodes:
-    cpdef object main
+    cdef Hirnwichse main
     cdef Registers registers
     cdef ModRMClass modRMInstance
     cdef int executeOpcode(self, unsigned char opcode) except -1
     cdef int cli(self) except -1
     cdef int sti(self) except -1
     cdef int hlt(self) except -1
-    cdef inline void cld(self):
-        self.registers.df = False
-    cdef inline void std(self):
-        self.registers.df = True
-    cdef inline void clc(self):
-        self.registers.cf = False
-    cdef inline void stc(self):
-        self.registers.cf = True
-    cdef inline void cmc(self):
-        self.registers.cf = not self.registers.cf
-    cdef inline void syncCR0State(self):
-        cdef unsigned int value
-        value = self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_PG | CR0_FLAG_PE))
-        self.registers.protectedModeOn = (value & CR0_FLAG_PE)!=0
-        self.registers.pagingOn = (value & CR0_FLAG_PG)!=0
+    cdef void cld(self)
+    cdef void std(self)
+    cdef void clc(self)
+    cdef void stc(self)
+    cdef void cmc(self)
+    cdef void syncCR0State(self)
     cdef inline unsigned int quirkCR0(self, unsigned int value):
         #value |= (CR0_FLAG_EM | CR0_FLAG_ET | CR0_FLAG_NE | CR0_FLAG_NW | CR0_FLAG_CD)
         value |= (CR0_FLAG_EM | CR0_FLAG_NE)

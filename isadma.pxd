@@ -1,14 +1,13 @@
 
-from mm cimport Mm
-from libc.string cimport memset
-
 ctypedef void (*ReadFromMem)(self, unsigned char)
 ctypedef unsigned char (*WriteToMem)(self)
-ctypedef void (*SetHRQ)(self, unsigned char)
+
+from hirnwichse_main cimport Hirnwichse
+from libc.string cimport memset
 
 
 cdef class IsaDmaChannel:
-    cpdef object main
+    cdef Hirnwichse main
     cdef object dmaMemActionInstance
     cdef ReadFromMem readFromMem
     cdef WriteToMem writeToMem
@@ -20,7 +19,7 @@ cdef class IsaDmaChannel:
     ###
 
 cdef class IsaDmaController:
-    cpdef object main
+    cdef Hirnwichse main
     cdef IsaDma isadma
     cdef tuple channel
     cdef unsigned char flipFlop, firstChannel, master, ctrlDisabled, cmdReg, statusReg
@@ -43,9 +42,7 @@ cdef class IsaDmaController:
     cdef void run(self)
 
 cdef class IsaDma:
-    cpdef object main
-    cdef object cpuInstance
-    cdef SetHRQ setHRQ
+    cdef Hirnwichse main
     cdef tuple controller
     cdef unsigned char extPageReg[16]
     cdef unsigned char HLDA, TC # extPageReg is unused.

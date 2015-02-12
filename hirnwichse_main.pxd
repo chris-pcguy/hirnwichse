@@ -3,9 +3,6 @@ from misc cimport Misc
 from mm cimport Mm
 from X86Platform cimport Platform
 from cpu cimport Cpu
-from pci cimport Pci
-from pic cimport Pic, SetINTR
-from isadma cimport IsaDma, SetHRQ
 
 
 cdef class Hirnwichse:
@@ -21,7 +18,6 @@ cdef class Hirnwichse:
                       cdromFilename
     cpdef parseArgs(self)
     cpdef quitFunc(self)
-    cdef runThreadFunc(self)
     cpdef reset(self, unsigned char resetHardware)
     cpdef run(self)
 

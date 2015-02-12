@@ -1,4 +1,5 @@
 
+from hirnwichse_main cimport Hirnwichse
 from misc cimport Misc
 from mm cimport ConfigSpace
 from pic cimport Pic
@@ -11,7 +12,6 @@ cdef class PciAddress:
 
 
 cdef class PciDevice:
-    cpdef object main
     cdef Pci pci
     cdef PciBus bus
     cdef ConfigSpace configSpace
@@ -32,7 +32,6 @@ cdef class PciBridge(PciDevice):
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize)
 
 cdef class PciBus:
-    cpdef object main
     cdef Pci pci
     cdef list deviceList
     cdef unsigned char busIndex
@@ -41,7 +40,7 @@ cdef class PciBus:
     cdef void run(self)
 
 cdef class Pci:
-    cpdef object main
+    cdef Hirnwichse main
     cdef list busList
     cdef unsigned char pciReset, elcr1, elcr2
     cdef unsigned int address

@@ -135,16 +135,14 @@ cdef class IsaDmaController:
             return
         if ((self.statusReg & 0xf0) == 0):
             if (not self.master):
-                if (self.isadma.cpuInstance and self.isadma.setHRQ is not NULL):
-                    self.isadma.setHRQ(self.isadma.cpuInstance, False)
+                self.isadma.main.cpu.setHRQ(False)
             else:
                 self.isadma.setDRQ(4, False)
             return
         for channel in range(4):
             if ((self.statusReg & (1 << (channel+4))) and (not (<IsaDmaChannel>self.channel[channel]).channelMasked)):
                 if (not self.master):
-                    if (self.isadma.cpuInstance and self.isadma.setHRQ is not NULL):
-                        self.isadma.setHRQ(self.isadma.cpuInstance, True)
+                    self.isadma.main.cpu.setHRQ(True)
                 else:
                     self.isadma.setDRQ(4, True)
                 return
@@ -155,7 +153,7 @@ cdef class IsaDmaController:
         self.reset()
 
 cdef class IsaDma:
-    def __init__(self, object main):
+    def __init__(self, Hirnwichse main):
         self.main = main
         self.controller = (IsaDmaController(self, True), IsaDmaController(self, False))
         self.HLDA = self.TC = False
@@ -318,14 +316,14 @@ cdef class IsaDma:
                 self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
                 return
             if (ma_sl):
-                (<Mm>self.main.mm).mmPhyWriteValue(phyAddr, <unsigned short>data, OP_SIZE_WORD)
+                self.main.mm.mmPhyWriteValue(phyAddr, <unsigned short>data, OP_SIZE_WORD)
             else:
-                (<Mm>self.main.mm).mmPhyWriteValue(phyAddr, <unsigned char>data, OP_SIZE_BYTE)
+                self.main.mm.mmPhyWriteValue(phyAddr, <unsigned char>data, OP_SIZE_BYTE)
         elif (currChannel.transferDirection == 2): # MEM -> IODEV
             if (ma_sl):
-                data = (<Mm>self.main.mm).mmPhyReadValueUnsignedWord(phyAddr)
+                data = self.main.mm.mmPhyReadValueUnsignedWord(phyAddr)
             else:
-                data = (<Mm>self.main.mm).mmPhyReadValueUnsignedByte(phyAddr)
+                data = self.main.mm.mmPhyReadValueUnsignedByte(phyAddr)
             if (currChannel.dmaMemActionInstance and currChannel.readFromMem is not NULL):
                 currChannel.readFromMem(currChannel.dmaMemActionInstance, data)
             else:
@@ -344,8 +342,7 @@ cdef class IsaDma:
         if (countExpired):
             self.TC = False
             self.HLDA = False
-            if (self.cpuInstance and self.setHRQ is not NULL):
-                self.setHRQ(self.cpuInstance, False)
+            self.main.cpu.setHRQ(False)
             (<IsaDmaChannel>(<IsaDmaController>self.controller[ma_sl]).channel[channel]).DACK = False
             if (not ma_sl):
                 self.setDRQ(4, False)
@@ -360,8 +357,6 @@ cdef class IsaDma:
         channel.writeToMem = writeToMem
     cdef void run(self):
         cdef IsaDmaController controller
-        self.cpuInstance = None
-        self.setHRQ = NULL
         memset(self.extPageReg, 0, 16)
         for controller in self.controller:
             controller.run()

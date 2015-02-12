@@ -64,13 +64,6 @@ cdef class Hirnwichse:
     def notice(self, str msg, *msgArgs): # this needs to be 'def'
         print("NOTICE: " + msg.format(*msgArgs))
         stdout.flush()
-    cdef runThreadFunc(self):
-        self.platform.run()
-        (<Pic>self.platform.pic).cpuInstance = self.cpu
-        (<Pic>self.platform.pic).setINTR = <SetINTR>self.cpu.setINTR
-        (<IsaDma>self.platform.isadma).cpuInstance = self.cpu
-        (<IsaDma>self.platform.isadma).setHRQ = <SetHRQ>self.cpu.setHRQ
-        self.cpu.run()
     cpdef reset(self, unsigned char resetHardware):
         self.cpu.reset()
         if (resetHardware):
@@ -78,11 +71,12 @@ cdef class Hirnwichse:
     cpdef run(self):
         try:
             self.parseArgs()
-            self.misc = Misc(self)
+            self.misc = Misc()
             self.mm = Mm(self)
             self.platform = Platform(self)
             self.cpu = Cpu(self)
-            self.runThreadFunc()
+            self.platform.run()
+            self.cpu.run()
         except:
             print_exc()
             exit(1)

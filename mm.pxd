@@ -1,7 +1,6 @@
 
 include "globals.pxi"
 
-from misc cimport Misc
 from libc.stdlib cimport malloc
 from libc.string cimport memmove, memset
 
@@ -21,6 +20,8 @@ ctypedef unsigned long int unsigned_long_int
 ctypedef bytes (*MmAreaReadType)(self, MmArea, unsigned int, unsigned int)
 ctypedef void (*MmAreaWriteType)(self, MmArea, unsigned int, char *, unsigned int)
 
+from hirnwichse_main cimport Hirnwichse
+
 cdef class MmArea:
     cdef unsigned char readOnly, valid
     cdef char *data
@@ -31,7 +32,7 @@ cdef class MmArea:
 
 
 cdef class Mm:
-    cpdef object main
+    cdef Hirnwichse main
     cdef tuple mmAreas
     cdef MmArea mmAddArea(self, unsigned int mmBaseAddr, unsigned char mmReadOnly)
     cdef void mmMallocArea(self, MmArea mmArea, unsigned char clearByte)
@@ -63,13 +64,13 @@ cdef class Mm:
     cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
 
 cdef class ConfigSpace:
-    cpdef object main
+    cdef Hirnwichse main
     cdef char *csData
     cdef unsigned char clearByte
     cdef unsigned int csSize
     cdef void csResetData(self, unsigned char clearByte = ?)
     cdef bytes csRead(self, unsigned int offset, unsigned int size)
-    cdef void csWrite(self, unsigned int offset, bytes data, unsigned int size)
+    cdef void csWrite(self, unsigned int offset, char *data, unsigned int size)
     cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size)
     cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size)
     cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size)

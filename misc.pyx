@@ -9,8 +9,8 @@ class HirnwichseException(Exception):
 
 
 cdef class Misc:
-    def __init__(self, object main):
-        self.main = main
+    def __init__(self):
+        pass
     cdef unsigned int checksum(self, bytes data): # data is bytes
         cdef unsigned char c
         cdef unsigned int checksum

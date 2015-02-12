@@ -1,8 +1,7 @@
 
-ctypedef void (*SetINTR)(self, unsigned char)
+from hirnwichse_main cimport Hirnwichse
 
 cdef class PicChannel:
-    cpdef object main
     cdef Pic pic
     cdef unsigned char master, cmdByte, irqBasePort, mappedSlavesOnMasterMask, \
                         slaveOnThisMasterIrq, needRegister, step, inInit, irq, \
@@ -24,9 +23,7 @@ cdef class PicChannel:
     cdef void run(self)
 
 cdef class Pic:
-    cpdef object main
-    cdef object cpuInstance
-    cdef SetINTR setINTR
+    cdef Hirnwichse main
     cdef tuple channels
     cdef void setMode(self, unsigned char channel, unsigned char edgeLevel)
     cdef void raiseIrq(self, unsigned char irq)

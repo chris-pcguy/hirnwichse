@@ -14,7 +14,7 @@ cdef class MmArea:
         self.data = NULL
 
 cdef class Mm:
-    def __init__(self, object main):
+    def __init__(self, Hirnwichse main):
         cdef unsigned int i
         cdef list mmAreas
         self.main = main
@@ -35,11 +35,13 @@ cdef class Mm:
         return mmArea
     cdef void mmMallocArea(self, MmArea mmArea, unsigned char clearByte):
         if (mmArea.data is NULL):
-            mmArea.data = <char*>malloc(SIZE_1MB)
+            with nogil:
+                mmArea.data = <char*>malloc(SIZE_1MB)
             if (mmArea.data is NULL):
                 self.main.exitError("Mm::mmAddArea: not mmArea.data.")
                 return
-        memset(mmArea.data, clearByte, SIZE_1MB)
+        with nogil:
+            memset(mmArea.data, clearByte, SIZE_1MB)
     cdef MmArea mmGetArea(self, unsigned int mmAddr):
         mmAddr >>= 20
         return self.mmAreas[mmAddr]
@@ -190,7 +192,7 @@ cdef class Mm:
 
 
 cdef class ConfigSpace:
-    def __init__(self, unsigned int csSize, object main):
+    def __init__(self, unsigned int csSize, Hirnwichse main):
         self.csSize = csSize
         self.main = main
         self.csData = <char*>malloc(self.csSize)
@@ -200,17 +202,19 @@ cdef class ConfigSpace:
         self.csResetData()
     cdef void csResetData(self, unsigned char clearByte = 0x00):
         self.clearByte = clearByte
-        memset(self.csData, clearByte, self.csSize)
+        with nogil:
+            memset(self.csData, clearByte, self.csSize)
     cdef bytes csRead(self, unsigned int offset, unsigned int size):
         if ((offset+size) > self.csSize):
             self.main.debug("ConfigSpace::csRead: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             return bytes([self.clearByte])*size
         return self.csData[offset:offset+size]
-    cdef void csWrite(self, unsigned int offset, bytes data, unsigned int size):
+    cdef void csWrite(self, unsigned int offset, char *data, unsigned int size):
         if ((offset+size) > self.csSize):
             self.main.debug("ConfigSpace::csWrite: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             return
-        memmove(<char*>(self.csData+offset), <char*>data, size)
+        with nogil:
+            memmove(<char*>(self.csData+offset), <char*>data, size)
     cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size):
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)
     cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size): # Big Endian

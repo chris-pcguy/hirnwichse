@@ -5,7 +5,7 @@ include "globals.pxi"
 
 
 cdef class Parallel:
-    def __init__(self, object main):
+    def __init__(self, Hirnwichse main):
         self.main = main
     cdef void reset(self):
         pass

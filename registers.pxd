@@ -19,7 +19,6 @@ ctypedef unsigned int unsigned_int
 ctypedef unsigned long int unsigned_long_int
 
 
-
 cdef:
     struct byteStruct:
         unsigned char rl
@@ -46,9 +45,9 @@ cdef:
     struct RegStruct:
         qwordUnion _union
 
+from hirnwichse_main cimport Hirnwichse
 
 cdef class ModRMClass:
-    cpdef object main
     cdef Registers registers
     cdef Segment rmNameSeg
     cdef unsigned char rm, reg, mod, ss, regSize
@@ -66,7 +65,7 @@ cdef class ModRMClass:
 
 
 cdef class Registers:
-    cpdef object main
+    cdef Hirnwichse main
     cdef Segments segments
     cdef RegStruct regs[CPU_REGISTERS]
     cdef Segment segmentOverridePrefix
@@ -297,8 +296,7 @@ cdef class Registers:
     cdef void saveTSS16(self)
     cdef void switchTSS32(self)
     cdef void saveTSS32(self)
-    cdef inline unsigned char getAddrSegSize(self, Segment segment):
-        return ((((segment.segSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
+    cdef unsigned char getAddrSegSize(self, Segment segment)
     cdef inline void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
         opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
         addrSize[0] = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)

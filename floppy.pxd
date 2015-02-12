@@ -1,4 +1,5 @@
 
+from hirnwichse_main cimport Hirnwichse
 from cmos cimport Cmos
 from ata cimport Ata
 from isadma cimport IsaDma, IsaDmaChannel, ReadFromMem, WriteToMem
@@ -13,7 +14,7 @@ cdef class FloppyMedia:
 
 
 cdef class FloppyDrive:
-    cpdef object main, fp
+    cpdef object fp
     cdef FloppyController controller
     cdef FloppyMedia media
     cdef bytes filename
@@ -28,7 +29,7 @@ cdef class FloppyDrive:
 
 
 cdef class FloppyController:
-    cpdef object main
+    cdef Hirnwichse main
     cdef Floppy fdc
     cdef tuple drive
     cdef bytes command, result, fdcBuffer
@@ -59,7 +60,7 @@ cdef class FloppyController:
     cdef void run(self)
 
 cdef class Floppy:
-    cpdef object main
+    cdef Hirnwichse main
     cdef tuple controller
     cdef void setupDMATransfer(self, FloppyController classInstance)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)

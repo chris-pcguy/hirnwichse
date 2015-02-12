@@ -7,9 +7,8 @@ DEF OP_SIZE_QWORD = 8
 DEF BITMASK_BYTE  = 0xff
 DEF BITMASK_WORD  = 0xffff
 DEF BITMASK_DWORD = 0xffffffff
-DEF BITMASK_QWORD = 0xffffffffffffffff
-#cdef unsigned int BITMASK_DWORD = 0xffffffff
-#cdef unsigned long int BITMASK_QWORD = 0xffffffffffffffff
+#DEF BITMASK_QWORD = 0xffffffffffffffff
+cdef unsigned long int BITMASK_QWORD = 0xffffffffffffffff
 
 
 
@@ -253,7 +252,9 @@ DEF VGA_WRITE_PORTS = (0x1ce, 0x1cf, 0x3b4, 0x3b5, 0x3ba, 0x3c0, 0x3c2, 0x3c4, 0
 
 
 
-DEF BITMASKS_80 = (None, 0x80, 0x8000, None, 0x80000000, None, None, None, 0x8000000000000000)
-DEF BITMASKS_FF = (None, BITMASK_BYTE, BITMASK_WORD, None, BITMASK_DWORD, None, None, None, BITMASK_QWORD)
+cdef unsigned long int BITMASKS_80[9]
+BITMASKS_80 = (0, 0x80, 0x8000, 0, 0x80000000, 0, 0, 0, 0x8000000000000000)
+cdef unsigned long int BITMASKS_FF[9]
+BITMASKS_FF = (0, BITMASK_BYTE, BITMASK_WORD, 0, BITMASK_DWORD, 0, 0, 0, BITMASK_QWORD)
 
 

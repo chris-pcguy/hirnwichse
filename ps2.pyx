@@ -18,7 +18,7 @@ DEF PS2_A20 = 0x02
 DEF PS2_CMDBYTE_IRQ1 = 0x01
 
 cdef class PS2:
-    def __init__(self, object main):
+    def __init__(self, Hirnwichse main):
         self.main = main
     cdef void resetInternals(self, unsigned char powerUp):
         self.outBuffer  = bytes() # KBC -> CPU

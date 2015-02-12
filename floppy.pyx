@@ -83,13 +83,12 @@ cdef class FloppyMedia:
                 self.sectorsPerTrack = 36
                 self.sectors = 5760
         else:
-            self.floppyDrive.main.exitError("FloppyMedia::setDataForMedia: unknown mediaType {0:d}", mediaType)
+            self.floppyDrive.controller.main.exitError("FloppyMedia::setDataForMedia: unknown mediaType {0:d}", mediaType)
 
 
 cdef class FloppyDrive:
     def __init__(self, FloppyController controller, unsigned char driveId):
         self.controller = controller
-        self.main = self.controller.main
         self.driveId = driveId
         self.media = FloppyMedia(self)
         self.filename = b''
@@ -104,9 +103,9 @@ cdef class FloppyDrive:
         cdef unsigned char diskType = FLOPPY_DISK_TYPE_NONE
         cdef unsigned char diskTypeOverride = FLOPPY_DISK_TYPE_NONE
         if (self.driveId == 0):
-            diskTypeOverride = self.main.fdaType
+            diskTypeOverride = self.controller.main.fdaType
         elif (self.driveId == 1):
-            diskTypeOverride = self.main.fdbType
+            diskTypeOverride = self.controller.main.fdbType
         if (diskTypeOverride != FLOPPY_DISK_TYPE_NONE):
             diskType = diskTypeOverride
         elif (size <= SIZE_360K):
@@ -120,19 +119,19 @@ cdef class FloppyDrive:
         elif (size <= SIZE_2_88M):
             diskType = FLOPPY_DISK_TYPE_2_88M
         else:
-            self.main.notice("FloppyDrive::getDiskType: can't assign filesize {0:d} to a type, mark disk as unrecognized", size)
-        self.main.notice("FloppyDrive::getDiskType: floppy has disktype {0:d}.", diskType)
+            self.controller.main.notice("FloppyDrive::getDiskType: can't assign filesize {0:d} to a type, mark disk as unrecognized", size)
+        self.controller.main.notice("FloppyDrive::getDiskType: floppy has disktype {0:d}.", diskType)
         return diskType
     cdef void loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType, driveType
         if (not filename or not access(filename, F_OK | R_OK)):
-            self.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", self.driveId, filename.decode())
+            self.controller.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", self.driveId, filename.decode())
             return
         self.filename = filename
         driveType = self.getDiskType(getsize(self.filename))
         self.media.setDataForMedia(driveType)
         if (driveType == FLOPPY_DISK_TYPE_NONE):
-            self.main.notice("FloppyDrive::loadDrive: driveType is DISK_TYPE_NONE")
+            self.controller.main.notice("FloppyDrive::loadDrive: driveType is DISK_TYPE_NONE")
             return
         elif (access(filename, F_OK | R_OK | W_OK)):
             self.fp = open(filename, "r+b")
@@ -143,18 +142,18 @@ cdef class FloppyDrive:
             self.isLoaded = True
             self.isWriteProtected = True
         else:
-            self.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", self.driveId, filename)
+            self.controller.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", self.driveId, filename)
             return
         self.DIR |= 0x80
         if (self.driveId in (0, 1)):
-            cmosDiskType = (<Cmos>self.main.platform.cmos).readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
+            cmosDiskType = (<Cmos>self.controller.main.platform.cmos).readValue(CMOS_FLOPPY_DRIVE_TYPE, OP_SIZE_BYTE)
             if (self.driveId == 0):
                 cmosDiskType &= 0x0f
                 cmosDiskType |= (driveType&0xf)<<4
             elif (self.driveId == 1):
                 cmosDiskType &= 0xf0
                 cmosDiskType |= driveType&0xf
-            (<Cmos>self.main.platform.cmos).writeValue(CMOS_FLOPPY_DRIVE_TYPE, cmosDiskType, OP_SIZE_BYTE)
+            (<Cmos>self.controller.main.platform.cmos).writeValue(CMOS_FLOPPY_DRIVE_TYPE, cmosDiskType, OP_SIZE_BYTE)
     cdef bytes readBytes(self, unsigned int offset, unsigned int size):
         cdef bytes data
         cdef unsigned int oldPos
@@ -678,7 +677,7 @@ cdef class FloppyController:
     #####
 
 cdef class Floppy:
-    def __init__(self, object main):
+    def __init__(self, Hirnwichse main):
         self.main = main
         self.controller = (FloppyController(self, 0), FloppyController(self, 1))
     cdef void setupDMATransfer(self, FloppyController classInstance):

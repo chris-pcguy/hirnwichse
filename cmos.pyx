@@ -7,7 +7,7 @@ from time import gmtime
 
 
 cdef class Cmos:
-    def __init__(self, object main):
+    def __init__(self, Hirnwichse main):
         self.main = main
         self.dt = self.oldDt = None
         self.cmosIndex = 0
@@ -18,8 +18,12 @@ cdef class Cmos:
     cdef unsigned char getEquipmentDefaultValue(self):
         return self.equipmentDefaultValue
     cdef inline unsigned int readValue(self, unsigned char index, unsigned char size):
-        return self.configSpace.csReadValueUnsigned(index, size)
+        cdef unsigned int value
+        value = self.configSpace.csReadValueUnsigned(index, size)
+        self.main.debug("Cmos::readValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
+        return value
     cdef inline void writeValue(self, unsigned char index, unsigned int value, unsigned char size):
+        self.main.debug("Cmos::writeValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
         self.configSpace.csWriteValue(index, value, size)
     cdef void reset(self):
         cdef unsigned int memSizeInK, extMemSizeInK, extMemSizeIn64K

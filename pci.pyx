@@ -19,14 +19,13 @@ cdef class PciAddress:
         self.register = <unsigned char>address
 
 cdef class PciDevice:
-    def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):
+    def __init__(self, PciBus bus, Pci pci, unsigned char deviceIndex):
         self.bus = bus
         self.pci = pci
-        self.main = main
         self.deviceIndex = deviceIndex
         for i in range(7):
             self.barSize[i] = 0
-        self.configSpace = ConfigSpace(PCI_FUNCTION_CONFIG_SIZE, self.main)
+        self.configSpace = ConfigSpace(PCI_FUNCTION_CONFIG_SIZE, self.pci.main)
         self.configSpace.csWriteValue(PCI_HEADER_TYPE, PCI_HEADER_TYPE_STANDARD, OP_SIZE_BYTE)
     cdef void reset(self):
         pass
@@ -36,15 +35,15 @@ cdef class PciDevice:
         offset = mmAddress&0xff
         function = (mmAddress >> PCI_FUNCTION_SHIFT) & 0x7
         if (function): # TODO
-            self.main.debug("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", function)
+            self.pci.main.debug("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", function)
             return False
         if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BRIDGE_ROM_ADDRESS+OP_SIZE_DWORD):
             if ((offset & 3) != 0):
-                self.main.debug("PciDevice::checkWriteAccess: unaligned access!")
+                self.pci.main.debug("PciDevice::checkWriteAccess: unaligned access!")
             barIndex = (offset - 0x10) >> 2
             headerType = self.getData(PCI_HEADER_TYPE, OP_SIZE_BYTE)
             if (headerType >= 0x02):
-                self.main.debug("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
+                self.pci.main.debug("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
                 return True
             elif (headerType == 0x01):
                 if (offset in (PCI_BRIDGE_IO_BASE_LOW, PCI_BRIDGE_IO_LIMIT_LOW, PCI_BRIDGE_PREF_MEM_BASE_LOW, PCI_BRIDGE_PREF_MEM_LIMIT_LOW, \
@@ -62,7 +61,7 @@ cdef class PciDevice:
                     if (not self.barSize[barIndex]):
                         return False
                     elif (memBarType != 0): #if (memBarType in (1, 2, 3)):
-                        self.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", memBarType)
+                        self.pci.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", memBarType)
                         return True
                     elif (data == 0xfffffff0):
                         data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1)))
@@ -96,8 +95,8 @@ cdef class PciDevice:
         pass
 
 cdef class PciBridge(PciDevice):
-    def __init__(self, PciBus bus, Pci pci, object main, unsigned char deviceIndex):
-        PciDevice.__init__(self, bus, pci, main, deviceIndex)
+    def __init__(self, PciBus bus, Pci pci, unsigned char deviceIndex):
+        PciDevice.__init__(self, bus, pci, deviceIndex)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
         self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
         #self.setData(PCI_PRIMARY_BUS, 0, OP_SIZE_BYTE)
@@ -113,15 +112,14 @@ cdef class PciBridge(PciDevice):
         PciDevice.run(self)
 
 cdef class PciBus:
-    def __init__(self, Pci pci, object main, unsigned char busIndex):
+    def __init__(self, Pci pci, unsigned char busIndex):
         self.pci = pci
-        self.main = main
         self.busIndex = busIndex
-        self.deviceList = [PciBridge(self, self.pci, self.main, 0)]
+        self.deviceList = [PciBridge(self, self.pci, 0)]
     cdef PciDevice addDevice(self):
         cdef PciDevice pciDevice
         cdef unsigned char deviceLength = len(self.deviceList)
-        pciDevice = PciDevice(self, self.pci, self.main, deviceLength)
+        pciDevice = PciDevice(self, self.pci, deviceLength)
         pciDevice.run()
         self.deviceList.append(pciDevice)
         return pciDevice
@@ -143,11 +141,11 @@ cdef class PciBus:
 
 
 cdef class Pci:
-    def __init__(self, object main):
+    def __init__(self, Hirnwichse main):
         self.main = main
         self.pciReset = False
         self.address = self.elcr1 = self.elcr2 = 0
-        self.busList = [PciBus(self, self.main, 0)]
+        self.busList = [PciBus(self, 0)]
     cdef PciDevice addDevice(self):
         cdef PciBus pciBus
         cdef PciDevice pciDevice

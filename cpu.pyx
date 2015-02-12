@@ -11,7 +11,7 @@ from misc import HirnwichseException
 
 
 cdef class Cpu:
-    def __init__(self, object main):
+    def __init__(self, Hirnwichse main):
         self.main = main
     cdef void reset(self):
         self.savedCs  = 0xf000
@@ -24,12 +24,12 @@ cdef class Cpu:
     cdef inline void saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
         self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
-    cdef inline void setINTR(self, unsigned char state):
+    cdef void setINTR(self, unsigned char state):
         self.INTR = state
         if (state):
             self.asyncEvent = True
             self.cpuHalted = False
-    cdef inline void setHRQ(self, unsigned char state):
+    cdef void setHRQ(self, unsigned char state):
         self.HRQ = state
         if (state):
             self.asyncEvent = True
@@ -150,8 +150,8 @@ cdef class Cpu:
                     if (self.asyncEvent):
                         self.handleAsyncEvent()
                     else:
-                        if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
-                            (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()
+                        if (self.main.platform.vga and self.main.platform.vga.ui):
+                            self.main.platform.vga.ui.handleEventsWithoutWaiting()
                         sleep(0.2)
                         continue
                 self.doCycle()
@@ -180,8 +180,8 @@ cdef class Cpu:
             self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
             #self.cpuDump()
         if (<unsigned short>self.cycles == 0x00):
-            if (self.main.platform.vga and (<Vga>self.main.platform.vga).ui):
-                (<PysdlUI>(<Vga>self.main.platform.vga).ui).handleEventsWithoutWaiting()
+            if (self.main.platform.vga and self.main.platform.vga.ui):
+                self.main.platform.vga.ui.handleEventsWithoutWaiting()
         try:
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)

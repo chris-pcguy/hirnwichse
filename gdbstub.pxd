@@ -1,10 +1,11 @@
 
+from hirnwichse_main cimport Hirnwichse
 from misc cimport Misc
 from mm cimport Mm, MmArea
 from registers cimport Registers
 
 cdef class GDBStubHandler:
-    cpdef object main, connHandler
+    cpdef object connHandler
     cdef GDBStub gdbStub
     cdef bytes lastReadData, lastWrittenData, cmdStr
     cdef unsigned char cmdStrChecksum, cmdStrChecksumProof, readState, initSent
@@ -23,7 +24,8 @@ cdef class GDBStubHandler:
 
 
 cdef class GDBStub:
-    cpdef object main, server
+    cdef Hirnwichse main
+    cpdef object server
     cdef GDBStubHandler gdbHandler
     cpdef quitFunc(self)
     cpdef serveGDBStub(self)
