@@ -45,8 +45,12 @@ cdef class VGA_REGISTER_RAW:
     cdef void indexSub(self, unsigned short n):
         self.index -= n
     cdef unsigned int getData(self, unsigned char dataSize):
+        if (self.index >= self.configSpace.csSize):
+            return 0
         return self.configSpace.csReadValueUnsigned(self.index, dataSize)
     cdef void setData(self, unsigned int data, unsigned char dataSize):
+        if (self.index >= self.configSpace.csSize):
+            return
         self.configSpace.csWriteValue(self.index, data, dataSize)
 
 cdef class CRT(VGA_REGISTER_RAW):
@@ -220,7 +224,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
         self.setFlipFlop(False)
         self.setIndex(0)
     cdef void setIndex(self, unsigned short index):
-        VGA_REGISTER_RAW.setIndex(self, index&0x1f)
+        VGA_REGISTER_RAW.setIndex(self, index)
         self.paletteEnabled = (index & VGA_ATTRCTRLREG_PALETTE_ENABLED) == 0
     cdef void setFlipFlop(self, unsigned char flipFlop):
         self.flipFlop = flipFlop

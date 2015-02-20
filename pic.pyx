@@ -160,7 +160,7 @@ cdef class Pic:
         (<PicChannel>self.channels[channel]).edgeLevel = edgeLevel
     cdef void raiseIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
-        self.main.debug("Pic::raiseIrq: irq=={0:d}", irq)
+        #self.main.notice("Pic::raiseIrq: irq=={0:d}", irq)
         if (irq > 15):
             self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", irq)
             return
@@ -170,7 +170,7 @@ cdef class Pic:
         (<PicChannel>self.channels[ma_sl]).raiseIrq(irq)
     cdef void lowerIrq(self, unsigned char irq):
         cdef unsigned char ma_sl = False
-        self.main.debug("Pic::lowerIrq: irq=={0:d}", irq)
+        #self.main.notice("Pic::lowerIrq: irq=={0:d}", irq)
         if (irq > 15):
             self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", irq)
             return
@@ -200,6 +200,7 @@ cdef class Pic:
         self.main.cpu.setINTR(False)
         master.intr = False
         if (not master.irr):
+            self.main.notice("Pic::IAC: spurious master irq=={0:d}", master.irq)
             return master.getIrqBasePort()+7
         if (not (master.edgeLevel & (1 << master.irq))):
             master.irr &= ~(1 << master.irq)
@@ -213,6 +214,7 @@ cdef class Pic:
             slave.intr = False
             master.IRQ_in &= 0xfb
             if (not slave.irr):
+                self.main.notice("Pic::IAC: spurious slave irq=={0:d}", slave.irq)
                 return slave.getIrqBasePort()+7
             vector = slave.getIrqBasePort() + slave.irq
             if (not (slave.edgeLevel & (1 << slave.irq))):

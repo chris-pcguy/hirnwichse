@@ -39,7 +39,21 @@ DEF FDC_CMD_MF = 0x40 # command is using mfm
 DEF FDC_CMD_MT = 0x80 # command is using multi-track
 DEF FDC_SECTOR_SIZE = 512
 
-DEF FDC_CMDLENGTH_TABLE = (0, 0, 0, 3, 2, 9, 9, 2, 1, 0, 2, 0, 0, 0, 10, 3, 1)
+#DEF FDC_CMDLENGTH_TABLE = (0, 0, 0, 3, 2, 9, 9, 2, 1, 0, 2, 0, 0, 0, 10, 3, 1)
+cdef list FDC_CMDLENGTH_TABLE = [0]*0x95
+FDC_CMDLENGTH_TABLE[0x03] = 3
+FDC_CMDLENGTH_TABLE[0x04] = 2
+FDC_CMDLENGTH_TABLE[0x05] = 9
+FDC_CMDLENGTH_TABLE[0x06] = 9
+FDC_CMDLENGTH_TABLE[0x07] = 2
+FDC_CMDLENGTH_TABLE[0x08] = 1
+FDC_CMDLENGTH_TABLE[0x0a] = 2
+FDC_CMDLENGTH_TABLE[0x0e] = 10
+FDC_CMDLENGTH_TABLE[0x0f] = 3
+FDC_CMDLENGTH_TABLE[0x10] = 1
+FDC_CMDLENGTH_TABLE[0x13] = 4
+FDC_CMDLENGTH_TABLE[0x14] = 1
+FDC_CMDLENGTH_TABLE[0x94] = 1
 
 
 cdef class FloppyMedia:
@@ -201,6 +215,9 @@ cdef class FloppyController:
         if (hwReset):
             self.DOR = FDC_DOR_NORESET | FDC_DOR_DMA
             self.dataRate = 2
+            self.lock = 0
+        if (not self.lock):
+            self.config = self.precomp = 0
         for i in range(4):
             if (hwReset):
                 (<FloppyDrive>self.drive[i]).DIR |= 0x80
@@ -322,17 +339,6 @@ cdef class FloppyController:
             elif (cmd == 0x8):
                 self.addToResult(self.st0)
                 self.addToResult((<FloppyDrive>self.drive[drive]).cylinder)
-            elif (cmd == 0xe):
-                self.addToResult((<FloppyDrive>self.drive[0]).cylinder)
-                self.addToResult((<FloppyDrive>self.drive[1]).cylinder)
-                self.addToResult(0x00)
-                self.addToResult(0x00)
-                self.addToResult(0x00)
-                self.addToResult((self.msr & FDC_MSR_NODMA) != 0)
-                self.addToResult((<FloppyDrive>self.drive[drive]).eot)
-                self.addToResult(0x00)
-                self.addToResult(0x00)
-                self.addToResult(0x00)
             elif (cmd in (0x5, 0x6, 0xa, 0xd)):
                 self.addToResult(self.st0)
                 self.addToResult(self.st1)
@@ -342,8 +348,21 @@ cdef class FloppyController:
                 self.addToResult((<FloppyDrive>self.drive[drive]).sector)
                 self.addToResult(2)
                 self.raiseFloppyIrq()
+            elif (cmd == 0xe):
+                self.addToResult((<FloppyDrive>self.drive[0]).cylinder)
+                self.addToResult((<FloppyDrive>self.drive[1]).cylinder)
+                self.addToResult(0x00) # drive[2] cylinder
+                self.addToResult(0x00) # drive[3] cylinder
+                self.addToResult(0x00)
+                self.addToResult((self.msr & FDC_MSR_NODMA) != 0)
+                self.addToResult((<FloppyDrive>self.drive[drive]).eot)
+                self.addToResult(self.lock << 7)
+                self.addToResult(self.config)
+                self.addToResult(self.precomp)
             elif (cmd == 0x10):
                 self.addToResult(0x90)
+            elif (cmd in (0x14, 0x94)):
+                self.addToResult(self.lock << 4)
             else:
                 self.main.exitError("FDC_CTRL::handleResult: unknown command: {0:#04x}", cmd)
         else:
@@ -438,7 +457,7 @@ cdef class FloppyController:
             if (logicalSector >= (<FloppyDrive>self.drive[drive]).media.sectors):
                 self.main.exitError("FDC: logical sector out of bounds")
                 return
-            
+
             if (not eot):
                 eot = (<FloppyDrive>self.drive[drive]).media.sectorsPerTrack
 
@@ -489,12 +508,6 @@ cdef class FloppyController:
                 self.st0 = 0x80
             self.handleResult()
             return
-        elif (cmd == 0xe): # dump registers
-            self.handleResult()
-            return
-        elif (cmd == 0x10): # get version
-            self.handleResult()
-            return
         elif (cmd == 0xa): # read id
             drive = self.command[1] & 0x3
             (<FloppyDrive>self.drive[drive]).head = (self.command[1] >> 2) & 0x1
@@ -508,6 +521,24 @@ cdef class FloppyController:
             self.st0 = ((<FloppyDrive>self.drive[drive]).head << 2) | drive
             self.msr &= FDC_MSR_NODMA
             self.msr |= FDC_MSR_BUSY
+            self.handleResult()
+            return
+        elif (cmd == 0xe): # dump registers
+            self.handleResult()
+            return
+        elif (cmd == 0x10): # get version
+            self.handleResult()
+            return
+        elif (cmd == 0x13): # configure
+            self.config = self.command[2]
+            self.precomp = self.command[3]
+            self.handleIdle()
+            return
+        elif (cmd in (0x14, 0x94)): # lock/unlock
+            if (cmd == 0x14):
+                self.lock = True
+            else:
+                self.lock = False
             self.handleResult()
             return
         else:

@@ -26,16 +26,19 @@ cdef class PitChannel:
         self.readBackStatusValue |= self.counterMode<<1
         self.readBackStatusValue |= self.counterWriteMode<<4
     cpdef mode0Func(self):
-        self.timerEnabled = False
+        if (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
+            (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
         with nogil:
             usleep(int(self.tempTimerValue))
         self.counterValue = 0
         if (self.channelId == 0): # just raise IRQ on channel0
+            (<Pic>self.pit.main.platform.pic).lowerIrq(0)
             (<Pic>self.pit.main.platform.pic).raiseIrq(0)
         elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
             (<PS2>self.pit.main.platform.ps2).ppcbT2Out = True
         else:
             self.pit.main.notice("mode0Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
+        self.timerEnabled = False
     cpdef mode2Func(self): # TODO
         cdef unsigned char clear
         while (self.timerEnabled and self.counterValue and (not self.pit.main.quitEmu)):
@@ -91,10 +94,6 @@ cdef class PitChannel:
             self.pit.main.exitError("runTimer: is it ok to use mode-{0:d} with channelId-{1:d} and cpu clock measures?", \
               self.counterMode, self.channelId)
             return
-        if (self.channelId == 0):
-            (<Pic>self.pit.main.platform.pic).lowerIrq(0)
-        elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
-            (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
         self.timerEnabled = False
         if (self.threadObject):
             self.threadObject.join()
@@ -111,7 +110,7 @@ cdef class Pit:
     cpdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef PitChannel channel
         cdef unsigned char channelId, retVal
-        self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
+        self.main.debug("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
@@ -138,7 +137,7 @@ cdef class Pit:
                     channel.counterFlipFlop = not channel.counterFlipFlop
                 else:
                     self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", channel.counterWriteMode)
-                self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
+                self.main.debug("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
                 return retVal
             elif (ioPortAddr == 0x43):
                 self.main.notice("inPort: read from PIT command port 0x43 is ignored.")
@@ -151,7 +150,7 @@ cdef class Pit:
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef PitChannel channel
         cdef unsigned char channelId, bcd, modeNumber, counterWriteMode, i
-        self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
+        self.main.debug("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3

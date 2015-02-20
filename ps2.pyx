@@ -34,7 +34,7 @@ cdef class PS2:
         self.lastUsedCmd = 0
         self.ppcbT2Gate = self.ppcbT2Spkr = self.ppcbT2Out = False
         self.irq1Requested = self.irq12Requested = self.sysf = False
-        self.outb = self.inb = self.batInProgress = False
+        self.outb = self.inb = self.batInProgress = self.timeout = False
         self.kbdClockEnabled = self.allowIrq1 = True
         self.translateScancodes = self.scanningEnabled = True
         self.timerPending = 0
@@ -111,7 +111,7 @@ cdef class PS2:
         cdef unsigned char retByte
         retByte = 0
         if (dataSize == OP_SIZE_BYTE):
-            self.main.debug("PS2: inPort_1: port {0:#04x}; savedCs=={1:#06x}; savedEip=={2:#06x}", ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
+            self.main.notice("PS2: inPort_1: port {0:#04x}; savedCs=={1:#06x}; savedEip=={2:#06x}", ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x64):
                 if (len(self.mouseBuffer)):
                     self.outb = True # TODO: HACK
@@ -121,10 +121,12 @@ cdef class PS2:
                     #    self.irq1Requested = True
                     #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
                 retByte = (0x10 | \
+                        (self.timeout << 6) | \
                         ((self.lastUsedPort != 0x60) << 3) | \
                         (self.sysf << 2) | \
                         (self.inb << 1) | \
                         self.outb)
+                self.timeout = False
                 self.main.debug("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x60):
@@ -171,7 +173,7 @@ cdef class PS2:
         return 0
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
-            self.main.debug("PS2: outPort: port {0:#04x} ; data {1:#04x}", ioPortAddr, data)
+            self.main.notice("PS2: outPort: port {0:#04x} ; data {1:#04x}", ioPortAddr, data)
             if (ioPortAddr == 0x60):
                 if (not self.needWriteBytes):
                     if (not self.kbdClockEnabled):
@@ -219,7 +221,6 @@ cdef class PS2:
                         self.appendToOutBytes(b'\xfa')
                         self.batInProgress = True
                         self.appendToOutBytes(b'\xaa')
-                        self.appendToOutBytes(b'\x00') # TODO: is this needed?
                     elif (data in (0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd)):
                         self.appendToOutBytes(b'\xfe')
                     else:
@@ -235,17 +236,21 @@ cdef class PS2:
                                 (<Cpu>self.main.cpu).reset()
                         elif (self.lastUsedCmd == 0xd4): # port 0x64
                             self.main.debug("outPort: self.lastUsedPort == 0x64; self.lastUsedCmd == 0xd4. (port {0:#04x}; data {1:#04x}; self.needWriteBytesMouse {2:d})", ioPortAddr, data, self.needWriteBytesMouse)
-                            self.appendToOutBytesMouse(b'\xfa')
-                            if (self.needWriteBytesMouse > 0):
-                                self.needWriteBytesMouse -= 1
-                            else:
-                                if (data == 0xf2):
-                                    self.appendToOutBytesMouse(b'\x00')
-                                elif (data == 0xf3):
-                                    self.needWriteBytesMouse = 1
-                                elif (data == 0xff):
-                                    self.appendToOutBytesMouse(b'\xaa')
-                                    self.appendToOutBytesMouse(b'\x00') # TODO: is this needed?
+                            IF 0: # mouse present
+                                self.appendToOutBytesMouse(b'\xfa')
+                                if (self.needWriteBytesMouse > 0):
+                                    self.needWriteBytesMouse -= 1
+                                else:
+                                    if (data == 0xf2):
+                                        self.appendToOutBytesMouse(b'\x00')
+                                    elif (data == 0xf3):
+                                        self.needWriteBytesMouse = 1
+                                    elif (data == 0xff):
+                                        self.appendToOutBytesMouse(b'\xaa')
+                                        self.appendToOutBytesMouse(b'\x00')
+                            ELSE:
+                                self.appendToOutBytesMouse(b'\xfe')
+                                self.timeout = True
                         elif (self.lastUsedCmd == 0x60): # port 0x64
                             self.translateScancodes = (data >> 6)&1
                             self.setKbdClockEnable(not ((data >> 4)&1))
@@ -329,7 +334,7 @@ cdef class PS2:
                     self.lastUsedCmd = data
             elif (ioPortAddr == 0x61):
                 if (data & PORT_61H_LOWER_TIMER_IRQ):
-                    self.main.debug("PS2::outPort: lowerIrq")
+                    self.main.notice("PS2::outPort: timer lowerIrq")
                     (<Pic>self.main.platform.pic).lowerIrq(TIMER_IRQ)
                 #else:
                 #    (<Pic>self.main.platform.pic).raiseIrq(TIMER_IRQ)

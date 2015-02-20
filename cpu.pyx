@@ -171,6 +171,7 @@ cdef class Cpu:
             self.exception(CPU_EXCEPTION_DB, -1)
             return
         if (self.asyncEvent):
+            self.saveCurrentInstPointer()
             self.handleAsyncEvent()
         self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
         if (self.opcode in OPCODE_PREFIXES):

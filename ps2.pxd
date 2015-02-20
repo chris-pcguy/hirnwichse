@@ -9,7 +9,7 @@ cdef class PS2:
     cdef Hirnwichse main
     cdef public unsigned char ppcbT2Gate, ppcbT2Spkr, ppcbT2Out, kbdClockEnabled
     cdef unsigned char lastUsedPort, lastUsedCmd, needWriteBytes, needWriteBytesMouse, irq1Requested, allowIrq1, irq12Requested, allowIrq12, sysf, \
-                        translateScancodes, currentScancodesSet, scanningEnabled, inb, outb, batInProgress, timerPending
+                        translateScancodes, currentScancodesSet, scanningEnabled, inb, outb, batInProgress, timerPending, timeout
     cdef bytes outBuffer, mouseBuffer
     cdef void resetInternals(self, unsigned char powerUp)
     cdef void initDevice(self)
