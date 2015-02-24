@@ -220,8 +220,8 @@ cdef class GDBStubHandler:
             hexToSend = bytes()
             while (memLength != 0 and not self.gdbStub.main.quitEmu):
                 blockSize = min(memLength, MAX_PACKET_DATA_SIZE)
-                mmArea = (<Mm>self.gdbStub.main.mm).mmGetArea(memAddr)
-                if (mmArea is not None and mmArea.valid):
+                mmArea = (<Mm>self.gdbStub.main.mm).mmAreas[memAddr >> 20]
+                if (mmArea.valid):
                     currData = (<Mm>self.gdbStub.main.mm).mmPhyRead(memAddr, blockSize)
                 else:
                     currData = b'\x00'*blockSize

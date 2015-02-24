@@ -16,33 +16,30 @@ ctypedef unsigned short unsigned_short
 ctypedef unsigned int unsigned_int
 ctypedef unsigned long int unsigned_long_int
 
-
 ctypedef bytes (*MmAreaReadType)(self, MmArea, unsigned int, unsigned int)
 ctypedef void (*MmAreaWriteType)(self, MmArea, unsigned int, char *, unsigned int)
 
+ctypedef struct MmArea:
+    unsigned char readOnly, valid
+    unsigned short mmIndex
+    MmAreaReadType readHandler
+    MmAreaWriteType writeHandler
+    char *data
+
 from hirnwichse_main cimport Hirnwichse
-
-cdef class MmArea:
-    cdef unsigned char readOnly, valid
-    cdef char *data
-    cdef object readClass
-    cdef object writeClass
-    cdef MmAreaReadType readHandler
-    cdef MmAreaWriteType writeHandler
-
 
 cdef class Mm:
     cdef Hirnwichse main
-    cdef tuple mmAreas
-    cdef MmArea mmAddArea(self, unsigned int mmBaseAddr, unsigned char mmReadOnly)
-    cdef void mmMallocArea(self, MmArea mmArea, unsigned char clearByte)
-    cdef MmArea mmGetArea(self, unsigned int mmAddr)
-    cdef tuple mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize)
-    cdef void mmSetReadOnly(self, unsigned int mmAddr, unsigned char mmReadOnly)
+    cdef MmArea mmAreas[MM_NUMAREAS]
+    cdef void mmAddArea(self, unsigned short mmIndex, unsigned char mmReadOnly)
+    cdef void mmGetAreasCount(self, unsigned int mmAddr, unsigned int dataSize, unsigned short *begin, unsigned short *end)
+    cdef void mmSetReadOnly(self, unsigned short mmIndex, unsigned char mmReadOnly)
     cdef inline char *mmGetDataPointer(self, MmArea mmArea, unsigned int offset):
         return <char*>(mmArea.data+offset)
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
+    cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
+    cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize)
     cdef inline signed char mmPhyReadValueSignedByte(self, unsigned int mmAddr):
         return <signed char>self.mmPhyReadValueUnsignedByte(mmAddr)

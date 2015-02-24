@@ -815,7 +815,7 @@ cdef class Registers:
         if (self.protectedModeOn and self.pagingOn): # TODO: is a20 even being applied after paging is enabled? (on the physical address... or even the virtual one?)
             mmAddr = (<Paging>(<Segments>self.segments).paging).getPhysicalAddress(mmAddr, written)
         if (not self.A20Active): # A20 Active? if True == on, else off
-            mmAddr &= 0xffefffff
+            mmAddr &= <unsigned int>0xffefffff
         return mmAddr
     cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride):
         cdef bytes ret

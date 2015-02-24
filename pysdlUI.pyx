@@ -80,7 +80,7 @@ cdef class PysdlUI:
             #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
             if (self.renderer):
                 #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
-                self.renderer.draw_point((x, y), colorObject)
+                self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
             #return newRect
         except:
             print_exc()

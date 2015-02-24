@@ -1,6 +1,5 @@
 
 from hirnwichse_main cimport Hirnwichse
-from mm cimport MmArea, MmAreaReadType, MmAreaWriteType
 from cmos cimport Cmos
 from isadma cimport IsaDma
 from pic cimport Pic
@@ -16,7 +15,6 @@ from gdbstub cimport GDBStub
 
 ctypedef unsigned int (*InPort)(self, unsigned short, unsigned char)
 ctypedef void (*OutPort)(self, unsigned short, unsigned int, unsigned char)
-
 
 cdef class PortHandler:
     cdef tuple ports
@@ -51,8 +49,6 @@ cdef class Platform:
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize)
     cdef void loadRom(self, bytes romFileName, unsigned long int mmAddr, unsigned char isRomOptional)
-    cdef bytes systemReadHandler(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
-    cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
     cdef void initMemory(self)
     cdef void initDevicesPorts(self)
     cdef void runDevices(self)

@@ -58,8 +58,7 @@ cdef class CRT(VGA_REGISTER_RAW):
         VGA_REGISTER_RAW.__init__(self, VGA_CRT_AREA_SIZE, vga)
         self.protectRegisters = False
     cdef void setData(self, unsigned int data, unsigned char dataSize):
-        cdef unsigned char temp
-        cdef unsigned int temp2
+        cdef unsigned int temp
         cdef unsigned short index = self.getIndex()
         if (self.protectRegisters):
             if (index >= 0x00 and index <= 0x06):
@@ -76,16 +75,13 @@ cdef class CRT(VGA_REGISTER_RAW):
         elif (index == VGA_CRT_MAX_SCANLINE_REG_INDEX):
             self.vga.charHeight = (data&0x1f)+1
         elif (index in (0x0c, 0x0d)):
-            temp2 = self.vga.startAddress
+            temp = self.vga.startAddress
             self.vga.startAddress = self.configSpace.csReadValueUnsignedBE(0xc, OP_SIZE_WORD)
-            if (temp2 != self.vga.startAddress):
-                temp = self.vga.writeMap
-                self.vga.writeMap = 0
-                temp2 = self.vga.startAddress
+            if (temp != self.vga.startAddress):
+                temp = self.vga.startAddress
                 if (not self.vga.graphicalMode):
-                    temp2 <<= 1
-                self.vga.main.mm.mmPhyCopy(self.vga.videoMemBase+temp2, self.vga.videoMemBase+temp2, self.vga.videoMemSize-temp2)
-                self.vga.writeMap = temp
+                    temp <<= 1
+                self.vga.refreshScreenFunction(self.vga.videoMemBase+temp, self.vga.videoMemSize-temp)
         elif (index == 0x11):
             self.protectRegisters = (data&VGA_CRT_PROTECT_REGISTERS) != 0
         elif (index == VGA_CRT_VDE_REG_INDEX):
@@ -138,6 +134,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
         if (self.writeCycle >= 3):
             self.writeCycle = 0
             self.writeIndex += 1
+            self.vga.refreshScreen = True
     cdef unsigned char getMask(self):
         return self.mask
     cdef unsigned char getState(self):
@@ -257,8 +254,8 @@ cdef class Vga:
         self.videoMemBase = 0xb8000
         self.videoMemSize = 0x08000
         self.needLoadFont = False
-        self.readMap = self.writeMap = self.charSelA = self.charSelB = self.chain4 = self.oddEvenReadDisabled = self.oddEvenWriteDisabled = self.extMem = self.readMode = \
-            self.writeMode = self.resetReg = self.enableResetReg = self.logicOp = self.rotateCount = self.graphicalMode = self.palette54 = self.enable8Bit = self.shift256 = self.colorSelect = self.colorCompare = self.startAddress = self.lastDacIndex = 0
+        self.readMap = self.writeMap = self.charSelA = self.charSelB = self.chain4 = self.chainOddEven = self.oddEvenReadDisabled = self.oddEvenWriteDisabled = self.extMem = self.readMode = \
+            self.writeMode = self.resetReg = self.enableResetReg = self.logicOp = self.rotateCount = self.graphicalMode = self.palette54 = self.enable8Bit = self.shift256 = self.colorSelect = self.colorCompare = self.startAddress = self.lastDacIndex = self.refreshScreen = 0
         self.colorDontCare = self.colorPlaneEnable = 0xf
         self.offset = 80
         self.bitMask = 0xff
@@ -273,6 +270,7 @@ cdef class Vga:
         self.processVideoMem = True
         self.newTimer = self.oldTimer = 0.0
         self.latchReg = [0, 0, 0, 0]
+        self.mmArea = self.main.mm.mmAreas[0]
         self.plane0 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane1 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane2 = ConfigSpace(VGA_PLANE_SIZE, self.main)
@@ -355,7 +353,13 @@ cdef class Vga:
             data = 0xff if (self.resetReg & (1 << plane)) else 0x00
         data = ((data & bitMask) | (self.latchReg[plane] & (~bitMask)))
         return data
-    cdef bytes vgaAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
+    cdef void refreshScreenFunction(self, unsigned int offset, unsigned int dataSize):
+        cdef unsigned char temp
+        temp = self.writeMap
+        self.writeMap = 0
+        self.vgaAreaWrite(offset, dataSize)
+        self.writeMap = temp
+    cdef bytes vgaAreaRead(self, unsigned int offset, unsigned int dataSize):
         cdef unsigned int latchReg
         cdef unsigned char selectedPlanes
         cdef unsigned int tempOffset, i
@@ -369,17 +373,17 @@ cdef class Vga:
             return b'\x00'*dataSize
         if (offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize)):
             retStr = b''
-            if (not self.readMode):
-                for i in range(dataSize):
-                    tempOffset = (offset+i-self.videoMemBase)
-                    if (self.chain4):
-                        selectedPlanes = (tempOffset & 3)
-                        tempOffset &= 0xfffc
-                    elif (not self.oddEvenReadDisabled):
-                        selectedPlanes = (tempOffset & 1)
-                        tempOffset &= 0xfffe
-                    else:
-                        selectedPlanes = self.readMap
+            for i in range(dataSize):
+                tempOffset = (offset+i-self.videoMemBase)
+                if (self.chain4):
+                    selectedPlanes = (tempOffset & 3)
+                    tempOffset &= 0xfffc
+                elif (not self.chainOddEven and not self.oddEvenReadDisabled):
+                    selectedPlanes = (tempOffset & 1)
+                    tempOffset &= 0xfffe
+                else:
+                    selectedPlanes = self.readMap
+                if (not self.readMode):
                     self.main.debug("VGA::vgaAreaRead: selectedPlanes=={0:d}; chain4=={1:d}; not oERD=={2:d}; readMap=={3:d}; dataSize=={4:d}; i=={5:d}, tempOffset=={6:#06x}; offset=={7:#07x}; vMB=={8:#07x}; sA=={9:#07x}", selectedPlanes, self.chain4, not self.oddEvenReadDisabled, self.readMap, dataSize, i, tempOffset, offset, self.videoMemBase, self.startAddress)
                     if (not selectedPlanes):
                         retStr += bytes([(<unsigned char>self.plane0.csData[tempOffset])])
@@ -407,31 +411,33 @@ cdef class Vga:
                     return b'\x00'*dataSize
             return retStr
         self.main.notice("VGA::vgaAreaRead: test1: offset=={0:#07x}; dataSize=={1:d}", offset, dataSize)
-        return self.main.mm.mmAreaRead(mmArea, offset, dataSize)
-    cdef void vgaAreaWrite(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
+        #return self.main.mm.mmAreaRead(self.mmArea, offset, dataSize)
+        return self.mmArea.data[offset:offset+dataSize]
+    cdef void vgaAreaWrite(self, unsigned int offset, unsigned int dataSize):
         #cdef list rectList
         cdef unsigned char selectedPlanes, data, color
         cdef unsigned short x, y, rows
         cdef unsigned int tempOffset, i, j, k, pixelData
-        self.main.notice("VGA::vgaAreaWrite: offset=={0:#07x}; dataSize=={1:d}; data=={2:s}", offset, dataSize, repr(mmArea.data[offset:offset+dataSize]))
+        self.main.notice("VGA::vgaAreaWrite: offset=={0:#07x}; dataSize=={1:d}; data=={2:s}", offset, dataSize, repr(self.mmArea.data[offset:offset+dataSize]))
         if (not self.ui):
             return
         if (not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
             return
+        if (self.refreshScreen): # TODO: FIXME: HACK
+            self.refreshScreen = False
+            if (dataSize != self.videoMemSize):
+                self.refreshScreenFunction(self.videoMemBase, self.videoMemSize)
         if (self.writeMap and offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize)):
             for i in range(dataSize):
                 selectedPlanes = self.writeMap
                 tempOffset = (offset+i-self.videoMemBase)
-                if (self.chain4):
-                    selectedPlanes &= (tempOffset & 3)
-                    tempOffset &= 0xfffc
-                elif (not self.oddEvenWriteDisabled):
+                if (not self.chainOddEven and not self.oddEvenWriteDisabled):
                     if ((tempOffset & 1) == 0):
                         selectedPlanes &= 5 # plane 0 and 2
                     else:
                         selectedPlanes &= 10 # plane 1 and 3
                     tempOffset &= 0xfffe
-                data = mmArea.data[offset+i]
+                data = self.mmArea.data[offset+i]
                 if (selectedPlanes & 1):
                     self.plane0.csWriteValue(tempOffset, self.translateByte(data, 0), OP_SIZE_BYTE)
                 if (selectedPlanes & 2):
@@ -440,6 +446,7 @@ cdef class Vga:
                     self.plane2.csWriteValue(tempOffset, self.translateByte(data, 2), OP_SIZE_BYTE)
                 if (selectedPlanes & 8):
                     self.plane3.csWriteValue(tempOffset, self.translateByte(data, 3), OP_SIZE_BYTE)
+        rows = (self.vde+1)
         tempOffset = (offset-self.videoMemBase)
         if (self.graphicalMode):
             if (not self.chain4 and (tempOffset >= VGA_PLANE_SIZE or dataSize > VGA_PLANE_SIZE)):
@@ -451,8 +458,10 @@ cdef class Vga:
                 pixelData |= (<unsigned char>self.plane2.csData[tempOffset])<<16
                 pixelData |= (<unsigned char>self.plane3.csData[tempOffset])<<24
                 y, x = divmod((tempOffset-self.startAddress)%self.videoMemSize, self.offset)
+                y *= self.charHeight
+                if (y >= rows):
+                    break
                 if (not self.chain4):
-                    #y *= self.charHeight
                     for i in range(8):
                         if (not self.shift256):
                             color = 0
@@ -472,19 +481,18 @@ cdef class Vga:
                                 color >>= 4
                         #self.main.notice("Vga::vgaAreaWrite: putPixel: (x<<3)+i: {0:d}; y: {1:d}; color: {2:#04x}", (x<<3)+i, y, color)
                         #self.main.notice("Vga::vgaAreaWrite: putPixel: test2: EIP: {0:#06x}, CS: {1:#06x}", self.main.cpu.savedEip, self.main.cpu.savedCs)
-                        #for k in range(self.charHeight):
-                        #    self.ui.putPixel((x<<3)+i, y+k, color)
-                        self.ui.putPixel((x<<3)+i, y, color)
+                        for k in range(self.charHeight):
+                            self.ui.putPixel((x<<3)+i, y+k, color)
+                        #self.ui.putPixel((x<<3)+i, y, color)
                 else:
                     selectedPlanes = tempOffset&3
                     color = (pixelData >> (selectedPlanes<<3))
-                    #y *= self.charHeight
                     if (not self.enable8Bit):
                         self.main.exitError("Vga::vgaAreaWrite: TODO: not enable8Bit")
                         return
-                    #for k in range(self.charHeight):
-                    #    self.ui.putPixel(x, y+k, color)
-                    self.ui.putPixel(x, y, color)
+                    for k in range(self.charHeight):
+                        self.ui.putPixel(x, y+k, color)
+                    #self.ui.putPixel(x, y, color)
                 tempOffset += 1
             self.newTimer = time()
             if (self.newTimer - self.oldTimer >= 0.05):
@@ -496,9 +504,9 @@ cdef class Vga:
         #rectList = list()
         if (self.chain4):
             tempOffset &= 0xfffc
-        elif (not self.oddEvenWriteDisabled):
+        elif (not self.chainOddEven and not self.oddEvenWriteDisabled):
             tempOffset &= 0xfffe
-        rows = (self.vde+1)//self.charHeight
+        rows //= self.charHeight
         dataSize = max(1, dataSize>>1)
         for i in range(dataSize):
             y, x = divmod((tempOffset-(self.startAddress<<1))%self.videoMemSize, self.offset)

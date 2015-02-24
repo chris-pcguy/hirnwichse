@@ -28,6 +28,7 @@ cdef class PortHandler:
         self.inPort = self.outPort = NULL
 
 
+
 cdef class Platform:
     def __init__(self, Hirnwichse main):
         self.main = main
@@ -212,37 +213,19 @@ cdef class Platform:
         self.loadRomToMem(romFileName, mmAddr, romSize)
         if (not isRomOptional):
             self.main.mm.mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
-    cdef bytes systemReadHandler(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
-        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE):
-            return self.vga.vgaAreaRead(mmArea, offset, dataSize)
-        return self.main.mm.mmAreaRead(mmArea, offset, dataSize)
-    cdef void systemWriteHandler(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
-        self.main.mm.mmAreaWrite(mmArea, offset, data, dataSize)
-        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE):
-            self.vga.vgaAreaWrite(mmArea, offset, dataSize)
     cdef void initMemory(self):
-        cdef MmArea biosMmArea, romMmArea
         cdef unsigned int i
         if (not self.main or not self.main.mm or not self.main.memSize):
             self.main.exitError("X86Platform::initMemory: not self.main or not self.main.mm or not self.main.memSize")
             return
         for i in range(self.main.memSize):
-            self.main.mm.mmAddArea(SIZE_1MB*i, False)
-        romMmArea = self.main.mm.mmAddArea(0xfff00000, False)
-        self.main.mm.mmAddArea(PCI_MEM_BASE, False)
+            self.main.mm.mmAddArea(i, False)
+        self.main.mm.mmAddArea(MM_NUMAREAS - 1, False)
+        self.main.mm.mmAddArea(PCI_MEM_BASE >> 20, False)
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
         if (self.main.vgaBiosFilename):
-            ##self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), VGA_ROM_BASE, True)
             self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), VGA_ROM_BASE, True)
-        biosMmArea = self.main.mm.mmGetArea(0x0) # this would include the whole first megabyte.
-        if (biosMmArea is None or not biosMmArea.valid):
-            self.main.exitError("X86Platform::initMemory: biosMmArea is invalid!")
-            return
-        biosMmArea.readClass = self
-        biosMmArea.readHandler = <MmAreaReadType>self.systemReadHandler
-        biosMmArea.writeClass = self
-        biosMmArea.writeHandler = <MmAreaWriteType>self.systemWriteHandler
-        romMmArea.readOnly = True
+        self.main.mm.mmSetReadOnly(MM_NUMAREAS - 1, True)
     cdef void initDevicesPorts(self):
         self.addReadHandlers((0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
         self.addWriteHandlers((0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)

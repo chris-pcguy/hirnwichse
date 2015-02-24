@@ -6,34 +6,25 @@ include "cpu_globals.pxi"
 
 from atexit import register
 
-DEF MM_NUMAREAS = 4096
-
-cdef class MmArea:
-    def __init__(self):
-        self.valid = False
-        self.data = NULL
 
 cdef class Mm:
     def __init__(self, Hirnwichse main):
-        cdef unsigned int i
-        cdef list mmAreas
+        cdef unsigned short i
         self.main = main
-        mmAreas = []
         for i in range(MM_NUMAREAS):
-            mmAreas.append(MmArea())
-        self.mmAreas = tuple(mmAreas+mmAreas)
-    cdef MmArea mmAddArea(self, unsigned int start, unsigned char readOnly):
+            self.mmAreas[i].valid = False
+            self.mmAreas[i].readOnly = True
+            self.mmAreas[i].mmIndex = i
+            self.mmAreas[i].data = NULL
+            if (not i):
+                self.mmAreas[i].readHandler = <MmAreaReadType>self.mmAreaReadSystem
+                self.mmAreas[i].writeHandler = <MmAreaWriteType>self.mmAreaWriteSystem
+            else:
+                self.mmAreas[i].readHandler = <MmAreaReadType>self.mmAreaRead
+                self.mmAreas[i].writeHandler = <MmAreaWriteType>self.mmAreaWrite
+    cdef void mmAddArea(self, unsigned short mmIndex, unsigned char readOnly):
         cdef MmArea mmArea
-        mmArea = self.mmGetArea(start)
-        mmArea.valid = True
-        mmArea.readOnly = readOnly
-        self.mmMallocArea(mmArea, 0x00)
-        mmArea.readClass  = self
-        mmArea.writeClass = self
-        mmArea.readHandler  = <MmAreaReadType>self.mmAreaRead
-        mmArea.writeHandler = <MmAreaWriteType>self.mmAreaWrite
-        return mmArea
-    cdef void mmMallocArea(self, MmArea mmArea, unsigned char clearByte):
+        mmArea = self.mmAreas[mmIndex]
         if (mmArea.data is NULL):
             with nogil:
                 mmArea.data = <char*>malloc(SIZE_1MB)
@@ -41,41 +32,47 @@ cdef class Mm:
                 self.main.exitError("Mm::mmAddArea: not mmArea.data.")
                 return
         with nogil:
-            memset(mmArea.data, clearByte, SIZE_1MB)
-    cdef MmArea mmGetArea(self, unsigned int mmAddr):
-        mmAddr >>= 20
-        return self.mmAreas[mmAddr]
-    cdef tuple mmGetAreas(self, unsigned int mmAddr, unsigned int dataSize):
-        cdef MmArea mmArea
-        cdef unsigned short begin, end
-        cdef tuple mmAreas
-        end = ((mmAddr+dataSize-1) >> 20) + 1
-        begin = (mmAddr) >> 20
-        mmAreas = self.mmAreas[begin:end]
-        return mmAreas
-    cdef void mmSetReadOnly(self, unsigned int mmAddr, unsigned char readOnly):
-        cdef MmArea mmArea = self.mmGetArea(mmAddr)
-        if (not mmArea.valid):
+            memset(mmArea.data, 0, SIZE_1MB)
+        mmArea.valid = True
+        mmArea.readOnly = readOnly
+        self.mmAreas[mmIndex] = mmArea
+    cdef void mmGetAreasCount(self, unsigned int mmAddr, unsigned int dataSize, unsigned short *begin, unsigned short *end):
+        begin[0] = mmAddr >> 20
+        end[0] = ((mmAddr+dataSize-1) >> 20) + 1
+    cdef void mmSetReadOnly(self, unsigned short mmIndex, unsigned char readOnly):
+        if (not self.mmAreas[mmIndex].valid):
             self.main.exitError("Mm::mmSetReadOnly: mmArea is invalid!")
             return
-        mmArea.readOnly = readOnly
+        self.mmAreas[mmIndex].readOnly = readOnly
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         return mmArea.data[offset:offset+dataSize]
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         with nogil:
             memmove(<char*>(mmArea.data+offset), data, dataSize)
+    cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
+        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE): # this incomplete boundary check should be enough
+            return self.main.platform.vga.vgaAreaRead(offset, dataSize)
+        return mmArea.data[offset:offset+dataSize]
+    cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
+        with nogil:
+            memmove(<char*>(mmArea.data+offset), data, dataSize)
+        #self.main.notice("Mm::mmAreaWriteSystem: offset=={0:#010x}; dataSize=={1:d}", offset, dataSize)
+        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE): # this incomplete boundary check should be enough
+            self.main.platform.vga.vgaAreaWrite(offset, dataSize)
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
+        cdef unsigned short i, start, end
         cdef unsigned int tempAddr, tempSize
         cdef bytes data = bytes()
-        cdef tuple mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        for mmArea in mmAreas:
+        self.mmGetAreasCount(mmAddr, dataSize, &start, &end)
+        for i in range(start, end):
+            mmArea = self.mmAreas[i]
             tempSize = min(SIZE_1MB, dataSize)
             tempAddr = (mmAddr&SIZE_1MB_MASK)
             if (tempAddr+tempSize > SIZE_1MB):
                 tempSize = min(SIZE_1MB-tempAddr, tempSize)
             if (mmArea.valid):
-                data += mmArea.readHandler(mmArea.readClass, mmArea, tempAddr, tempSize)
+                data += mmArea.readHandler(self, mmArea, tempAddr, tempSize)
             else:
                 self.main.notice("Mm::mmPhyRead: not mmArea.valid! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, tempSize)
                 data += b'\xff'*tempSize
@@ -85,14 +82,14 @@ cdef class Mm:
     cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize):
         return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=True)
     cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr):
-        cdef MmArea mmArea = self.mmGetArea(mmAddr)
+        cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         if (not mmArea.valid):
             self.main.notice("Mm::mmPhyReadValueUnsignedByte: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
             return BITMASK_BYTE
         mmAddr &= SIZE_1MB_MASK
         return (<unsigned char*>self.mmGetDataPointer(mmArea, mmAddr))[0]
     cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr):
-        cdef MmArea mmArea = self.mmGetArea(mmAddr)
+        cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         cdef unsigned char dataSize = OP_SIZE_WORD
         cdef unsigned int tempAddr
         if (not mmArea.valid):
@@ -103,7 +100,7 @@ cdef class Mm:
             return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         return (<unsigned short*>self.mmGetDataPointer(mmArea, tempAddr))[0]
     cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr):
-        cdef MmArea mmArea = self.mmGetArea(mmAddr)
+        cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         cdef unsigned char dataSize = OP_SIZE_DWORD
         cdef unsigned int tempAddr
         if (not mmArea.valid):
@@ -114,7 +111,7 @@ cdef class Mm:
             return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         return (<unsigned int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
     cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr):
-        cdef MmArea mmArea = self.mmGetArea(mmAddr)
+        cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         cdef unsigned char dataSize = OP_SIZE_QWORD
         cdef unsigned int tempAddr
         if (not mmArea.valid):
@@ -128,16 +125,17 @@ cdef class Mm:
         return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=False)
     cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize):
         cdef MmArea mmArea
+        cdef unsigned short i, start, end
         cdef unsigned int tempAddr, tempSize
-        cdef tuple mmAreas
-        mmAreas = self.mmGetAreas(mmAddr, dataSize)
-        for mmArea in mmAreas:
+        self.mmGetAreasCount(mmAddr, dataSize, &start, &end)
+        for i in range(start, end):
+            mmArea = self.mmAreas[i]
             tempSize = min(SIZE_1MB, dataSize)
             tempAddr = (mmAddr&SIZE_1MB_MASK)
             if (tempAddr+tempSize > SIZE_1MB):
                 tempSize = SIZE_1MB-tempAddr
             if (mmArea.valid):
-                mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, data, tempSize)
+                mmArea.writeHandler(self, mmArea, tempAddr, data, tempSize)
             else:
                 self.main.notice("Mm::mmPhyWrite: not mmArea.valid! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, tempSize)
             mmAddr += tempSize
@@ -146,9 +144,9 @@ cdef class Mm:
         return True
     cdef unsigned char mmPhyWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data):
         cdef MmArea mmArea
-        cdef unsigned char dataSize = 0
+        cdef unsigned char dataSize
+        cdef unsigned short i, start, end
         cdef unsigned int tempAddr
-        cdef tuple mmAreas
         if (unsigned_value_types is unsigned_char):
             dataSize = OP_SIZE_BYTE
         elif (unsigned_value_types is unsigned_short):
@@ -161,23 +159,24 @@ cdef class Mm:
             self.main.error("Mm::mmPhyWrite: invalid unsigned_value_types.")
             return False
         if (unsigned_value_types is unsigned_char):
-            mmArea = self.mmGetArea(mmAddr)
+            mmArea = self.mmAreas[mmAddr >> 20]
             if (not mmArea.valid):
                 self.main.notice("Mm::mmPhyWrite: not mmArea.valid 1! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                 return False
             tempAddr = (mmAddr&SIZE_1MB_MASK)
-            mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
+            mmArea.writeHandler(self, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
             return True
         else:
-            mmAreas = self.mmGetAreas(mmAddr, dataSize)
-            for mmArea in mmAreas:
+            self.mmGetAreasCount(mmAddr, dataSize, &start, &end)
+            for i in range(start, end):
+                mmArea = self.mmAreas[i]
                 if (not mmArea.valid):
                     self.main.notice("Mm::mmPhyWrite: not mmArea.valid 2! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
                     return False
                 tempAddr = (mmAddr&SIZE_1MB_MASK)
                 if (tempAddr+dataSize > SIZE_1MB):
                     return self.mmPhyWriteValue(mmAddr, data, dataSize)
-                mmArea.writeHandler(mmArea.writeClass, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
+                mmArea.writeHandler(self, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
                 return True
     cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
