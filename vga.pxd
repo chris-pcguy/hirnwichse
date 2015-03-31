@@ -53,7 +53,7 @@ cdef class Vga:
     cdef MmArea mmArea
     cdef ConfigSpace plane0, plane1, plane2, plane3
     cdef unsigned char latchReg[4]
-    cdef unsigned char processVideoMem, needLoadFont, readMap, writeMap, charSelA, charSelB, chain4, chainOddEven, oddEvenReadDisabled, oddEvenWriteDisabled, extMem, readMode, writeMode, bitMask, resetReg, enableResetReg, logicOp, rotateCount, charHeight, graphicalMode, miscReg, palette54, enable8Bit, shift256, colorPlaneEnable, colorSelect, colorCompare, colorDontCare, lastDacIndex, refreshScreen
+    cdef unsigned char processVideoMem, needLoadFont, readMap, writeMap, charSelA, charSelB, chain4, chainOddEven, oddEvenReadDisabled, oddEvenWriteDisabled, extMem, readMode, writeMode, bitMask, resetReg, enableResetReg, logicOp, rotateCount, charHeight, graphicalMode, miscReg, palette54, enable8Bit, shift256, colorPlaneEnable, colorSelect, colorCompare, colorDontCare, refreshScreen, retrace
     cdef unsigned short vde,
     cdef unsigned int videoMemBase, startAddress, offset, videoMemSize
     cdef double newTimer, oldTimer

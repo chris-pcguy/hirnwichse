@@ -50,14 +50,53 @@ cdef class Mm:
         with nogil:
             memmove(<char*>(mmArea.data+offset), data, dataSize)
     cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
-        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE): # this incomplete boundary check should be enough
-            return self.main.platform.vga.vgaAreaRead(offset, dataSize)
+        cdef unsigned char found = False
+        cdef unsigned int checkAddr, diff
+        cdef bytes ret = b''
+        # TODO: highly inefficient
+        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE):
+            found = True
+        else:
+            for checkAddr in range(offset, offset+dataSize):
+                if (checkAddr >= VGA_MEMAREA_ADDR and checkAddr < VGA_ROM_BASE):
+                    found = True
+                    break
+        if (found):
+            if (offset < VGA_MEMAREA_ADDR):
+                ret += mmArea.data[offset:offset+diff]
+                diff = (VGA_MEMAREA_ADDR-offset)
+                dataSize -= diff
+                offset += diff
+            if (offset+dataSize > VGA_ROM_BASE):
+                diff = (offset+dataSize)-VGA_ROM_BASE
+                dataSize -= diff
+            else:
+                diff = 0
+            ret += self.main.platform.vga.vgaAreaRead(offset, dataSize)
+            if (diff):
+                ret += mmArea.data[VGA_ROM_BASE:VGA_ROM_BASE+diff]
+            return ret
         return mmArea.data[offset:offset+dataSize]
     cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
+        cdef unsigned char found = False
+        cdef unsigned int checkAddr
         with nogil:
             memmove(<char*>(mmArea.data+offset), data, dataSize)
         #self.main.notice("Mm::mmAreaWriteSystem: offset=={0:#010x}; dataSize=={1:d}", offset, dataSize)
-        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE): # this incomplete boundary check should be enough
+        # TODO: highly inefficient
+        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE):
+            found = True
+        else:
+            for checkAddr in range(offset, offset+dataSize):
+                if (checkAddr >= VGA_MEMAREA_ADDR and checkAddr < VGA_ROM_BASE):
+                    found = True
+                    break
+        if (found):
+            if (offset < VGA_MEMAREA_ADDR):
+                dataSize -= (VGA_MEMAREA_ADDR-offset)
+                offset += (VGA_MEMAREA_ADDR-offset)
+            if (offset+dataSize > VGA_ROM_BASE):
+                dataSize -= (offset+dataSize)-VGA_ROM_BASE
             self.main.platform.vga.vgaAreaWrite(offset, dataSize)
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
@@ -214,7 +253,7 @@ cdef class ConfigSpace:
             return
         with nogil:
             memmove(<char*>(self.csData+offset), <char*>data, size)
-    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size):
+    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? -1:
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)
     cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size): # Big Endian
         return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=False)

@@ -69,9 +69,9 @@ cdef class Registers:
     cdef Segments segments
     cdef RegStruct regs[CPU_REGISTERS]
     cdef Segment segmentOverridePrefix
-    cdef public unsigned char repPrefix, operandSizePrefix, \
-                                addressSizePrefix, codeSegSize, cf, pf, af, zf, sf, \
-                                tf, if_flag, df, of, iopl, nt, rf, vm, ac, vif, vip, id, cpl, A20Active, protectedModeOn, pagingOn
+    cdef public unsigned char repPrefix, operandSizePrefix, addressSizePrefix, codeSegSize, \
+                                cf, pf, af, zf, sf, tf, if_flag, df, of, iopl, nt, rf, vm, \
+                                ac, vif, vip, id, cpl, A20Active, protectedModeOn, pagingOn, writeProtectionOn, ssInhibit
     cdef unsigned char operSize, addrSize
     cdef unsigned int cpuCacheBase, cpuCacheIndex
     cdef bytes cpuCache
@@ -91,6 +91,7 @@ cdef class Registers:
     cdef void setFlags(self, unsigned int flags)
     cdef unsigned char getCPL(self)
     cdef unsigned char getIOPL(self)
+    cdef void syncCR0State(self)
     cdef unsigned char getCurrentOpcodeUnsignedByte(self)
     cdef inline signed char getCurrentOpcodeAddSignedByte(self):
         return <signed char>self.getCurrentOpcodeAddUnsignedByte()
@@ -271,8 +272,8 @@ cdef class Registers:
     cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except -1
     cdef unsigned char getCond(self, unsigned char index)
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method)
-    #cpdef checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, unsigned short segId, unsigned char write)
-    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride, unsigned char written) except? 0
+    cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char write) except -1
+    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) except? 0
     cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride)
     cdef inline signed char mmReadValueSignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1:
         return <signed char>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)

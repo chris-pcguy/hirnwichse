@@ -81,7 +81,7 @@ cdef class CRT(VGA_REGISTER_RAW):
                 temp = self.vga.startAddress
                 if (not self.vga.graphicalMode):
                     temp <<= 1
-                self.vga.refreshScreenFunction(self.vga.videoMemBase+temp, self.vga.videoMemSize-temp)
+                self.vga.refreshScreenFunction(self.vga.videoMemBase+temp, (self.vga.videoMemSize-temp)%self.vga.videoMemSize)
         elif (index == 0x11):
             self.protectRegisters = (data&VGA_CRT_PROTECT_REGISTERS) != 0
         elif (index == VGA_CRT_VDE_REG_INDEX):
@@ -254,8 +254,8 @@ cdef class Vga:
         self.videoMemBase = 0xb8000
         self.videoMemSize = 0x08000
         self.needLoadFont = False
-        self.readMap = self.writeMap = self.charSelA = self.charSelB = self.chain4 = self.chainOddEven = self.oddEvenReadDisabled = self.oddEvenWriteDisabled = self.extMem = self.readMode = \
-            self.writeMode = self.resetReg = self.enableResetReg = self.logicOp = self.rotateCount = self.graphicalMode = self.palette54 = self.enable8Bit = self.shift256 = self.colorSelect = self.colorCompare = self.startAddress = self.lastDacIndex = self.refreshScreen = 0
+        self.readMap = self.writeMap = self.charSelA = self.charSelB = self.chain4 = self.chainOddEven = self.oddEvenReadDisabled = self.oddEvenWriteDisabled = self.extMem = self.readMode = self.logicOp = self.rotateCount = \
+            self.graphicalMode = self.palette54 = self.enable8Bit = self.shift256 = self.colorSelect = self.colorCompare = self.startAddress = self.refreshScreen = self.retrace = 0
         self.colorDontCare = self.colorPlaneEnable = 0xf
         self.offset = 80
         self.bitMask = 0xff
@@ -285,7 +285,7 @@ cdef class Vga:
             self.ui = PysdlUI(self)
     cdef unsigned int getColor(self, unsigned char color): # RGBA
         cdef unsigned char red, green, blue
-        if (not self.chain4):
+        if (not self.enable8Bit):
             if (color >= 0x10):
                 self.main.exitError("Vga::getColor: color_1 >= 0x10 (color_1=={0:#04x})", color)
                 return 0xff
@@ -294,16 +294,10 @@ cdef class Vga:
             if (color >= 0x40):
                 self.main.exitError("Vga::getColor: color_2 >= 0x40 (color_2=={0:#04x})", color)
                 return 0xff
-            if (self.shift256):
-                color &= 0xf
-                self.lastDacIndex <<= 4
-                color |= self.lastDacIndex
-                self.lastDacIndex = color
+            if (self.palette54):
+                color = (color & 0xf) | (self.colorSelect << 4)
             else:
-                if (self.palette54):
-                    color = (color & 0xf) | (self.colorSelect << 4)
-                else:
-                    color = (color & 0x3f) | ((self.colorSelect & 0xc) << 4)
+                color = (color & 0x3f) | ((self.colorSelect & 0xc) << 4)
         red, green, blue = self.dac.configSpace.csRead(color*3, 3)
         red <<= 2
         green <<= 2
@@ -475,16 +469,14 @@ cdef class Vga:
                                 color |= 0x1
                         else:
                             color = (pixelData >> ((i&6)<<2))&0xff
-                            if (i&1):
-                                color &= 0xf
-                            else:
-                                color >>= 4
+                            color = (color&0xf)|((self.attrctrlreg.configSpace.csData[color>>4]&0xf)<<4)
                         #self.main.notice("Vga::vgaAreaWrite: putPixel: (x<<3)+i: {0:d}; y: {1:d}; color: {2:#04x}", (x<<3)+i, y, color)
                         #self.main.notice("Vga::vgaAreaWrite: putPixel: test2: EIP: {0:#06x}, CS: {1:#06x}", self.main.cpu.savedEip, self.main.cpu.savedCs)
                         for k in range(self.charHeight):
                             self.ui.putPixel((x<<3)+i, y+k, color)
                         #self.ui.putPixel((x<<3)+i, y, color)
                 else:
+                    x <<= 1
                     selectedPlanes = tempOffset&3
                     color = (pixelData >> (selectedPlanes<<3))
                     if (not self.enable8Bit):
@@ -492,6 +484,7 @@ cdef class Vga:
                         return
                     for k in range(self.charHeight):
                         self.ui.putPixel(x, y+k, color)
+                        self.ui.putPixel(x+1, y+k, color)
                     #self.ui.putPixel(x, y, color)
                 tempOffset += 1
             self.newTimer = time()
@@ -522,7 +515,7 @@ cdef class Vga:
             self.oldTimer = self.newTimer
             self.ui.updateScreen()
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        cdef unsigned int retVal, timeValue
+        cdef unsigned int retVal
         retVal = BITMASK_BYTE
         self.main.notice("Vga::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize != OP_SIZE_BYTE):
@@ -563,9 +556,9 @@ cdef class Vga:
             retVal = self.crt.getData(dataSize)
         elif (ioPortAddr in (0x3ba, 0x3ca, 0x3da)):
             retVal = 0x00
-            timeValue = int(time()*1e7)&0xfffff
-            if (timeValue <= 0x50000): # HACK
+            if (self.retrace): # HACK
                 retVal |= 0x9
+            self.retrace = not self.retrace
             self.attrctrlreg.setFlipFlop(False)
         else:
             self.main.exitError("inPort: port {0:#06x} isn't supported. (dataSize byte)", ioPortAddr)

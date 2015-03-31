@@ -68,7 +68,7 @@ cdef class ConfigSpace:
     cdef void csResetData(self, unsigned char clearByte = ?)
     cdef bytes csRead(self, unsigned int offset, unsigned int size)
     cdef void csWrite(self, unsigned int offset, char *data, unsigned int size)
-    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size)
+    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? -1
     cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size)
     cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size)
     cdef signed long int csReadValueSignedBE(self, unsigned int offset, unsigned char size)

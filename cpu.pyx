@@ -50,7 +50,11 @@ cdef class Cpu:
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), self.savedCs)
             self.registers.regWriteDword(CPU_REGISTER_EIP, self.savedEip)
-        #if (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
+            if (exceptionId != CPU_EXCEPTION_DB):
+                self.registers.rf = True
+        elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
+            if (self.registers.repPrefix):
+                self.registers.rf = True
         #    self.savedEip = <unsigned int>(self.savedEip+1)
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
             if (errorCode == -1):
@@ -147,13 +151,14 @@ cdef class Cpu:
                     exit(1)
                     return
                 elif ((self.debugHalt and not self.debugSingleStep) or (self.cpuHalted and not self.main.exitIfCpuHalted)):
-                    if (self.asyncEvent):
+                    if (self.asyncEvent and not self.registers.ssInhibit):
+                        self.saveCurrentInstPointer()
                         self.handleAsyncEvent()
                     else:
                         if (self.main.platform.vga and self.main.platform.vga.ui):
                             self.main.platform.vga.ui.handleEventsWithoutWaiting()
                         sleep(0.2)
-                        continue
+                    continue
                 self.doCycle()
         except:
             print_exc()
@@ -170,16 +175,34 @@ cdef class Cpu:
             self.registers.tf = False
             self.exception(CPU_EXCEPTION_DB, -1)
             return
-        if (self.asyncEvent):
+        if (self.asyncEvent and not self.registers.ssInhibit):
             self.saveCurrentInstPointer()
             self.handleAsyncEvent()
+            return
+        if (self.registers.ssInhibit):
+            self.registers.ssInhibit = False
         self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
         if (self.opcode in OPCODE_PREFIXES):
             self.opcode = self.parsePrefixes(self.opcode)
         self.registers.readCodeSegSize()
+        ##if (self.savedEip == 0xf0101040):
+        #if (self.savedEip == 0x2001):
+        ##if (self.savedEip == 0x169c):
+        ##if (self.savedEip == 0x1041):
+        #    self.main.debugEnabled = True
         if (self.main.debugEnabled):
             self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-            #self.cpuDump()
+            #self.main.notice("Cpu::doCycle: Gdt::tableLimit=={0:#06x}", self.registers.segments.gdt.tableLimit)
+            # LIN 0xffbfec08 ; PHY 0x00305c08
+            #self.main.notice("Cpu::doCycle: test3=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x309c10))
+            #self.main.notice("Cpu::doCycle: test4=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00248dc3))
+            #self.main.notice("Cpu::doCycle: test5=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x002450d0))
+            #self.main.notice("Cpu::doCycle: test6=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00248de8))
+            # LIN 0xc036c008; PHY 0x00249008
+            self.main.notice("Cpu::doCycle: test7=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00249008))
+            #self.main.notice("Cpu::doCycle: test2=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x307030))
+            #self.main.notice("Cpu::doCycle: test1=={0:#010x}==0x0033d227", self.main.mm.mmPhyReadValueUnsignedDword(0x305c08))
+            self.cpuDump()
         if (<unsigned short>self.cycles == 0x00):
             if (self.main.platform.vga and self.main.platform.vga.ui):
                 self.main.platform.vga.ui.handleEventsWithoutWaiting()

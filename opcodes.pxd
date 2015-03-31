@@ -21,11 +21,11 @@ cdef class Opcodes:
     cdef void clc(self)
     cdef void stc(self)
     cdef void cmc(self)
-    cdef void syncCR0State(self)
     cdef inline unsigned int quirkCR0(self, unsigned int value):
         #value |= (CR0_FLAG_EM | CR0_FLAG_ET | CR0_FLAG_NE | CR0_FLAG_NW | CR0_FLAG_CD)
-        value |= (CR0_FLAG_EM | CR0_FLAG_NE)
-        value &= ~(CR0_FLAG_ET | CR0_FLAG_MP)
+        #value |= (CR0_FLAG_EM | CR0_FLAG_NE)
+        #value &= ~(CR0_FLAG_ET | CR0_FLAG_MP)
+        value |= (CR0_FLAG_EM | CR0_FLAG_NE | CR0_FLAG_ET)
         return value
     cdef int checkIOPL(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except -1
@@ -79,7 +79,7 @@ cdef class Opcodes:
     cdef int stackPopSegment(self, Segment segment) except -1
     cdef int stackPopRegId(self, unsigned short regId, unsigned char regSize) except -1
     cdef unsigned int stackPopValue(self, unsigned char increaseStackAddr)
-    cdef int stackPushValue(self, unsigned int value, unsigned char operSize) except -1
+    cdef int stackPushValue(self, unsigned int value, unsigned char operSize, unsigned char segmentSource) except -1
     cdef int stackPushSegment(self, Segment segment, unsigned char operSize) except -1
     cdef int stackPushRegId(self, unsigned short regId, unsigned char operSize) except -1
     cdef int pushIMM(self, unsigned char immIsByte) except -1

@@ -80,7 +80,8 @@ cdef class PysdlUI:
             #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
             if (self.renderer):
                 #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
-                self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
+                self.renderer.draw_point((x, y), colorObject)
+                #self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
             #return newRect
         except:
             print_exc()
@@ -353,8 +354,13 @@ cdef class PysdlUI:
         elif (event.type == 512): # 512 == sdl2.SDL_VIDEOEXPOSE ?
             self.updateScreen()
         elif (event.type == sdl2.SDL_KEYDOWN):
+            if (event.key.keysym.sym == sdl2.SDLK_KP_MINUS):
+                self.vga.main.debugEnabled = not self.vga.main.debugEnabled
+                return
             (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.sym), False)
         elif (event.type == sdl2.SDL_KEYUP):
+            if (event.key.keysym.sym == sdl2.SDLK_KP_MINUS):
+                return
             (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.sym), True)
         else:
             self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == {0:d}", event.type)

@@ -48,7 +48,7 @@ cdef class PitChannel:
             while (self.counterValue > 1 and self.counterValue <= (BITMASK_WORD+1)):
                 with nogil:
                     usleep(64)
-                self.counterValue -= 0x200 # HACK
+                self.counterValue -= 0x400 # HACK
             self.counterValue = 1
             #self.pit.main.notice("PitChannel::mode2Func: after while")
             if (self.channelId == 0): # just raise IRQ on channel0

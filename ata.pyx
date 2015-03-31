@@ -568,10 +568,10 @@ cdef class Ata:
             ret = (<AtaController>self.controller[0]).inPort(ioPortAddr-ATA1_BASE, dataSize)
         elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
             ret = (<AtaController>self.controller[1]).inPort(ioPortAddr-ATA2_BASE, dataSize)
-        elif (ioPortAddr in ATA3_PORTS and len(self.controller) >= 3 and self.controller[2]):
-            ret = (<AtaController>self.controller[2]).inPort(ioPortAddr-ATA3_BASE, dataSize)
-        elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
-            ret = (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
+        #elif (ioPortAddr in ATA3_PORTS and len(self.controller) >= 3 and self.controller[2]):
+        #    ret = (<AtaController>self.controller[2]).inPort(ioPortAddr-ATA3_BASE, dataSize)
+        #elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
+        #    ret = (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
         self.main.debug("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
@@ -588,10 +588,10 @@ cdef class Ata:
             (<AtaController>self.controller[0]).outPort(ioPortAddr-ATA1_BASE, data, dataSize)
         elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
             (<AtaController>self.controller[1]).outPort(ioPortAddr-ATA2_BASE, data, dataSize)
-        elif (ioPortAddr in ATA3_PORTS and len(self.controller) >= 3 and self.controller[2]):
-            (<AtaController>self.controller[2]).outPort(ioPortAddr-ATA3_BASE, data, dataSize)
-        elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
-            (<AtaController>self.controller[3]).outPort(ioPortAddr-ATA4_BASE, data, dataSize)
+        #elif (ioPortAddr in ATA3_PORTS and len(self.controller) >= 3 and self.controller[2]):
+        #    (<AtaController>self.controller[2]).outPort(ioPortAddr-ATA3_BASE, data, dataSize)
+        #elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
+        #    (<AtaController>self.controller[3]).outPort(ioPortAddr-ATA4_BASE, data, dataSize)
     cdef void run(self):
         cdef AtaController controller
         #self.reset()
