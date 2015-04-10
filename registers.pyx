@@ -313,9 +313,7 @@ cdef class Registers:
     cdef unsigned char getIOPL(self):
         return self.iopl
     cdef void syncCR0State(self):
-        cdef unsigned int value
-        value = self.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_PE))
-        self.protectedModeOn = (value & CR0_FLAG_PE)!=0
+        self.protectedModeOn = self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE)
     cdef unsigned char getCurrentOpcodeUnsignedByte(self):
         IF (CPU_CACHE_SIZE):
             return <unsigned char>self.readFromCacheUnsigned(OP_SIZE_BYTE)
@@ -782,8 +780,7 @@ cdef class Registers:
         cdef GdtEntry gdtEntry
         cdef unsigned char addrInLimit
         cdef unsigned short segId, segVal
-        #if (not self.protectedModeOn or not dataSize or segment is None):
-        IF 1:
+        if (not self.protectedModeOn or not dataSize or segment is None):
             return True
         segId = segment.segId
         segVal = self.segRead(segId)
@@ -811,7 +808,7 @@ cdef class Registers:
         return True
     cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) except? 0:
         cdef unsigned int origMmAddr
-        self.checkMemAccessRights(mmAddr, dataSize, segment, written)
+        #self.checkMemAccessRights(mmAddr, dataSize, segment, written)
         origMmAddr = mmAddr
         if (allowOverride and self.segmentOverridePrefix is not None):
             segment = self.segmentOverridePrefix
@@ -829,64 +826,93 @@ cdef class Registers:
     cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride):
         cdef unsigned int tempSize
         cdef bytes ret = b''
-        if (self.protectedModeOn and self.pagingOn and ((mmAddr&0xfff)+dataSize) > PAGE_DIRECTORY_LENGTH):
+        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(mmAddr&0xfff) < dataSize):
             if (not dataSize):
                 return ret
             while (dataSize > 0):
                 tempSize = min(dataSize, PAGE_DIRECTORY_LENGTH)
                 if (((mmAddr&0xfff)+tempSize) > PAGE_DIRECTORY_LENGTH):
                     tempSize -= ((mmAddr&0xfff)+tempSize) - PAGE_DIRECTORY_LENGTH
+                self.main.debug("Registers::mmRead: test1: mmAddr {0:#010x}; ret {1:s}; dataSize {2:d}", mmAddr, repr(ret), dataSize)
                 ret += self.main.mm.mmPhyRead(self.mmGetRealAddr(mmAddr, tempSize, segment, allowOverride, False), tempSize)
                 if (dataSize <= tempSize):
                     break
                 mmAddr += tempSize
                 dataSize -= tempSize
-            self.main.debug("Registers::mmRead: test1: mmAddr {0:#010x}; ret {1:s}; dataSize {2:d}", mmAddr, repr(ret), dataSize)
             return ret
-        mmAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, False)
-        ret = self.main.mm.mmPhyRead(mmAddr, dataSize)
-        self.main.debug("Registers::mmRead: test2: phy mmAddr {0:#010x}; ret {1:s}; dataSize {2:d}", mmAddr, repr(ret), dataSize)
+        ret = self.main.mm.mmPhyRead(self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, False), dataSize)
+        self.main.debug("Registers::mmRead: test2: virt mmAddr {0:#010x}; ret {1:s}; dataSize {2:d}", mmAddr, repr(ret), dataSize)
         return ret
     cdef signed long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? -1:
-        cdef signed long int ret
-        mmAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, False)
-        ret = self.main.mm.mmPhyReadValueSigned(mmAddr, dataSize)
-        self.main.debug("Registers::mmReadValueSigned: phy mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
+        cdef unsigned char i
+        cdef signed long int ret = 0
+        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(mmAddr&0xfff) < dataSize):
+            for i in range(dataSize):
+                ret |= <signed long int>self.mmReadValueUnsignedByte(mmAddr+i, segment, allowOverride)<<(i<<3)
+            if (dataSize == OP_SIZE_BYTE):
+                return <signed char>ret
+            elif (dataSize == OP_SIZE_WORD):
+                return <signed short>ret
+            elif (dataSize == OP_SIZE_DWORD):
+                return <signed int>ret
+            return <signed long int>ret
+        ret = self.main.mm.mmPhyReadValueSigned(self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, False), dataSize)
+        self.main.debug("Registers::mmReadValueSigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
         return ret
     cdef unsigned char mmReadValueUnsignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1:
         cdef unsigned char ret
-        mmAddr = self.mmGetRealAddr(mmAddr, OP_SIZE_BYTE, segment, allowOverride, False)
-        ret = self.main.mm.mmPhyReadValueUnsignedByte(mmAddr)
-        self.main.debug("Registers::mmReadValueUnsignedByte: phy mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_BYTE)
+        ret = self.main.mm.mmPhyReadValueUnsignedByte(self.mmGetRealAddr(mmAddr, OP_SIZE_BYTE, segment, allowOverride, False))
+        self.main.debug("Registers::mmReadValueUnsignedByte: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_BYTE)
         return ret
     cdef unsigned short mmReadValueUnsignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1:
         cdef unsigned short ret
-        mmAddr = self.mmGetRealAddr(mmAddr, OP_SIZE_WORD, segment, allowOverride, False)
-        ret = self.main.mm.mmPhyReadValueUnsignedWord(mmAddr)
-        self.main.debug("Registers::mmReadValueUnsignedWord: phy mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_WORD)
+        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(mmAddr&0xfff) < OP_SIZE_WORD):
+            ret = <unsigned short>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
+            ret |= <unsigned short>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
+            return ret
+        ret = self.main.mm.mmPhyReadValueUnsignedWord(self.mmGetRealAddr(mmAddr, OP_SIZE_WORD, segment, allowOverride, False))
+        self.main.debug("Registers::mmReadValueUnsignedWord: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_WORD)
         return ret
     cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1:
         cdef unsigned int ret
-        mmAddr = self.mmGetRealAddr(mmAddr, OP_SIZE_DWORD, segment, allowOverride, False)
-        ret = self.main.mm.mmPhyReadValueUnsignedDword(mmAddr)
-        self.main.debug("Registers::mmReadValueUnsignedDword: phy mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_DWORD)
+        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(mmAddr&0xfff) < OP_SIZE_DWORD):
+            ret = <unsigned int>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
+            ret |= <unsigned int>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
+            ret |= <unsigned int>self.mmReadValueUnsignedByte(mmAddr+2, segment, allowOverride)<<16
+            ret |= <unsigned int>self.mmReadValueUnsignedByte(mmAddr+3, segment, allowOverride)<<24
+            return ret
+        ret = self.main.mm.mmPhyReadValueUnsignedDword(self.mmGetRealAddr(mmAddr, OP_SIZE_DWORD, segment, allowOverride, False))
+        self.main.debug("Registers::mmReadValueUnsignedDword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_DWORD)
         return ret
     cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? -1:
         cdef unsigned long int ret
-        mmAddr = self.mmGetRealAddr(mmAddr, OP_SIZE_QWORD, segment, allowOverride, False)
-        ret = self.main.mm.mmPhyReadValueUnsignedQword(mmAddr)
-        self.main.debug("Registers::mmReadValueUnsignedQword: phy mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_QWORD)
+        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(mmAddr&0xfff) < OP_SIZE_QWORD):
+            ret = <unsigned long int>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
+            ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
+            ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+2, segment, allowOverride)<<16
+            ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+3, segment, allowOverride)<<24
+            ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+4, segment, allowOverride)<<32
+            ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+5, segment, allowOverride)<<40
+            ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+6, segment, allowOverride)<<48
+            ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+7, segment, allowOverride)<<56
+            return ret
+        ret = self.main.mm.mmPhyReadValueUnsignedQword(self.mmGetRealAddr(mmAddr, OP_SIZE_QWORD, segment, allowOverride, False))
+        self.main.debug("Registers::mmReadValueUnsignedQword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_QWORD)
         return ret
     cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? -1:
-        cdef unsigned long int ret
-        mmAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, False)
-        ret = self.main.mm.mmPhyReadValueUnsigned(mmAddr, dataSize)
-        self.main.debug("Registers::mmReadValueUnsigned: phy mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
+        cdef unsigned char i
+        cdef unsigned long int ret = 0
+        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(mmAddr&0xfff) < dataSize):
+            for i in range(dataSize):
+                ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+i, segment, allowOverride)<<(i<<3)
+            return ret
+        ret = self.main.mm.mmPhyReadValueUnsigned(self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, False), dataSize)
+        self.main.debug("Registers::mmReadValueUnsigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
         return ret
     cdef unsigned char mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, Segment segment, unsigned char allowOverride) except? 0:
         cdef unsigned char retVal
         cdef unsigned int tempSize
-        if (self.protectedModeOn and self.pagingOn and ((mmAddr&0xfff)+dataSize) > PAGE_DIRECTORY_LENGTH):
+        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(mmAddr&0xfff) < dataSize):
             if (not dataSize):
                 return True
             while (dataSize > 0):
@@ -901,13 +927,13 @@ cdef class Registers:
                 dataSize -= tempSize
                 data = data[tempSize:]
             return retVal
+        self.main.debug("Registers::mmWrite: test2: virt mmAddr {0:#010x}; data {1:s}; dataSize {2:d}", mmAddr, repr(data), dataSize)
         mmAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, True)
-        self.main.debug("Registers::mmWrite: test2: phy mmAddr {0:#010x}; data {1:s}; dataSize {2:d}", mmAddr, repr(data), dataSize)
         retVal = self.main.mm.mmPhyWrite(mmAddr, data, dataSize)
         self.checkCache(mmAddr, dataSize)
         return retVal
     cdef unsigned char mmWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data, Segment segment, unsigned char allowOverride) except? 0:
-        cdef unsigned char retVal, dataSize = 0
+        cdef unsigned char retVal, i, dataSize
         if (unsigned_value_types is unsigned_char):
             dataSize = OP_SIZE_BYTE
         elif (unsigned_value_types is unsigned_short):
@@ -919,39 +945,38 @@ cdef class Registers:
         else:
             self.main.error("Registers::mmWriteValueSize: invalid unsigned_value_types.")
             return False
+        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(mmAddr&0xfff) < dataSize):
+            for i in range(dataSize):
+                self.mmWriteValue(mmAddr+i, <unsigned char>data, OP_SIZE_BYTE, segment, allowOverride)
+                data >>= 8
+            return True
+        self.main.debug("Registers::mmWriteValueSize: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
         mmAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, True)
-        self.main.debug("Registers::mmWriteValueSize: phy mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
         retVal = self.main.mm.mmPhyWriteValueSize(mmAddr, data)
         self.checkCache(mmAddr, dataSize)
         return retVal
     cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? 0:
-        cdef unsigned char retVal
+        cdef unsigned char retVal, i
+        self.main.debug("Registers::mmWriteValue: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
+        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(mmAddr&0xfff) < dataSize):
+            for i in range(dataSize):
+                self.mmWriteValue(mmAddr+i, <unsigned char>data, OP_SIZE_BYTE, segment, allowOverride)
+                data >>= 8
+            return True
         mmAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, True)
-        self.main.debug("Registers::mmWriteValue: phy mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
         retVal = self.main.mm.mmPhyWriteValue(mmAddr, data, dataSize)
         self.checkCache(mmAddr, dataSize)
         return retVal
     cdef unsigned long int mmWriteValueWithOpSize(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride, unsigned char valueOp) except? 0:
         cdef unsigned char carryOn
         cdef unsigned long int oldData
-        mmAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, True)
         if (valueOp != OPCODE_SAVE):
             if (valueOp == OPCODE_NEG):
                 data = (-data)
             elif (valueOp == OPCODE_NOT):
                 data = (~data)
             else:
-                if (dataSize == OP_SIZE_BYTE):
-                    oldData = self.main.mm.mmPhyReadValueUnsignedByte(mmAddr)
-                elif (dataSize == OP_SIZE_WORD):
-                    oldData = self.main.mm.mmPhyReadValueUnsignedWord(mmAddr)
-                elif (dataSize == OP_SIZE_DWORD):
-                    oldData = self.main.mm.mmPhyReadValueUnsignedDword(mmAddr)
-                elif (dataSize == OP_SIZE_QWORD):
-                    oldData = self.main.mm.mmPhyReadValueUnsignedQword(mmAddr)
-                else:
-                    self.main.error("mmWriteValueWithOpSize: invalid dataSize.")
-                    return False
+                oldData = self.mmReadValueUnsigned(mmAddr, dataSize, segment, allowOverride)
                 if (valueOp == OPCODE_ADD):
                     data = (oldData+data)
                 elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
@@ -970,8 +995,8 @@ cdef class Registers:
                     data = (oldData^data)
                 else:
                     self.main.exitError("Registers::mmWriteValueWithOpSize: unknown valueOp {0:d}.", valueOp)
-        self.main.debug("Registers::mmWriteValueWithOpSize: phy mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
-        self.main.mm.mmPhyWriteValue(mmAddr, data, dataSize)
+        self.main.debug("Registers::mmWriteValueWithOpSize: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
+        self.mmWriteValue(mmAddr, data, dataSize, segment, allowOverride)
         return data
     cdef void switchTSS16(self):
         cdef unsigned int baseAddress

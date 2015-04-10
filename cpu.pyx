@@ -170,6 +170,8 @@ cdef class Cpu:
         self.cycles += CPU_CLOCK_TICK
         self.registers.resetPrefixes()
         #self.saveCurrentInstPointer()
+        if (self.registers.df):
+            self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
         if (self.registers.tf):
             self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet!")
             self.registers.tf = False
@@ -189,7 +191,9 @@ cdef class Cpu:
         #if (self.savedEip == 0x2001):
         ##if (self.savedEip == 0x169c):
         ##if (self.savedEip == 0x1041):
-        #    self.main.debugEnabled = True
+        #if (self.savedEip == 0xc000154f):
+        if (self.savedCs == 0x28):
+            self.main.debugEnabled = True
         if (self.main.debugEnabled):
             self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
             #self.main.notice("Cpu::doCycle: Gdt::tableLimit=={0:#06x}", self.registers.segments.gdt.tableLimit)
@@ -199,9 +203,13 @@ cdef class Cpu:
             #self.main.notice("Cpu::doCycle: test5=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x002450d0))
             #self.main.notice("Cpu::doCycle: test6=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00248de8))
             # LIN 0xc036c008; PHY 0x00249008
-            self.main.notice("Cpu::doCycle: test7=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00249008))
+            #self.main.notice("Cpu::doCycle: test7=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00249008))
             #self.main.notice("Cpu::doCycle: test2=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x307030))
             #self.main.notice("Cpu::doCycle: test1=={0:#010x}==0x0033d227", self.main.mm.mmPhyReadValueUnsignedDword(0x305c08))
+            #try:
+            #    self.main.notice("Cpu::doCycle: test8=={0:#010x}", self.registers.mmReadValueUnsignedDword(0xc13c7f9c, (<Segment>self.registers.segments.ss), False))
+            #except HirnwichseException:
+            #    self.main.notice("Cpu::doCycle: test8 exception")
             self.cpuDump()
         if (<unsigned short>self.cycles == 0x00):
             if (self.main.platform.vga and self.main.platform.vga.ui):

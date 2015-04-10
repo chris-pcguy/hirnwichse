@@ -126,10 +126,16 @@ cdef class Registers:
     cdef inline unsigned char regReadUnsignedHighByte(self, unsigned short regId):
         return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regReadUnsignedWord(self, unsigned short regId):
+        if (regId == CPU_REGISTER_FLAGS):
+            self.regs[regId]._union.word._union.rx = <unsigned short>self.readFlags()
         return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regReadUnsignedDword(self, unsigned short regId):
+        if (regId == CPU_REGISTER_EFLAGS):
+            self.regs[regId]._union.dword.erx = self.readFlags()
         return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regReadUnsignedQword(self, unsigned short regId):
+        if (regId == CPU_REGISTER_RFLAGS):
+            self.regs[regId]._union.rrx = self.readFlags()
         return self.regs[regId]._union.rrx
     cdef inline unsigned char regWriteLowByte(self, unsigned short regId, unsigned char value):
         self.regs[regId]._union.word._union.byte.rl = value

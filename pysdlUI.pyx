@@ -129,222 +129,222 @@ cdef class PysdlUI:
         pass
         #pygame.key.set_repeat(delay, interval)
     cdef unsigned char keyToScancode(self, unsigned int key):
-        if (key == sdl2.SDLK_LCTRL):
+        self.vga.main.notice("keyToScancode: test1: keyToScancode. (keyId: {0:d}, keyName: {1:s})", key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))))
+        if (key == sdl2.SDL_SCANCODE_LCTRL):
             return 0x00
-        elif (key == sdl2.SDLK_LSHIFT):
+        elif (key == sdl2.SDL_SCANCODE_LSHIFT):
             return 0x01
-        elif (key == sdl2.SDLK_F1):
+        elif (key == sdl2.SDL_SCANCODE_F1):
             return 0x02
-        elif (key == sdl2.SDLK_F2):
+        elif (key == sdl2.SDL_SCANCODE_F2):
             return 0x03
-        elif (key == sdl2.SDLK_F3):
+        elif (key == sdl2.SDL_SCANCODE_F3):
             return 0x04
-        elif (key == sdl2.SDLK_F4):
+        elif (key == sdl2.SDL_SCANCODE_F4):
             return 0x05
-        elif (key == sdl2.SDLK_F5):
+        elif (key == sdl2.SDL_SCANCODE_F5):
             return 0x06
-        elif (key == sdl2.SDLK_F6):
+        elif (key == sdl2.SDL_SCANCODE_F6):
             return 0x07
-        elif (key == sdl2.SDLK_F7):
+        elif (key == sdl2.SDL_SCANCODE_F7):
             return 0x08
-        elif (key == sdl2.SDLK_F8):
+        elif (key == sdl2.SDL_SCANCODE_F8):
             return 0x09
-        elif (key == sdl2.SDLK_F9):
+        elif (key == sdl2.SDL_SCANCODE_F9):
             return 0x0a
-        elif (key == sdl2.SDLK_F10):
+        elif (key == sdl2.SDL_SCANCODE_F10):
             return 0x0b
-        elif (key == sdl2.SDLK_F11):
+        elif (key == sdl2.SDL_SCANCODE_F11):
             return 0x0c
-        elif (key == sdl2.SDLK_F12):
+        elif (key == sdl2.SDL_SCANCODE_F12):
             return 0x0d
-        elif (key == sdl2.SDLK_RCTRL):
+        elif (key == sdl2.SDL_SCANCODE_RCTRL):
             return 0x0e
-        elif (key == sdl2.SDLK_RSHIFT):
+        elif (key == sdl2.SDL_SCANCODE_RSHIFT):
             return 0x0f
-        elif (key == sdl2.SDLK_CAPSLOCK):
+        elif (key == sdl2.SDL_SCANCODE_CAPSLOCK):
             return 0x10
-        elif (key == sdl2.SDLK_NUMLOCKCLEAR):
+        elif (key == sdl2.SDL_SCANCODE_NUMLOCKCLEAR):
             return 0x11
-        elif (key == sdl2.SDLK_LALT):
+        elif (key == sdl2.SDL_SCANCODE_LALT):
             return 0x12
-        elif (key == sdl2.SDLK_RALT):
+        elif (key == sdl2.SDL_SCANCODE_RALT):
             return 0x13
-        elif (key == sdl2.SDLK_a):
+        elif (key == sdl2.SDL_SCANCODE_A):
             return 0x14
-        elif (key == sdl2.SDLK_b):
+        elif (key == sdl2.SDL_SCANCODE_B):
             return 0x15
-        elif (key == sdl2.SDLK_c):
+        elif (key == sdl2.SDL_SCANCODE_C):
             return 0x16
-        elif (key == sdl2.SDLK_d):
+        elif (key == sdl2.SDL_SCANCODE_D):
             return 0x17
-        elif (key == sdl2.SDLK_e):
+        elif (key == sdl2.SDL_SCANCODE_E):
             return 0x18
-        elif (key == sdl2.SDLK_f):
+        elif (key == sdl2.SDL_SCANCODE_F):
             return 0x19
-        elif (key == sdl2.SDLK_g):
+        elif (key == sdl2.SDL_SCANCODE_G):
             return 0x1a
-        elif (key == sdl2.SDLK_h):
+        elif (key == sdl2.SDL_SCANCODE_H):
             return 0x1b
-        elif (key == sdl2.SDLK_i):
+        elif (key == sdl2.SDL_SCANCODE_I):
             return 0x1c
-        elif (key == sdl2.SDLK_j):
+        elif (key == sdl2.SDL_SCANCODE_J):
             return 0x1d
-        elif (key == sdl2.SDLK_k):
+        elif (key == sdl2.SDL_SCANCODE_K):
             return 0x1e
-        elif (key == sdl2.SDLK_l):
+        elif (key == sdl2.SDL_SCANCODE_L):
             return 0x1f
-        elif (key == sdl2.SDLK_m):
+        elif (key == sdl2.SDL_SCANCODE_M):
             return 0x20
-        elif (key == sdl2.SDLK_n):
+        elif (key == sdl2.SDL_SCANCODE_N):
             return 0x21
-        elif (key == sdl2.SDLK_o):
+        elif (key == sdl2.SDL_SCANCODE_O):
             return 0x22
-        elif (key == sdl2.SDLK_p):
+        elif (key == sdl2.SDL_SCANCODE_P):
             return 0x23
-        elif (key == sdl2.SDLK_q):
+        elif (key == sdl2.SDL_SCANCODE_Q):
             return 0x24
-        elif (key == sdl2.SDLK_r):
+        elif (key == sdl2.SDL_SCANCODE_R):
             return 0x25
-        elif (key == sdl2.SDLK_s):
+        elif (key == sdl2.SDL_SCANCODE_S):
             return 0x26
-        elif (key == sdl2.SDLK_t):
+        elif (key == sdl2.SDL_SCANCODE_T):
             return 0x27
-        elif (key == sdl2.SDLK_u):
+        elif (key == sdl2.SDL_SCANCODE_U):
             return 0x28
-        elif (key == sdl2.SDLK_v):
+        elif (key == sdl2.SDL_SCANCODE_V):
             return 0x29
-        elif (key == sdl2.SDLK_w):
+        elif (key == sdl2.SDL_SCANCODE_W):
             return 0x2a
-        elif (key == sdl2.SDLK_x):
+        elif (key == sdl2.SDL_SCANCODE_X):
             return 0x2b
-        elif (key == sdl2.SDLK_y):
+        elif (key == sdl2.SDL_SCANCODE_Y):
             return 0x2c
-        elif (key == sdl2.SDLK_z):
+        elif (key == sdl2.SDL_SCANCODE_Z):
             return 0x2d
-        elif (key == sdl2.SDLK_0):
+        elif (key == sdl2.SDL_SCANCODE_0):
             return 0x2e
-        elif (key == sdl2.SDLK_1):
+        elif (key == sdl2.SDL_SCANCODE_1):
             return 0x2f
-        elif (key == sdl2.SDLK_2):
+        elif (key == sdl2.SDL_SCANCODE_2):
             return 0x30
-        elif (key == sdl2.SDLK_3):
+        elif (key == sdl2.SDL_SCANCODE_3):
             return 0x31
-        elif (key == sdl2.SDLK_4):
+        elif (key == sdl2.SDL_SCANCODE_4):
             return 0x32
-        elif (key == sdl2.SDLK_5):
+        elif (key == sdl2.SDL_SCANCODE_5):
             return 0x33
-        elif (key == sdl2.SDLK_6):
+        elif (key == sdl2.SDL_SCANCODE_6):
             return 0x34
-        elif (key == sdl2.SDLK_7):
+        elif (key == sdl2.SDL_SCANCODE_7):
             return 0x35
-        elif (key == sdl2.SDLK_8):
+        elif (key == sdl2.SDL_SCANCODE_8):
             return 0x36
-        elif (key == sdl2.SDLK_9):
+        elif (key == sdl2.SDL_SCANCODE_9):
             return 0x37
-        elif (key == sdl2.SDLK_ESCAPE):
+        elif (key == sdl2.SDL_SCANCODE_ESCAPE):
             return 0x38
-        elif (key == sdl2.SDLK_SPACE):
+        elif (key == sdl2.SDL_SCANCODE_SPACE):
             return 0x39
-        elif (key == sdl2.SDLK_QUOTE):
+        elif (key == sdl2.SDL_SCANCODE_APOSTROPHE):
             return 0x3a
-        elif (key == sdl2.SDLK_COMMA):
+        elif (key == sdl2.SDL_SCANCODE_COMMA):
             return 0x3b
-        elif (key == sdl2.SDLK_PERIOD):
+        elif (key == sdl2.SDL_SCANCODE_PERIOD):
             return 0x3c
-        elif (key == sdl2.SDLK_SLASH):
+        elif (key == sdl2.SDL_SCANCODE_SLASH):
             return 0x3d
-        elif (key == sdl2.SDLK_SEMICOLON):
+        elif (key == sdl2.SDL_SCANCODE_SEMICOLON):
             return 0x3e
-        #elif (key == sdl2.SDLK_EQUALS):
-        elif (key == sdl2.SDLK_PLUS):
+        elif (key == sdl2.SDL_SCANCODE_EQUALS):
             return 0x3f
-        elif (key == sdl2.SDLK_LEFTBRACKET):
+        elif (key == sdl2.SDL_SCANCODE_LEFTBRACKET):
             return 0x40
-        elif (key == sdl2.SDLK_BACKSLASH):
+        elif (key == sdl2.SDL_SCANCODE_NONUSBACKSLASH):
             return 0x41
-        elif (key == sdl2.SDLK_RIGHTBRACKET):
+        elif (key == sdl2.SDL_SCANCODE_RIGHTBRACKET):
             return 0x42
-        elif (key == sdl2.SDLK_MINUS):
+        elif (key == sdl2.SDL_SCANCODE_MINUS):
             return 0x43
-        elif (key == sdl2.SDLK_BACKQUOTE):
+        elif (key == sdl2.SDL_SCANCODE_GRAVE):
             return 0x44
-        elif (key == sdl2.SDLK_BACKSPACE):
+        elif (key == sdl2.SDL_SCANCODE_BACKSPACE):
             return 0x45
-        elif (key == sdl2.SDLK_RETURN):
+        elif (key == sdl2.SDL_SCANCODE_RETURN):
             return 0x46
-        elif (key == sdl2.SDLK_TAB):
+        elif (key == sdl2.SDL_SCANCODE_TAB):
             return 0x47
-        #elif (key == sdl2.SDLK_BACKSLASH): # left backslash??
+        #elif (key == sdl2.SDL_SCANCODE_BACKSLASH): # left backslash??
         #    return 0x48
-        elif (key == sdl2.SDLK_PRINTSCREEN):
+        elif (key == sdl2.SDL_SCANCODE_PRINTSCREEN):
             return 0x49
-        elif (key == sdl2.SDLK_SCROLLLOCK):
+        elif (key == sdl2.SDL_SCANCODE_SCROLLLOCK):
             return 0x4a
-        elif (key == sdl2.SDLK_PAUSE):
+        elif (key == sdl2.SDL_SCANCODE_PAUSE):
             return 0x4b
-        elif (key == sdl2.SDLK_INSERT):
+        elif (key == sdl2.SDL_SCANCODE_INSERT):
             return 0x4c
-        elif (key == sdl2.SDLK_DELETE):
+        elif (key == sdl2.SDL_SCANCODE_DELETE):
             return 0x4d
-        elif (key == sdl2.SDLK_HOME):
+        elif (key == sdl2.SDL_SCANCODE_HOME):
             return 0x4e
-        elif (key == sdl2.SDLK_END):
+        elif (key == sdl2.SDL_SCANCODE_END):
             return 0x4f
-        elif (key == sdl2.SDLK_PAGEUP):
+        elif (key == sdl2.SDL_SCANCODE_PAGEUP):
             return 0x50
-        elif (key == sdl2.SDLK_PAGEDOWN):
+        elif (key == sdl2.SDL_SCANCODE_PAGEDOWN):
             return 0x51
-        elif (key == sdl2.SDLK_KP_PLUS):
+        elif (key == sdl2.SDL_SCANCODE_KP_PLUS):
             return 0x52
-        elif (key == sdl2.SDLK_KP_MINUS):
+        elif (key == sdl2.SDL_SCANCODE_KP_MINUS):
             return 0x53
-        #elif (key == sdl2.SDLK_KP_END):
+        #elif (key == sdl2.SDL_SCANCODE_KP_END):
         #    return 0x54
-        #elif (key == sdl2.SDLK_KP_DOWN):
+        #elif (key == sdl2.SDL_SCANCODE_KP_DOWN):
         #    return 0x55
-        #elif (key == sdl2.SDLK_KP_PAGEDOWN):
+        #elif (key == sdl2.SDL_SCANCODE_KP_PAGEDOWN):
         #    return 0x56
-        #elif (key == sdl2.SDLK_KP_LEFT):
+        #elif (key == sdl2.SDL_SCANCODE_KP_LEFT):
         #    return 0x57
-        #elif (key == sdl2.SDLK_KP_RIGHT):
+        #elif (key == sdl2.SDL_SCANCODE_KP_RIGHT):
         #    return 0x58
-        #elif (key == sdl2.SDLK_KP_HOME):
+        #elif (key == sdl2.SDL_SCANCODE_KP_HOME):
         #    return 0x59
-        #elif (key == sdl2.SDLK_KP_UP):
+        #elif (key == sdl2.SDL_SCANCODE_KP_UP):
         #    return 0x5a
-        #elif (key == sdl2.SDLK_KP_PAGEUP):
+        #elif (key == sdl2.SDL_SCANCODE_KP_PAGEUP):
         #    return 0x5b
-        #elif (key == sdl2.SDLK_KP_INSERT):
+        #elif (key == sdl2.SDL_SCANCODE_KP_INSERT):
         #    return 0x5c
-        #elif (key == sdl2.SDLK_KP_DELETE):
+        #elif (key == sdl2.SDL_SCANCODE_KP_DELETE):
         #    return 0x5d
-        elif (key == sdl2.SDLK_KP_5):
+        elif (key == sdl2.SDL_SCANCODE_KP_5):
             return 0x5e
-        elif (key == sdl2.SDLK_UP):
+        elif (key == sdl2.SDL_SCANCODE_UP):
             return 0x5f
-        elif (key == sdl2.SDLK_DOWN):
+        elif (key == sdl2.SDL_SCANCODE_DOWN):
             return 0x60
-        elif (key == sdl2.SDLK_LEFT):
+        elif (key == sdl2.SDL_SCANCODE_LEFT):
             return 0x61
-        elif (key == sdl2.SDLK_RIGHT):
+        elif (key == sdl2.SDL_SCANCODE_RIGHT):
             return 0x62
-        elif (key == sdl2.SDLK_KP_ENTER):
+        elif (key == sdl2.SDL_SCANCODE_KP_ENTER):
             return 0x63
-        elif (key == sdl2.SDLK_KP_MULTIPLY):
+        elif (key == sdl2.SDL_SCANCODE_KP_MULTIPLY):
             return 0x64
-        elif (key == sdl2.SDLK_KP_DIVIDE):
+        elif (key == sdl2.SDL_SCANCODE_KP_DIVIDE):
             return 0x65
-        elif (key == sdl2.SDLK_LGUI):
+        elif (key == sdl2.SDL_SCANCODE_LGUI):
             return 0x66
-        elif (key == sdl2.SDLK_APPLICATION):
+        elif (key == sdl2.SDL_SCANCODE_APPLICATION):
             return 0x67
-        elif (key == sdl2.SDLK_MENU):
+        elif (key == sdl2.SDL_SCANCODE_MENU):
             return 0x68
-        elif (key == sdl2.SDLK_SYSREQ): # OR SYSRQ?
+        elif (key == sdl2.SDL_SCANCODE_SYSREQ): # OR SYSRQ?
             return 0x69
-        #elif (key == sdl2.SDLK_BREAK):
+        #elif (key == sdl2.SDL_SCANCODE_BREAK):
         #    return 0x6a
-        self.vga.main.notice("keyToScancode: unknown key. (keyId: {0:d}, keyName: {1:s})", key, repr(sdl2.keyboard.SDL_GetKeyName(key)))
+        self.vga.main.notice("keyToScancode: unknown key. (keyId: {0:d}, keyName: {1:s})", key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))))
         return 0xff
     cpdef handleSingleEvent(self, object event):
         if (event.type == sdl2.SDL_QUIT):
@@ -354,14 +354,19 @@ cdef class PysdlUI:
         elif (event.type == 512): # 512 == sdl2.SDL_VIDEOEXPOSE ?
             self.updateScreen()
         elif (event.type == sdl2.SDL_KEYDOWN):
-            if (event.key.keysym.sym == sdl2.SDLK_KP_MINUS):
+            if (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_MINUS):
                 self.vga.main.debugEnabled = not self.vga.main.debugEnabled
                 return
-            (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.sym), False)
-        elif (event.type == sdl2.SDL_KEYUP):
-            if (event.key.keysym.sym == sdl2.SDLK_KP_MINUS):
+            elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_PLUS):
+                self.vga.refreshScreen = True
                 return
-            (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.sym), True)
+            (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.scancode), False)
+        elif (event.type == sdl2.SDL_KEYUP):
+            if (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_MINUS):
+                return
+            elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_PLUS):
+                return
+            (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.scancode), True)
         else:
             self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == {0:d}", event.type)
     cpdef updateScreen(self):

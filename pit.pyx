@@ -47,8 +47,10 @@ cdef class PitChannel:
             #self.pit.main.notice("PitChannel::mode2Func: before while")
             while (self.counterValue > 1 and self.counterValue <= (BITMASK_WORD+1)):
                 with nogil:
+                    #usleep(64)
                     usleep(64)
-                self.counterValue -= 0x400 # HACK
+                #self.counterValue -= 0x400 # HACK
+                self.counterValue -= 0x80 # HACK
             self.counterValue = 1
             #self.pit.main.notice("PitChannel::mode2Func: after while")
             if (self.channelId == 0): # just raise IRQ on channel0
@@ -74,8 +76,7 @@ cdef class PitChannel:
                 return
     cpdef runTimer(self):
         if (self.channelId == 1):
-            self.pit.main.exitError("PitChannel::runTimer: PIT-Channel 1 is ancient.")
-            return
+            self.pit.main.notice("PitChannel::runTimer: PIT-Channel 1 is ancient.")
         if (self.counterStartValue == 0):
             self.counterStartValue = 0x10000
         if (self.bcdMode):

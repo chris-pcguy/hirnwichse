@@ -133,14 +133,14 @@ cdef class Gdt:
               tableLimit, GDT_HARD_LIMIT)
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
-        self.segments.main.notice("Gdt::loadTablePosition: tableBase: {0:#010x}; tableLimit: {1:#06x}", self.tableBase, self.tableLimit)
+        #self.segments.main.debug("Gdt::loadTablePosition: tableBase: {0:#010x}; tableLimit: {1:#06x}", self.tableBase, self.tableLimit)
     cdef GdtEntry getEntry(self, unsigned short num):
         cdef unsigned long int entryData
         num &= 0xfff8
         if (not num):
             ##self.segments.main.debug("GDT::getEntry: num == 0!")
             return None
-        self.segments.main.notice("Gdt::getEntry: tableBase=={0:#010x}; tableLimit=={1:#06x}; num=={2:#06x}", self.tableBase, self.tableLimit, num)
+        #self.segments.main.debug("Gdt::getEntry: tableBase=={0:#010x}; tableLimit=={1:#06x}; num=={2:#06x}", self.tableBase, self.tableLimit, num)
         entryData = self.tableBase+num
         entryData = self.segments.registers.mmReadValueUnsignedQword(entryData, None, False)
         return GdtEntry(self, entryData)
@@ -290,10 +290,13 @@ cdef class Paging: # TODO
         errorFlags |= (self.segments.registers.cpl == 3) << 2
         # TODO: reserved bits are set ; only with 4MB pages ; << 3
         errorFlags |= self.instrFetch << 4
+        self.segments.main.debugEnabled = True
+        self.segments.main.notice("Paging::doPF: savedEip=={0:#010x}; savedCs=={1:#06x}", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
         self.segments.main.notice("Paging::doPF: virtualAddress=={0:#010x}; errorFlags=={1:#04x}", virtualAddress, errorFlags)
         self.segments.registers.regWriteDword(CPU_REGISTER_CR2, virtualAddress)
+        self.segments.main.notice("Paging::doPF: test2")
         raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
-        #return 0
+        return 0
     cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except -1:
         #self.segments.main.notice("Paging::readAddresses: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
         self.pageDirectoryOffset = (virtualAddress>>22) << 2
@@ -301,10 +304,10 @@ cdef class Paging: # TODO
         self.pageOffset = virtualAddress&0xfff
         self.pageDirectoryEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
         if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
-            self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present. (entry: {0:#010x}; addr: {1:#010x}; newData: {2:#010x}; vaddr: {3:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset), virtualAddress)
+            self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
             self.doPF(virtualAddress, written)
             return False
-        if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4MB page
+        elif (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4MB page
             # size is 4MB if CR4/PSE is set
             # size is 2MB if CR4/PAE is set
             # I don't know which size is used if both, CR4/PSE && CR4/PAE, are set
@@ -339,14 +342,14 @@ cdef class Paging: # TODO
             pageDirectoryEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|pageDirectoryOffset) # page directory
             pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&0xfffff000)|pageTableOffset) # page table
             if ((pageDirectoryEntry & PAGE_PRESENT) and (pageTableEntry & PAGE_PRESENT)):
-                self.segments.main.debug("Paging::setFlags: test3: pdo addr {0:#010x}; pto addr {1:#010x}", (self.pageDirectoryBaseAddress|pageDirectoryOffset), ((pageDirectoryEntry&0xfffff000)|pageTableOffset))
-                self.segments.main.debug("Paging::setFlags: test4: pdo {0:#010x}; pto {1:#010x}", pageDirectoryEntry, pageTableEntry)
-                self.segments.main.debug("Paging::setFlags: test5: pdo {0:#010x}; pto {1:#010x}", self.segments.main.mm.mmPhyReadValueUnsignedDword((self.pageDirectoryBaseAddress|pageDirectoryOffset)), self.segments.main.mm.mmPhyReadValueUnsignedDword(((pageDirectoryEntry&0xfffff000)|pageTableOffset)))
+                #self.segments.main.debug("Paging::setFlags: test3: pdo addr {0:#010x}; pto addr {1:#010x}", (self.pageDirectoryBaseAddress|pageDirectoryOffset), ((pageDirectoryEntry&0xfffff000)|pageTableOffset))
+                #self.segments.main.debug("Paging::setFlags: test4: pdo {0:#010x}; pto {1:#010x}", pageDirectoryEntry, pageTableEntry)
+                #self.segments.main.debug("Paging::setFlags: test5: pdo {0:#010x}; pto {1:#010x}", self.segments.main.mm.mmPhyReadValueUnsignedDword((self.pageDirectoryBaseAddress|pageDirectoryOffset)), self.segments.main.mm.mmPhyReadValueUnsignedDword(((pageDirectoryEntry&0xfffff000)|pageTableOffset)))
                 pageDirectoryEntry |= (PAGE_WAS_USED | (((pageDirectoryEntry & PAGE_SIZE) and written) and PAGE_WRITTEN_ON_PAGE))
                 pageTableEntry |= (PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
                 self.segments.main.mm.mmPhyWriteValue(self.pageDirectoryBaseAddress|pageDirectoryOffset, pageDirectoryEntry, OP_SIZE_DWORD) # page directory
                 self.segments.main.mm.mmPhyWriteValue(((pageDirectoryEntry&0xfffff000)|pageTableOffset), pageTableEntry, OP_SIZE_DWORD) # page table
-                self.segments.main.debug("Paging::setFlags: test6: pdo {0:#010x}; pto {1:#010x}", self.segments.main.mm.mmPhyReadValueUnsignedDword((self.pageDirectoryBaseAddress|pageDirectoryOffset)), self.segments.main.mm.mmPhyReadValueUnsignedDword(((pageDirectoryEntry&0xfffff000)|pageTableOffset)))
+                #self.segments.main.debug("Paging::setFlags: test6: pdo {0:#010x}; pto {1:#010x}", self.segments.main.mm.mmPhyReadValueUnsignedDword((self.pageDirectoryBaseAddress|pageDirectoryOffset)), self.segments.main.mm.mmPhyReadValueUnsignedDword(((pageDirectoryEntry&0xfffff000)|pageTableOffset)))
             if (dataSize <= PAGE_DIRECTORY_LENGTH):
                 break
             virtualAddress += PAGE_DIRECTORY_LENGTH

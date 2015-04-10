@@ -74,7 +74,7 @@ cdef class AtaDrive:
             self.sectorSize = FD_HD_SECTOR_SIZE
             self.driveCode = 0x0
         self.configSpace = ConfigSpace(512, self.ataController.ata.main)
-    cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector):
+    cdef unsigned long int ChsToSector(self, unsigned int cylinder, unsigned char head, unsigned char sector):
         return (cylinder*HEADS+head)*SPT+(sector-1)
     cdef inline unsigned short readValue(self, unsigned char index):
         return self.configSpace.csReadValueUnsigned(index << 1, OP_SIZE_WORD)
