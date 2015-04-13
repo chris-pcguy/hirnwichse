@@ -475,6 +475,7 @@ cdef class Opcodes:
                 else:
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         self.registers.if_flag = True
+        self.registers.ssInhibit = True
         self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
         return True
     cdef int hlt(self) except -1:
@@ -1593,25 +1594,29 @@ cdef class Opcodes:
                 self.main.notice("opcodeGroup0F_01: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x02): # LAR
-            self.main.notice("Opcodes::opcodeGroup0F: LAR: TODO!")
+            self.main.notice("Opcodes::opcodeGroup0F: LAR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             if (not self.registers.protectedModeOn):
                 raise HirnwichseException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)
             if (not self.registers.segments.inLimit(op2)):
                 self.registers.zf = False
+                self.main.notice("Opcodes::opcodeGroup0F: LAR: test1!")
                 return True
             gdtEntry = <GdtEntry>self.registers.segments.getEntry(op2)
             if (gdtEntry is None):
                 self.main.exitError("Opcodes::LAR: not gdtEntry")
                 return True
+            segType = self.registers.segments.getSegType(op2)
             if ((not gdtEntry.segIsConforming and ((cpl > gdtEntry.segDPL) or ((op2&3) > gdtEntry.segDPL))) or \
-              (self.registers.segments.getSegType(op2) not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, \
+              (not (segType&0x10) and segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, \
               TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_16BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, \
               TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE))):
                 self.registers.zf = False
+                self.main.notice("Opcodes::opcodeGroup0F: LAR: test2!")
+                self.main.notice("Opcodes::opcodeGroup0F: LAR: test2.1! (c1=={0:d}; c2=={1:d}; c3=={2:d}; c4=={3:d}; c5=={4:#04x})", not gdtEntry.segIsConforming, (cpl > gdtEntry.segDPL), ((op2&3) > gdtEntry.segDPL), (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_16BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE)), segType)
                 return True
-            op1 = self.registers.segments.getSegType(op2) << 8
+            op1 = segType << 8
             op1 |= gdtEntry.segIsNormal << 12
             op1 |= gdtEntry.segDPL << 13
             op1 |= gdtEntry.segPresent << 15
@@ -1623,22 +1628,26 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
             self.registers.zf = True
         elif (operOpcode == 0x03): # LSL
-            self.main.notice("Opcodes::opcodeGroup0F: LSL: TODO!")
+            self.main.notice("Opcodes::opcodeGroup0F: LSL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             if (not self.registers.protectedModeOn):
                 raise HirnwichseException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD, True)
             if (not self.registers.segments.inLimit(op2)):
                 self.registers.zf = False
+                self.main.notice("Opcodes::opcodeGroup0F: LSL: test1!")
                 return True
             gdtEntry = <GdtEntry>self.registers.segments.getEntry(op2)
             if (gdtEntry is None):
                 self.main.exitError("Opcodes::LSL: not gdtEntry")
                 return True
+            segType = self.registers.segments.getSegType(op2)
             if ((not gdtEntry.segIsConforming and ((cpl > gdtEntry.segDPL) or ((op2&3) > gdtEntry.segDPL))) or \
-              (self.registers.segments.getSegType(op2) not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, \
+              (not (segType&0x10) and segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, \
               TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY))):
                 self.registers.zf = False
+                self.main.notice("Opcodes::opcodeGroup0F: LSL: test2!")
+                self.main.notice("Opcodes::opcodeGroup0F: LSL: test2.1! (c1=={0:d}; c2=={1:d}; c3=={2:d}; c4=={3:d}; c5=={4:#04x})", not gdtEntry.segIsConforming, (cpl > gdtEntry.segDPL), ((op2&3) > gdtEntry.segDPL), (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)), segType)
                 return True  
             op1 = gdtEntry.limit
             if ((gdtEntry.flags & GDT_FLAG_USE_4K)):
@@ -1958,20 +1967,26 @@ cdef class Opcodes:
             op2 = self.modRMInstance.modRLoadUnsigned(self.registers.operSize)
             self.btFunc(op2, BT_COMPLEMENT)
         elif (operOpcode == 0xbc): # BSF R16_32, R/M16_32
+            self.main.notice("Opcodes::opcodeGroup0F: BSF: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.cpu.cpuDump()
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
-            self.registers.zf = not op2
             if (op2 >= 1):
                 op1 = bin(op2)[::-1].find('1')
                 self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
+                self.registers.setSZP_COA(op1, self.registers.operSize)
+            self.registers.zf = not op2
+            self.main.cpu.cpuDump()
         elif (operOpcode == 0xbd): # BSR R16_32, R/M16_32
             self.main.notice("Opcodes::opcodeGroup0F: BSR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             self.main.cpu.cpuDump()
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
-            self.registers.zf = not op2
             if (op2 >= 1):
-                self.modRMInstance.modRSave(self.registers.operSize, op2.bit_length()-1, OPCODE_SAVE)
+                op1 = op2.bit_length()-1
+                self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
+                self.registers.setSZP_COA(op1, self.registers.operSize)
+            self.registers.zf = not op2
             self.main.cpu.cpuDump()
         elif (operOpcode in (0xb6, 0xbe)): # 0xb6==MOVZX R16_32, R/M8 ;; 0xbe==MOVSX R16_32, R/M8
             self.modRMInstance.modRMOperands(OP_SIZE_BYTE, MODRM_FLAGS_NONE)
@@ -2378,6 +2393,11 @@ cdef class Opcodes:
         if (intNum == -1):
             isSoftInt = True
             intNum = self.registers.getCurrentOpcodeAddUnsignedByte()
+        else:
+            if (intNum in CPU_EXCEPTIONS_FAULT_GROUP and intNum != CPU_EXCEPTION_DB):
+                self.registers.rf = True
+            elif (intNum in CPU_EXCEPTIONS_TRAP_GROUP and self.registers.repPrefix):
+                self.registers.rf = True
         self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}; isSoftInt=={1:d}", intNum, isSoftInt)
         if (self.registers.protectedModeOn):
             if (oldVM and (self.registers.iopl < 3) and isSoftInt):
@@ -2530,7 +2550,7 @@ cdef class Opcodes:
         self.stackPushValue(oldEFLAGS, entrySize, False)
         self.stackPushSegment((<Segment>self.registers.segments.cs), entrySize)
         self.stackPushRegId(CPU_REGISTER_EIP, entrySize)
-        if (self.registers.protectedModeOn and errorCode != -1):
+        if (self.registers.protectedModeOn and not isSoftInt and errorCode != -1):
             self.stackPushValue(errorCode, entrySize, False)
         if (oldVM):
             self.registers.segWriteSegment((<Segment>self.registers.segments.gs), 0)
@@ -2701,6 +2721,8 @@ cdef class Opcodes:
                 self.registers.regWriteWordFlags(<unsigned short>tempEFLAGS)
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
             self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
+        self.registers.ssInhibit = True
+        self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
         return True
     cdef int aad(self) except -1:
         cdef unsigned char imm8, tempAL, tempAH

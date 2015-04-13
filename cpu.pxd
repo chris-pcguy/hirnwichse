@@ -14,7 +14,7 @@ cdef class Cpu:
     cdef public Registers registers
     cdef Opcodes opcodes
     cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, \
-      debugSingleStep, exceptionLevel
+      debugSingleStep
     cdef unsigned char INTR, HRQ
     cdef public unsigned short savedCs
     cdef public unsigned int savedEip

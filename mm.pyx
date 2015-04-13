@@ -63,8 +63,8 @@ cdef class Mm:
                     break
         if (found):
             if (offset < VGA_MEMAREA_ADDR):
-                ret += mmArea.data[offset:offset+diff]
                 diff = (VGA_MEMAREA_ADDR-offset)
+                ret += mmArea.data[offset:offset+diff]
                 dataSize -= diff
                 offset += diff
             if (offset+dataSize > VGA_ROM_BASE):

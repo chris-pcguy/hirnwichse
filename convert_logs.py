@@ -15,22 +15,36 @@ class Comp:
         self.fn1 = sys.argv[1]
         self.fn2 = sys.argv[2]
     def parse_f1(self):
+        r = r2 = r3 = ''
+        skip_first_lines = True
+        l = []
         self.fp1 = open(self.fn1, 'rt')
         self.rfp1 = open('converted_1', 'wt')
         while True:
             i = self.fp1.readline()
             if (not i):
                 break
+            if (skip_first_lines):
+                if (i.find('eax') != -1):
+                    skip_first_lines = False
+                else:
+                    continue
             m = re.search(r'\] ([0-9a-f]{4}):([0-9a-f]{4,8}) \(', i)
             if (m):
-                r = '{0:s}:{1:s}\n'.format(m.group(1), m.group(2).rjust(8, '0'))
-                self.rfp1.write(r)
+                r3 = r2
+                r2 = r = '{0:s}:{1:s}\n'.format(m.group(1), m.group(2).rjust(8, '0'))
+                #self.rfp1.write(r)
+                l.append(r)
+                if (r3 != r2):
+                    self.rfp1.writelines(l)
+                l = []
             m = re.search(r'(e\w{2}|eflags)(:? )(0x[0-9a-f]{8})', i)
             if (m):
                 n = m.group(1).upper()
                 if (n != 'EIP'):
                     r = '{0:s}: {1:s}\n'.format(n, m.group(3))
-                    self.rfp1.write(r)
+                    #self.rfp1.write(r)
+                    l.append(r)
         self.rfp1.flush()
         self.rfp1.close()
     def parse_f2(self):
@@ -60,7 +74,7 @@ class Comp:
         self.rfp2.flush()
         self.rfp2.close()
     def run(self):
-        #self.parse_f1()
+        self.parse_f1()
         self.parse_f2()
 
 

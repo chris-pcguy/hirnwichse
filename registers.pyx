@@ -414,6 +414,8 @@ cdef class Registers:
                 self.cpl = 3
             else:
                 self.cpl = 0
+        elif (segId == CPU_SEGMENT_SS):
+            self.ssInhibit = True
         self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
         return segValue
     cdef unsigned short segWriteSegment(self, Segment segment, unsigned short segValue):
@@ -433,6 +435,8 @@ cdef class Registers:
                 self.cpl = 3
             else:
                 self.cpl = 0
+        elif (segId == CPU_SEGMENT_SS):
+            self.ssInhibit = True
         self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
         return segValue
     cdef signed long int regReadSigned(self, unsigned short regId, unsigned char regSize):

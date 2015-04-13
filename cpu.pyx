@@ -19,7 +19,7 @@ cdef class Cpu:
         self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = \
           self.HRQ = False
         self.debugHalt = self.main.debugHalt
-        self.cycles = self.oldCycleInc = self.exceptionLevel = 0
+        self.cycles = self.oldCycleInc = 0
         self.registers.reset()
     cdef inline void saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
@@ -47,14 +47,11 @@ cdef class Cpu:
         return
     cpdef exception(self, unsigned char exceptionId, signed int errorCode=-1):
         self.main.notice("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
+        #self.main.debugEnabled = True
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), self.savedCs)
             self.registers.regWriteDword(CPU_REGISTER_EIP, self.savedEip)
-            if (exceptionId != CPU_EXCEPTION_DB):
-                self.registers.rf = True
-        elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
-            if (self.registers.repPrefix):
-                self.registers.rf = True
+        #elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
         #    self.savedEip = <unsigned int>(self.savedEip+1)
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
             if (errorCode == -1):
@@ -63,7 +60,6 @@ cdef class Cpu:
             self.opcodes.interrupt(exceptionId, errorCode)
         else:
             self.opcodes.interrupt(exceptionId)
-        self.exceptionLevel = 0
     cpdef handleException(self, object exception):
         cdef unsigned char exceptionId
         cdef signed int errorCode
@@ -170,18 +166,24 @@ cdef class Cpu:
         self.cycles += CPU_CLOCK_TICK
         self.registers.resetPrefixes()
         #self.saveCurrentInstPointer()
+        if (<unsigned short>self.cycles == 0x00):
+            if (self.main.platform.vga and self.main.platform.vga.ui):
+                self.main.platform.vga.ui.handleEventsWithoutWaiting()
         if (self.registers.df):
             self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
         if (self.registers.tf):
             self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet!")
-            self.registers.tf = False
-            self.exception(CPU_EXCEPTION_DB, -1)
-            return
-        if (self.asyncEvent and not self.registers.ssInhibit):
+        if (not self.registers.ssInhibit):
+            self.registers.readCodeSegSize()
             self.saveCurrentInstPointer()
-            self.handleAsyncEvent()
-            return
-        if (self.registers.ssInhibit):
+            if (self.asyncEvent):
+                self.handleAsyncEvent()
+                return
+            elif (self.registers.tf):
+                self.registers.tf = False
+                self.exception(CPU_EXCEPTION_DB, -1)
+                return
+        else:
             self.registers.ssInhibit = False
         self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
         if (self.opcode in OPCODE_PREFIXES):
@@ -192,8 +194,14 @@ cdef class Cpu:
         ##if (self.savedEip == 0x169c):
         ##if (self.savedEip == 0x1041):
         #if (self.savedEip == 0xc000154f):
-        if (self.savedCs == 0x28):
-            self.main.debugEnabled = True
+        #if (self.savedCs == 0x28):
+        #    self.main.debugEnabled = True
+        #elif (self.savedCs == 0x835):
+        #    self.main.debugEnabled = True
+        #elif (self.savedCs == 0x2ec6):
+        #    self.main.debugEnabled = True
+        #else:
+        #    self.main.debugEnabled = False
         if (self.main.debugEnabled):
             self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
             #self.main.notice("Cpu::doCycle: Gdt::tableLimit=={0:#06x}", self.registers.segments.gdt.tableLimit)
@@ -211,28 +219,32 @@ cdef class Cpu:
             #except HirnwichseException:
             #    self.main.notice("Cpu::doCycle: test8 exception")
             self.cpuDump()
-        if (<unsigned short>self.cycles == 0x00):
-            if (self.main.platform.vga and self.main.platform.vga.ui):
-                self.main.platform.vga.ui.handleEventsWithoutWaiting()
         try:
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         except HirnwichseException as exception: # exception
-            self.exceptionLevel += 1
-            if (self.exceptionLevel == 1):
+            self.main.notice("Cpu::doCycle: testexc1")
+            try:
                 self.handleException(exception) # execute exception handler
-            elif (self.exceptionLevel == 2):
-                self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
-            elif (self.exceptionLevel == 3):
-                if (self.main.exitOnTripleFault):
-                    self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.")
-                else:
-                    self.main.notice("CPU::doCycle: TRIPLE FAULT! reset.")
-                    self.cpu.reset()
+            except HirnwichseException as exception: # exception
+                try:
+                    self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
+                except HirnwichseException as exception: # exception
+                    if (self.main.exitOnTripleFault):
+                        self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.")
+                    else:
+                        self.main.notice("CPU::doCycle: TRIPLE FAULT! reset.")
+                        self.cpu.reset()
+                except:
+                    print_exc()
+                    self.main.exitError('doCycle: exception1 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
+            except:
+                print_exc()
+                self.main.exitError('doCycle: exception2 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
         except:
             print_exc()
-            self.main.exitError('doCycle: exception while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
+            self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
     cpdef run(self, unsigned char infiniteCycles = True):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main)

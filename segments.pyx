@@ -145,8 +145,10 @@ cdef class Gdt:
         entryData = self.segments.registers.mmReadValueUnsignedQword(entryData, None, False)
         return GdtEntry(self, entryData)
     cdef unsigned char getSegType(self, unsigned short num):
+        num &= 0xfff8
         return (self.segments.registers.mmReadValueUnsignedByte(self.tableBase+num+5, None, False) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
     cdef void setSegType(self, unsigned short num, unsigned char segmentType):
+        num &= 0xfff8
         self.segments.registers.mmWriteValue(self.tableBase+num+5, <unsigned char>((self.segments.registers.\
           mmReadValueUnsignedByte(self.tableBase+num+5, None, False) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
             (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)), OP_SIZE_BYTE, None, False)
@@ -296,7 +298,7 @@ cdef class Paging: # TODO
         self.segments.registers.regWriteDword(CPU_REGISTER_CR2, virtualAddress)
         self.segments.main.notice("Paging::doPF: test2")
         raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
-        return 0
+        #return 0
     cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except -1:
         #self.segments.main.notice("Paging::readAddresses: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
         self.pageDirectoryOffset = (virtualAddress>>22) << 2
