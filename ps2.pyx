@@ -385,10 +385,13 @@ cdef class PS2:
                 retVal = self.periodic(1)
                 if (retVal&1):
                     (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+            elif (len(self.outBuffer) and (self.kbdClockEnabled or self.batInProgress) and self.allowIrq1):
+                (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+            #else:
+            if (len(self.outBuffer)):
+                sleep(0.02)
+                self.timerPending = True
             else:
-                #if (len(self.outBuffer)):
-                #    sleep(0.02)
-                #else:
                 sleep(1)
     cpdef initThread(self):
         self.main.misc.createThread(self.timerFunc, True)

@@ -243,9 +243,11 @@ cdef class Registers:
         self.segments.reset()
         self.regWriteDwordEflags(FLAG_REQUIRED)
         #self.regWriteDword(CPU_REGISTER_CR0, 0x40000014)
-        #self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
-        self.regWriteDword(CPU_REGISTER_CR0, 0x60000024)
-        self.regWriteDword(CPU_REGISTER_EDX, 0x500)
+        self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
+        #self.regWriteDword(CPU_REGISTER_CR0, 0x60000024)
+        self.regWriteDword(CPU_REGISTER_DR6, 0xffff1ff0)
+        self.regWriteDword(CPU_REGISTER_DR7, 0x400)
+        self.regWriteDword(CPU_REGISTER_EDX, 0x400)
         self.segWriteSegment((<Segment>self.segments.cs), 0xf000)
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef void resetPrefixes(self):
@@ -399,19 +401,24 @@ cdef class Registers:
         return self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue):
         cdef Segment segment
-        cdef unsigned char protectedModeOn
+        cdef unsigned char protectedModeOn, segType
         protectedModeOn = (self.protectedModeOn and not self.vm)
         segment = self.segments.getSegment(segId, False)
+        if (protectedModeOn):
+            segType = self.segments.getSegType(segValue)
+            if (segType & GDT_ACCESS_NORMAL_SEGMENT):
+                segType |= GDT_ACCESS_ACCESSED
+                self.segments.setSegType(segValue, segType)
         segment.loadSegment(segValue, protectedModeOn)
         if (protectedModeOn):
             if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):
                 segment.isValid = False
         if (segId == CPU_SEGMENT_CS):
             self.codeSegSize = segment.segSize
-            if (segment.useGDT):
-                self.cpl = segValue & 0x3
-            elif (self.vm):
+            if (self.vm):
                 self.cpl = 3
+            elif (segment.useGDT):
+                self.cpl = segValue & 0x3
             else:
                 self.cpl = 0
         elif (segId == CPU_SEGMENT_SS):
@@ -420,19 +427,24 @@ cdef class Registers:
         return segValue
     cdef unsigned short segWriteSegment(self, Segment segment, unsigned short segValue):
         cdef unsigned short segId
-        cdef unsigned char protectedModeOn
+        cdef unsigned char protectedModeOn, segType
         protectedModeOn = (self.protectedModeOn and not self.vm)
         segId = segment.segId
+        if (protectedModeOn):
+            segType = self.segments.getSegType(segValue)
+            if (segType & GDT_ACCESS_NORMAL_SEGMENT):
+                segType |= GDT_ACCESS_ACCESSED
+                self.segments.setSegType(segValue, segType)
         segment.loadSegment(segValue, protectedModeOn)
         if (protectedModeOn):
             if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):
                 segment.isValid = False
         if (segId == CPU_SEGMENT_CS):
             self.codeSegSize = segment.segSize
-            if (segment.useGDT):
-                self.cpl = segValue & 0x3
-            elif (self.vm):
+            if (self.vm):
                 self.cpl = 3
+            elif (segment.useGDT):
+                self.cpl = segValue & 0x3
             else:
                 self.cpl = 0
         elif (segId == CPU_SEGMENT_SS):
@@ -637,7 +649,7 @@ cdef class Registers:
             self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp {0:d}.", valueOp)
         return 0
     cdef void setSZP(self, unsigned int value, unsigned char regSize):
-        self.sf = value>>((regSize<<3)-1)
+        self.sf = (value>>((regSize<<3)-1))!=0
         self.zf = value==0
         self.pf = PARITY_TABLE[<unsigned char>value]
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize):
@@ -698,6 +710,7 @@ cdef class Registers:
         cdef unsigned char unsignedOverflow, reg0Nibble, regSumuNibble, carried
         cdef unsigned int bitMaskHalf
         cdef unsigned long int regSumu
+        cdef signed long int regSum
         carried = False
         bitMaskHalf = BITMASKS_80[regSize]
         if (method in (OPCODE_ADD, OPCODE_ADC)):
@@ -758,22 +771,37 @@ cdef class Registers:
             self.sf = regSumu!=0
         elif (method in (OPCODE_MUL, OPCODE_IMUL)):
             if (regSize == OP_SIZE_BYTE):
-                reg0 = <unsigned char>reg0
                 reg1 = <unsigned char>reg1
-                regSumu = (reg0*reg1)
-                unsignedOverflow = regSumu!=(<unsigned char>regSumu)
+                if (method == OPCODE_MUL):
+                    reg0 = <unsigned char>reg0
+                    regSumu = (reg0*reg1)
+                    unsignedOverflow = (<unsigned short>regSumu)!=(<unsigned char>regSumu)
+                else:
+                    reg0 = <signed char>reg0
+                    regSumu = regSum = (reg0*reg1)
+                    unsignedOverflow = (<signed short>regSum)!=(<signed char>regSum)
                 regSumu = <unsigned char>regSumu
             elif (regSize == OP_SIZE_WORD):
-                reg0 = <unsigned short>reg0
                 reg1 = <unsigned short>reg1
-                regSumu = (reg0*reg1)
-                unsignedOverflow = regSumu!=(<unsigned short>regSumu)
+                if (method == OPCODE_MUL):
+                    reg0 = <unsigned short>reg0
+                    regSumu = (reg0*reg1)
+                    unsignedOverflow = (<unsigned int>regSumu)!=(<unsigned short>regSumu)
+                else:
+                    reg0 = <signed short>reg0
+                    regSumu = regSum = (reg0*reg1)
+                    unsignedOverflow = (<signed int>regSum)!=(<signed short>regSum)
                 regSumu = <unsigned short>regSumu
             elif (regSize == OP_SIZE_DWORD):
-                reg0 = <unsigned int>reg0
                 reg1 = <unsigned int>reg1
-                regSumu = (reg0*reg1)
-                unsignedOverflow = regSumu!=(<unsigned int>regSumu)
+                if (method == OPCODE_MUL):
+                    reg0 = <unsigned int>reg0
+                    regSumu = (reg0*reg1)
+                    unsignedOverflow = (<unsigned long int>regSumu)!=(<unsigned int>regSumu)
+                else:
+                    reg0 = <signed int>reg0
+                    regSumu = regSum = (reg0*reg1)
+                    unsignedOverflow = (<signed long int>regSum)!=(<signed int>regSum)
                 regSumu = <unsigned int>regSumu
             self.af = False
             self.cf = self.of = unsignedOverflow

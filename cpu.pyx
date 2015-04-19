@@ -47,6 +47,7 @@ cdef class Cpu:
         return
     cpdef exception(self, unsigned char exceptionId, signed int errorCode=-1):
         self.main.notice("Running exception: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
+        self.cpuDump()
         #self.main.debugEnabled = True
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), self.savedCs)
@@ -200,6 +201,14 @@ cdef class Cpu:
         #    self.main.debugEnabled = True
         #elif (self.savedCs == 0x2ec6):
         #    self.main.debugEnabled = True
+        #else:
+        #    self.main.debugEnabled = False
+        #if (self.savedCs == 0x835):
+        #    self.main.debugEnabled = True
+        #elif (self.savedCs == 0x2ec6):
+        #    self.main.debugEnabled = True
+        #elif (self.savedCs == 0x28):
+        #    self.main.debugEnabled = False
         #else:
         #    self.main.debugEnabled = False
         if (self.main.debugEnabled):

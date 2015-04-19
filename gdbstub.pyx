@@ -283,15 +283,15 @@ class ThreadedTCPRequestHandler(BaseRequestHandler):
                 return
             (<GDBStubHandler>self.gdbHandler).connHandler = self
             (<GDBStubHandler>self.gdbHandler).connId += 1
-            (<GDBStubHandler>self.gdbHandler).main.quitEmu = False # allow to debug even after exitError()
-            (<GDBStubHandler>self.gdbHandler).main.cpu.debugHalt = True
-            (<GDBStubHandler>self.gdbHandler).main.cpu.debugSingleStep = False
+            (<GDBStubHandler>self.gdbHandler).gdbStub.main.quitEmu = False # allow to debug even after exitError()
+            (<GDBStubHandler>self.gdbHandler).gdbStub.main.cpu.debugHalt = True
+            (<GDBStubHandler>self.gdbHandler).gdbStub.main.cpu.debugSingleStep = False
             (<GDBStubHandler>self.gdbHandler).clearData()
             if (not (<GDBStubHandler>self.gdbHandler).initSent):
                 (<GDBStubHandler>self.gdbHandler).sendInit(GDB_SIGNAL_INT)
                 (<GDBStubHandler>self.gdbHandler).initSent = True
-            while (not (<GDBStubHandler>self.gdbHandler).main.quitEmu and (<GDBStubHandler>self.gdbHandler).main.cpu.debugHalt):
-                #(<GDBStubHandler>self.gdbHandler).main.notice("handle::read.")
+            while (not (<GDBStubHandler>self.gdbHandler).gdbStub.main.quitEmu and (<GDBStubHandler>self.gdbHandler).gdbStub.main.cpu.debugHalt):
+                #(<GDBStubHandler>self.gdbHandler).gdbStub.main.notice("handle::read.")
                 (<GDBStubHandler>self.gdbHandler).handleRead()
         except:
             print_exc()

@@ -41,21 +41,31 @@ cdef class PitChannel:
         self.timerEnabled = False
     cpdef mode2Func(self): # TODO
         cdef unsigned char clear
+        cdef unsigned int counterValue
         while (self.timerEnabled and self.counterValue and (not self.pit.main.quitEmu)):
             if (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
                 (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
             #self.pit.main.notice("PitChannel::mode2Func: before while")
-            while (self.counterValue > 1 and self.counterValue <= (BITMASK_WORD+1)):
+            #counterValue = self.counterValue>>6
+            counterValue = min(self.counterValue>>9, 2)
+            #self.pit.main.notice("PIT::mode2Func: counterValue=={0:d}", counterValue)
+            while ((counterValue > 1 and counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                 with nogil:
                     #usleep(64)
-                    usleep(64)
+                    #usleep(32)
+                    usleep(1)
                 #self.counterValue -= 0x400 # HACK
-                self.counterValue -= 0x80 # HACK
-            self.counterValue = 1
+                #self.counterValue -= 0x80 # HACK
+                #self.counterValue -= 0x100 # HACK
+                self.counterValue -= 0x1 # HACK
+                counterValue -= 0x1 # HACK
+                #self.pit.main.notice("PitChannel::mode2Func: in while")
+            #self.counterValue = 1
+            #self.counterValue = 0
             #self.pit.main.notice("PitChannel::mode2Func: after while")
             if (self.channelId == 0): # just raise IRQ on channel0
-                #self.pit.main.notice("mode2Func: raiseIrq(0)")
                 clear = (<Pic>self.pit.main.platform.pic).isClear(0)
+                #self.pit.main.notice("mode2Func: raiseIrq(0)")
                 if (clear):
                     #self.pit.main.notice("PitChannel::mode2Func: clear")
                     (<Pic>self.pit.main.platform.pic).lowerIrq(0)
@@ -126,7 +136,6 @@ cdef class Pit:
                 elif (channel.counterWriteMode in (0, 3)): # LSB;MSB
                     if (not channel.counterFlipFlop):
                         if (channel.counterWriteMode == 0): # TODO?
-                            channel.counterLatchValue = channel.counterValue
                             retVal = <unsigned char>channel.counterLatchValue
                         else:
                             retVal = <unsigned char>channel.counterValue
@@ -135,6 +144,7 @@ cdef class Pit:
                             retVal = <unsigned char>(channel.counterLatchValue>>8)
                         else:
                             retVal = <unsigned char>(channel.counterValue>>8)
+                        channel.counterWriteMode = 3
                     channel.counterFlipFlop = not channel.counterFlipFlop
                 else:
                     self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", channel.counterWriteMode)
@@ -202,6 +212,8 @@ cdef class Pit:
                 channel.counterMode = modeNumber
                 channel.counterWriteMode = counterWriteMode
                 channel.counterFlipFlop = False
+                if (not channel.counterWriteMode):
+                    channel.counterLatchValue = channel.counterValue
             else:
                 self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
         else:

@@ -11,7 +11,7 @@ cdef class Cmos:
         self.main = main
         self.dt = self.oldDt = None
         self.cmosIndex = 0
-        self.equipmentDefaultValue = 0x0
+        self.equipmentDefaultValue = 0x4
         self.configSpace = ConfigSpace(128, self.main)
     cdef inline void setEquipmentDefaultValue(self, unsigned char value):
         self.equipmentDefaultValue = value

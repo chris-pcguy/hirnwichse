@@ -189,8 +189,8 @@ cdef class Pic:
             ma_sl = True
             irq -= 8
         ch = (<PicChannel>self.channels[ma_sl])
-        temp1 = ch.isr # & (1<<irq) # partly commented out because the
-        temp2 = ch.irr # & (1<<irq) # PS/2 keyboard has a lower priority.
+        temp1 = ch.isr & (1<<irq) # partly commented out because the
+        temp2 = ch.irr & (1<<irq) # PS/2 keyboard has a lower priority.
         temp3 = ch.imr & (1<<irq)
         return not (temp1 or temp2 or temp3 or ch.intr)
     cdef unsigned char IAC(self):
