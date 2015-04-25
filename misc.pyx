@@ -22,7 +22,7 @@ cdef class Misc:
         return int(str(dec), 16)
     cdef unsigned short bcdToDec(self, unsigned short bcd):
         return int(hex(bcd)[2:], 10)
-    cdef unsigned int reverseByteOrder(self, unsigned int value, unsigned char valueSize):
+    cdef unsigned long int reverseByteOrder(self, unsigned long int value, unsigned char valueSize):
         cdef bytes data
         data = value.to_bytes(length=valueSize, byteorder="big")
         value = int.from_bytes(bytes=data, byteorder="little")

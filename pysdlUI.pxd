@@ -1,7 +1,7 @@
 
 from hirnwichse_main cimport Hirnwichse
 from vga cimport Vga
-from misc cimport Misc
+#from misc cimport Misc
 from ps2 cimport PS2
 
 

@@ -1,6 +1,5 @@
 
 from hirnwichse_main cimport Hirnwichse
-from misc cimport Misc
 from mm cimport ConfigSpace
 from pic cimport Pic
 

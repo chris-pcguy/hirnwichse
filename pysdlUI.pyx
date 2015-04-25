@@ -274,8 +274,8 @@ cdef class PysdlUI:
             return 0x46
         elif (key == sdl2.SDL_SCANCODE_TAB):
             return 0x47
-        #elif (key == sdl2.SDL_SCANCODE_BACKSLASH): # left backslash??
-        #    return 0x48
+        elif (key == sdl2.SDL_SCANCODE_BACKSLASH): # left backslash??
+            return 0x48
         elif (key == sdl2.SDL_SCANCODE_PRINTSCREEN):
             return 0x49
         elif (key == sdl2.SDL_SCANCODE_SCROLLLOCK):
@@ -358,7 +358,9 @@ cdef class PysdlUI:
                 self.vga.main.debugEnabled = not self.vga.main.debugEnabled
                 return
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_PLUS):
-                self.vga.refreshScreen = True
+                #self.vga.refreshScreen = True
+                self.vga.refreshScreenFunction()
+                self.updateScreen()
                 return
             (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.scancode), False)
         elif (event.type == sdl2.SDL_KEYUP):

@@ -241,7 +241,8 @@ cdef class GDBStubHandler:
                     if (not action):
                         res = 0
                         return
-                    if (action[0] in (ord(b'C'), ord(b'S')) ):
+                    return
+                    if (action[0] in (ord(b'C'), ord(b'S')) ): # compiler crash
                         signal = int(action[1:], 16)
                     elif (action[0] not in (ord(b'c'), ord(b's')) ):
                         res = 0

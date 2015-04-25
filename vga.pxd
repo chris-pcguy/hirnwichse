@@ -57,6 +57,7 @@ cdef class Vga:
     cdef unsigned short vde,
     cdef unsigned int videoMemBase, startAddress, offset, videoMemSize
     cdef double newTimer, oldTimer
+    cdef void setStartAddress(self)
     cdef unsigned int getColor(self, unsigned char color) # RGBA
     cdef void readFontData(self)
     cdef void setProcessVideoMem(self, unsigned char processVideoMem)

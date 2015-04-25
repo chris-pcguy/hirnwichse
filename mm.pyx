@@ -181,42 +181,6 @@ cdef class Mm:
             dataSize -= tempSize
             data = data[tempSize:]
         return True
-    cdef unsigned char mmPhyWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data):
-        cdef MmArea mmArea
-        cdef unsigned char dataSize
-        cdef unsigned short i, start, end
-        cdef unsigned int tempAddr
-        if (unsigned_value_types is unsigned_char):
-            dataSize = OP_SIZE_BYTE
-        elif (unsigned_value_types is unsigned_short):
-            dataSize = OP_SIZE_WORD
-        elif (unsigned_value_types is unsigned_int):
-            dataSize = OP_SIZE_DWORD
-        elif (unsigned_value_types is unsigned_long_int):
-            dataSize = OP_SIZE_QWORD
-        else:
-            self.main.error("Mm::mmPhyWrite: invalid unsigned_value_types.")
-            return False
-        if (unsigned_value_types is unsigned_char):
-            mmArea = self.mmAreas[mmAddr >> 20]
-            if (not mmArea.valid):
-                self.main.notice("Mm::mmPhyWrite: not mmArea.valid 1! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-                return False
-            tempAddr = (mmAddr&SIZE_1MB_MASK)
-            mmArea.writeHandler(self, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
-            return True
-        else:
-            self.mmGetAreasCount(mmAddr, dataSize, &start, &end)
-            for i in range(start, end):
-                mmArea = self.mmAreas[i]
-                if (not mmArea.valid):
-                    self.main.notice("Mm::mmPhyWrite: not mmArea.valid 2! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, dataSize)
-                    return False
-                tempAddr = (mmAddr&SIZE_1MB_MASK)
-                if (tempAddr+dataSize > SIZE_1MB):
-                    return self.mmPhyWriteValue(mmAddr, data, dataSize)
-                mmArea.writeHandler(self, mmArea, tempAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
-                return True
     cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data

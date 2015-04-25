@@ -5,17 +5,6 @@ from libc.stdlib cimport malloc
 from libc.string cimport memmove, memset
 
 
-ctypedef fused unsigned_value_types:
-    unsigned char
-    unsigned short
-    unsigned int
-    unsigned long int
-
-ctypedef unsigned char unsigned_char
-ctypedef unsigned short unsigned_short
-ctypedef unsigned int unsigned_int
-ctypedef unsigned long int unsigned_long_int
-
 ctypedef bytes (*MmAreaReadType)(self, MmArea, unsigned int, unsigned int)
 ctypedef void (*MmAreaWriteType)(self, MmArea, unsigned int, char *, unsigned int)
 
@@ -56,7 +45,6 @@ cdef class Mm:
     cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr)
     cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize)
     cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize)
-    cdef unsigned char mmPhyWriteValueSize(self, unsigned int mmAddr, unsigned_value_types data)
     cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize)
     cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
 

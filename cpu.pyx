@@ -82,7 +82,7 @@ cdef class Cpu:
         else:
             self.main.notice("CPU::handleException: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
         self.exception(exceptionId, errorCode)
-    cdef unsigned char parsePrefixes(self, unsigned char opcode):
+    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? -1:
         cdef unsigned char count
         count = 0
         while (opcode in OPCODE_PREFIXES and not self.main.quitEmu):
@@ -122,7 +122,7 @@ cdef class Cpu:
         self.main.notice("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESI), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_EDI))
         self.main.notice("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), \
-          self.registers.readFlags())
+          self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS))
         self.main.notice("CS: {0:#06x}, SS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_CS), \
           self.registers.segRead(CPU_SEGMENT_SS))
         self.main.notice("DS: {0:#06x}, ES: {1:#06x}", self.registers.segRead(CPU_SEGMENT_DS), \
@@ -170,65 +170,34 @@ cdef class Cpu:
         if (<unsigned short>self.cycles == 0x00):
             if (self.main.platform.vga and self.main.platform.vga.ui):
                 self.main.platform.vga.ui.handleEventsWithoutWaiting()
-        if (self.registers.df):
-            self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
-        if (self.registers.tf):
-            self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet!")
-        if (not self.registers.ssInhibit):
-            self.registers.readCodeSegSize()
-            self.saveCurrentInstPointer()
-            if (self.asyncEvent):
-                self.handleAsyncEvent()
-                return
-            elif (self.registers.tf):
-                self.registers.tf = False
-                self.exception(CPU_EXCEPTION_DB, -1)
-                return
-        else:
-            self.registers.ssInhibit = False
-        self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
-        if (self.opcode in OPCODE_PREFIXES):
-            self.opcode = self.parsePrefixes(self.opcode)
-        self.registers.readCodeSegSize()
-        ##if (self.savedEip == 0xf0101040):
-        #if (self.savedEip == 0x2001):
-        ##if (self.savedEip == 0x169c):
-        ##if (self.savedEip == 0x1041):
-        #if (self.savedEip == 0xc000154f):
-        #if (self.savedCs == 0x28):
-        #    self.main.debugEnabled = True
-        #elif (self.savedCs == 0x835):
-        #    self.main.debugEnabled = True
-        #elif (self.savedCs == 0x2ec6):
-        #    self.main.debugEnabled = True
-        #else:
-        #    self.main.debugEnabled = False
-        #if (self.savedCs == 0x835):
-        #    self.main.debugEnabled = True
-        #elif (self.savedCs == 0x2ec6):
-        #    self.main.debugEnabled = True
-        #elif (self.savedCs == 0x28):
-        #    self.main.debugEnabled = False
-        #else:
-        #    self.main.debugEnabled = False
-        if (self.main.debugEnabled):
-            self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-            #self.main.notice("Cpu::doCycle: Gdt::tableLimit=={0:#06x}", self.registers.segments.gdt.tableLimit)
-            # LIN 0xffbfec08 ; PHY 0x00305c08
-            #self.main.notice("Cpu::doCycle: test3=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x309c10))
-            #self.main.notice("Cpu::doCycle: test4=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00248dc3))
-            #self.main.notice("Cpu::doCycle: test5=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x002450d0))
-            #self.main.notice("Cpu::doCycle: test6=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00248de8))
-            # LIN 0xc036c008; PHY 0x00249008
-            #self.main.notice("Cpu::doCycle: test7=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00249008))
-            #self.main.notice("Cpu::doCycle: test2=={0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x307030))
-            #self.main.notice("Cpu::doCycle: test1=={0:#010x}==0x0033d227", self.main.mm.mmPhyReadValueUnsignedDword(0x305c08))
-            #try:
-            #    self.main.notice("Cpu::doCycle: test8=={0:#010x}", self.registers.mmReadValueUnsignedDword(0xc13c7f9c, (<Segment>self.registers.segments.ss), False))
-            #except HirnwichseException:
-            #    self.main.notice("Cpu::doCycle: test8 exception")
-            self.cpuDump()
         try:
+            if (self.registers.df):
+                self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
+            if (self.registers.tf):
+                self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet!")
+            if (not self.registers.ssInhibit):
+                self.registers.readCodeSegSize()
+                self.saveCurrentInstPointer()
+                if (self.asyncEvent):
+                    self.handleAsyncEvent()
+                    return
+                elif (self.registers.tf):
+                    self.registers.tf = False
+                    self.exception(CPU_EXCEPTION_DB, -1)
+                    return
+            else:
+                self.registers.ssInhibit = False
+            self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
+            if (self.opcode in OPCODE_PREFIXES):
+                self.opcode = self.parsePrefixes(self.opcode)
+            self.registers.readCodeSegSize()
+            if (self.savedEip == 0x476e0):
+                self.main.debugEnabled = True
+            if (self.main.debugEnabled):
+                self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
+                self.main.notice("Cpu::doCycle: test1 PDE[0x9bfef8]=={0:#010x}==0x009c8267", self.main.mm.mmPhyReadValueUnsignedDword(0x9bfef8))
+                self.main.notice("Cpu::doCycle: test2 PTE[0x9c8ff4]=={0:#010x}==0x00994025", self.main.mm.mmPhyReadValueUnsignedDword(0x9c8ff4))
+                self.cpuDump()
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
@@ -237,9 +206,11 @@ cdef class Cpu:
             try:
                 self.handleException(exception) # execute exception handler
             except HirnwichseException as exception: # exception
+                self.main.notice("Cpu::doCycle: testexc2")
                 try:
                     self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
                 except HirnwichseException as exception: # exception
+                    self.main.notice("Cpu::doCycle: testexc3")
                     if (self.main.exitOnTripleFault):
                         self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.")
                     else:

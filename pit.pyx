@@ -43,11 +43,19 @@ cdef class PitChannel:
         cdef unsigned char clear
         cdef unsigned int counterValue
         while (self.timerEnabled and self.counterValue and (not self.pit.main.quitEmu)):
-            if (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
+            if (self.channelId == 0): # just raise IRQ on channel0
+                clear = (<Pic>self.pit.main.platform.pic).isClear(0)
+                #self.pit.main.notice("mode2Func: raiseIrq(0)")
+                if (clear):
+                    #self.pit.main.notice("PitChannel::mode2Func: clear")
+                    (<Pic>self.pit.main.platform.pic).lowerIrq(0)
+            elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
                 (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
             #self.pit.main.notice("PitChannel::mode2Func: before while")
+            counterValue = self.counterValue
             #counterValue = self.counterValue>>6
-            counterValue = min(self.counterValue>>9, 2)
+            #counterValue = max(self.counterValue>>9, 2)
+            #counterValue = max(self.counterValue>>8, 2)
             #self.pit.main.notice("PIT::mode2Func: counterValue=={0:d}", counterValue)
             while ((counterValue > 1 and counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                 with nogil:
@@ -58,7 +66,13 @@ cdef class PitChannel:
                 #self.counterValue -= 0x80 # HACK
                 #self.counterValue -= 0x100 # HACK
                 self.counterValue -= 0x1 # HACK
-                counterValue -= 0x1 # HACK
+                #counterValue -= 0x1 # HACK
+                #counterValue -= 0x100 # HACK
+                if (self.pit.main.debugEnabled):
+                    counterValue -= 0x50 # HACK
+                else:
+                    #counterValue -= 0x300 # HACK
+                    counterValue -= 0x200 # HACK
                 #self.pit.main.notice("PitChannel::mode2Func: in while")
             #self.counterValue = 1
             #self.counterValue = 0
@@ -67,8 +81,8 @@ cdef class PitChannel:
                 clear = (<Pic>self.pit.main.platform.pic).isClear(0)
                 #self.pit.main.notice("mode2Func: raiseIrq(0)")
                 if (clear):
+                #if (clear and self.pit.main.cpu.savedCs != 0x0028):
                     #self.pit.main.notice("PitChannel::mode2Func: clear")
-                    (<Pic>self.pit.main.platform.pic).lowerIrq(0)
                     (<Pic>self.pit.main.platform.pic).raiseIrq(0)
             elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
                 (<PS2>self.pit.main.platform.ps2).ppcbT2Out = True
@@ -90,6 +104,7 @@ cdef class PitChannel:
         if (self.counterStartValue == 0):
             self.counterStartValue = 0x10000
         if (self.bcdMode):
+            self.pit.main.notice("PitChannel::runTimer: WARNING: TODO: bcdMode may not work!")
             self.counterStartValue = self.pit.main.misc.bcdToDec(self.counterStartValue)
         if (self.counterMode == 3):
             self.counterStartValue &= 0xffffe

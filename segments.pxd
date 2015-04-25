@@ -3,7 +3,8 @@ include "globals.pxi"
 include "cpu_globals.pxi"
 
 from hirnwichse_main cimport Hirnwichse
-from mm cimport Mm, ConfigSpace
+#from mm cimport Mm, ConfigSpace
+from mm cimport ConfigSpace
 from registers cimport Registers
 
 
@@ -81,18 +82,21 @@ cdef class Idt:
 
 cdef class Paging:
     cdef Segments segments
-    cdef unsigned char instrFetch
+    cdef ConfigSpace tlbDirectories, tlbTables
+    cdef unsigned char instrFetch, implicitSV
     cdef unsigned short pageOffset
     cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
     cdef inline void setInstrFetch(self):
         self.instrFetch = True
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress)
+    cdef void invalidateTable(self, unsigned int virtualAddress)
+    cdef void invalidatePage(self, unsigned int virtualAddress)
     cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except -1
     cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except -1
     cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress, unsigned char refresh) except -1
     cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress, unsigned char refresh) except -1
     cdef unsigned char setFlags(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except -1
-    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except? 0
+    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except? -1
     
 cdef class Segments:
     cdef Hirnwichse main

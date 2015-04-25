@@ -270,7 +270,8 @@ DEF PAGE_WAS_USED = 0x20
 DEF PAGE_WRITTEN_ON_PAGE = 0x40 # if page_directory: set it on write access at 4MB pages;; if page_table: set it on write access
 DEF PAGE_SIZE = 0x80
 DEF PAGE_DIRECTORY_LENGTH = 0x1000
-
+DEF PAGE_DIRECTORY_ENTRIES = 0x400
+DEF TLB_SIZE = 0x400000
 
 
 DEF TSS_PREVIOUS_TASK_LINK = 0x00

@@ -1,6 +1,6 @@
 
 from hirnwichse_main cimport Hirnwichse
-from misc cimport Misc
+#from misc cimport Misc
 from mm cimport Mm
 from pic cimport Pic
 from isadma cimport IsaDma
@@ -27,7 +27,7 @@ cdef class Cpu:
     cpdef handleAsyncEvent(self)
     cpdef exception(self, unsigned char exceptionId, signed int errorCode=?)
     cpdef handleException(self, object exception)
-    cdef unsigned char parsePrefixes(self, unsigned char opcode)
+    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? -1
     cpdef cpuDump(self)
     cpdef doInfiniteCycles(self)
     cpdef doCycle(self)
