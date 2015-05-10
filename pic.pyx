@@ -192,7 +192,15 @@ cdef class Pic:
         temp1 = ch.isr & (1<<irq) # partly commented out because the
         temp2 = ch.irr & (1<<irq) # PS/2 keyboard has a lower priority.
         temp3 = ch.imr & (1<<irq)
-        return not (temp1 or temp2 or temp3 or ch.intr)
+        self.main.notice("Pic::isClear: temp1=={0:d}; temp2=={1:d}; temp3=={2:d}; ch.intr=={3:d}", temp1, temp2, temp3, ch.intr)
+        #return not (temp1 or temp2 or temp3 or ch.intr)
+        #return not (temp1 or temp3 or ch.intr)
+        #return not (temp1 or temp2 or ch.intr)
+        #return not (temp1 or ch.intr)
+        if (not temp1 and temp2 and ch.intr):
+            self.main.cpu.registers.ssInhibit = True
+            self.main.cpu.asyncEvent = True
+        return not (temp1)
     cdef unsigned char IAC(self):
         cdef PicChannel master, slave
         cdef unsigned char vector

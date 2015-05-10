@@ -285,10 +285,10 @@ cdef class Registers:
     cdef unsigned char mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, Segment segment, unsigned char allowOverride) except -1
     cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride) except -1
     cdef unsigned long int mmWriteValueWithOp(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride, unsigned char valueOp) except? -1
-    cdef void switchTSS16(self)
-    cdef void saveTSS16(self)
-    cdef void switchTSS32(self)
-    cdef void saveTSS32(self)
+    cdef unsigned char switchTSS16(self) except -1
+    cdef unsigned char saveTSS16(self) except -1
+    cdef unsigned char switchTSS32(self) except -1
+    cdef unsigned char saveTSS32(self) except -1
     cdef unsigned char getAddrSegSize(self, Segment segment)
     cdef inline void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
         opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)

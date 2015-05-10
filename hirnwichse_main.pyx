@@ -55,6 +55,7 @@ cdef class Hirnwichse:
         self.quitEmu = True
     def exitError(self, str msg, *msgArgs): # this needs to be 'def'
         print("ERROR: " + msg.format(*msgArgs))
+        stdout.flush()
         self.cpu.cpuDump()
         self.quitFunc()
         #exit(1)

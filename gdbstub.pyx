@@ -154,7 +154,7 @@ cdef class GDBStubHandler:
         self.putPacket(bytes())
     cdef handleCommand(self, bytes data):
         cdef unsigned int memAddr, memLength, blockSize, regVal
-        cdef signed int threadNum, res_signal, res_thread, signal, thread
+        cdef signed int threadNum, res_signal, res_thread, signal = 0, thread
         cdef unsigned short regOffset, maxRegNum, currRegNum
         cdef unsigned char cpuType, singleStepOn, res
         cdef list memList, actionList
