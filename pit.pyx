@@ -122,7 +122,8 @@ cdef class PitChannel:
                 return
         self.counterValue = self.counterStartValue
         self.tempTimerValue = round(1.0e6/(1193182.0/self.counterValue))
-        self.tempTimerValue <<= 4 # TODO: HACK!
+        #self.tempTimerValue <<= 4 # TODO: HACK!
+        self.tempTimerValue <<= 5 # TODO: HACK!
         if (self.counterMode not in (0, 2, 3)):
             self.pit.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})", self.counterMode, self.channelId)
             return

@@ -29,14 +29,15 @@ cdef class AtaController:
     cdef Ata ata
     cdef tuple drive
     cdef bytes result, data
-    cdef unsigned char controllerId, driveId, useLBA, useLBA48, irqEnabled, HOB, doReset, driveBusy, resetInProgress, driveReady, errorRegister, \
-        drq, seekComplete, err, irq, cmd, sector, head, sectorCountFlipFlop, sectorHighFlipFlop, sectorMiddleFlipFlop, sectorLowFlipFlop
+    cdef unsigned char controllerId, driveId, useLBA, useLBA48, irqEnabled, HOB, doReset, driveBusy, resetInProgress, driveReady, \
+        errorRegister, drq, seekComplete, err, irq, cmd, sector, head, sectorCountFlipFlop, sectorHighFlipFlop, sectorMiddleFlipFlop, \
+        sectorLowFlipFlop, indexPulse, indexPulseCount
     cdef unsigned int sectorCount, cylinder
     cdef unsigned long int lba
     cdef void reset(self, unsigned char swReset)
     cdef inline void LbaToCHS(self)
     cdef void convertToLBA28(self)
-    cdef void raiseAtaIrq(self)
+    cdef void raiseAtaIrq(self, unsigned char withDRQ, unsigned char doIRQ)
     cdef void lowerAtaIrq(self)
     cdef void abortCommand(self)
     cdef void errorCommand(self, unsigned char errorRegister)

@@ -200,6 +200,7 @@ cdef class AtaController:
         self.driveId = 0
         self.drive = (AtaDrive(self, 0, driveType), AtaDrive(self, 1, driveType))
         self.result = self.data = b''
+        self.indexPulse = self.indexPulseCount = 0
     cdef void reset(self, unsigned char swReset):
         cdef AtaDrive drive
         self.drq = self.err = self.useLBA = self.useLBA48 = self.HOB = False
@@ -227,10 +228,12 @@ cdef class AtaController:
             self.lba = (self.lba & 0xffffff) | (<unsigned long int>(self.head) << 24)
             if (not self.sectorCount):
                 self.sectorCount = BITMASK_BYTE+1
-    cdef void raiseAtaIrq(self):
-        if (self.irq and self.irqEnabled):
+    cdef void raiseAtaIrq(self, unsigned char withDRQ, unsigned char doIRQ):
+        if (self.irq and self.irqEnabled and doIRQ):
+            self.ata.main.debug("AtaController::raiseAtaIrq: raiseIrq")
             (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
-        self.drq = True
+        if (withDRQ):
+            self.drq = True
         self.driveBusy = self.err = False
         self.errorRegister = 0
     cdef void lowerAtaIrq(self):
@@ -240,6 +243,7 @@ cdef class AtaController:
     cdef void abortCommand(self):
         self.errorCommand(0x04)
         if (self.irq):
+            self.ata.main.debug("AtaController::abortCommand: raiseIrq")
             (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
     cdef void errorCommand(self, unsigned char errorRegister):
         cdef AtaDrive drive
@@ -330,7 +334,7 @@ cdef class AtaController:
                 self.sectorCount -= 1
                 self.LbaToCHS()
                 if (len(self.result)):
-                    self.raiseAtaIrq()
+                    self.raiseAtaIrq(True, True)
                 else:
                     self.lowerAtaIrq()
             return ret
@@ -380,7 +384,12 @@ cdef class AtaController:
                 if (not drive.isLoaded):
                     #self.ata.main.notice("AtaController::inPort: drive isn't loaded: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
                     self.errorCommand(0x2)
-                ret = (self.driveBusy << 7) | (self.driveReady << 6) | (self.seekComplete << 4) | (self.drq << 3) | (self.err)
+                ret = (self.driveBusy << 7) | (self.driveReady << 6) | (self.seekComplete << 4) | (self.drq << 3) | (self.indexPulse << 1) | (self.err)
+                self.indexPulseCount += 1
+                self.indexPulse = False
+                if (self.indexPulseCount >= 10): # stolen from bochs. thanks. :-)
+                    self.indexPulse = True
+                    self.indexPulseCount = 0
             elif (ioPortAddr == 0x1ff or ioPortAddr == 0x207):
                 self.ata.main.exitError("AtaController::inPort: what??? ;controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
             else:
@@ -404,16 +413,13 @@ cdef class AtaController:
                     self.lba += 1 # TODO
                     self.sectorCount -= 1
                     self.LbaToCHS()
-                    if (self.sectorCount):
-                        self.raiseAtaIrq()
-                    else:
-                        self.lowerAtaIrq()
+                    self.raiseAtaIrq(self.sectorCount != 0, True)
             elif (self.cmd == COMMAND_PACKET):
                 self.ata.main.debug("AtaController::outPort_0: len(self.data) == {0:d}, self.data == {1:s}", len(self.data), repr(self.data))
                 if (len(self.data) >= 12):
                     self.handlePacket()
                     if (not self.err):
-                        self.raiseAtaIrq()
+                        self.raiseAtaIrq(True, True)
                 else:
                     self.lowerAtaIrq()
             else:
@@ -487,12 +493,18 @@ cdef class AtaController:
                         self.sectorCount = BITMASK_BYTE+1
                 if (not self.useLBA):
                     self.lba = drive.ChsToSector(self.cylinder, self.head, self.sector)
-                    self.ata.main.debug("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}", self.lba, self.cylinder, self.head, self.sector)
+                    self.ata.main.debug("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}, sectorCount=={4:d}", self.lba, self.cylinder, self.head, self.sector, self.sectorCount)
+                if ((data & 0xf0) == COMMAND_RECALIBRATE):
+                    data = COMMAND_RECALIBRATE
                 if (data == COMMAND_RESET):
-                    self.result = b'\x00\x01\x01'
-                    self.result += (drive.driveCode).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
-                    self.result += b'\x00'
-                elif ((data & 0xf0) == COMMAND_RECALIBRATE):
+                    if (self.controllerId == 1):
+                        self.result = b'\x00\x01\x01'
+                        self.result += (drive.driveCode).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+                        self.result += b'\x00'
+                    else:
+                        self.abortCommand()
+                        return
+                elif (data == COMMAND_RECALIBRATE):
                     pass # do nothing here
                 elif (data in (COMMAND_IDENTIFY_DEVICE, COMMAND_IDENTIFY_DEVICE_PACKET)):
                     if ((self.controllerId == 0 and data == COMMAND_IDENTIFY_DEVICE_PACKET) or (self.controllerId == 1 and data == COMMAND_IDENTIFY_DEVICE)):
@@ -512,7 +524,7 @@ cdef class AtaController:
                 else:
                     self.ata.main.exitError("AtaController::outPort: unknown command 2: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
-                self.raiseAtaIrq()
+                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET), data not in (COMMAND_RESET,))
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)

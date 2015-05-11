@@ -84,7 +84,7 @@ cdef class Cpu:
         else:
             self.main.notice("CPU::handleException: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
         self.exception(exceptionId, errorCode)
-    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? -1:
+    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE:
         cdef unsigned char count
         count = 0
         while (opcode in OPCODE_PREFIXES and not self.main.quitEmu):
@@ -187,6 +187,7 @@ cdef class Cpu:
                     return
                 elif (self.registers.tf):
                     self.registers.ssInhibit = True
+                # handle dr0-3 here
             else:
                 self.registers.ssInhibit = False
                 if (self.registers.tf):
@@ -195,29 +196,33 @@ cdef class Cpu:
                     self.registers.tf = False
                     self.exception(CPU_EXCEPTION_DB, -1)
                     return
+            self.registers.rf = False
             self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
             if (self.opcode in OPCODE_PREFIXES):
                 self.opcode = self.parsePrefixes(self.opcode)
             self.registers.readCodeSegSize()
             #if (self.savedEip == 0x476e0):
             #if (self.savedCs == 0x8 and self.savedEip == 0xe14d):
+            #if (self.savedCs == 0xf and self.savedEip == 0x96d7):
             #    self.main.debugEnabled = True
             if (self.main.debugEnabled):
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
                 #self.main.notice("Cpu::doCycle: test1 PDE[0x9bfef8]=={0:#010x}==0x009c8267", self.main.mm.mmPhyReadValueUnsignedDword(0x9bfef8))
                 #self.main.notice("Cpu::doCycle: test2 PTE[0x9c8ff4]=={0:#010x}==0x00994025", self.main.mm.mmPhyReadValueUnsignedDword(0x9c8ff4))
-                self.main.notice("Cpu::doCycle: test3.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f240))
-                self.main.notice("Cpu::doCycle: test3.2 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f244))
-                self.main.notice("Cpu::doCycle: test3.3 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f248))
-                self.main.notice("Cpu::doCycle: test3.4 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f24c))
-                self.main.notice("Cpu::doCycle: test4.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffe0))
-                self.main.notice("Cpu::doCycle: test4.2 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffe4))
-                self.main.notice("Cpu::doCycle: test4.3 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffe8))
-                self.main.notice("Cpu::doCycle: test4.4 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffec))
-                self.main.notice("Cpu::doCycle: test4.5 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffff0))
-                self.main.notice("Cpu::doCycle: test4.6 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffff4))
-                self.main.notice("Cpu::doCycle: test4.7 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffff8))
-                self.main.notice("Cpu::doCycle: test4.8 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffffc))
+                IF 0:
+                    self.main.notice("Cpu::doCycle: test3.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f160))
+                    self.main.notice("Cpu::doCycle: test3.2 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f164))
+                    self.main.notice("Cpu::doCycle: test3.3 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f168))
+                    self.main.notice("Cpu::doCycle: test3.4 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f16c))
+                    self.main.notice("Cpu::doCycle: test4.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffe0))
+                    self.main.notice("Cpu::doCycle: test4.2 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffe4))
+                    self.main.notice("Cpu::doCycle: test4.3 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffe8))
+                    self.main.notice("Cpu::doCycle: test4.4 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffec))
+                    self.main.notice("Cpu::doCycle: test4.5 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffff0))
+                    self.main.notice("Cpu::doCycle: test4.6 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffff4))
+                    self.main.notice("Cpu::doCycle: test4.7 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffff8))
+                    self.main.notice("Cpu::doCycle: test4.8 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffffc))
+                #self.main.notice("Cpu::doCycle: test5.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fff004))
                 self.cpuDump()
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)

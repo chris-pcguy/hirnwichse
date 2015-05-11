@@ -30,22 +30,22 @@ cdef class Mm:
     cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize)
-    cdef inline signed char mmPhyReadValueSignedByte(self, unsigned int mmAddr) except? -1:
+    cdef inline signed char mmPhyReadValueSignedByte(self, unsigned int mmAddr) except? BITMASK_BYTE:
         return <signed char>self.mmPhyReadValueUnsignedByte(mmAddr)
-    cdef inline signed short mmPhyReadValueSignedWord(self, unsigned int mmAddr) except? -1:
+    cdef inline signed short mmPhyReadValueSignedWord(self, unsigned int mmAddr) except? BITMASK_BYTE:
         return <signed short>self.mmPhyReadValueUnsignedWord(mmAddr)
-    cdef inline signed int mmPhyReadValueSignedDword(self, unsigned int mmAddr) except? -1:
+    cdef inline signed int mmPhyReadValueSignedDword(self, unsigned int mmAddr) except? BITMASK_BYTE:
         return <signed int>self.mmPhyReadValueUnsignedDword(mmAddr)
-    cdef inline signed long int mmPhyReadValueSignedQword(self, unsigned int mmAddr) except? -1:
+    cdef inline signed long int mmPhyReadValueSignedQword(self, unsigned int mmAddr) except? BITMASK_BYTE:
         return <signed long int>self.mmPhyReadValueUnsignedQword(mmAddr)
-    cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) except? -1
-    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) except? -1
-    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) except? -1
-    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) except? -1
-    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr) except? -1
-    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize) except? -1
-    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize) except -1
-    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize) except -1
+    cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE
+    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) except? BITMASK_BYTE
+    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) except? BITMASK_BYTE
+    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) except? BITMASK_BYTE
+    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr) except? BITMASK_BYTE
+    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE
+    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize) except BITMASK_BYTE
+    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize) except BITMASK_BYTE
     cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
 
 cdef class ConfigSpace:
@@ -56,12 +56,12 @@ cdef class ConfigSpace:
     cdef void csResetData(self, unsigned char clearByte = ?)
     cdef bytes csRead(self, unsigned int offset, unsigned int size)
     cdef void csWrite(self, unsigned int offset, char *data, unsigned int size)
-    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? -1
-    cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size) except? -1
-    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) except? -1
-    cdef signed long int csReadValueSignedBE(self, unsigned int offset, unsigned char size) except? -1
-    cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? -1
-    cdef unsigned long int csWriteValueBE(self, unsigned int offset, unsigned long int data, unsigned char size) except? -1
+    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
+    cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
+    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
+    cdef signed long int csReadValueSignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
+    cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE
+    cdef unsigned long int csWriteValueBE(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE
 
 
 

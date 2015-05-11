@@ -201,6 +201,7 @@ cdef class Pic:
             self.main.cpu.registers.ssInhibit = True
             self.main.cpu.asyncEvent = True
         return not (temp1)
+        #return not (temp1 or temp3)
     cdef unsigned char IAC(self):
         cdef PicChannel master, slave
         cdef unsigned char vector

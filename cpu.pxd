@@ -1,4 +1,6 @@
 
+include "globals.pxi"
+
 from hirnwichse_main cimport Hirnwichse
 #from misc cimport Misc
 from mm cimport Mm
@@ -27,7 +29,7 @@ cdef class Cpu:
     cpdef handleAsyncEvent(self)
     cpdef exception(self, unsigned char exceptionId, signed int errorCode=?)
     cpdef handleException(self, object exception)
-    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? -1
+    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE
     cpdef cpuDump(self)
     cpdef doInfiniteCycles(self)
     cpdef doCycle(self)

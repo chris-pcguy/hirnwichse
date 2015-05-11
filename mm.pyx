@@ -118,16 +118,16 @@ cdef class Mm:
             mmAddr += tempSize
             dataSize -= tempSize
         return data
-    cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) except? -1:
+    cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE:
         return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=True)
-    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) except? -1:
+    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) except? BITMASK_BYTE:
         cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         if (not mmArea.valid):
             self.main.notice("Mm::mmPhyReadValueUnsignedByte: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
             return BITMASK_BYTE
         mmAddr &= SIZE_1MB_MASK
         return (<unsigned char*>self.mmGetDataPointer(mmArea, mmAddr))[0]
-    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) except? -1:
+    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) except? BITMASK_BYTE:
         cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         cdef unsigned char dataSize = OP_SIZE_WORD
         cdef unsigned int tempAddr
@@ -138,7 +138,7 @@ cdef class Mm:
         if (tempAddr+dataSize > SIZE_1MB):
             return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         return (<unsigned short*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) except? -1:
+    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) except? BITMASK_BYTE:
         cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         cdef unsigned char dataSize = OP_SIZE_DWORD
         cdef unsigned int tempAddr
@@ -149,7 +149,7 @@ cdef class Mm:
         if (tempAddr+dataSize > SIZE_1MB):
             return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         return (<unsigned int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr) except? -1:
+    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr) except? BITMASK_BYTE:
         cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         cdef unsigned char dataSize = OP_SIZE_QWORD
         cdef unsigned int tempAddr
@@ -160,9 +160,9 @@ cdef class Mm:
         if (tempAddr+dataSize > SIZE_1MB):
             return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         return (<unsigned long int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize) except? -1:
+    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE:
         return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=False)
-    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize) except -1:
+    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize) except BITMASK_BYTE:
         cdef MmArea mmArea
         cdef unsigned short i, start, end
         cdef unsigned int tempAddr, tempSize
@@ -181,7 +181,7 @@ cdef class Mm:
             dataSize -= tempSize
             data = data[tempSize:]
         return True
-    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize) except -1:
+    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize) except BITMASK_BYTE:
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data
         elif (dataSize == OP_SIZE_WORD):
@@ -217,15 +217,15 @@ cdef class ConfigSpace:
             return
         with nogil:
             memmove(<char*>(self.csData+offset), <char*>data, size)
-    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? -1:
+    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE:
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)
-    cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size) except? -1: # Big Endian
+    cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE: # Big Endian
         return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=False)
-    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) except? -1:
+    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE:
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=True)
-    cdef signed long int csReadValueSignedBE(self, unsigned int offset, unsigned char size) except? -1: # Big Endian
+    cdef signed long int csReadValueSignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE: # Big Endian
         return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=True)
-    cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? -1:
+    cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE:
         if (size == OP_SIZE_BYTE):
             data = <unsigned char>data
         elif (size == OP_SIZE_WORD):
@@ -234,7 +234,7 @@ cdef class ConfigSpace:
             data = <unsigned int>data
         self.csWrite(offset, data.to_bytes(length=size, byteorder="little", signed=False), size)
         return data
-    cdef unsigned long int csWriteValueBE(self, unsigned int offset, unsigned long int data, unsigned char size) except? -1: # Big Endian
+    cdef unsigned long int csWriteValueBE(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE: # Big Endian
         if (size == OP_SIZE_BYTE):
             data = <unsigned char>data
         elif (size == OP_SIZE_WORD):
