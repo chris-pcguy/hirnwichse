@@ -1470,6 +1470,7 @@ cdef class Opcodes:
                     if (gdtEntry):
                         (<Gdt>self.registers.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
                     else:
+                        #self.main.debugEnabled = True
                         self.main.notice("Opcode0F_01::LLDT: gdtEntry is invalid, mark LDTR as invalid; load tableposition 0, 0.")
                         (<Gdt>self.registers.segments.ldt).loadTablePosition(0, 0)
                 elif (operOpcodeModId == 3): # LTR
@@ -1723,9 +1724,6 @@ cdef class Opcodes:
                 #self.registers.syncCR0State()
             elif (self.modRMInstance.regName == CPU_REGISTER_CR2):
                 self.main.notice("TODO: MOV CR2, R32")
-            elif (self.modRMInstance.regName == CPU_REGISTER_CR3):
-                (<Paging>self.registers.segments.paging).invalidateTables(op2, True)
-                self.registers.reloadCpuCache()
             elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
                 if (op2):
                     self.main.exitError("opcodeGroup0F_22: CR4 IS NOT FULLY SUPPORTED yet.")
@@ -2596,7 +2594,7 @@ cdef class Opcodes:
         cdef unsigned char cpl, newCpl, segType, oldSegType
         cdef unsigned short tempCS, tempSS, linkSel, TSSsel
         cdef unsigned int tempEFLAGS, currentEFLAGS, tempEIP, tempESP, oldESP, eflagsMask = 0
-        self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        self.main.debug("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
         tempEIP = self.stackPopValue(False) # this is here because esp should stay on
                                             # it's original value in case of an exception.
         if (not self.registers.protectedModeOn and self.registers.operSize == OP_SIZE_DWORD and (tempEIP>>16)):

@@ -504,6 +504,9 @@ cdef class Registers:
                     self.cpuCacheIndex = realNewEip - self.cpuCacheBase
                 else:
                     self.reloadCpuCache()
+        if (regId == CPU_REGISTER_CR3):
+            (<Paging>self.segments.paging).invalidateTables(value, True)
+            self.reloadCpuCache()
         return value # returned value is unsigned!!
     cdef unsigned long int regAdd(self, unsigned short regId, unsigned long int value, unsigned char regSize):
         if (regSize == OP_SIZE_WORD):
@@ -956,7 +959,7 @@ cdef class Registers:
                 tempSize = min(dataSize, PAGE_DIRECTORY_LENGTH)
                 if (((mmAddr&0xfff)+tempSize) > PAGE_DIRECTORY_LENGTH):
                     tempSize -= ((mmAddr&0xfff)+tempSize) - PAGE_DIRECTORY_LENGTH
-                self.main.debug("Registers::mmWrite: test1: mmAddr {0:#010x}; data {1:s}; dataSize {2:d}", mmAddr, repr(data), dataSize)
+                self.main.debug("Registers::mmWrite: test1: mmAddr {0:#010x}; data {1:s}; dataSize {2:d}; tempSize {3:d}", mmAddr, repr(data), dataSize, tempSize)
                 retVal = self.main.mm.mmPhyWrite(self.mmGetRealAddr(mmAddr, tempSize, segment, allowOverride, True), data, tempSize)
                 if (dataSize <= tempSize):
                     break

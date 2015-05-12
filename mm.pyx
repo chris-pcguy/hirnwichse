@@ -114,6 +114,8 @@ cdef class Mm:
                 data += mmArea.readHandler(self, mmArea, tempAddr, tempSize)
             else:
                 self.main.notice("Mm::mmPhyRead: not mmArea.valid! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, tempSize)
+                self.main.notice("Mm::mmPhyRead: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+                self.main.cpu.cpuDump()
                 data += b'\xff'*tempSize
             mmAddr += tempSize
             dataSize -= tempSize
@@ -124,6 +126,8 @@ cdef class Mm:
         cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         if (not mmArea.valid):
             self.main.notice("Mm::mmPhyReadValueUnsignedByte: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.notice("Mm::mmPhyReadValueUnsignedByte: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.cpu.cpuDump()
             return BITMASK_BYTE
         mmAddr &= SIZE_1MB_MASK
         return (<unsigned char*>self.mmGetDataPointer(mmArea, mmAddr))[0]
@@ -133,6 +137,8 @@ cdef class Mm:
         cdef unsigned int tempAddr
         if (not mmArea.valid):
             self.main.notice("Mm::mmPhyReadValueUnsignedWord: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.notice("Mm::mmPhyReadValueUnsignedWord: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.cpu.cpuDump()
             return BITMASK_WORD
         tempAddr = (mmAddr&SIZE_1MB_MASK)
         if (tempAddr+dataSize > SIZE_1MB):
@@ -144,6 +150,8 @@ cdef class Mm:
         cdef unsigned int tempAddr
         if (not mmArea.valid):
             self.main.notice("Mm::mmPhyReadValueUnsignedDword: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.notice("Mm::mmPhyReadValueUnsignedDword: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.cpu.cpuDump()
             return BITMASK_DWORD
         tempAddr = (mmAddr&SIZE_1MB_MASK)
         if (tempAddr+dataSize > SIZE_1MB):
@@ -155,6 +163,8 @@ cdef class Mm:
         cdef unsigned int tempAddr
         if (not mmArea.valid):
             self.main.notice("Mm::mmPhyReadValueUnsignedQword: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.notice("Mm::mmPhyReadValueUnsignedQword: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.cpu.cpuDump()
             return BITMASK_QWORD
         tempAddr = (mmAddr&SIZE_1MB_MASK)
         if (tempAddr+dataSize > SIZE_1MB):
@@ -177,6 +187,8 @@ cdef class Mm:
                 mmArea.writeHandler(self, mmArea, tempAddr, data, tempSize)
             else:
                 self.main.notice("Mm::mmPhyWrite: not mmArea.valid! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, tempSize)
+                self.main.notice("Mm::mmPhyWrite: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+                self.main.cpu.cpuDump()
             mmAddr += tempSize
             dataSize -= tempSize
             data = data[tempSize:]

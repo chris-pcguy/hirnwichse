@@ -413,7 +413,10 @@ cdef class AtaController:
                     self.lba += 1 # TODO
                     self.sectorCount -= 1
                     self.LbaToCHS()
-                    self.raiseAtaIrq(self.sectorCount != 0, True)
+                    if (self.sectorCount != 0):
+                        self.raiseAtaIrq(True, True)
+                    else:
+                        self.lowerAtaIrq()
             elif (self.cmd == COMMAND_PACKET):
                 self.ata.main.debug("AtaController::outPort_0: len(self.data) == {0:d}, self.data == {1:s}", len(self.data), repr(self.data))
                 if (len(self.data) >= 12):
