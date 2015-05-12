@@ -38,6 +38,7 @@ DEF COMMAND_RESET = 0x08
 DEF COMMAND_RECALIBRATE = 0x10
 DEF COMMAND_READ_LBA28 = 0x20
 DEF COMMAND_WRITE_LBA28 = 0x30
+DEF COMMAND_EXECUTE_DRIVE_DIAGNOSTIC = 0x90
 DEF COMMAND_INITIALIZE_DRIVE_PARAMETERS = 0x91
 DEF COMMAND_PACKET = 0xa0
 DEF COMMAND_IDENTIFY_DEVICE_PACKET = 0xa1
@@ -64,16 +65,22 @@ cdef class AtaDrive:
         self.driveType = driveType
         self.isLoaded = False
         self.isWriteProtected = True
+        self.configSpace = ConfigSpace(512, self.ataController.ata.main)
+        self.setSignature()
+    cdef void setSignature(self):
         self.sectors = 0
-        if (self.driveType == ATA_DRIVE_TYPE_CDROM):
+        if (self.driveType == ATA_DRIVE_TYPE_HD):
+            self.sectorShift = FD_HD_SECTOR_SHIFT
+            self.sectorSize = FD_HD_SECTOR_SIZE
+            self.driveCode = 0x0
+        elif (self.driveType == ATA_DRIVE_TYPE_CDROM):
             self.sectorShift = CD_SECTOR_SHIFT
             self.sectorSize = CD_SECTOR_SIZE
             self.driveCode = 0xeb14
         else:
-            self.sectorShift = FD_HD_SECTOR_SHIFT
-            self.sectorSize = FD_HD_SECTOR_SIZE
-            self.driveCode = 0x0
-        self.configSpace = ConfigSpace(512, self.ataController.ata.main)
+            self.sectorShift = 0
+            self.sectorSize = 0
+            self.driveCode = BITMASK_WORD
     cdef unsigned long int ChsToSector(self, unsigned int cylinder, unsigned char head, unsigned char sector):
         return (cylinder*HEADS+head)*SPT+(sector-1)
     cdef inline unsigned short readValue(self, unsigned char index):
@@ -235,7 +242,10 @@ cdef class AtaController:
         if (withDRQ):
             self.drq = True
         self.driveBusy = self.err = False
-        self.errorRegister = 0
+        if (self.cmd == COMMAND_EXECUTE_DRIVE_DIAGNOSTIC):
+            self.errorRegister = 1
+        else:
+            self.errorRegister = 0
     cdef void lowerAtaIrq(self):
         self.driveReady = True
         self.drq = self.err = False
@@ -501,6 +511,7 @@ cdef class AtaController:
                     data = COMMAND_RECALIBRATE
                 if (data == COMMAND_RESET):
                     if (self.controllerId == 1):
+                        drive.setSignature()
                         self.result = b'\x00\x01\x01'
                         self.result += (drive.driveCode).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
                         self.result += b'\x00'
@@ -511,6 +522,7 @@ cdef class AtaController:
                     pass # do nothing here
                 elif (data in (COMMAND_IDENTIFY_DEVICE, COMMAND_IDENTIFY_DEVICE_PACKET)):
                     if ((self.controllerId == 0 and data == COMMAND_IDENTIFY_DEVICE_PACKET) or (self.controllerId == 1 and data == COMMAND_IDENTIFY_DEVICE)):
+                        drive.setSignature()
                         self.abortCommand()
                         return
                     self.result = drive.configSpace.csRead(0, 512)
@@ -521,13 +533,15 @@ cdef class AtaController:
                     if (data == COMMAND_WRITE_LBA28):
                         self.convertToLBA28()
                     pass # not handled here.
+                elif (data == COMMAND_EXECUTE_DRIVE_DIAGNOSTIC):
+                    drive.setSignature()
                 elif (data == COMMAND_INITIALIZE_DRIVE_PARAMETERS):
                     self.sectorCount = SPT
                     self.head = HEADS-1
                 else:
                     self.ata.main.exitError("AtaController::outPort: unknown command 2: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
-                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET), data not in (COMMAND_RESET,))
+                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET), data not in (COMMAND_RESET,))
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)
@@ -543,6 +557,7 @@ cdef class AtaController:
                 elif (self.resetInProgress and not self.doReset):
                     self.driveBusy = self.resetInProgress = False
                     self.driveReady = True
+                    drive.setSignature()
             else:
                 self.ata.main.exitError("AtaController::outPort: TODO: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
         else:

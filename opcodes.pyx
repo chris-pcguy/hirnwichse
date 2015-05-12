@@ -2468,7 +2468,7 @@ cdef class Opcodes:
             if ((not gdtEntryCS.segIsConforming) and (gdtEntryCS.segDPL < cpl)):
                 # TODO: What to do if VM flag is true?
                 # inter-privilege-level-interrupt
-                #self.main.debug("Opcodes::interrupt: inter")
+                #self.main.debug("Opcodes::interrupt: inter/inner")
                 if (oldVM):
                     if (gdtEntryCS.segDPL):
                         raise HirnwichseException(CPU_EXCEPTION_GP, (<Misc>self.main.misc).calculateInterruptErrorcode(entrySegment, 0, not isSoftInt))
@@ -2677,6 +2677,7 @@ cdef class Opcodes:
                 tempESP = self.stackPopValue(True)
                 tempSS = self.stackPopValue(True)
                 if (not (tempSS&0xfff8)):
+                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.4")
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 if (not self.registers.segments.inLimit(tempSS)):
                     self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.1")
@@ -2690,6 +2691,7 @@ cdef class Opcodes:
                     self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.3; {0:d}; {1:d}; {2:d}", (tempSS&3 != tempCS&3), (not gdtEntrySS.segIsRW), (gdtEntrySS.segDPL != tempCS&3))
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempSS)
                 if (not gdtEntrySS.segPresent):
+                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.5")
                     raise HirnwichseException(CPU_EXCEPTION_SS, tempSS)
                 if (self.registers.operSize == OP_SIZE_DWORD and not cpl):
                     eflagsMask |= FLAG_VM
@@ -2703,6 +2705,7 @@ cdef class Opcodes:
                 self.registers.segWriteSegment((<Segment>self.registers.segments.ss), tempSS)
                 self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
             if (not (tempCS&0xfff8)):
+                self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.6")
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             if (not self.registers.segments.inLimit(tempCS)):
                 self.main.notice("Opcodes::iret: test2: not inLimit: tempCS")
@@ -2715,6 +2718,7 @@ cdef class Opcodes:
                 self.main.notice("Opcodes::iret: test3")
                 raise HirnwichseException(CPU_EXCEPTION_GP, tempCS)
             if (not gdtEntryCS.segPresent):
+                self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.7")
                 raise HirnwichseException(CPU_EXCEPTION_NP, tempCS)
             eflagsMask |= FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | FLAG_TF | FLAG_DF | FLAG_OF | FLAG_NT
             if (self.registers.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
@@ -2736,6 +2740,7 @@ cdef class Opcodes:
             self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
             self.registers.getCurrentOpcodesAddr(&self.main.cpu.savedCs, &self.main.cpu.savedEip)
             if (not gdtEntryCS.isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
+                self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.8")
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         else:
             if (self.registers.operSize == OP_SIZE_DWORD):

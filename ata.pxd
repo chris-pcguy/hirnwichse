@@ -13,6 +13,7 @@ cdef class AtaDrive:
     cdef unsigned short sectorSize, driveCode
     cdef unsigned long int sectors
     cdef bytes filename
+    cdef void setSignature(self)
     cdef unsigned long int ChsToSector(self, unsigned int cylinder, unsigned char head, unsigned char sector)
     cdef inline unsigned short readValue(self, unsigned char index)
     cdef inline void writeValue(self, unsigned char index, unsigned short value)
