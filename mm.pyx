@@ -220,12 +220,14 @@ cdef class ConfigSpace:
             memset(self.csData, clearByte, self.csSize)
     cdef bytes csRead(self, unsigned int offset, unsigned int size):
         if ((offset+size) > self.csSize):
-            self.main.debug("ConfigSpace::csRead: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
+            if (self.main.debugEnabled):
+                self.main.debug("ConfigSpace::csRead: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             return bytes([self.clearByte])*size
         return self.csData[offset:offset+size]
     cdef void csWrite(self, unsigned int offset, char *data, unsigned int size):
         if ((offset+size) > self.csSize):
-            self.main.debug("ConfigSpace::csWrite: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
+            if (self.main.debugEnabled):
+                self.main.debug("ConfigSpace::csWrite: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             return
         with nogil:
             memmove(<char*>(self.csData+offset), <char*>data, size)

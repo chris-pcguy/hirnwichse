@@ -30,7 +30,7 @@ cdef class PitChannel:
         elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
             (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
         with nogil:
-            usleep(int(self.tempTimerValue))
+            usleep(self.tempTimerValue)
         self.counterValue = 0
         if (self.channelId == 0): # just raise IRQ on channel0
             (<Pic>self.pit.main.platform.pic).raiseIrq(0)
@@ -84,9 +84,18 @@ cdef class PitChannel:
                     self.counterValue -= 0x1 # HACK
                 #self.pit.main.notice("PitChannel::mode2Func: in while")
                 #if (not (self.counterValue%(self.counterStartValue>>4))):
-                if (not (self.counterValue%(self.counterStartValue>>2))):
+                #if (not (self.counterValue%(self.counterStartValue>>2))):
+                #if (not (self.counterValue&0xff)):
+                #if (not (self.counterValue&0x3ff)):
+                #if (not (self.counterValue&0xfff)):
+                #if (not (self.counterValue&0x1fff)):
+                #if (not (self.counterValue%(self.counterStartValue>>3))):
+                #if (not (self.counterValue%(self.counterStartValue>>6))):
+                if (not (self.counterValue%((self.counterStartValue>>5)-(self.counterStartValue>>7)))):
                     with nogil:
-                        usleep(int(self.tempTimerValue))
+                        #usleep(self.tempTimerValue)
+                        #usleep(1)
+                        usleep(100)
             self.counterValue = 1
             self.pit.main.notice("PitChannel::mode2Func: after while")
             if (self.channelId == 0): # just raise IRQ on channel0
@@ -101,7 +110,9 @@ cdef class PitChannel:
             else:
                 self.pit.main.notice("mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
             with nogil:
-                usleep(int(self.tempTimerValue))
+                #usleep(self.tempTimerValue)
+                #usleep(1)
+                usleep(100)
     cpdef timerFunc(self): # TODO
         if (self.timerEnabled):
             if (self.counterMode == 0):
@@ -116,7 +127,8 @@ cdef class PitChannel:
             self.pit.main.notice("PitChannel::runTimer: PIT-Channel 1 is ancient.")
         if (self.counterStartValue == 0):
             #self.counterStartValue = 0x10000
-            self.counterStartValue = 0xfffe # TODO: HACK
+            self.counterStartValue = 0xffff # TODO: HACK
+        self.counterStartValue -= 1
         if (self.bcdMode):
             self.pit.main.notice("PitChannel::runTimer: WARNING: TODO: bcdMode may not work!")
             self.counterStartValue = self.pit.main.misc.bcdToDec(self.counterStartValue)

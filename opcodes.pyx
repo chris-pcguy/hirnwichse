@@ -483,7 +483,7 @@ cdef class Opcodes:
              self.main.notice("Opcodes::hlt: CPL > 0.")
              return True
         self.main.cpu.cpuHalted = True
-        if (self.registers.if_flag):
+        if (self.registers.if_flag and self.main.debugEnabled):
             self.main.debug("Opcodes::hlt: HLT was called with IF on.")
         return True
     cdef void cld(self):
@@ -502,11 +502,13 @@ cdef class Opcodes:
             return False
         ioMapBase = self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, (<Segment>self.registers.segments.tss), False)
         if (ioMapBase >= (<Segment>self.registers.segments.tss).limit):
-            self.main.debug("iomap base addr=={0:#06x}; tss limit=={1:#06x}", self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, (<Segment>self.registers.segments.tss), False), (<Segment>self.registers.segments.tss).limit)
+            if (self.main.debugEnabled):
+                self.main.debug("iomap base addr=={0:#06x}; tss limit=={1:#06x}", self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, (<Segment>self.registers.segments.tss), False), (<Segment>self.registers.segments.tss).limit)
             return True
         bits = self.registers.mmReadValueUnsignedWord(ioMapBase+(ioPortAddr>>3), (<Segment>self.registers.segments.tss), False)>>(ioPortAddr&0x7)
-        self.main.debug("iomap base addr=={0:#06x}; tss limit=={1:#06x}", self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, (<Segment>self.registers.segments.tss), False), (<Segment>self.registers.segments.tss).limit)
-        self.main.debug("bits=={0:#06x}; result=={1:d}; result==1 means gpf", bits, (bits&((1<<dataSize)-1)) != 0)
+        if (self.main.debugEnabled):
+            self.main.debug("iomap base addr=={0:#06x}; tss limit=={1:#06x}", self.registers.mmReadValueUnsignedWord(TSS_32BIT_IOMAP_BASE_ADDR, (<Segment>self.registers.segments.tss), False), (<Segment>self.registers.segments.tss).limit)
+            self.main.debug("bits=={0:#06x}; result=={1:d}; result==1 means gpf", bits, (bits&((1<<dataSize)-1)) != 0)
         return (bits&((1<<dataSize)-1)) != 0
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except? BITMASK_BYTE:
         if (self.registers.protectedModeOn and self.checkIOPL(ioPortAddr, dataSize)):
@@ -534,7 +536,8 @@ cdef class Opcodes:
                 raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
             segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
             if (segType == TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE):
-                self.main.debug("Opcodes::jumpFarDirect: task-gates aren't fully implemented yet.")
+                if (self.main.debugEnabled):
+                    self.main.debug("Opcodes::jumpFarDirect: task-gates aren't fully implemented yet.")
                 segment = (<Segment>self.registers.segments.tss)
                 if (gdtEntry.segDPL < self.registers.getCPL() or gdtEntry.segDPL < segVal&3):
                     raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
@@ -569,7 +572,8 @@ cdef class Opcodes:
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 return True
             elif ((segType & TABLE_ENTRY_SYSTEM_TYPE_MASK_WITHOUT_BUSY) in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
-                self.main.debug("Opcodes::jumpFarDirect: TSS isn't fully implemented yet.")
+                if (self.main.debugEnabled):
+                    self.main.debug("Opcodes::jumpFarDirect: TSS isn't fully implemented yet.")
                 self.main.notice("Opcodes::jumpFarDirect: test1: segType1 == {0:#04x}; segType2 == {1:#04x}!", self.registers.segments.getSegType(0x20), self.registers.segments.getSegType(0x30))
                 segment = (<Segment>self.registers.segments.tss)
                 if ((segVal & GDT_USE_LDT) or not self.registers.segments.inLimit(segVal)):
@@ -617,7 +621,8 @@ cdef class Opcodes:
         cdef unsigned int eip
         eip = self.registers.getCurrentOpcodeAddUnsigned(self.registers.operSize)
         cs = self.registers.getCurrentOpcodeAddUnsignedWord()
-        self.main.debug("Opcodes::jumpFarAbsolutePtr: cs=={0:#06x}; eip=={1:#010x}", cs, eip)
+        if (self.main.debugEnabled):
+            self.main.debug("Opcodes::jumpFarAbsolutePtr: cs=={0:#06x}; eip=={1:#010x}", cs, eip)
         return self.jumpFarDirect(OPCODE_JUMP, cs, eip)
     cdef int loopFunc(self, unsigned char loopType) except BITMASK_BYTE:
         cdef unsigned char oldZF
@@ -1368,7 +1373,8 @@ cdef class Opcodes:
         cdef unsigned int operOp1, operOp2
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         operOpcodeId = self.modRMInstance.reg
-        self.main.debug("Group1_RM_ImmFunc: operOpcodeId=={0:d}", operOpcodeId)
+        if (self.main.debugEnabled):
+            self.main.debug("Group1_RM_ImmFunc: operOpcodeId=={0:d}", operOpcodeId)
         operOp1 = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         if (operSize != OP_SIZE_BYTE and immIsByte):
             operOp2 = <unsigned int>self.registers.getCurrentOpcodeAddSignedByte() # operImm8 sign-extended to destsize
@@ -1407,7 +1413,8 @@ cdef class Opcodes:
         cdef unsigned int operOp2
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         operOpcodeId = self.modRMInstance.reg
-        self.main.debug("Group3_RM_ImmFunc: operOpcodeId=={0:d}", operOpcodeId)
+        if (self.main.debugEnabled):
+            self.main.debug("Group3_RM_ImmFunc: operOpcodeId=={0:d}", operOpcodeId)
         operOp2 = self.registers.getCurrentOpcodeAddUnsigned(operSize) # operImm
         if (operOpcodeId == 0): # GROUP3_OP_MOV
             self.modRMInstance.modRMSave(operSize, operOp2, True, OPCODE_SAVE)
@@ -1426,13 +1433,15 @@ cdef class Opcodes:
         protectedModeOn = self.registers.protectedModeOn and not self.registers.vm
         cpl = self.registers.getCPL()
         operOpcode = self.registers.getCurrentOpcodeAddUnsignedByte()
-        self.main.debug("Group0F: Opcode=={0:#04x}", operOpcode)
+        if (self.main.debugEnabled):
+            self.main.debug("Group0F: Opcode=={0:#04x}", operOpcode)
         if (operOpcode == 0x00): # LLDT/SLDT LTR/STR VERR/VERW
             if (not protectedModeOn):
                 raise HirnwichseException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             operOpcodeModId = self.modRMInstance.reg
-            self.main.debug("Group0F_00: operOpcodeModId=={0:d}", operOpcodeModId)
+            if (self.main.debugEnabled):
+                self.main.debug("Group0F_00: operOpcodeModId=={0:d}", operOpcodeModId)
             if (operOpcodeModId in (0, 1)): # SLDT/STR
                 byteSize = OP_SIZE_WORD
                 if (self.modRMInstance.mod == 3):
@@ -1450,7 +1459,8 @@ cdef class Opcodes:
                 if (operOpcodeModId == 2): # LLDT
                     self.main.notice("Opcode0F_01::LLDT: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                     if (not (op1>>2)):
-                        self.main.debug("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid. (LDTR: {0:#06x})", op1)
+                        if (self.main.debugEnabled):
+                            self.main.debug("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid. (LDTR: {0:#06x})", op1)
                         op1 = 0
                     else:
                         if ((op1 & SELECTOR_USE_LDT) or not self.registers.segments.inLimit(op1)):
@@ -1516,7 +1526,8 @@ cdef class Opcodes:
         elif (operOpcode == 0x01): # LGDT/LIDT SGDT/SIDT SMSW/LMSW
             operOpcodeMod = self.registers.getCurrentOpcodeUnsignedByte()
             operOpcodeModId = (operOpcodeMod>>3)&7
-            self.main.debug("Group0F_01: operOpcodeModId=={0:d}", operOpcodeModId)
+            if (self.main.debugEnabled):
+                self.main.debug("Group0F_01: operOpcodeModId=={0:d}", operOpcodeModId)
             if (operOpcodeModId in (0, 1, 2, 3, 7)): # SGDT/SIDT LGDT/LIDT INVLPG
                 self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
                 if (self.modRMInstance.mod == 3):
@@ -1963,7 +1974,8 @@ cdef class Opcodes:
             self.main.notice("Opcodes::opcodeGroup0F: BT*: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             operOpcodeModId = self.modRMInstance.reg
-            self.main.debug("Group0F_BA: operOpcodeModId=={0:d}", operOpcodeModId)
+            if (self.main.debugEnabled):
+                self.main.debug("Group0F_BA: operOpcodeModId=={0:d}", operOpcodeModId)
             op2 = self.registers.getCurrentOpcodeAddUnsignedByte()
             if (operOpcodeModId == 4): # BT
                 self.btFunc(op2, BT_NONE)
@@ -2035,7 +2047,8 @@ cdef class Opcodes:
             self.main.notice("Opcodes::opcodeGroup0F: CMPXCHG8B: TODO!")
             operOpcodeMod = self.registers.getCurrentOpcodeAddUnsignedByte()
             operOpcodeModId = (operOpcodeMod>>3)&7
-            self.main.debug("Group0F_C7: operOpcodeModId=={0:d}", operOpcodeModId)
+            if (self.main.debugEnabled):
+                self.main.debug("Group0F_C7: operOpcodeModId=={0:d}", operOpcodeModId)
             if (operOpcodeModId == 1):
                 op1 = self.registers.getCurrentOpcodeAddUnsigned(self.registers.addrSize)
                 qop1 = (<Mm>self.main.mm).mmPhyReadValueUnsignedQword(op1)
@@ -2069,7 +2082,8 @@ cdef class Opcodes:
         cdef unsigned char operOpcodeId
         self.modRMInstance.modRMOperands(OP_SIZE_BYTE, MODRM_FLAGS_NONE)
         operOpcodeId = self.modRMInstance.reg
-        self.main.debug("GroupFE: operOpcodeId=={0:d}", operOpcodeId)
+        if (self.main.debugEnabled):
+            self.main.debug("GroupFE: operOpcodeId=={0:d}", operOpcodeId)
         if (operOpcodeId == 0): # 0/INC
             return self.incFuncRM(OP_SIZE_BYTE)
         elif (operOpcodeId == 1): # 1/DEC
@@ -2083,7 +2097,8 @@ cdef class Opcodes:
         cdef unsigned int op1
         self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
         operOpcodeId = self.modRMInstance.reg
-        self.main.debug("GroupFF: operOpcodeId=={0:d}", operOpcodeId)
+        if (self.main.debugEnabled):
+            self.main.debug("GroupFF: operOpcodeId=={0:d}", operOpcodeId)
         if (operOpcodeId == 0): # 0/INC
             return self.incFuncRM(self.registers.operSize)
         elif (operOpcodeId == 1): # 1/DEC
@@ -2259,7 +2274,8 @@ cdef class Opcodes:
         mmAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
         offsetAddr = self.registers.mmReadValueUnsigned(mmAddr, self.registers.operSize, self.modRMInstance.rmNameSeg, True)
         segmentAddr = self.registers.mmReadValueUnsignedWord(mmAddr+self.registers.operSize, self.modRMInstance.rmNameSeg, True)
-        self.main.debug("lfpFunc: test_1 (segId: {0:d}; segmentAddr: {1:#06x}; mmAddr: {2:#010x}; rmNameSeg.segId: {3:d}; operSize: {4:d}; addrSize: {5:d})", segId, segmentAddr, mmAddr, self.modRMInstance.rmNameSeg.segId, self.registers.operSize, self.registers.addrSize)
+        if (self.main.debugEnabled):
+            self.main.debug("lfpFunc: test_1 (segId: {0:d}; segmentAddr: {1:#06x}; mmAddr: {2:#010x}; rmNameSeg.segId: {3:d}; operSize: {4:d}; addrSize: {5:d})", segId, segmentAddr, mmAddr, self.modRMInstance.rmNameSeg.segId, self.registers.operSize, self.registers.addrSize)
         self.registers.segWrite(segId, segmentAddr)
         self.modRMInstance.modRSave(self.registers.operSize, offsetAddr, OPCODE_SAVE)
         return True
@@ -2279,7 +2295,8 @@ cdef class Opcodes:
         cdef signed long int sop1, temp, tempmod
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         operOpcodeId = self.modRMInstance.reg
-        self.main.debug("Group2_RM: operOpcodeId=={0:d}", operOpcodeId)
+        if (self.main.debugEnabled):
+            self.main.debug("Group2_RM: operOpcodeId=={0:d}", operOpcodeId)
         operOp2 = self.modRMInstance.modRMLoadUnsigned(operSize, True)
         operSizeInBits = operSize << 3
         bitMask = BITMASKS_FF[operSize]
@@ -2411,7 +2428,8 @@ cdef class Opcodes:
             elif (intNum in CPU_EXCEPTIONS_TRAP_GROUP and self.registers.repPrefix):
                 self.registers.rf = True
         oldEFLAGS = self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS)
-        self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}; isSoftInt=={1:d}", intNum, isSoftInt)
+        if (self.main.debugEnabled):
+            self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}; isSoftInt=={1:d}", intNum, isSoftInt)
         if (self.registers.protectedModeOn):
             if (oldVM and (self.registers.iopl < 3) and isSoftInt):
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
@@ -2425,7 +2443,8 @@ cdef class Opcodes:
             entryPresent = idtEntry.entryPresent
             entrySize = idtEntry.entrySize
             if (entryType == TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE):
-                self.main.debug("Opcodes::interrupt: task-gates aren't fully implemented yet. entrySegment=={0:#06x}", entrySegment)
+                if (self.main.debugEnabled):
+                    self.main.debug("Opcodes::interrupt: task-gates aren't fully implemented yet. entrySegment=={0:#06x}", entrySegment)
                 gdtEntryCS = <GdtEntry>self.registers.segments.getEntry(entrySegment)
                 if (gdtEntryCS is None):
                     raise HirnwichseException(CPU_EXCEPTION_GP, entrySegment)
@@ -2562,7 +2581,8 @@ cdef class Opcodes:
         else:
             (<Idt>(<Segments>self.registers.segments).idt).getEntryRealMode(intNum, &entrySegment, <unsigned short*>&entryEip)
             entryEip = <unsigned short>entryEip
-        self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}, AX: {3:#06x}", intNum, entrySegment, entryEip, self.registers.regReadUnsignedWord(CPU_REGISTER_AX))
+        if (self.main.debugEnabled):
+            self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}. CS: {1:#06x}, (E)IP: {2:#06x}, AX: {3:#06x}", intNum, entrySegment, entryEip, self.registers.regReadUnsignedWord(CPU_REGISTER_AX))
         if (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE)):
             eflagsClearThis |= FLAG_IF
             if (oldVM):
@@ -2594,7 +2614,8 @@ cdef class Opcodes:
         cdef unsigned char cpl, newCpl, segType, oldSegType
         cdef unsigned short tempCS, tempSS, linkSel, TSSsel
         cdef unsigned int tempEFLAGS, currentEFLAGS, tempEIP, tempESP, oldESP, eflagsMask = 0
-        self.main.debug("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        if (self.main.debugEnabled):
+            self.main.debug("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
         tempEIP = self.stackPopValue(False) # this is here because esp should stay on
                                             # it's original value in case of an exception.
         if (not self.registers.protectedModeOn and self.registers.operSize == OP_SIZE_DWORD and (tempEIP>>16)):
@@ -2623,7 +2644,8 @@ cdef class Opcodes:
                 self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
                 return True
             elif (currentEFLAGS & FLAG_NT):
-                self.main.debug("Opcodes::iret: Nested-Task-Flag isn't fully supported yet.")
+                if (self.main.debugEnabled):
+                    self.main.debug("Opcodes::iret: Nested-Task-Flag isn't fully supported yet.")
                 TSSsel = (<Segment>self.registers.segments.tss).segmentIndex
                 linkSel = self.registers.mmReadValueUnsignedWord(TSS_PREVIOUS_TASK_LINK, (<Segment>self.registers.segments.tss), False)
                 if ((linkSel & GDT_USE_LDT) or not self.registers.segments.inLimit(linkSel)):
@@ -3007,7 +3029,8 @@ cdef class Opcodes:
         cdef unsigned char operOpcodeId, count
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         operOpcodeId = self.modRMInstance.reg
-        self.main.debug("opcodeGroup4_RM: operOpcodeId=={0:d}", operOpcodeId)
+        if (self.main.debugEnabled):
+            self.main.debug("opcodeGroup4_RM: operOpcodeId=={0:d}", operOpcodeId)
         if (method == GROUP4_1):
             count = 1
         elif (method == GROUP4_CL):

@@ -388,7 +388,8 @@ cdef class Vga:
                 else:
                     selectedPlanes = self.readMap
                 if (not self.readMode):
-                    self.main.debug("VGA::vgaAreaRead: selectedPlanes=={0:d}; chain4=={1:d}; not oERD=={2:d}; readMap=={3:d}; dataSize=={4:d}; i=={5:d}, tempOffset=={6:#06x}; offset=={7:#07x}; vMB=={8:#07x}; sA=={9:#07x}", selectedPlanes, self.chain4, not self.oddEvenReadDisabled, self.readMap, dataSize, i, tempOffset, offset, self.videoMemBase, self.startAddress)
+                    if (self.main.debugEnabled):
+                        self.main.debug("VGA::vgaAreaRead: selectedPlanes=={0:d}; chain4=={1:d}; not oERD=={2:d}; readMap=={3:d}; dataSize=={4:d}; i=={5:d}, tempOffset=={6:#06x}; offset=={7:#07x}; vMB=={8:#07x}; sA=={9:#07x}", selectedPlanes, self.chain4, not self.oddEvenReadDisabled, self.readMap, dataSize, i, tempOffset, offset, self.videoMemBase, self.startAddress)
                     if (not selectedPlanes):
                         retStr += bytes([(<unsigned char>self.plane0.csData[tempOffset])])
                     elif (selectedPlanes == 1):
@@ -533,7 +534,8 @@ cdef class Vga:
             if (y >= rows):
                 break
             #rectList.append(self.ui.putChar(x, y, (<unsigned char>self.plane0.csData[tempOffset]), (<unsigned char>self.plane1.csData[tempOffset])))
-            self.main.debug("VGA::vgaAreaWrite: x=={0:d}; y=={1:d}; ch=={2:#04x};{2:c}; cl=={3:#04x}: tempOffset=={4:#06x}; self.offset=={5:d}; offset=={6:#07x}; vMB=={7:#07x}; sA=={8:#07x}", x, y, (<unsigned char>self.plane0.csData[tempOffset]), (<unsigned char>self.plane1.csData[tempOffset]), tempOffset, self.offset, offset, self.videoMemBase, self.startAddress)
+            if (self.main.debugEnabled):
+                self.main.debug("VGA::vgaAreaWrite: x=={0:d}; y=={1:d}; ch=={2:#04x};{2:c}; cl=={3:#04x}: tempOffset=={4:#06x}; self.offset=={5:d}; offset=={6:#07x}; vMB=={7:#07x}; sA=={8:#07x}", x, y, (<unsigned char>self.plane0.csData[tempOffset]), (<unsigned char>self.plane1.csData[tempOffset]), tempOffset, self.offset, offset, self.videoMemBase, self.startAddress)
             self.ui.putChar(x, y, (<unsigned char>self.plane0.csData[tempOffset]), (<unsigned char>self.plane1.csData[tempOffset]))
             tempOffset += 2
         self.newTimer = time()

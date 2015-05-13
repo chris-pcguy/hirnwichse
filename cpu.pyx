@@ -202,6 +202,8 @@ cdef class Cpu:
             #if (self.savedCs == 0xf and self.savedEip == 0x96d7):
             #if (self.savedCs == 0x28 and self.savedEip == 0xc0007870):
             #if (self.registers.segments.paging.tlbTables.csReadValueUnsigned(0x3fec04, OP_SIZE_DWORD) != 0):
+            #if (self.savedCs == 0x2000 and self.savedEip == 0x1b66):
+            #if (self.savedCs == 0xf and self.savedEip == 0x3d859):
             #    self.main.debugEnabled = True
             self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
             if (self.opcode in OPCODE_PREFIXES):

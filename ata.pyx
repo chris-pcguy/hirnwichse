@@ -237,7 +237,8 @@ cdef class AtaController:
                 self.sectorCount = BITMASK_BYTE+1
     cdef void raiseAtaIrq(self, unsigned char withDRQ, unsigned char doIRQ):
         if (self.irq and self.irqEnabled and doIRQ):
-            self.ata.main.debug("AtaController::raiseAtaIrq: raiseIrq")
+            if (self.ata.main.debugEnabled):
+                self.ata.main.debug("AtaController::raiseAtaIrq: raiseIrq")
             (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
         if (withDRQ):
             self.drq = True
@@ -253,7 +254,8 @@ cdef class AtaController:
     cdef void abortCommand(self):
         self.errorCommand(0x04)
         if (self.irq):
-            self.ata.main.debug("AtaController::abortCommand: raiseIrq")
+            if (self.ata.main.debugEnabled):
+                self.ata.main.debug("AtaController::abortCommand: raiseIrq")
             (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
     cdef void errorCommand(self, unsigned char errorRegister):
         cdef AtaDrive drive
@@ -428,7 +430,8 @@ cdef class AtaController:
                     else:
                         self.lowerAtaIrq()
             elif (self.cmd == COMMAND_PACKET):
-                self.ata.main.debug("AtaController::outPort_0: len(self.data) == {0:d}, self.data == {1:s}", len(self.data), repr(self.data))
+                if (self.ata.main.debugEnabled):
+                    self.ata.main.debug("AtaController::outPort_0: len(self.data) == {0:d}, self.data == {1:s}", len(self.data), repr(self.data))
                 if (len(self.data) >= 12):
                     self.handlePacket()
                     if (not self.err):
@@ -489,7 +492,8 @@ cdef class AtaController:
                 self.head = data & 0xf
             elif (ioPortAddr == 0x7): # command port
                 if (self.driveId and not drive.isLoaded):
-                    self.ata.main.debug("AtaController::outPort: selected slave, but it's not present; return")
+                    if (self.ata.main.debugEnabled):
+                        self.ata.main.debug("AtaController::outPort: selected slave, but it's not present; return")
                     return
                 if (self.irq):
                     (<Pic>self.ata.main.platform.pic).lowerIrq(self.irq)
@@ -506,7 +510,8 @@ cdef class AtaController:
                         self.sectorCount = BITMASK_BYTE+1
                 if (not self.useLBA):
                     self.lba = drive.ChsToSector(self.cylinder, self.head, self.sector)
-                    self.ata.main.debug("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}, sectorCount=={4:d}", self.lba, self.cylinder, self.head, self.sector, self.sectorCount)
+                    if (self.ata.main.debugEnabled):
+                        self.ata.main.debug("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}, sectorCount=={4:d}", self.lba, self.cylinder, self.head, self.sector, self.sectorCount)
                 if ((data & 0xf0) == COMMAND_RECALIBRATE):
                     data = COMMAND_RECALIBRATE
                 if (data == COMMAND_RESET):
@@ -547,7 +552,8 @@ cdef class AtaController:
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)
                 self.doReset = ((data & CONTROL_REG_SRST) == CONTROL_REG_SRST)
                 self.HOB = ((data & CONTROL_REG_HOB) == CONTROL_REG_HOB)
-                self.ata.main.debug("AtaController::outPort: test2: prevReset=={0:d}; doReset=={1:d}; resetInProgress=={2:d}; irqEnabled=={3:d}; HOB=={4:d}", prevReset, self.doReset, self.resetInProgress, self.irqEnabled, self.HOB)
+                if (self.ata.main.debugEnabled):
+                    self.ata.main.debug("AtaController::outPort: test2: prevReset=={0:d}; doReset=={1:d}; resetInProgress=={2:d}; irqEnabled=={3:d}; HOB=={4:d}", prevReset, self.doReset, self.resetInProgress, self.irqEnabled, self.HOB)
                 self.lba = self.head = 0
                 self.cylinder = drive.driveCode
                 self.sectorCount = self.sector = 1
@@ -583,16 +589,19 @@ cdef class Ata:
             controller.reset(False)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int ret = BITMASKS_FF[dataSize]
-        self.main.debug("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
+        if (self.main.debugEnabled):
+            self.main.debug("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_WORD and (ioPortAddr&0xf)):
             ret = self.inPort(ioPortAddr, OP_SIZE_BYTE)
             ret |= self.inPort(ioPortAddr, OP_SIZE_BYTE) << 8
-            self.main.debug("Ata::inPort2: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#06x}", ioPortAddr, dataSize, ret)
+            if (self.main.debugEnabled):
+                self.main.debug("Ata::inPort2: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#06x}", ioPortAddr, dataSize, ret)
             return ret
         elif (dataSize == OP_SIZE_DWORD and (ioPortAddr&0xf)):
             ret = self.inPort(ioPortAddr, OP_SIZE_WORD)
             ret |= self.inPort(ioPortAddr, OP_SIZE_WORD) << 16
-            self.main.debug("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
+            if (self.main.debugEnabled):
+                self.main.debug("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
             return ret
         if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
             ret = (<AtaController>self.controller[0]).inPort(ioPortAddr-ATA1_BASE, dataSize)
@@ -602,10 +611,12 @@ cdef class Ata:
         #    ret = (<AtaController>self.controller[2]).inPort(ioPortAddr-ATA3_BASE, dataSize)
         #elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
         #    ret = (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
-        self.main.debug("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
+        if (self.main.debugEnabled):
+            self.main.debug("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
-        self.main.debug("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
+        if (self.main.debugEnabled):
+            self.main.debug("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_WORD and (ioPortAddr&0xf)):
             self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
             self.outPort(ioPortAddr, <unsigned char>(data >> 8), OP_SIZE_BYTE)

@@ -193,14 +193,14 @@ cdef class Pic:
         temp2 = ch.irr & (1<<irq) # PS/2 keyboard has a lower priority.
         temp3 = ch.imr & (1<<irq)
         self.main.notice("Pic::isClear: temp1=={0:d}; temp2=={1:d}; temp3=={2:d}; ch.intr=={3:d}", temp1, temp2, temp3, ch.intr)
-        #return not (temp1 or temp2 or temp3 or ch.intr)
+        return not (temp1 or temp2 or temp3 or ch.intr)
         #return not (temp1 or temp3 or ch.intr)
         #return not (temp1 or temp2 or ch.intr)
         #return not (temp1 or ch.intr)
         if (not temp1 and temp2 and ch.intr):
             self.main.cpu.registers.ssInhibit = True
             self.main.cpu.asyncEvent = True
-        return not (temp1)
+        #return not (temp1)
         #return not (temp1 or temp3)
     cdef unsigned char IAC(self):
         cdef PicChannel master, slave
@@ -237,7 +237,8 @@ cdef class Pic:
         return vector
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char channel
-        self.main.debug("Pic::inPort: ioPortAddr=={0:#06x}; dataSize=={1:d}", ioPortAddr, dataSize)
+        if (self.main.debugEnabled):
+            self.main.debug("Pic::inPort: ioPortAddr=={0:#06x}; dataSize=={1:d}", ioPortAddr, dataSize)
         if (ioPortAddr in PIC_PIC1_PORTS):
             channel = 0
         elif (ioPortAddr in PIC_PIC2_PORTS):
@@ -259,7 +260,8 @@ cdef class Pic:
         return 0
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef unsigned char channel, oldStep, cmdByte, specialMask, poll, readOp
-        self.main.debug("Pic::outPort: ioPortAddr=={0:#06x}; data=={1:#04x}; dataSize=={2:d}", ioPortAddr, data, dataSize)
+        if (self.main.debugEnabled):
+            self.main.debug("Pic::outPort: ioPortAddr=={0:#06x}; data=={1:#04x}; dataSize=={2:d}", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):
                 channel = 0

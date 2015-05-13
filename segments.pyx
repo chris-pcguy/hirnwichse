@@ -19,7 +19,7 @@ cdef class Segment:
         self.segmentIndex = segmentIndex
         if (not protectedModeOn):
             self.base = <unsigned int>segmentIndex<<4
-            #self.limit = 0xffff
+            self.limit = 0xffff
             self.isValid = True
             self.useGDT = False
             self.segSize = OP_SIZE_WORD
@@ -325,6 +325,8 @@ cdef class Paging: # TODO
                     pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&0xfffff000)|j) # page table
                     if (not noGlobal or not (pageTableEntry & PAGE_GLOBAL)):
                         self.tlbTables.csWriteValue((i<<12)|j, pageTableEntry, OP_SIZE_DWORD)
+            else:
+                self.tlbTables.csWrite((i<<12), b'\x00'*PAGE_DIRECTORY_LENGTH, PAGE_DIRECTORY_LENGTH)
     cdef void invalidateTable(self, unsigned int virtualAddress):
         cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, i
         pageDirectoryOffset = (virtualAddress>>22) << 2
@@ -499,12 +501,14 @@ cdef class Paging: # TODO
         writable = self.writeAccessAllowed(virtualAddress, False)
         everyRing = self.everyRingAccessAllowed(virtualAddress, False) or self.implicitSV
         if (self.segments.registers.writeProtectionOn and written and not writable):
-            self.segments.main.debug("Paging::getPhysicalAddress: address is not accessable: test1. (virtualAddress: {0:#010x})", virtualAddress)
+            if (self.segments.main.debugEnabled):
+                self.segments.main.debug("Paging::getPhysicalAddress: address is not accessable: test1. (virtualAddress: {0:#010x})", virtualAddress)
             self.implicitSV = False
             self.doPF(virtualAddress, written)
             return -1
         elif (cpl == 3 and (not everyRing or (written and not writable))):
-            self.segments.main.debug("Paging::getPhysicalAddress: address is not accessable: test2. (virtualAddress: {0:#010x})", virtualAddress)
+            if (self.segments.main.debugEnabled):
+                self.segments.main.debug("Paging::getPhysicalAddress: address is not accessable: test2. (virtualAddress: {0:#010x})", virtualAddress)
             self.implicitSV = False
             self.doPF(virtualAddress, written)
             return -1

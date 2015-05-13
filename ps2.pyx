@@ -127,7 +127,8 @@ cdef class PS2:
                         (self.inb << 1) | \
                         self.outb)
                 self.timeout = False
-                self.main.debug("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                if (self.main.debugEnabled):
+                    self.main.debug("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x60):
                 self.outb = False
@@ -157,7 +158,8 @@ cdef class PS2:
                 #(<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
                 #if (len(self.outBuffer)):
                 #    self.activateTimer()
-                self.main.debug("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                if (self.main.debugEnabled):
+                    self.main.debug("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x61):
                 return ((((int(time()*1e7) & 0xf) == 0) << 4) | \
@@ -235,7 +237,8 @@ cdef class PS2:
                             if (not (data & PS2_CPU_RESET)):
                                 (<Cpu>self.main.cpu).reset()
                         elif (self.lastUsedCmd == 0xd4): # port 0x64
-                            self.main.debug("outPort: self.lastUsedPort == 0x64; self.lastUsedCmd == 0xd4. (port {0:#04x}; data {1:#04x}; self.needWriteBytesMouse {2:d})", ioPortAddr, data, self.needWriteBytesMouse)
+                            if (self.main.debugEnabled):
+                                self.main.debug("outPort: self.lastUsedPort == 0x64; self.lastUsedCmd == 0xd4. (port {0:#04x}; data {1:#04x}; self.needWriteBytesMouse {2:d})", ioPortAddr, data, self.needWriteBytesMouse)
                             IF 0: # mouse present
                                 self.appendToOutBytesMouse(b'\xfa')
                                 if (self.needWriteBytesMouse > 0):

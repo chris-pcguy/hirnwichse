@@ -35,15 +35,17 @@ cdef class PciDevice:
         offset = mmAddress&0xff
         function = (mmAddress >> PCI_FUNCTION_SHIFT) & 0x7
         if (function): # TODO
-            self.pci.main.debug("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", function)
+            if (self.pci.main.debugEnabled):
+                self.pci.main.debug("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", function)
             return False
         if (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BRIDGE_ROM_ADDRESS+OP_SIZE_DWORD):
-            if ((offset & 3) != 0):
+            if (self.pci.main.debugEnabled and (offset & 3) != 0):
                 self.pci.main.debug("PciDevice::checkWriteAccess: unaligned access!")
             barIndex = (offset - 0x10) >> 2
             headerType = self.getData(PCI_HEADER_TYPE, OP_SIZE_BYTE)
             if (headerType >= 0x02):
-                self.pci.main.debug("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
+                if (self.pci.main.debugEnabled):
+                    self.pci.main.debug("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
                 return True
             elif (headerType == 0x01):
                 if (offset in (PCI_BRIDGE_IO_BASE_LOW, PCI_BRIDGE_IO_LIMIT_LOW, PCI_BRIDGE_PREF_MEM_BASE_LOW, PCI_BRIDGE_PREF_MEM_LIMIT_LOW, \
@@ -174,7 +176,8 @@ cdef class Pci:
                 self.main.notice("Pci::readRegister: Warning: tried to read without enableBit or with function set.")
             return deviceHandle.getData(pciAddressHandle.getMmAddress(), dataSize)
         else:
-            self.main.debug("Pci::readRegister: deviceHandle is NULL")
+            if (self.main.debugEnabled):
+                self.main.debug("Pci::readRegister: deviceHandle is NULL")
         bitMask = BITMASKS_FF[dataSize]
         return bitMask
     cdef void writeRegister(self, unsigned int address, unsigned int data, unsigned char dataSize):
@@ -203,10 +206,12 @@ cdef class Pci:
                 self.main.exitError("PCI::inPort: port {0:#06x} is not supported. (dataSize {1:d})", ioPortAddr, dataSize)
         else:
             self.main.exitError("PCI::inPort: port {0:#06x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
-        self.main.debug("PCI::inPort: port {0:#06x}. (dataSize {1:d}; ret {2:#06x})", ioPortAddr, dataSize, ret)
+        if (self.main.debugEnabled):
+            self.main.debug("PCI::inPort: port {0:#06x}. (dataSize {1:d}; ret {2:#06x})", ioPortAddr, dataSize, ret)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
-        self.main.debug("PCI::outPort: port {0:#06x}. (dataSize {1:d}; data {2:#06x})", ioPortAddr, dataSize, data)
+        if (self.main.debugEnabled):
+            self.main.debug("PCI::outPort: port {0:#06x}. (dataSize {1:d}; data {2:#06x})", ioPortAddr, dataSize, data)
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0x4d0):
                 data &= 0xf8
