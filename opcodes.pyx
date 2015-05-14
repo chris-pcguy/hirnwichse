@@ -2537,6 +2537,8 @@ cdef class Opcodes:
                 else:
                     if ((not oldVM and (newESP - (12 if (errorCode != -1) else 10)) >= newESP) or (oldVM and (newESP - (20 if (errorCode != -1) else 18)) >= newESP)):
                         raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
+                cpl = gdtEntryCS.segDPL
+                self.registers.cpl = cpl # TODO: HACK!
                 if (not gdtEntryCS.isAddressInLimit(entryEip, OP_SIZE_BYTE)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, not isSoftInt)
                 if (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE)):
@@ -2548,8 +2550,6 @@ cdef class Opcodes:
                 oldESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
                 self.registers.segWriteSegment((<Segment>self.registers.segments.ss), newSS)
                 self.registers.regWriteDword(CPU_REGISTER_ESP, newESP)
-                cpl = gdtEntryCS.segDPL
-                self.registers.cpl = cpl # TODO: HACK!
                 if (oldVM):
                     self.stackPushSegment((<Segment>self.registers.segments.gs), entrySize)
                     self.stackPushSegment((<Segment>self.registers.segments.fs), entrySize)

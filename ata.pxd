@@ -13,7 +13,6 @@ cdef class AtaDrive:
     cdef unsigned short sectorSize, driveCode
     cdef unsigned long int sectors
     cdef bytes filename
-    cdef void setSignature(self)
     cdef unsigned long int ChsToSector(self, unsigned int cylinder, unsigned char head, unsigned char sector)
     cdef inline unsigned short readValue(self, unsigned char index)
     cdef inline void writeValue(self, unsigned char index, unsigned short value)
@@ -35,6 +34,7 @@ cdef class AtaController:
         sectorLowFlipFlop, indexPulse, indexPulseCount
     cdef unsigned int sectorCount, cylinder
     cdef unsigned long int lba
+    cdef void setSignature(self, unsigned char driveId)
     cdef void reset(self, unsigned char swReset)
     cdef inline void LbaToCHS(self)
     cdef void convertToLBA28(self)

@@ -336,27 +336,30 @@ cdef class Paging: # TODO
         pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&0xfffff000)|pageTableOffset) # page table
         self.tlbTables.csWriteValue(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTableEntry, OP_SIZE_DWORD)
     cdef void invalidatePage(self, unsigned int virtualAddress):
-        cdef unsigned int pageDirectoryEntry, pageTableEntry, pageDirectoryOffset, pageTableOffset, pageDirectoryEntryV, i
+        cdef unsigned char updateDir
+        cdef unsigned int pageDirectoryEntry, pageTableEntry, pageDirectoryOffset, pageTableOffset, pageDirectoryEntryV, i, j,
         pageDirectoryOffset = (virtualAddress>>22) << 2
         pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         pageDirectoryEntryV = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|pageDirectoryOffset)&0xfffff000 # page directory
         virtualAddress = self.segments.main.mm.mmPhyReadValueUnsignedDword(pageDirectoryEntryV|pageTableOffset)&0xfffff000
         for i in range(0, PAGE_DIRECTORY_LENGTH, 4):
+            updateDir = False
             pageDirectoryEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|i)
-            if ((pageDirectoryEntry&0xfffff000) == pageDirectoryEntryV):
-                self.tlbDirectories.csWriteValue(i, pageDirectoryEntry, OP_SIZE_DWORD)
-        for i in range(0, TLB_SIZE, 4):
-            pageDirectoryOffset = (i>>12) << 2
-            pageTableOffset = i&0xfff
-            pageDirectoryEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|pageDirectoryOffset) # page directory
             if (not (pageDirectoryEntry & PAGE_PRESENT)):
+                self.tlbDirectories.csWriteValue(i, 0, OP_SIZE_DWORD)
+                self.tlbTables.csWrite(((i>>2)<<12), b'\x00'*PAGE_DIRECTORY_LENGTH, PAGE_DIRECTORY_LENGTH)
                 continue
-            pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&0xfffff000)|pageTableOffset) # page table
-            if (not (pageTableEntry & PAGE_PRESENT)):
-                continue
-            if (virtualAddress == (pageTableEntry&0xfffff000)):
-                self.tlbDirectories.csWriteValue(pageDirectoryOffset, pageDirectoryEntry, OP_SIZE_DWORD)
-                self.tlbTables.csWriteValue(i, pageTableEntry, OP_SIZE_DWORD)
+            elif ((pageDirectoryEntry&0xfffff000) == pageDirectoryEntryV):
+                self.tlbDirectories.csWriteValue(i, pageDirectoryEntry, OP_SIZE_DWORD)
+                updateDir = True
+            for j in range(0, PAGE_DIRECTORY_LENGTH, 4):
+                pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&0xfffff000)|j) # page table
+                if (not (pageTableEntry & PAGE_PRESENT)):
+                    self.tlbTables.csWriteValue(((i>>2)<<12)|j, 0, OP_SIZE_DWORD)
+                    continue
+                elif (virtualAddress == (pageTableEntry&0xfffff000) or updateDir):
+                    self.tlbDirectories.csWriteValue(i, pageDirectoryEntry, OP_SIZE_DWORD)
+                    self.tlbTables.csWriteValue(((i>>2)<<12)|j, pageTableEntry, OP_SIZE_DWORD)
     cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE:
         cdef unsigned int errorFlags, pageDirectoryEntryMem, pageTableEntryMem
         self.invalidatePage(virtualAddress)
