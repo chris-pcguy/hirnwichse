@@ -50,54 +50,89 @@ cdef class Mm:
         with nogil:
             memmove(<char*>(mmArea.data+offset), data, dataSize)
     cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
-        cdef unsigned char found = False
-        cdef unsigned int checkAddr, diff
+        cdef unsigned int tempSize
         cdef bytes ret = b''
-        # TODO: highly inefficient
-        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE):
-            found = True
-        else:
-            for checkAddr in range(offset, offset+dataSize):
-                if (checkAddr >= VGA_MEMAREA_ADDR and checkAddr < VGA_ROM_BASE):
-                    found = True
-                    break
-        if (found):
-            if (offset < VGA_MEMAREA_ADDR):
-                diff = (VGA_MEMAREA_ADDR-offset)
-                ret += mmArea.data[offset:offset+diff]
-                dataSize -= diff
-                offset += diff
-            if (offset+dataSize > VGA_ROM_BASE):
-                diff = (offset+dataSize)-VGA_ROM_BASE
-                dataSize -= diff
-            else:
-                diff = 0
-            ret += self.main.platform.vga.vgaAreaRead(offset, dataSize)
-            if (diff):
-                ret += mmArea.data[VGA_ROM_BASE:VGA_ROM_BASE+diff]
-            return ret
-        return mmArea.data[offset:offset+dataSize]
+        if (dataSize > 0 and offset < VGA_MEMAREA_ADDR):
+            tempSize = min(dataSize, VGA_MEMAREA_ADDR-offset)
+            ret += mmArea.data[offset:offset+tempSize]
+            if (dataSize <= tempSize):
+                return ret
+            dataSize -= tempSize
+            offset += tempSize
+        if (dataSize > 0 and offset < VGA_ROM_BASE):
+            tempSize = min(dataSize, VGA_ROM_BASE-offset)
+            ret += self.main.platform.vga.vgaAreaRead(offset, tempSize)
+            if (dataSize <= tempSize):
+                return ret
+            dataSize -= tempSize
+            offset += tempSize
+        if (dataSize > 0 and offset < self.main.vgaRomBasePlusSize):
+            tempSize = min(dataSize, self.main.vgaRomBasePlusSize-offset)
+            ret += mmArea.data[offset:offset+tempSize]
+            if (dataSize <= tempSize):
+                return ret
+            dataSize -= tempSize
+            offset += tempSize
+        if (dataSize > 0 and offset >= self.main.vgaRomBasePlusSize and offset < self.main.biosMemBase):
+            tempSize = min(dataSize, self.main.biosMemBase-offset)
+            ret += b'\xff'*tempSize
+            if (dataSize <= tempSize):
+                return ret
+            dataSize -= tempSize
+            offset += tempSize
+        if (dataSize > 0 and offset >= self.main.biosMemBase and offset < SIZE_1MB):
+            tempSize = min(dataSize, SIZE_1MB-offset)
+            ret += mmArea.data[offset:offset+tempSize]
+            if (dataSize <= tempSize):
+                return ret
+            dataSize -= tempSize
+            offset += tempSize
+        return ret
     cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
-        cdef unsigned char found = False
-        cdef unsigned int checkAddr
-        with nogil:
-            memmove(<char*>(mmArea.data+offset), data, dataSize)
-        #self.main.notice("Mm::mmAreaWriteSystem: offset=={0:#010x}; dataSize=={1:d}", offset, dataSize)
-        # TODO: highly inefficient
-        if (offset >= VGA_MEMAREA_ADDR and (offset+dataSize) <= VGA_ROM_BASE):
-            found = True
-        else:
-            for checkAddr in range(offset, offset+dataSize):
-                if (checkAddr >= VGA_MEMAREA_ADDR and checkAddr < VGA_ROM_BASE):
-                    found = True
-                    break
-        if (found):
-            if (offset < VGA_MEMAREA_ADDR):
-                dataSize -= (VGA_MEMAREA_ADDR-offset)
-                offset += (VGA_MEMAREA_ADDR-offset)
-            if (offset+dataSize > VGA_ROM_BASE):
-                dataSize -= (offset+dataSize)-VGA_ROM_BASE
-            self.main.platform.vga.vgaAreaWrite(offset, dataSize)
+        cdef unsigned int tempSize
+        if (dataSize > 0 and offset < VGA_ROM_BASE):
+            tempSize = min(dataSize, VGA_ROM_BASE-offset)
+            with nogil:
+                memmove(<char*>(mmArea.data+offset), data, tempSize)
+        if (dataSize > 0 and offset < VGA_MEMAREA_ADDR):
+            tempSize = min(dataSize, VGA_MEMAREA_ADDR-offset)
+            if (dataSize <= tempSize):
+                return
+            data += tempSize
+            dataSize -= tempSize
+            offset += tempSize
+        if (dataSize > 0 and offset < VGA_ROM_BASE):
+            tempSize = min(dataSize, VGA_ROM_BASE-offset)
+            self.main.platform.vga.vgaAreaWrite(offset, tempSize)
+            if (dataSize <= tempSize):
+                return
+            data += tempSize
+            dataSize -= tempSize
+            offset += tempSize
+        if (dataSize > 0 and offset < self.main.vgaRomBasePlusSize):
+            tempSize = min(dataSize, self.main.vgaRomBasePlusSize-offset)
+            with nogil:
+                memmove(<char*>(mmArea.data+offset), data, tempSize)
+            if (dataSize <= tempSize):
+                return
+            data += tempSize
+            dataSize -= tempSize
+            offset += tempSize
+        if (dataSize > 0 and offset >= self.main.vgaRomBasePlusSize and offset < self.main.biosMemBase):
+            tempSize = min(dataSize, self.main.biosMemBase-offset)
+            if (dataSize <= tempSize):
+                return
+            dataSize -= tempSize
+            offset += tempSize
+        if (dataSize > 0 and offset >= self.main.biosMemBase and offset < SIZE_1MB):
+            tempSize = min(dataSize, SIZE_1MB-offset)
+            with nogil:
+                memmove(<char*>(mmArea.data+offset), data, tempSize)
+            if (dataSize <= tempSize):
+                return
+            data += tempSize
+            dataSize -= tempSize
+            offset += tempSize
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
         cdef unsigned short i, start, end

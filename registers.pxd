@@ -72,8 +72,7 @@ cdef class Registers:
     cdef signed long int readFromCacheAddSigned(self, unsigned char numBytes)
     cdef unsigned long int readFromCacheAddUnsigned(self, unsigned char numBytes)
     cdef unsigned long int readFromCacheUnsigned(self, unsigned char numBytes)
-    cdef inline void readCodeSegSize(self):
-        self.getOpAddrCodeSegSize(&self.operSize, &self.addrSize)
+    cdef void readCodeSegSize(self)
     cdef unsigned int readFlags(self)
     cdef void setFlags(self, unsigned int flags)
     cdef unsigned char getCPL(self)
@@ -290,10 +289,6 @@ cdef class Registers:
     cdef unsigned char saveTSS16(self) except BITMASK_BYTE
     cdef unsigned char switchTSS32(self) except BITMASK_BYTE
     cdef unsigned char saveTSS32(self) except BITMASK_BYTE
-    cdef unsigned char getAddrSegSize(self, Segment segment)
-    cdef inline void getOpAddrCodeSegSize(self, unsigned char *opSize, unsigned char *addrSize):
-        opSize[0]   = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-        addrSize[0] = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef void run(self)
 
 

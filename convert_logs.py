@@ -48,6 +48,7 @@ class Comp:
         self.rfp1.flush()
         self.rfp1.close()
     def parse_f2(self):
+        skip_first_lines = True
         self.fp2 = open(self.fn2, 'rt')
         self.rfp2 = open('converted_2', 'wt')
         s = ''
@@ -55,6 +56,11 @@ class Comp:
             i = self.fp2.readline()
             if (not i):
                 break
+            if (skip_first_lines):
+                if (i.find('Current Opcode') != -1):
+                    skip_first_lines = False
+                else:
+                    continue
             m = re.search(r'EIP: 0x([0-9a-f]{4,8}), CS: 0x([0-9a-f]{4})', i)
             if (m):
                 s = '{0:s}:{1:s}\n'.format(m.group(2), m.group(1).rjust(8, '0'))

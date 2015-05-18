@@ -469,6 +469,18 @@ cdef class Vga:
             elif (self.chainOddEven and not self.oddEvenWriteDisabled):
                 tempOffset &= 0xfffe
             for j in range(dataSize):
+                tempOffset = (offset+j-self.videoMemBase)
+                if (self.writeMap):
+                    selectedPlanes = self.writeMap
+                    if (self.chain4):
+                        selectedPlanes &= 1 << (tempOffset&3)
+                        tempOffset &= 0xfffc
+                    elif (self.chainOddEven and not self.oddEvenWriteDisabled):
+                        if ((tempOffset & 1) == 0):
+                            selectedPlanes &= 5 # plane 0 and 2
+                        else:
+                            selectedPlanes &= 10 # plane 1 and 3
+                        tempOffset &= 0xfffe
                 pixelData = (<unsigned char>self.plane0.csData[tempOffset])
                 pixelData |= (<unsigned char>self.plane1.csData[tempOffset])<<8
                 pixelData |= (<unsigned char>self.plane2.csData[tempOffset])<<16
@@ -506,7 +518,7 @@ cdef class Vga:
                     if (y >= rows):
                         break
                     x <<= 1
-                    selectedPlanes = tempOffset&3
+                    #selectedPlanes = tempOffset&3
                     color = (pixelData >> (selectedPlanes<<3))
                     if (not self.enable8Bit):
                         self.main.exitError("Vga::vgaAreaWrite: TODO: not enable8Bit")
@@ -515,7 +527,7 @@ cdef class Vga:
                         self.ui.putPixel(x, y+k, color)
                         self.ui.putPixel(x+1, y+k, color)
                     #self.ui.putPixel(x, y, color)
-                tempOffset += 1
+                #tempOffset += 1
             self.newTimer = time()
             if (self.newTimer - self.oldTimer >= 0.05):
                 self.oldTimer = self.newTimer

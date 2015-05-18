@@ -13,7 +13,7 @@ cdef class Hirnwichse:
     cdef public Cpu cpu
     cdef public unsigned char quitEmu, debugEnabled, exitIfCpuHalted, noUI, exitOnTripleFault, fdaType, fdbType, \
                               debugHalt, bootFrom
-    cdef public unsigned int memSize
+    cdef public unsigned int memSize, biosMemBase, vgaRomBasePlusSize
     cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename, \
                       cdromFilename
     cpdef parseArgs(self)

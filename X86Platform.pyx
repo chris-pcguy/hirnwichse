@@ -212,6 +212,9 @@ cdef class Platform:
                     break
                 romMemSize = size
                 mmAddr = 0x100000000-romMemSize
+            self.main.biosMemBase = mmAddr&0xfffff
+        elif (mmAddr == VGA_ROM_BASE):
+            self.main.vgaRomBasePlusSize = VGA_ROM_BASE+romSize
         self.loadRomToMem(romFileName, mmAddr, romSize)
         if (not isRomOptional):
             self.main.mm.mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
