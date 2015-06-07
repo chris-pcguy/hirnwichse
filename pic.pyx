@@ -78,21 +78,20 @@ cdef class PicChannel:
         if (highestPriority > 7):
             highestPriority = 0
         maxIrq = highestPriority
-        if (not self.specialMask):
-            if (self.isr):
-                while (not (self.isr & (1 << maxIrq)) and not self.pic.main.quitEmu):
-                    maxIrq += 1
-                    if (maxIrq > 7):
-                        maxIrq = 0
-                if (maxIrq == highestPriority):
-                    return
+        if (not self.specialMask and self.isr):
+            while (not (self.isr & (1 << maxIrq)) and not self.pic.main.quitEmu):
+                maxIrq += 1
                 if (maxIrq > 7):
-                    self.pic.main.exitError("PicChannel::servicePicChannel: maxIrq > 7")
+                    maxIrq = 0
+            if (maxIrq == highestPriority):
+                return
+            if (maxIrq > 7):
+                self.pic.main.exitError("PicChannel::servicePicChannel: maxIrq > 7")
         unmaskedRequests = self.irr & (~self.imr)
         if (unmaskedRequests):
             irq = highestPriority
             while (not self.pic.main.quitEmu):
-                if ( not (self.specialMask and (self.isr & (1 << irq))) ):
+                if (not (self.specialMask and (self.isr & (1 << irq)))):
                     if (unmaskedRequests & (1 << irq)):
                         self.intr = True
                         self.irq = irq
@@ -110,6 +109,7 @@ cdef class PicChannel:
         cdef unsigned char mask
         mask = (1 << (irq&7))
         if (not (self.IRQ_in & mask)):
+            #self.pic.main.notice("PicChannel::raiseIrq({0:d}): irq=={1:d}", not self.master, irq)
             self.IRQ_in |= mask
             self.irr |= mask
             self.servicePicChannel()
@@ -192,11 +192,12 @@ cdef class Pic:
         temp1 = ch.isr & (1<<irq) # partly commented out because the
         temp2 = ch.irr & (1<<irq) # PS/2 keyboard has a lower priority.
         temp3 = ch.imr & (1<<irq)
-        self.main.notice("Pic::isClear: temp1=={0:d}; temp2=={1:d}; temp3=={2:d}; ch.intr=={3:d}", temp1, temp2, temp3, ch.intr)
+        self.main.notice("Pic::isClear({0:d},{1:d}): temp1=={2:d}; temp2=={3:d}; temp3=={4:d}; ch.intr=={5:d}", irq, ma_sl, temp1, temp2, temp3, ch.intr)
         if (not temp1 and temp2 and ch.intr):
             self.main.cpu.registers.ssInhibit = True
             self.main.cpu.asyncEvent = True
         return not (temp1 or temp2 or temp3 or ch.intr)
+        #return not (temp2 or temp3 or ch.intr)
         #return not (temp1 or temp3 or ch.intr)
         #return not (temp1 or temp2 or ch.intr)
         #return not (temp1 or ch.intr)

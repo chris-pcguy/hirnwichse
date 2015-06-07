@@ -43,6 +43,7 @@ DEF COMMAND_INITIALIZE_DRIVE_PARAMETERS = 0x91
 DEF COMMAND_PACKET = 0xa0
 DEF COMMAND_IDENTIFY_DEVICE_PACKET = 0xa1
 DEF COMMAND_IDENTIFY_DEVICE = 0xec
+DEF COMMAND_SET_FEATURES = 0xef
 
 DEF PACKET_COMMAND_TEST_UNIT_READY = 0x00
 DEF PACKET_COMMAND_REQUEST_SENSE = 0x03
@@ -188,7 +189,7 @@ cdef class AtaDrive:
     cdef void writeBytes(self, unsigned long int offset, unsigned int size, bytes data):
         cdef unsigned long int oldPos
         if (self.driveType == ATA_DRIVE_TYPE_CDROM):
-            self.ataController.ata.main.exitError("AtaDrive::writeBytes: tried to write to optical drive!")
+            self.ataController.ata.main.notice("AtaDrive::writeBytes: tried to write to optical drive!")
             return
         if (len(data) < size): # data is too short.
             data += b'\x00'*(size-len(data))
@@ -234,7 +235,7 @@ cdef class AtaController:
         cdef AtaDrive drive
         self.drq = self.err = self.useLBA = self.useLBA48 = self.HOB = False
         self.seekComplete = self.irqEnabled = True
-        self.cmd = 0
+        self.cmd = self.features = 0
         self.errorRegister = 1
         if (self.irq):
             (<Pic>self.ata.main.platform.pic).lowerIrq(self.irq)
@@ -310,7 +311,7 @@ cdef class AtaController:
         elif (cmd == PACKET_COMMAND_INQUIRY):
             dataSize = self.data[4]
             if (dataSize < 36):
-                self.ata.main.exitError("AtaController::handlePacket_6: allocation length is < 36! self.data == {0:s}", repr(self.data))
+                self.ata.main.notice("AtaController::handlePacket_6: allocation length is < 36! self.data == {0:s}", repr(self.data))
                 return
             if (drive.driveType == ATA_DRIVE_TYPE_CDROM):
                 self.result = drive.readValue(0).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
@@ -344,10 +345,12 @@ cdef class AtaController:
         drive = self.drive[self.driveId]
         if (ioPortAddr == 0x0): # data port
             if (not self.drq):
-                self.ata.main.exitError("AtaController::inPort_1: not self.drq, returning BITMASK_BYTE; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                ret = BITMASK_BYTE
+                self.ata.main.notice("AtaController::inPort_1: not self.drq, returning BITMASK_BYTE; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
                 return ret
             if (len(self.result) < dataSize):
-                self.ata.main.exitError("AtaController::inPort_1: len(self.result) < dataSize; data port is empty, returning BITMASK_BYTE; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                ret = BITMASK_BYTE
+                self.ata.main.notice("AtaController::inPort_1: len(self.result) < dataSize; data port is empty, returning BITMASK_BYTE; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
                 return ret
             ret = int.from_bytes(self.result[0:dataSize], byteorder="little", signed=False)
             self.result = self.result[dataSize:]
@@ -406,12 +409,13 @@ cdef class AtaController:
                         self.indexPulse = True
                         self.indexPulseCount = 0
                 else: # TODO: HACK: this circumvents the bochs bios 'IDE time out' which takes too long.
-                    ret = 0x1
+                    #ret = 0x1
+                    ret = 0x41
                 if (ioPortAddr == 0x7 and self.irq):
                     (<Pic>self.ata.main.platform.pic).lowerIrq(self.irq)
             elif (ioPortAddr == 0x1ff or ioPortAddr == 0x207):
                 ret = BITMASK_BYTE
-                self.ata.main.exitError("AtaController::inPort: what??? ;controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                self.ata.main.notice("AtaController::inPort: what??? ;controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
             else:
                 self.ata.main.exitError("AtaController::inPort: TODO: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
         else:
@@ -425,7 +429,7 @@ cdef class AtaController:
             self.data += (data).to_bytes(length=dataSize, byteorder="little", signed=False)
             if (self.cmd == COMMAND_WRITE_LBA28):
                 if (not self.drq):
-                    self.ata.main.exitError("AtaController::outPort_1: not self.drq, returning; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
+                    self.ata.main.notice("AtaController::outPort_1: not self.drq, returning; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
                 if (len(self.data) >= drive.sectorSize):
                     drive.writeSectors(self.lba, 1, self.data)
@@ -450,9 +454,9 @@ cdef class AtaController:
                 self.ata.main.exitError("AtaController::outPort: unknown command 1: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}; cmd: {5:#04x}", self.controllerId, self.driveId, ioPortAddr, data, dataSize, self.cmd)
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x1):
-                pass # unimplemented: to be used for the set features command (0xef)
-                #if (data):
-                #    self.ata.main.notice("AtaController::outPort: overlapping packet and/or DMA is not supported yet: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
+                self.features = data
+                if (data & 3):
+                    self.ata.main.notice("AtaController::outPort: overlapping packet and/or DMA is not supported yet: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
             elif (ioPortAddr == 0x2):
                 if (self.useLBA and self.useLBA48):
                     if (not self.sectorCountFlipFlop):
@@ -549,7 +553,15 @@ cdef class AtaController:
                 elif (data in (COMMAND_WRITE_LBA28, COMMAND_PACKET)):
                     if (data == COMMAND_WRITE_LBA28):
                         self.convertToLBA28()
-                    pass # not handled here.
+                    elif (self.controllerId == 1):
+                        if (self.features & 2):
+                            self.abortCommand()
+                            return
+                        else:
+                            self.sectorCount = 1
+                    else:
+                        self.abortCommand()
+                        return
                 elif (data == COMMAND_EXECUTE_DRIVE_DIAGNOSTIC):
                     self.setSignature(self.driveId)
                 elif (data == COMMAND_INITIALIZE_DRIVE_PARAMETERS):
@@ -560,12 +572,19 @@ cdef class AtaController:
                         self.abortCommand()
                         return
                     self.driveReady = True
-                    self.raiseAtaIrq(False, True)
-                    return
+                elif (data == COMMAND_SET_FEATURES):
+                    if (self.features == 3):
+                        if ((self.sectorCount >> 3) not in (0, 1)):
+                            self.abortCommand()
+                            return
+                    elif (self.features not in (0x02, 0x82, 0xAA, 0x55, 0xCC, 0x66)):
+                        self.abortCommand()
+                        return
+                    self.driveReady = self.seekComplete = True
                 else:
                     self.ata.main.exitError("AtaController::outPort: unknown command 2: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
-                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET), data not in (COMMAND_RESET,))
+                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES), data not in (COMMAND_RESET, COMMAND_PACKET))
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)

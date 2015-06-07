@@ -34,15 +34,17 @@ cdef class PS2:
         self.lastUsedCmd = 0
         self.ppcbT2Gate = self.ppcbT2Spkr = self.ppcbT2Out = False
         self.irq1Requested = self.irq12Requested = self.sysf = False
-        self.outb = self.inb = self.batInProgress = self.timeout = False
+        self.outb = self.inb = self.auxb = self.batInProgress = self.timeout = False
         self.kbdClockEnabled = self.allowIrq1 = True
         self.translateScancodes = self.scanningEnabled = True
         self.timerPending = 0
         self.allowIrq12 = False
     cdef void appendToOutBytesJustAppend(self, bytes data):
         self.outBuffer += data
+        self.outb = True
     cdef void appendToOutBytesMouse(self, bytes data):
         self.mouseBuffer += data
+        self.auxb = self.outb = True
     cdef void appendToOutBytes(self, bytes data):
         self.appendToOutBytesJustAppend(data)
         if (not self.outb and self.kbdClockEnabled):
@@ -81,10 +83,10 @@ cdef class PS2:
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
         cdef unsigned char sc, escaped
         cdef bytes scancode, returnedScancode
-        ###self.main.debug("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        #self.main.notice("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         if ((not self.kbdClockEnabled) or (not self.scanningEnabled) or (keyId == 0xff)):
             return
-        ###self.main.debug("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        #self.main.notice("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         scancode = SCANCODES[keyId][self.currentScancodesSet][keyUp]
         if (self.translateScancodes):
             returnedScancode = b""
@@ -95,12 +97,8 @@ cdef class PS2:
                 else:
                     returnedScancode += bytes([ TRANSLATION_8042[sc] | escaped ])
                     escaped = 0x00
-            #self.appendToOutBytesJustAppend( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
-            #self.appendToOutBytesImm( bytes([ TRANSLATION_8042[sc|(keyUp and 0x80)] ]) )
-            #self.appendToOutBytesImm( bytes([ TRANSLATION_8042[sc] ]) )
             self.appendToOutBytesImm( returnedScancode )
         else:
-            #self.appendToOutBytesJustAppend(scancode)
             self.appendToOutBytesImm(scancode)
         ##self.outb = True
         ##if (self.allowIrq1 and self.kbdClockEnabled):
@@ -111,40 +109,50 @@ cdef class PS2:
         cdef unsigned char retByte
         retByte = 0
         if (dataSize == OP_SIZE_BYTE):
+            #if (ioPortAddr != 0x64):
             self.main.notice("PS2: inPort_1: port {0:#04x}; savedCs=={1:#06x}; savedEip=={2:#06x}", ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x64):
-                if (len(self.mouseBuffer)):
-                    self.outb = True # TODO: HACK
-                elif (len(self.outBuffer)):
-                    self.outb = True # TODO: HACK
-                    #if (self.allowIrq1): # TODO: delete this again!?!
-                    #    self.irq1Requested = True
-                    #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+                #if (len(self.mouseBuffer)):
+                #    self.auxb = True # TODO: HACK
+                #    self.outb = True # TODO: HACK
+                #elif (len(self.outBuffer)):
+                #    self.outb = True # TODO: HACK
+                #    #if (self.allowIrq1): # TODO: delete this again!?!
+                #    #    self.irq1Requested = True
+                #    #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+                self.auxb = len(self.mouseBuffer)!=0 # TODO: HACK
+                self.outb = len(self.outBuffer)!=0 or len(self.mouseBuffer)!=0 # TODO: HACK
                 retByte = (0x10 | \
                         (self.timeout << 6) | \
+                        (self.auxb << 5) | \
                         ((self.lastUsedPort != 0x60) << 3) | \
                         (self.sysf << 2) | \
                         (self.inb << 1) | \
                         self.outb)
                 self.timeout = False
-                if (self.main.debugEnabled):
-                    self.main.debug("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                #if (self.main.debugEnabled):
+                #    self.main.debug("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                self.main.notice("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x60):
-                self.outb = False
-                self.irq1Requested = False
+                #self.outb = False
+                #self.auxb = False
+                #self.irq1Requested = False
+                #self.irq12Requested = False
                 self.batInProgress = False
                 (<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
                 if (len(self.mouseBuffer)):
                     retByte = self.mouseBuffer[0]
                     if (len(self.mouseBuffer) > 1):
                         self.mouseBuffer = self.mouseBuffer[1:]
-                        self.outb = True
+                        self.auxb = True
                         if (self.allowIrq12):
                             self.irq12Requested = True
                             (<Pic>self.main.platform.pic).raiseIrq(MOUSE_IRQ)
                     else:
                         self.mouseBuffer = bytes()
+                        self.auxb = False
+                        self.irq12Requested = False
                 elif (len(self.outBuffer)):
                     retByte = self.outBuffer[0]
                     if (len(self.outBuffer) > 1):
@@ -155,11 +163,14 @@ cdef class PS2:
                             (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
                     else:
                         self.outBuffer = bytes()
+                        self.outb = False
+                        self.irq1Requested = False
                 #(<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
                 #if (len(self.outBuffer)):
                 #    self.activateTimer()
-                if (self.main.debugEnabled):
-                    self.main.debug("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                #if (self.main.debugEnabled):
+                #    self.main.debug("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                self.main.notice("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x61):
                 return ((((int(time()*1e7) & 0xf) == 0) << 4) | \
@@ -280,6 +291,8 @@ cdef class PS2:
                     else:
                         self.main.notice("outPort: data {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
                     self.needWriteBytes -= 1
+                    if (not self.needWriteBytes):
+                        self.lastUsedPort = ioPortAddr
             elif (ioPortAddr == 0x64):
                 if (data == 0x20): # read keyboard mode
                     if (self.outb):
@@ -287,7 +300,8 @@ cdef class PS2:
                         return
                     self.appendToOutBytes(bytes([( \
                     (self.translateScancodes << 6) | \
-                    (self.kbdClockEnabled << 4) | \
+                    (1 << 5) | \
+                    ((not self.kbdClockEnabled) << 4) | \
                     (self.sysf << 2) | \
                     (self.allowIrq1) )]))
                 elif (data == 0x60): # write keyboard mode
@@ -302,6 +316,7 @@ cdef class PS2:
                     self.outBuffer = bytes()
                     self.mouseBuffer = bytes()
                     self.outb = False
+                    self.auxb = False
                     self.sysf = True
                     self.appendToOutBytesDoIrq(b'\x55')
                 elif (data == 0xab):

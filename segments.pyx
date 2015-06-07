@@ -11,20 +11,25 @@ cdef class Segment:
     def __init__(self, Segments segments, unsigned short segId):
         self.segments = segments
         self.segId = segId
-        self.isValid = True
-        self.segSize = OP_SIZE_WORD
-        self.base = self.segmentIndex = self.useGDT = 0
-    cdef unsigned char loadSegment(self, unsigned short segmentIndex, unsigned char protectedModeOn) except BITMASK_BYTE:
+        self.loadSegment(0, True)
+    cdef unsigned char loadSegment(self, unsigned short segmentIndex, unsigned char doInit) except BITMASK_BYTE:
         cdef GdtEntry gdtEntry
+        cdef unsigned char protectedModeOn, segType
+        protectedModeOn = (self.segments.registers.protectedModeOn and not self.segments.registers.vm)
         self.segmentIndex = segmentIndex
         if (not protectedModeOn):
             self.base = <unsigned int>segmentIndex<<4
-            self.limit = 0xffff
             self.isValid = True
             self.useGDT = False
             self.segSize = OP_SIZE_WORD
-            self.segPresent = True
-            self.segIsRW = True
+            if (doInit or (self.segments.registers.protectedModeOn and self.segments.registers.vm)):
+                self.limit = 0xffff
+                self.segPresent = self.segIsRW = self.segIsNormal = True
+                self.segIsConforming = self.segUse4K = False
+                self.accessByte = self.flags = 0
+                self.segDPL = self.segments.registers.getCPL()
+                if (self.segId == CPU_SEGMENT_CS):
+                    self.segIsCodeSeg = True
             return True
         gdtEntry = self.segments.getEntry(segmentIndex)
         if (not segmentIndex or gdtEntry is None):
@@ -46,40 +51,20 @@ cdef class Segment:
         self.segIsNormal = gdtEntry.segIsNormal
         self.segUse4K = gdtEntry.segUse4K
         self.segDPL = gdtEntry.segDPL
-        if (not self.segIsCodeSeg and self.segIsConforming):
-            self.gdt.segments.main.notice("Segment::loadSegment: TODO: expand-down data segment may not supported yet!")
         return True
-    cdef unsigned char isCodeSeg(self):
-        return self.segIsCodeSeg
     ### isSegReadableWritable:
     ### if codeseg, return True if readable, else False
     ### if dataseg, return True if writable, else False
-    cdef unsigned char isSegReadableWritable(self):
-        return self.segIsRW
-    cdef unsigned char isSysSeg(self):
-        return (not self.segIsNormal)
-    cdef unsigned char isSegConforming(self):
-        return self.segIsConforming
-    cdef unsigned char getSegDPL(self):
-        return self.segDPL
     cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) except BITMASK_BYTE: # TODO: copied from GdtEntry::isAddressInLimit until a better solution is found... so never.
-        cdef unsigned int limit
-        limit = self.limit
-        if (self.segUse4K):
-            limit <<= 12
-            limit |= 0xfff
         ## address is an offset.
         if (self.segIsNormal and not self.segIsCodeSeg and self.segIsConforming):
-            if ((address+size)<limit or (not self.segSize and ((address+size-1)>BITMASK_WORD))):
-                self.segments.main.notice("Segment::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, limit)
+            if ((address+size)<self.limit or (not self.segSize and ((address+size-1)>BITMASK_WORD))):
+                self.segments.main.notice("Segment::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
                 return False
         else:
-            if ((address+size-1)>limit):
-                self.segments.main.notice("Segment::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, limit)
+            if ((address+size-1)>self.limit):
+                self.segments.main.notice("Segment::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
                 return False
-        if (self.segments.registers.protectedModeOn and self.segments.registers.pagingOn):
-            if (self.segments.paging.getPhysicalAddress(self.base+address, size, False) == -1):
-                return -1
         return True
 
 
@@ -103,29 +88,24 @@ cdef class GdtEntry:
         self.segIsNormal = (self.accessByte & GDT_ACCESS_NORMAL_SEGMENT)!=0
         self.segUse4K = (self.flags & GDT_FLAG_USE_4K)!=0
         self.segDPL = ((self.accessByte & GDT_ACCESS_DPL)>>5)&3
+        if (self.segUse4K):
+            self.limit <<= 12
+            self.limit |= 0xfff
         if (not self.segIsCodeSeg and self.segIsConforming):
             self.gdt.segments.main.notice("GdtEntry::parseEntryData: TODO: expand-down data segment may not supported yet!")
         if (self.flags & GDT_FLAG_LONGMODE): # TODO: int-mode isn't implemented yet...
             self.gdt.segments.main.exitError("Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades...")
             return
     cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) except BITMASK_BYTE:
-        cdef unsigned int limit
-        limit = self.limit
-        if (self.segUse4K):
-            limit <<= 12
-            limit |= 0xfff
         ## address is an offset.
         if (self.segIsNormal and not self.segIsCodeSeg and self.segIsConforming):
-            if ((address+size)<limit or (not self.segSize and ((address+size-1)>BITMASK_WORD))):
-                self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, limit)
+            if ((address+size)<self.limit or (not self.segSize and ((address+size-1)>BITMASK_WORD))):
+                self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
                 return False
         else:
-            if ((address+size-1)>limit):
-                self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, limit)
+            if ((address+size-1)>self.limit):
+                self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
                 return False
-        if (self.gdt.segments.registers.protectedModeOn and self.gdt.segments.registers.pagingOn):
-            if (self.gdt.segments.paging.getPhysicalAddress(self.base+address, size, False) == -1):
-                return -1
         return True
 
 cdef class IdtEntry:
@@ -166,11 +146,11 @@ cdef class Gdt:
         entryData = self.tableBase+num
         entryData = self.segments.registers.mmReadValueUnsignedQword(entryData, None, False)
         return GdtEntry(self, entryData)
-    cdef unsigned char getSegType(self, unsigned short num):
+    cdef unsigned char getSegType(self, unsigned short num): # access byte
         self.segments.paging.implicitSV = True
         num &= 0xfff8
         return (self.segments.registers.mmReadValueUnsignedByte(self.tableBase+num+5, None, False) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
-    cdef void setSegType(self, unsigned short num, unsigned char segmentType):
+    cdef void setSegType(self, unsigned short num, unsigned char segmentType): # access byte
         self.segments.paging.implicitSV = True
         num &= 0xfff8
         self.segments.registers.mmWriteValue(self.tableBase+num+5, <unsigned char>((self.segments.registers.\
@@ -390,6 +370,8 @@ cdef class Paging: # TODO
             exit()
         self.segments.registers.regWriteDword(CPU_REGISTER_CR2, virtualAddress)
         self.segments.main.notice("Paging::doPF: test2")
+        #if (virtualAddress == 0xc1000000 and self.segments.main.cpu.savedCs == 0x8 and self.segments.main.cpu.savedEip == 0x80134706):
+        #    self.segments.main.debugEnabled = True
         raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
         #return 0
     cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE:
@@ -419,7 +401,7 @@ cdef class Paging: # TODO
             if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
                 self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present 2. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
                 self.doPF(virtualAddress, written)
-                return -1
+                return BITMASK_BYTE
         elif (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4MB page
             # size is 4MB if CR4/PSE is set
             # size is 2MB if CR4/PAE is set
@@ -443,20 +425,24 @@ cdef class Paging: # TODO
             if (not (self.pageTableEntry & PAGE_PRESENT)):
                 self.segments.main.notice("Paging::readAddresses: PTE-Entry is not present 2. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&0xfffff000)|self.pageTableOffset, virtualAddress)
                 self.doPF(virtualAddress, written)
-                return -1
+                return BITMASK_BYTE
         return True
-    cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress, unsigned char refresh) except BITMASK_BYTE:
+    cdef unsigned char accessAllowed(self, unsigned int virtualAddress, unsigned char written, unsigned char refresh) except BITMASK_BYTE:
+        cdef unsigned char cpl
+        cpl = self.segments.registers.getCPL()
         if (refresh):
-            self.readAddresses(virtualAddress, True)
-        if (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE):
+            self.readAddresses(virtualAddress, written)
+        if ((cpl != 3 or (self.pageDirectoryEntry&PAGE_EVERY_RING and self.pageTableEntry&PAGE_EVERY_RING)) or self.implicitSV):
             return True
-        return False
-    cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress, unsigned char refresh) except BITMASK_BYTE:
-        if (refresh):
-            self.readAddresses(virtualAddress, False)
-        if (self.pageDirectoryEntry&PAGE_EVERY_RING and self.pageTableEntry&PAGE_EVERY_RING):
-            return True
-        return False
+        if (written):
+            if (cpl != 3 and not self.segments.registers.writeProtectionOn):
+                return True
+            if (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE):
+                return True
+        self.implicitSV = False
+        self.segments.main.notice("Paging::accessAllowed: doPF")
+        self.doPF(virtualAddress, written)
+        return BITMASK_BYTE
     cdef unsigned char setFlags(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except BITMASK_BYTE:
         cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, pageDirectoryEntryMem, pageTableEntryMem, pageDirectoryEntryNew, pageTableEntryNew
         # TODO: for now only handling 4KB pages. (very inefficient)
@@ -496,26 +482,11 @@ cdef class Paging: # TODO
                 dataSize -= PAGE_DIRECTORY_LENGTH
         return True
     cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except? BITMASK_BYTE:
-        cdef unsigned char cpl, writable, everyRing
         cdef unsigned int pageDirectoryEntryMem, pageTableEntryMem
         self.readAddresses(virtualAddress, written)
-        self.instrFetch = False
-        cpl = self.segments.registers.getCPL()
-        writable = self.writeAccessAllowed(virtualAddress, False)
-        everyRing = self.everyRingAccessAllowed(virtualAddress, False) or self.implicitSV
-        if (self.segments.registers.writeProtectionOn and written and not writable):
-            if (self.segments.main.debugEnabled):
-                self.segments.main.debug("Paging::getPhysicalAddress: address is not accessable: test1. (virtualAddress: {0:#010x})", virtualAddress)
-            self.implicitSV = False
-            self.doPF(virtualAddress, written)
-            return -1
-        elif (cpl == 3 and (not everyRing or (written and not writable))):
-            if (self.segments.main.debugEnabled):
-                self.segments.main.debug("Paging::getPhysicalAddress: address is not accessable: test2. (virtualAddress: {0:#010x})", virtualAddress)
-            self.implicitSV = False
-            self.doPF(virtualAddress, written)
-            return -1
+        self.accessAllowed(virtualAddress, written, False)
         self.setFlags(virtualAddress, dataSize, written)
+        self.instrFetch = False
         self.implicitSV = False
         if (self.segments.main.debugEnabled):
             #self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
@@ -556,26 +527,6 @@ cdef class Segments:
         if (num & SELECTOR_USE_LDT):
             return <GdtEntry>self.ldt.getEntry(num)
         return <GdtEntry>self.gdt.getEntry(num)
-    cdef unsigned char isCodeSeg(self, unsigned short num):
-        if (num & SELECTOR_USE_LDT):
-            return self.ldt.isCodeSeg(num)
-        return self.gdt.isCodeSeg(num)
-    cdef unsigned char isSegReadableWritable(self, unsigned short num):
-        if (num & SELECTOR_USE_LDT):
-            return self.ldt.isSegReadableWritable(num)
-        return self.gdt.isSegReadableWritable(num)
-    cdef unsigned char isSegConforming(self, unsigned short num):
-        if (num & SELECTOR_USE_LDT):
-            return self.ldt.isSegConforming(num)
-        return self.gdt.isSegConforming(num)
-    cdef unsigned char isSegPresent(self, unsigned short num):
-        if (num & SELECTOR_USE_LDT):
-            return self.ldt.isSegPresent(num)
-        return self.gdt.isSegPresent(num)
-    cdef unsigned char getSegDPL(self, unsigned short num):
-        if (num & SELECTOR_USE_LDT):
-            return self.ldt.getSegDPL(num)
-        return self.gdt.getSegDPL(num)
     cdef unsigned char getSegType(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
             return self.ldt.getSegType(num)

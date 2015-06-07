@@ -34,7 +34,7 @@ cdef class FloppyController:
     cdef tuple drive
     cdef bytes command, result, fdcBuffer
     cdef unsigned int fdcBufferIndex
-    cdef unsigned char controllerId, msr, DOR, st0, st1, st2, st3, TC, resetSensei, pendingIrq, dataRate, multiTrack, config, precomp, lock
+    cdef unsigned char controllerId, msr, DOR, st0, st1, st2, st3, TC, resetSensei, pendingIrq, dataRate, multiTrack, config, precomp, lock, perpMode
     cdef void reset(self, unsigned char hwReset)
     cdef bytes floppyXfer(self, unsigned char drive, unsigned int sector, unsigned int count, bytes data, unsigned char toFloppy)
     cdef void addCommand(self, unsigned char command)

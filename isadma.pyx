@@ -70,6 +70,8 @@ cdef class IsaDmaController:
         (<IsaDmaChannel>self.channel[channel]).autoInit = (transferModeByte&0x10)!=0
         (<IsaDmaChannel>self.channel[channel]).addressDecrement = (transferModeByte&0x20)!=0
         (<IsaDmaChannel>self.channel[channel]).transferMode = (transferModeByte>>6)&3
+        if ((transferModeByte&0x20)!=0):
+            self.main.notice("IsaDmaController::setTransferMode: maybe TODO: addressDecrement is set.")
         if ((self.master or (not self.master and channel != 0)) and (<IsaDmaChannel>self.channel[channel]).transferMode != DMA_MODE_SINGLE):
             self.main.exitError("ISADMA::setTransferMode: transferMode: {0:d} not supported yet.", (<IsaDmaChannel>self.channel[channel]).transferMode)
     cdef void maskChannel(self, unsigned char channel, unsigned char maskIt):

@@ -66,27 +66,11 @@ cdef class Mm:
                 return ret
             dataSize -= tempSize
             offset += tempSize
-        if (dataSize > 0 and offset < self.main.vgaRomBasePlusSize):
-            tempSize = min(dataSize, self.main.vgaRomBasePlusSize-offset)
-            ret += mmArea.data[offset:offset+tempSize]
-            if (dataSize <= tempSize):
-                return ret
-            dataSize -= tempSize
-            offset += tempSize
-        if (dataSize > 0 and offset >= self.main.vgaRomBasePlusSize and offset < self.main.biosMemBase):
-            tempSize = min(dataSize, self.main.biosMemBase-offset)
-            ret += b'\xff'*tempSize
-            if (dataSize <= tempSize):
-                return ret
-            dataSize -= tempSize
-            offset += tempSize
-        if (dataSize > 0 and offset >= self.main.biosMemBase and offset < SIZE_1MB):
+        if (dataSize > 0 and offset >= VGA_ROM_BASE and offset < SIZE_1MB):
             tempSize = min(dataSize, SIZE_1MB-offset)
             ret += mmArea.data[offset:offset+tempSize]
             if (dataSize <= tempSize):
                 return ret
-            dataSize -= tempSize
-            offset += tempSize
         return ret
     cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         cdef unsigned int tempSize
@@ -109,30 +93,12 @@ cdef class Mm:
             data += tempSize
             dataSize -= tempSize
             offset += tempSize
-        if (dataSize > 0 and offset < self.main.vgaRomBasePlusSize):
-            tempSize = min(dataSize, self.main.vgaRomBasePlusSize-offset)
-            with nogil:
-                memmove(<char*>(mmArea.data+offset), data, tempSize)
-            if (dataSize <= tempSize):
-                return
-            data += tempSize
-            dataSize -= tempSize
-            offset += tempSize
-        if (dataSize > 0 and offset >= self.main.vgaRomBasePlusSize and offset < self.main.biosMemBase):
-            tempSize = min(dataSize, self.main.biosMemBase-offset)
-            if (dataSize <= tempSize):
-                return
-            dataSize -= tempSize
-            offset += tempSize
-        if (dataSize > 0 and offset >= self.main.biosMemBase and offset < SIZE_1MB):
+        if (dataSize > 0 and offset >= VGA_ROM_BASE and offset < SIZE_1MB):
             tempSize = min(dataSize, SIZE_1MB-offset)
             with nogil:
                 memmove(<char*>(mmArea.data+offset), data, tempSize)
             if (dataSize <= tempSize):
                 return
-            data += tempSize
-            dataSize -= tempSize
-            offset += tempSize
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
         cdef unsigned short i, start, end

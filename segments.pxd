@@ -14,12 +14,7 @@ cdef class Segment:
         segIsRW, segIsConforming, segIsNormal, segUse4K, segDPL, useGDT
     cdef unsigned short segmentIndex, segId
     cdef unsigned int base, limit
-    cdef unsigned char loadSegment(self, unsigned short segmentIndex, unsigned char protectedModeOn) except BITMASK_BYTE
-    cdef unsigned char isCodeSeg(self)
-    cdef unsigned char isSegReadableWritable(self)
-    cdef unsigned char isSegConforming(self)
-    cdef unsigned char isSysSeg(self)
-    cdef unsigned char getSegDPL(self)
+    cdef unsigned char loadSegment(self, unsigned short segmentIndex, unsigned char doInit) except BITMASK_BYTE
     cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) except BITMASK_BYTE
 
 cdef class GdtEntry:
@@ -48,19 +43,6 @@ cdef class Gdt:
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char getSegType(self, unsigned short num)
     cdef void setSegType(self, unsigned short num, unsigned char segmentType)
-    cdef inline unsigned char isSegPresent(self, unsigned short num):
-        return self.getEntry(num).segPresent
-    cdef inline unsigned char isCodeSeg(self, unsigned short num):
-        return self.getEntry(num).segIsCodeSeg
-    ### isSegReadableWritable:
-    ### if codeseg, return True if readable, else False
-    ### if dataseg, return True if writable, else False
-    cdef inline unsigned char isSegReadableWritable(self, unsigned short num):
-        return self.getEntry(num).segIsRW
-    cdef inline unsigned char isSegConforming(self, unsigned short num):
-        return self.getEntry(num).segIsConforming
-    cdef inline unsigned char getSegDPL(self, unsigned short num):
-        return self.getEntry(num).segDPL
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) except BITMASK_BYTE
     cdef unsigned char checkReadAllowed(self, unsigned short num)
     cdef unsigned char checkWriteAllowed(self, unsigned short num)
@@ -93,8 +75,7 @@ cdef class Paging:
     cdef void invalidatePage(self, unsigned int virtualAddress)
     cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE
     cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE
-    cdef unsigned char writeAccessAllowed(self, unsigned int virtualAddress, unsigned char refresh) except BITMASK_BYTE
-    cdef unsigned char everyRingAccessAllowed(self, unsigned int virtualAddress, unsigned char refresh) except BITMASK_BYTE
+    cdef unsigned char accessAllowed(self, unsigned int virtualAddress, unsigned char written, unsigned char refresh) except BITMASK_BYTE
     cdef unsigned char setFlags(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except BITMASK_BYTE
     cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except? BITMASK_BYTE
     
@@ -110,11 +91,6 @@ cdef class Segments:
     cdef void reset(self)
     cdef Segment getSegment(self, unsigned short segmentId, unsigned char checkForValidness)
     cdef GdtEntry getEntry(self, unsigned short num)
-    cdef unsigned char isCodeSeg(self, unsigned short num)
-    cdef unsigned char isSegReadableWritable(self, unsigned short num)
-    cdef unsigned char isSegConforming(self, unsigned short num)
-    cdef unsigned char isSegPresent(self, unsigned short num)
-    cdef unsigned char getSegDPL(self, unsigned short num)
     cdef unsigned char getSegType(self, unsigned short num)
     cdef void setSegType(self, unsigned short num, unsigned char segmentType)
     cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) except BITMASK_BYTE

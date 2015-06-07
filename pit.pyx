@@ -16,15 +16,15 @@ cdef class PitChannel:
         self.counterWriteMode = 0 # 1 == LSB ; 2 == MSB ; 0/3 == LSB;MSB
         self.readBackStatusValue = 0
         self.counterValue = self.counterStartValue = self.counterLatchValue = self.tempTimerValue = 0
-        self.counterFlipFlop = self.timerEnabled = self.readBackStatusIssued = False
+        self.counterFlipFlop = self.timerEnabled = self.readBackStatusIssued = self.resetChannel = False
         self.threadObject = None
-    cpdef readBackCount(self):
+    cdef void readBackCount(self):
         self.counterLatchValue = self.counterValue
-    cpdef readBackStatus(self):
+    cdef void readBackStatus(self):
         self.readBackStatusValue = self.bcdMode
         self.readBackStatusValue |= self.counterMode<<1
         self.readBackStatusValue |= self.counterWriteMode<<4
-    cpdef mode0Func(self):
+    cdef void mode0Func(self):
         if (self.channelId == 0): # just raise IRQ on channel0
             (<Pic>self.pit.main.platform.pic).lowerIrq(0)
         elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
@@ -39,7 +39,7 @@ cdef class PitChannel:
         #else:
         self.pit.main.notice("PitChannel::mode0Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
         self.timerEnabled = False
-    cpdef mode2Func(self): # TODO
+    cdef void mode2Func(self): # TODO
         cdef unsigned char clear
         while (self.timerEnabled and (not self.pit.main.quitEmu)):
             if (self.channelId == 0): # just raise IRQ on channel0
@@ -50,26 +50,33 @@ cdef class PitChannel:
                     (<Pic>self.pit.main.platform.pic).lowerIrq(0)
             elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
                 (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
-            #self.pit.main.notice("PitChannel::mode2Func: before while")
-            self.counterValue = self.counterStartValue
-            self.pit.main.notice("PitChannel::mode2Func: counterValue=={0:d}", self.counterValue)
+            elif (self.channelId == 3):
+                clear = (<Pic>self.pit.main.platform.pic).isClear(CMOS_RTC_IRQ)
+                if (clear):
+                    (<Pic>self.pit.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
+            if (self.channelId != 3):
+                #self.pit.main.notice("PitChannel::mode2Func: before while")
+                self.counterValue = self.counterStartValue
+                self.pit.main.notice("PitChannel::mode2Func({0:d}): counterValue=={1:d}", self.channelId, self.counterValue)
+                with nogil:
+                    #usleep(self.tempTimerValue)
+                    usleep(1)
+                    #usleep(100)
+                while ((self.counterValue >= 2 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
+                    if (self.counterMode == 3 and self.counterValue >= 3):
+                        self.counterValue -= 2 # HACK
+                    else:
+                        self.counterValue -= 1 # HACK
+                    #self.pit.main.notice("PitChannel::mode2Func: in while")
+                    if (not (self.counterValue&0xff)):
+                        with nogil:
+                            #usleep(self.tempTimerValue)
+                            usleep(1)
+                            #usleep(100)
+                self.counterValue = 1 # to be sure
+                self.pit.main.notice("PitChannel::mode2Func({0:d}): after while", self.channelId)
             with nogil:
-                #usleep(self.tempTimerValue)
-                #usleep(1)
-                usleep(100)
-            while ((self.counterValue >= 2 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
-                if (self.counterMode == 3 and self.counterValue >= 3):
-                    self.counterValue -= 2 # HACK
-                else:
-                    self.counterValue -= 1 # HACK
-                #self.pit.main.notice("PitChannel::mode2Func: in while")
-                if (not (self.counterValue&0xff)):
-                    with nogil:
-                        #usleep(self.tempTimerValue)
-                        usleep(1)
-                        #usleep(100)
-            self.counterValue = 1 # to be sure
-            self.pit.main.notice("PitChannel::mode2Func: after while")
+                usleep(self.tempTimerValue)
             if (self.channelId == 0): # just raise IRQ on channel0
                 #clear = (<Pic>self.pit.main.platform.pic).isClear(0)
                 #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0)")
@@ -79,6 +86,10 @@ cdef class PitChannel:
                     (<Pic>self.pit.main.platform.pic).raiseIrq(0)
             elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
                 (<PS2>self.pit.main.platform.ps2).ppcbT2Out = True
+            elif (self.channelId == 3):
+                if (clear):
+                    self.pit.main.notice("PitChannel::mode2Func: raiseIrq(CMOS_RTC_IRQ): clear")
+                    (<Pic>self.pit.main.platform.pic).raiseIrq(CMOS_RTC_IRQ)
             else:
                 self.pit.main.notice("PitChannel::mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
     cpdef timerFunc(self): # TODO
@@ -91,41 +102,45 @@ cdef class PitChannel:
                 self.pit.main.exitError("timerFunc: counterMode {0:d} is unknown.", self.counterMode)
                 return
     cpdef runTimer(self):
+        self.resetChannel = False
         if (self.channelId == 1):
             self.pit.main.notice("PitChannel::runTimer: PIT-Channel 1 is ancient.")
-        if (self.counterStartValue == 0):
-            #self.counterStartValue = 0x10000
-            self.counterStartValue = 0xffff # TODO: HACK
-        self.counterStartValue -= 1
-        if (self.bcdMode):
-            self.pit.main.notice("PitChannel::runTimer: WARNING: TODO: bcdMode may not work!")
-            self.counterStartValue = self.pit.main.misc.bcdToDec(self.counterStartValue)
-        if (self.counterMode == 3):
-            #self.counterStartValue &= 0xffffe
-            self.counterStartValue &= 0xfffe
+        elif (self.channelId != 3):
             if (self.counterStartValue == 0):
-                self.pit.main.exitError("runTimer: counterValue is 0")
+                #self.counterStartValue = 0x10000
+                self.counterStartValue = 0xffff # TODO: HACK
+            self.counterStartValue -= 1
+            if (self.bcdMode):
+                self.pit.main.notice("PitChannel::runTimer: WARNING: TODO: bcdMode may not work!")
+                self.counterStartValue = self.pit.main.misc.bcdToDec(self.counterStartValue)
+            if (self.counterMode == 3):
+                #self.counterStartValue &= 0xffffe
+                self.counterStartValue &= 0xfffe
+                if (self.counterStartValue == 0):
+                    self.pit.main.exitError("runTimer: counterValue is 0")
+                    return
+            self.counterValue = self.counterStartValue
+            self.tempTimerValue = round(1.0e6/(1193182.0/self.counterValue))
+            if (self.counterMode == 0):
+                self.tempTimerValue <<= 4 # TODO: HACK!
+                #self.tempTimerValue <<= 6 # TODO: HACK!
+            if (self.counterMode == 3):
+                self.tempTimerValue >>= 1
+            if (self.counterMode not in (0, 2, 3)):
+                self.pit.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})", self.counterMode, self.channelId)
                 return
-        self.counterValue = self.counterStartValue
-        self.tempTimerValue = round(1.0e6/(1193182.0/self.counterValue))
-        if (self.counterMode == 0):
-            self.tempTimerValue <<= 4 # TODO: HACK!
-            #self.tempTimerValue <<= 6 # TODO: HACK!
-        if (self.counterMode not in (0, 2, 3)):
-            self.pit.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})", self.counterMode, self.channelId)
-            return
-        elif (self.counterMode == 2 and self.channelId == 2):
-            self.pit.main.exitError("runTimer: is it ok to use mode-{0:d} with channelId-{1:d} and cpu clock measures?", \
-              self.counterMode, self.channelId)
-            return
-        elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
-            (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
+            elif (self.counterMode == 2 and self.channelId == 2):
+                self.pit.main.exitError("runTimer: is it ok to use mode-{0:d} with channelId-{1:d} and cpu clock measures?", \
+                self.counterMode, self.channelId)
+                return
+            elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
+                (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
         self.timerEnabled = False
         if (self.threadObject):
             self.threadObject.join()
             self.threadObject = None
         self.timerEnabled = True
-        if (self.timerEnabled and not self.pit.main.quitEmu):
+        if (not self.pit.main.quitEmu):
             self.threadObject = self.pit.main.misc.createThread(self.timerFunc, True)
 
 cdef class Pit:
@@ -133,6 +148,7 @@ cdef class Pit:
         self.main = main
         self.channels = (PitChannel(self, 0), PitChannel(self, 1),\
                          PitChannel(self, 2)) # channel 0-2
+        (<Cmos>self.main.platform.cmos).rtcChannel = PitChannel(self, 3)
     cpdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef PitChannel channel
         cdef unsigned char channelId, retVal
@@ -191,7 +207,7 @@ cdef class Pit:
                     if (channel.counterWriteMode == 2): # MSB
                         channel.counterStartValue <<= 8
                     channel.counterFlipFlop = False
-                if (not channel.counterFlipFlop):
+                if (not channel.counterFlipFlop and channel.resetChannel):
                     channel.runTimer()
             elif (ioPortAddr == 0x43):
                 bcd = data&1
@@ -228,11 +244,13 @@ cdef class Pit:
                 channel.counterFlipFlop = False
                 if (not channel.counterWriteMode):
                     channel.counterLatchValue = channel.counterValue
+                if (counterWriteMode and channelId != 3):
+                    channel.resetChannel = True
             else:
                 self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
         else:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
-    cpdef run(self):
+    cdef void run(self):
         pass
         #self.main.platform.addHandlers((0x40, 0x41, 0x42, 0x43), self)
 

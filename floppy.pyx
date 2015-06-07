@@ -39,8 +39,7 @@ DEF FDC_CMD_MF = 0x40 # command is using mfm
 DEF FDC_CMD_MT = 0x80 # command is using multi-track
 DEF FDC_SECTOR_SIZE = 512
 
-#DEF FDC_CMDLENGTH_TABLE = (0, 0, 0, 3, 2, 9, 9, 2, 1, 0, 2, 0, 0, 0, 10, 3, 1)
-cdef list FDC_CMDLENGTH_TABLE = [0]*0x95
+cdef list FDC_CMDLENGTH_TABLE = [0]*0x20
 FDC_CMDLENGTH_TABLE[0x03] = 3
 FDC_CMDLENGTH_TABLE[0x04] = 2
 FDC_CMDLENGTH_TABLE[0x05] = 9
@@ -48,12 +47,13 @@ FDC_CMDLENGTH_TABLE[0x06] = 9
 FDC_CMDLENGTH_TABLE[0x07] = 2
 FDC_CMDLENGTH_TABLE[0x08] = 1
 FDC_CMDLENGTH_TABLE[0x0a] = 2
-FDC_CMDLENGTH_TABLE[0x0e] = 10
+FDC_CMDLENGTH_TABLE[0x0e] = 1
 FDC_CMDLENGTH_TABLE[0x0f] = 3
 FDC_CMDLENGTH_TABLE[0x10] = 1
+FDC_CMDLENGTH_TABLE[0x12] = 2
 FDC_CMDLENGTH_TABLE[0x13] = 4
 FDC_CMDLENGTH_TABLE[0x14] = 1
-FDC_CMDLENGTH_TABLE[0x94] = 1
+FDC_CMDLENGTH_TABLE[0x18] = 1
 
 
 cdef class FloppyMedia:
@@ -218,6 +218,7 @@ cdef class FloppyController:
             self.lock = 0
         if (not self.lock):
             self.config = self.precomp = 0
+        self.perpMode = 0
         for i in range(4):
             if (hwReset):
                 (<FloppyDrive>self.drive[i]).DIR |= 0x80
@@ -325,7 +326,6 @@ cdef class FloppyController:
             self.main.exitError("FDC::handleResult: PIO mode isn't fully supported yet.")
             return
         drive = self.DOR & 0x3
-        cmd = self.command[0]&0x1f
         self.clearResult()
         self.msr |= (FDC_MSR_RQM | FDC_MSR_DIO | FDC_MSR_BUSY)
 
@@ -334,6 +334,7 @@ cdef class FloppyController:
             return
 
         if (len(self.command) > 0):
+            cmd = self.command[0]&0x1f
             if (cmd == 0x4):
                 self.addToResult(self.st3)
             elif (cmd == 0x8):
@@ -356,12 +357,12 @@ cdef class FloppyController:
                 self.addToResult(0x00)
                 self.addToResult((self.msr & FDC_MSR_NODMA) != 0)
                 self.addToResult((<FloppyDrive>self.drive[drive]).eot)
-                self.addToResult(self.lock << 7)
+                self.addToResult((self.lock << 7) | (self.perpMode & 0x7f))
                 self.addToResult(self.config)
                 self.addToResult(self.precomp)
             elif (cmd == 0x10):
                 self.addToResult(0x90)
-            elif (cmd in (0x14, 0x94)):
+            elif (cmd == 0x14):
                 self.addToResult(self.lock << 4)
             else:
                 self.main.exitError("FDC_CTRL::handleResult: unknown command: {0:#04x}", cmd)
@@ -529,13 +530,17 @@ cdef class FloppyController:
         elif (cmd == 0x10): # get version
             self.handleResult()
             return
+        elif (cmd == 0x12): # perpendicular mode
+            self.perpMode = self.command[1]
+            self.handleIdle()
+            return
         elif (cmd == 0x13): # configure
             self.config = self.command[2]
             self.precomp = self.command[3]
             self.handleIdle()
             return
-        elif (cmd in (0x14, 0x94)): # lock/unlock
-            if (cmd == 0x14):
+        elif (cmd == 0x14): # lock/unlock
+            if (self.multiTrack):
                 self.lock = True
             else:
                 self.lock = False
@@ -632,7 +637,7 @@ cdef class FloppyController:
                     elif ((<FloppyDrive>self.drive[drive]).media.mediaType == FLOPPY_DISK_TYPE_2_88M):
                         return 0x40
                     else:
-                        self.main.exitError("FDC_CTRL::inPort: mediaType {0:d} is unknown.", (<FloppyDrive>self.drive[drive]).media.mediaType)
+                        self.main.notice("FDC_CTRL::inPort: mediaType {0:d} is unknown.", (<FloppyDrive>self.drive[drive]).media.mediaType)
                         return 0x20
                 else:
                     return 0x20
@@ -715,26 +720,29 @@ cdef class Floppy:
         (<IsaDma>self.main.platform.isadma).setDmaMemActions(0, FDC_DMA_CHANNEL, classInstance, \
           <ReadFromMem>classInstance.readFromMem, <WriteToMem>classInstance.writeToMem)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+        cdef unsigned char ret = 0
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr >= FDC_FIRST_PORTBASE and ioPortAddr <= FDC_FIRST_PORTBASE+FDC_PORTCOUNT):
-                return (<FloppyController>self.controller[0]).inPort(ioPortAddr-FDC_FIRST_PORTBASE, dataSize)
+                ret = (<FloppyController>self.controller[0]).inPort(ioPortAddr-FDC_FIRST_PORTBASE, dataSize)
             elif (ioPortAddr >= FDC_SECOND_PORTBASE and ioPortAddr <= FDC_SECOND_PORTBASE+FDC_PORTCOUNT):
-                return (<FloppyController>self.controller[1]).inPort(ioPortAddr-FDC_SECOND_PORTBASE, dataSize)
+                ret = (<FloppyController>self.controller[1]).inPort(ioPortAddr-FDC_SECOND_PORTBASE, dataSize)
             else:
-                self.main.exitError("inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
+                self.main.exitError("Floppy::inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
+            self.main.notice("Floppy::inPort: port {0:#06x}; data: {1:#04x}, dataSize byte", ioPortAddr, ret)
         else:
-            self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
-        return 0
+            self.main.exitError("Floppy::inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+        return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
+            self.main.notice("Floppy::outPort: port {0:#06x}; data: {1:#04x}, dataSize byte", ioPortAddr, data)
             if (ioPortAddr >= FDC_FIRST_PORTBASE and ioPortAddr <= FDC_FIRST_PORTBASE+FDC_PORTCOUNT):
                 (<FloppyController>self.controller[0]).outPort(ioPortAddr-FDC_FIRST_PORTBASE, data, dataSize)
             elif (ioPortAddr >= FDC_SECOND_PORTBASE and ioPortAddr <= FDC_SECOND_PORTBASE+FDC_PORTCOUNT):
                 (<FloppyController>self.controller[1]).outPort(ioPortAddr-FDC_SECOND_PORTBASE, data, dataSize)
             else:
-                self.main.exitError("outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)
+                self.main.exitError("Floppy::outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)
         else:
-            self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
+            self.main.exitError("Floppy::outPort: dataSize {0:d} not supported.", dataSize)
         return
     cdef void run(self):
         cdef FloppyController controller

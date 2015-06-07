@@ -415,7 +415,7 @@ cdef class Registers:
             if (segType & GDT_ACCESS_NORMAL_SEGMENT and not (segType & GDT_ACCESS_ACCESSED)):
                 segType |= GDT_ACCESS_ACCESSED
                 self.segments.setSegType(segValue, segType)
-        segment.loadSegment(segValue, protectedModeOn)
+        segment.loadSegment(segValue, False)
         if (protectedModeOn):
             if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):
                 segment.isValid = False
@@ -441,7 +441,7 @@ cdef class Registers:
             if (segType & GDT_ACCESS_NORMAL_SEGMENT and not (segType & GDT_ACCESS_ACCESSED)):
                 segType |= GDT_ACCESS_ACCESSED
                 self.segments.setSegType(segValue, segType)
-        segment.loadSegment(segValue, protectedModeOn)
+        segment.loadSegment(segValue, False)
         if (protectedModeOn):
             if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):
                 segment.isValid = False
@@ -499,6 +499,9 @@ cdef class Registers:
         return 0
     cpdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value):
         cdef unsigned int realNewEip
+        if (regId == CPU_REGISTER_CR0):
+            value |= 0x10
+            value &= 0xe005003f
         self.regs[regId]._union.dword.erx = value
         IF (CPU_CACHE_SIZE):
             if (regId == CPU_REGISTER_EIP):
@@ -817,49 +820,53 @@ cdef class Registers:
             self.pf = PARITY_TABLE[<unsigned char>regSumu]
             self.zf = not regSumu
             self.sf = (regSumu & bitMaskHalf) != 0
-    cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char write) except BITMASK_BYTE:
-        cdef GdtEntry gdtEntry
+    cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) except BITMASK_BYTE:
         cdef unsigned char addrInLimit
         cdef unsigned short segId, segVal
-        if (not self.protectedModeOn or not dataSize or segment is None):
+        if (segment is None or not segment.useGDT):
             return True
         segId = segment.segId
-        segVal = self.segRead(segId)
-        if ( (segVal&0xfff8) == 0 ):
+        segVal = segment.segmentIndex
+        if (not (segVal&0xfff8)):
+            self.main.notice("Registers::checkMemAccessRights: test1.1")
             if (segId == CPU_SEGMENT_SS):
                 raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
             else:
                 raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
-        gdtEntry = <GdtEntry>self.segments.getEntry(segVal)
-        if (not gdtEntry or not gdtEntry.segPresent ):
+        if (not segment.segPresent):
+            self.main.notice("Registers::checkMemAccessRights: test1.2")
             if (segId == CPU_SEGMENT_SS):
                 raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
             else:
                 raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
-        addrInLimit = gdtEntry.isAddressInLimit(mmAddr, dataSize)
-        if (write):
-            if ((gdtEntry.segIsCodeSeg or not gdtEntry.segIsRW) or not addrInLimit or (self.pagingOn and not (<Paging>(<Segments>self.segments).paging).writeAccessAllowed(mmAddr, True))):
+        addrInLimit = segment.isAddressInLimit(mmAddr, dataSize)
+        if (written):
+            if ((segment.segIsNormal and (segment.segIsCodeSeg or not segment.segIsRW)) or not addrInLimit):
+                self.main.notice("Registers::checkMemAccessRights: test1.3")
+                self.main.notice("Registers::checkMemAccessRights: test1.3.1; c0=={0:d}; c1=={1:d}; c2=={2:d}", segment.segIsNormal, (segment.segIsCodeSeg or not segment.segIsRW), not addrInLimit)
+                self.main.notice("Registers::checkMemAccessRights: test1.3.2; mmAddr=={0:#010x}; dataSize=={1:d}; base=={2:#010x}; limit=={3:#010x}", mmAddr, dataSize, segment.base, segment.limit)
                 if (segId == CPU_SEGMENT_SS):
                     raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
                 else:
                     raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
         else:
-            if ((gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) or not addrInLimit):
+            if ((segment.segIsNormal and segment.segIsCodeSeg and not segment.segIsRW) or not addrInLimit):
+                self.main.notice("Registers::checkMemAccessRights: test1.4")
                 raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
         return True
     cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) except? BITMASK_BYTE:
         cdef unsigned int origMmAddr
-        #self.checkMemAccessRights(mmAddr, dataSize, segment, written)
         origMmAddr = mmAddr
         if (allowOverride and self.segmentOverridePrefix is not None):
             segment = self.segmentOverridePrefix
-        if (segment is not None):
-            mmAddr += segment.base
-            if (segment is (<Segment>self.segments.tss)):
-                (<Paging>(<Segments>self.segments).paging).implicitSV = True
-        # TODO: check for limit asf...
         if (self.vm and self.main.debugEnabled):
             self.main.debug("Registers::mmGetRealAddr: TODO. (VM is on)")
+        if (segment is not None):
+            if (segment is (<Segment>self.segments.tss)):
+                (<Paging>(<Segments>self.segments).paging).implicitSV = True
+            self.checkMemAccessRights(mmAddr, dataSize, segment, written)
+            mmAddr += segment.base
+        # TODO: check for limit asf...
         if (self.protectedModeOn and self.pagingOn): # TODO: is a20 even being applied after paging is enabled? (on the physical address... or even the virtual one?)
             mmAddr = (<Paging>(<Segments>self.segments).paging).getPhysicalAddress(mmAddr, dataSize, written)
         if (not self.A20Active): # A20 Active? if True == on, else off
@@ -1047,7 +1054,7 @@ cdef class Registers:
         cdef unsigned int baseAddress
         cdef GdtEntry gdtEntry
         self.main.notice("Registers::switchTSS16: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-        baseAddress = self.mmGetRealAddr(0, 0, (<Segment>self.segments.tss), False, False)
+        baseAddress = self.mmGetRealAddr(0, 1, (<Segment>self.segments.tss), False, False)
         if (((baseAddress&0xfff)+TSS_MIN_16BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::switchTSS16: TSS is over page boundary!")
             return False
@@ -1061,6 +1068,13 @@ cdef class Registers:
                 (<Gdt>self.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
         else:
             (<Gdt>self.segments.ldt).loadTablePosition(0, 0)
+        self.segWriteSegment((<Segment>self.segments.cs), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_CS))
+        self.regWriteWord(CPU_REGISTER_IP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_IP))
+        self.segWriteSegment((<Segment>self.segments.ss), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SS))
+        self.regWriteWord(CPU_REGISTER_SP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SP))
+        self.regWriteWordFlags(self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_FLAGS))
+        self.segWriteSegment((<Segment>self.segments.ds), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DS))
+        self.segWriteSegment((<Segment>self.segments.es), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_ES))
         self.regWriteWord(CPU_REGISTER_AX, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_AX))
         self.regWriteWord(CPU_REGISTER_CX, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_CX))
         self.regWriteWord(CPU_REGISTER_DX, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DX))
@@ -1068,20 +1082,13 @@ cdef class Registers:
         self.regWriteWord(CPU_REGISTER_BP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_BP))
         self.regWriteWord(CPU_REGISTER_SI, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SI))
         self.regWriteWord(CPU_REGISTER_DI, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DI))
-        self.segWriteSegment((<Segment>self.segments.es), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_ES))
-        self.segWriteSegment((<Segment>self.segments.cs), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_CS))
-        self.segWriteSegment((<Segment>self.segments.ds), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DS))
-        self.regWriteWord(CPU_REGISTER_IP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_IP))
-        self.regWriteWordFlags(self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_FLAGS))
 
-        self.regWriteWord(CPU_REGISTER_SP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SP))
-        self.segWriteSegment((<Segment>self.segments.ss), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SS))
         self.regOrDword(CPU_REGISTER_CR0, CR0_FLAG_TS)
         return True
     cdef unsigned char saveTSS16(self) except BITMASK_BYTE:
         cdef unsigned int baseAddress
         self.main.notice("Registers::saveTSS16: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-        baseAddress = self.mmGetRealAddr(0, 0, (<Segment>self.segments.tss), False, True)
+        baseAddress = self.mmGetRealAddr(0, 1, (<Segment>self.segments.tss), False, True)
         if (((baseAddress&0xfff)+TSS_MIN_16BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::saveTSS16: TSS is over page boundary!")
             return False
@@ -1107,7 +1114,7 @@ cdef class Registers:
         self.main.notice("Registers::switchTSS32: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
         self.main.cpu.cpuDump()
         self.main.notice("Registers::switchTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", self.getCPL(), self.cpl)
-        baseAddress = self.mmGetRealAddr(0, 0, (<Segment>self.segments.tss), False, False)
+        baseAddress = self.mmGetRealAddr(0, 1, (<Segment>self.segments.tss), False, False)
         if (((baseAddress&0xfff)+TSS_MIN_32BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::switchTSS32: TSS is over page boundary!")
             return False
@@ -1123,6 +1130,15 @@ cdef class Registers:
                 (<Gdt>self.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
         else:
             (<Gdt>self.segments.ldt).loadTablePosition(0, 0)
+        self.segWriteSegment((<Segment>self.segments.cs), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_CS))
+        self.regWriteDword(CPU_REGISTER_EIP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EIP))
+        self.segWriteSegment((<Segment>self.segments.ss), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_SS))
+        self.regWriteDword(CPU_REGISTER_ESP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESP))
+        self.regWriteDwordEflags(self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EFLAGS))
+        self.segWriteSegment((<Segment>self.segments.ds), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_DS))
+        self.segWriteSegment((<Segment>self.segments.es), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_ES))
+        self.segWriteSegment((<Segment>self.segments.fs), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_FS))
+        self.segWriteSegment((<Segment>self.segments.gs), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_GS))
         self.regWriteDword(CPU_REGISTER_EAX, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EAX))
         self.regWriteDword(CPU_REGISTER_ECX, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ECX))
         self.regWriteDword(CPU_REGISTER_EDX, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EDX))
@@ -1130,16 +1146,7 @@ cdef class Registers:
         self.regWriteDword(CPU_REGISTER_EBP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EBP))
         self.regWriteDword(CPU_REGISTER_ESI, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESI))
         self.regWriteDword(CPU_REGISTER_EDI, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EDI))
-        self.segWriteSegment((<Segment>self.segments.es), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_ES))
-        self.segWriteSegment((<Segment>self.segments.cs), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_CS))
-        self.segWriteSegment((<Segment>self.segments.ds), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_DS))
-        self.segWriteSegment((<Segment>self.segments.fs), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_FS))
-        self.segWriteSegment((<Segment>self.segments.gs), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_GS))
-        self.regWriteDword(CPU_REGISTER_EIP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EIP))
-        self.regWriteDwordEflags(self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EFLAGS))
 
-        self.regWriteDword(CPU_REGISTER_ESP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESP))
-        self.segWriteSegment((<Segment>self.segments.ss), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_SS))
         self.regOrDword(CPU_REGISTER_CR0, CR0_FLAG_TS)
         self.main.cpu.cpuDump()
         self.main.notice("Registers::switchTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", self.getCPL(), self.cpl)
@@ -1152,7 +1159,7 @@ cdef class Registers:
         self.main.notice("Registers::saveTSS32: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
         self.main.cpu.cpuDump()
         self.main.notice("Registers::saveTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", self.getCPL(), self.cpl)
-        baseAddress = self.mmGetRealAddr(0, 0, (<Segment>self.segments.tss), False, True)
+        baseAddress = self.mmGetRealAddr(0, 1, (<Segment>self.segments.tss), False, True)
         if (((baseAddress&0xfff)+TSS_MIN_32BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::saveTSS32: TSS is over page boundary!")
             return False

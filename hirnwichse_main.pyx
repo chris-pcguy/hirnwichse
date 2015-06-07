@@ -14,7 +14,6 @@ cdef class Hirnwichse:
     def __init__(self):
         self.quitEmu = False
         self.exitOnTripleFault = True
-        self.biosMemBase = self.vgaRomBasePlusSize = 0
         register(self.quitFunc)
     cpdef parseArgs(self):
         self.parser = ArgumentParser(description='Hirnwichse: a x86 emulator in python.')

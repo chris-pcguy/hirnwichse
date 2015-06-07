@@ -10,7 +10,7 @@ cdef class Cmos:
     def __init__(self, Hirnwichse main):
         self.main = main
         self.dt = self.oldDt = None
-        self.cmosIndex = 0
+        self.cmosIndex = self.statusB = self.rtcDelay = 0
         self.equipmentDefaultValue = 0x4
         self.configSpace = ConfigSpace(128, self.main)
     cdef inline void setEquipmentDefaultValue(self, unsigned char value):
@@ -67,12 +67,14 @@ cdef class Cmos:
         # ... or if we're able to handle it anytime in the future... oO
         ##self.updateTime()
     cdef void updateTime(self):
-        cdef unsigned char second, minute, hour, mday, wday, month, year, statusb, century
+        cdef unsigned char second, minute, hour, mday, wday, month, year, century
+        self.statusB = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
+        if (not (self.statusB&0x80)):
+            return
         self.oldDt = self.dt
         self.dt = gmtime()
         if (self.oldDt and self.dt and self.dt == self.oldDt):
             return
-        statusb = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
         second  = self.dt.tm_sec
         minute  = self.dt.tm_min
         hour    = self.dt.tm_hour
@@ -80,7 +82,7 @@ cdef class Cmos:
         mday    = self.dt.tm_mday
         month   = self.dt.tm_mon
         century, year = divmod(self.dt.tm_year, 100)
-        if (not statusb&CMOS_STATUSB_24HOUR):
+        if (not self.statusB&CMOS_STATUSB_24HOUR):
             if (hour == 0):
                 hour = 12
             elif (hour >= 12):
@@ -91,7 +93,7 @@ cdef class Cmos:
         wday %= 7
         if (wday == 0):
             wday = 7
-        if (not statusb&CMOS_STATUSB_BIN):
+        if (not self.statusB&CMOS_STATUSB_BIN):
             second  = (<Misc>self.main.misc).decToBcd(second)
             minute  = (<Misc>self.main.misc).decToBcd(minute)
             hour    = (<Misc>self.main.misc).decToBcd(hour)
@@ -113,31 +115,62 @@ cdef class Cmos:
         self.writeValue(CMOS_CHECKSUM_L, <unsigned char>checkSum, OP_SIZE_BYTE)
         self.writeValue(CMOS_CHECKSUM_H, <unsigned char>(checkSum>>8), OP_SIZE_BYTE)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        cdef unsigned char tempIndex
+        cdef unsigned char tempIndex, ret = BITMASK_BYTE
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x70):
-                return self.cmosIndex
+                ret = self.cmosIndex
             elif (ioPortAddr == 0x71):
                 tempIndex = self.cmosIndex&0x7f
                 if (tempIndex <= 0x9 or tempIndex == CMOS_CENTURY):
                     self.updateTime()
-                return self.readValue(tempIndex, OP_SIZE_BYTE)
+                ret = self.readValue(tempIndex, OP_SIZE_BYTE)
+                if (tempIndex == CMOS_STATUS_REGISTER_C):
+                    self.writeValue(tempIndex, 0, OP_SIZE_BYTE)
+                    (<Pic>self.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
             else:
-                self.main.exitError("inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
+                self.main.exitError("CMOS::inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
         else:
-            self.main.exitError("inPort: dataSize {0:d} not supported. (port: {0:#06x})", dataSize, ioPortAddr)
-        return BITMASK_BYTE
+            self.main.exitError("CMOS::inPort: dataSize {0:d} not supported. (port: {0:#06x})", dataSize, ioPortAddr)
+            return ret
+        self.main.notice("CMOS::inPort: port {0:#06x}; ret: {1:#04x}, dataSize byte", ioPortAddr, ret)
+        return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
-        cdef unsigned char tempIndex
+        cdef unsigned char tempIndex, timeBase, selectionBits
         if (dataSize == OP_SIZE_BYTE):
+            self.main.notice("CMOS::outPort: port {0:#06x}; data: {1:#04x}, dataSize byte", ioPortAddr, data)
             data = <unsigned char>data
             if (ioPortAddr == 0x70):
                 self.cmosIndex = data
             elif (ioPortAddr == 0x71):
                 tempIndex = self.cmosIndex&0x7f
+                if (tempIndex in (0xc, 0xd)):
+                    return
                 self.writeValue(tempIndex, data, OP_SIZE_BYTE)
                 if (tempIndex == CMOS_STATUS_REGISTER_A):
-                    self.main.notice("CMOS::outPort: RTC not supported yet. (data=={0:#04x})", data)
+                    self.main.notice("CMOS::outPort: RTC is not fully supported yet. (data=={0:#04x})", data)
+                    timeBase = (data>>4)&7
+                    selectionBits = data&0xf
+                    if (timeBase != 0x2):
+                        self.main.exitError("CMOS::outPort: RTC timebase != 0x2. (data=={0:#04x})", data)
+                        return
+                    if (not selectionBits):
+                        self.rtcDelay = 0
+                    elif (selectionBits in (0x1, 0x2)):
+                        self.main.exitError("CMOS::outPort: RTC selection bits in (1, 2). (data=={0:#04x})", data)
+                        return
+                    else:
+                        self.rtcDelay = round(1.0e6/(65536.0/(1<<selectionBits)))
+                elif (tempIndex == CMOS_STATUS_REGISTER_B):
+                    self.statusB = data
+                    if (self.rtcDelay and (self.statusB & 0x40)!=0):
+                        self.rtcChannel.counterMode = 2
+                        self.rtcChannel.tempTimerValue = self.rtcDelay
+                        self.rtcChannel.runTimer()
+                    else:
+                        self.rtcChannel.timerEnabled = False
+                        if (self.rtcChannel.threadObject):
+                            self.rtcChannel.threadObject.join()
+                            self.rtcChannel.threadObject = None
                 elif (tempIndex == CMOS_EXT_MEMORY_L):
                     self.writeValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
                 elif (tempIndex == CMOS_EXT_MEMORY_H):
@@ -148,9 +181,9 @@ cdef class Cmos:
                     self.writeValue(CMOS_EXT_MEMORY_H, data, OP_SIZE_BYTE)
                 self.makeCheckSum()
             else:
-                self.main.exitError("outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)
+                self.main.exitError("CMOS::outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)
         else:
-            self.main.exitError("outPort: dataSize {0:d} not supported. (port: {1:#06x})", dataSize, ioPortAddr)
+            self.main.exitError("CMOS::outPort: dataSize {0:d} not supported. (port: {1:#06x})", dataSize, ioPortAddr)
         return
     cdef void run(self):
         self.reset()

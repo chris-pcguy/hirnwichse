@@ -1,14 +1,18 @@
 
 from hirnwichse_main cimport Hirnwichse
+from pic cimport Pic
 from misc cimport Misc
+from pit cimport PitChannel
 from mm cimport ConfigSpace
 
 
 cdef class Cmos:
     cdef Hirnwichse main
     cdef ConfigSpace configSpace
+    cdef PitChannel rtcChannel
     cpdef object dt, oldDt
-    cdef unsigned char cmosIndex, equipmentDefaultValue
+    cdef unsigned char cmosIndex, equipmentDefaultValue, statusB
+    cdef unsigned int rtcDelay
     cdef inline void setEquipmentDefaultValue(self, unsigned char value)
     cdef unsigned char getEquipmentDefaultValue(self)
     cdef inline unsigned int readValue(self, unsigned char index, unsigned char size)

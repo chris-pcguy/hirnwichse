@@ -182,6 +182,7 @@ cdef class GDC(VGA_REGISTER_RAW):
             elif (data == VGA_GDC_MEMBASE_B8000_32K):
                 self.vga.videoMemBase = 0xb8000
                 self.vga.videoMemSize = 0x08000
+            self.vga.main.notice("GDC::setData: videoMemBase=={0:#07x}; videoMemSize=={1:d}", self.vga.videoMemBase, self.vga.videoMemSize)
             self.vga.needLoadFont = True
         elif (index == VGA_GDC_COLOR_DONT_CARE_INDEX):
             self.vga.colorDontCare = data&0xf
@@ -428,12 +429,14 @@ cdef class Vga:
             return
         if (not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
             return
+        self.main.notice("VGA::vgaAreaWrite: writeMap=={0:x}; videoMemBase=={1:#07x}; videoMemSize=={2:d}", self.writeMap, self.videoMemBase, self.videoMemSize)
+        if (not (offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize))):
+            return
         if (self.refreshScreen): # TODO: FIXME: HACK
             if (dataSize != self.videoMemSize and dataSize != 32768):
                 self.refreshScreen = False
                 self.refreshScreenFunction()
-        self.main.notice("VGA::vgaAreaWrite: writeMap=={0:x}; videoMemBase=={1:#07x}; videoMemSize=={2:d}", self.writeMap, self.videoMemBase, self.videoMemSize)
-        if (self.writeMap and offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize)):
+        if (self.writeMap):
             for i in range(dataSize):
                 selectedPlanes = self.writeMap
                 tempOffset = (offset+i-self.videoMemBase)
@@ -462,12 +465,9 @@ cdef class Vga:
         tempOffset = (offset-self.videoMemBase)
         if (self.graphicalMode):
             if (not self.chain4 and (tempOffset >= VGA_PLANE_SIZE or dataSize > VGA_PLANE_SIZE)):
-                self.main.exitError("vgaAreaWrite: not chain4 and (tempOffset > VGA_PLANE_SIZE or dataSize > VGA_PLANE_SIZE) (tempOffset: {0:#07x}; dataSize: {1:d})", tempOffset, dataSize)
+                self.main.notice("VGA::vgaAreaWrite_1: writeMap=={0:x}; videoMemBase=={1:#07x}; videoMemSize=={2:d}", self.writeMap, self.videoMemBase, self.videoMemSize)
+                self.main.exitError("vgaAreaWrite: not chain4 and (tempOffset > VGA_PLANE_SIZE or dataSize > VGA_PLANE_SIZE) (offset: {0:#07x}; tempOffset: {1:#07x}; dataSize: {2:d})", offset, tempOffset, dataSize)
                 return
-            if (self.chain4):
-                tempOffset &= 0xfffc
-            elif (self.chainOddEven and not self.oddEvenWriteDisabled):
-                tempOffset &= 0xfffe
             for j in range(dataSize):
                 tempOffset = (offset+j-self.videoMemBase)
                 if (self.writeMap):
@@ -527,7 +527,6 @@ cdef class Vga:
                         self.ui.putPixel(x, y+k, color)
                         self.ui.putPixel(x+1, y+k, color)
                     #self.ui.putPixel(x, y, color)
-                #tempOffset += 1
             self.newTimer = time()
             if (self.newTimer - self.oldTimer >= 0.05):
                 self.oldTimer = self.newTimer
