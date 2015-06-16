@@ -233,12 +233,20 @@ cdef class ConfigSpace:
         with nogil:
             memmove(<char*>(self.csData+offset), <char*>data, size)
     cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE:
+        #if (self.main.debugEnabled):
+        #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)
     cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE: # Big Endian
+        #if (self.main.debugEnabled):
+        #    self.main.debug("ConfigSpace::csReadValueUnsignedBE: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
         return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=False)
     cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE:
+        #if (self.main.debugEnabled):
+        #    self.main.debug("ConfigSpace::csReadValueSigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
         return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=True)
     cdef signed long int csReadValueSignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE: # Big Endian
+        #if (self.main.debugEnabled):
+        #    self.main.debug("ConfigSpace::csReadValueSignedBE: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
         return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=True)
     cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE:
         if (size == OP_SIZE_BYTE):
@@ -247,6 +255,8 @@ cdef class ConfigSpace:
             data = <unsigned short>data
         elif (size == OP_SIZE_DWORD):
             data = <unsigned int>data
+        #if (self.main.debugEnabled):
+        #    self.main.debug("ConfigSpace::csWriteValue: test1. (offset: {0:#06x}, data: {1:#04x}, size: {2:d})", offset, data, size)
         self.csWrite(offset, data.to_bytes(length=size, byteorder="little", signed=False), size)
         return data
     cdef unsigned long int csWriteValueBE(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE: # Big Endian
@@ -256,6 +266,8 @@ cdef class ConfigSpace:
             data = <unsigned short>data
         elif (size == OP_SIZE_DWORD):
             data = <unsigned int>data
+        #if (self.main.debugEnabled):
+        #    self.main.debug("ConfigSpace::csWriteValueBE: test1. (offset: {0:#06x}, data: {1:#04x}, size: {2:d})", offset, data, size)
         self.csWrite(offset, data.to_bytes(length=size, byteorder="big", signed=False), size)
         return data
 

@@ -41,7 +41,7 @@ class Comp:
             m = re.search(r'(e\w{2}|eflags)(:? )(0x[0-9a-f]{8})', i)
             if (m):
                 n = m.group(1).upper()
-                if (n != 'EIP'):
+                if (n not in ('EIP', 'ESS')):
                     r = '{0:s}: {1:s}\n'.format(n, m.group(3))
                     #self.rfp1.write(r)
                     l.append(r)
@@ -80,7 +80,7 @@ class Comp:
         self.rfp2.flush()
         self.rfp2.close()
     def run(self):
-        self.parse_f1()
+        #self.parse_f1()
         self.parse_f2()
 
 

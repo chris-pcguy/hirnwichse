@@ -69,7 +69,7 @@ cdef class Cmos:
     cdef void updateTime(self):
         cdef unsigned char second, minute, hour, mday, wday, month, year, century
         self.statusB = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
-        if (not (self.statusB&0x80)):
+        if (self.statusB&0x80):
             return
         self.oldDt = self.dt
         self.dt = gmtime()

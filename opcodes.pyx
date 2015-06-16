@@ -2001,7 +2001,7 @@ cdef class Opcodes:
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize, True)
             if (op2 >= 1):
-                op1 = reversed(bin(op2)).find('1')
+                op1 = bin(op2)[::-1].find('1')
                 self.modRMInstance.modRSave(self.registers.operSize, op1, OPCODE_SAVE)
                 self.registers.setSZP_COA(op1, self.registers.operSize)
             self.registers.zf = not op2
@@ -2469,6 +2469,7 @@ cdef class Opcodes:
         oldEFLAGS = self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS)
         if (self.main.debugEnabled):
             self.main.debug("Opcodes::interrupt: Go Interrupt {0:#04x}; isSoftInt=={1:d}", intNum, isSoftInt)
+            self.main.debug("Opcodes::interrupt: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
         if (self.registers.protectedModeOn):
             if (oldVM and (self.registers.iopl < 3) and isSoftInt):
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
@@ -2528,9 +2529,12 @@ cdef class Opcodes:
                 # inter-privilege-level-interrupt
                 #self.main.debug("Opcodes::interrupt: inter/inner")
                 if (oldVM):
+                    self.main.notice("Opcodes::interrupt: Go Interrupt {0:#04x}; isSoftInt=={1:d}", intNum, isSoftInt)
+                    self.main.notice("Opcodes::interrupt: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+                    self.main.notice("Opcodes::interrupt: VM86-Mode isn't supported yet. (interrupt from VM86-Mode; inter-privilege-level-interrupt)")
+                    self.main.cpu.cpuDump()
                     if (gdtEntryCS.segDPL):
                         raise HirnwichseException(CPU_EXCEPTION_GP, (<Misc>self.main.misc).calculateInterruptErrorcode(entrySegment, 0, not isSoftInt))
-                    self.main.notice("Opcodes::interrupt: VM86-Mode isn't supported yet. (interrupt from VM86-Mode; inter-privilege-level-interrupt)")
                 if (((<Segment>self.registers.segments.tss).accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK_WITHOUT_BUSY) == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS):
                     if (oldVM):
                         if ((<Segment>self.registers.segments.tss).limit < 9):
@@ -2633,8 +2637,10 @@ cdef class Opcodes:
         if (self.registers.protectedModeOn and not isSoftInt and errorCode != -1):
             self.stackPushValue(errorCode, entrySize, False)
         if (oldVM):
+            self.main.notice("Opcodes::interrupt: Go Interrupt {0:#04x}; isSoftInt=={1:d}", intNum, isSoftInt)
             self.main.notice("Opcodes::interrupt: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             self.main.notice("Opcodes::interrupt: oldVM, set segments to zero")
+            self.main.cpu.cpuDump()
             self.registers.segWriteSegment((<Segment>self.registers.segments.gs), 0)
             self.registers.segWriteSegment((<Segment>self.registers.segments.fs), 0)
             self.registers.segWriteSegment((<Segment>self.registers.segments.ds), 0)
@@ -2671,7 +2677,9 @@ cdef class Opcodes:
         if (self.registers.protectedModeOn):
             cpl = newCpl = self.registers.getCPL()
             if (currentEFLAGS & FLAG_VM):
+                self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return from VM86-Mode)")
+                self.main.cpu.cpuDump()
                 if (self.registers.getIOPL() < 3):
                     self.main.notice("Opcodes::iret: test1: opl: vm: test1.10")
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
@@ -2686,8 +2694,11 @@ cdef class Opcodes:
                 self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
                 return True
             elif (currentEFLAGS & FLAG_NT):
-                if (self.main.debugEnabled):
-                    self.main.debug("Opcodes::iret: Nested-Task-Flag isn't fully supported yet.")
+                #if (self.main.debugEnabled):
+                #    self.main.debug("Opcodes::iret: Nested-Task-Flag isn't fully supported yet.")
+                self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+                self.main.notice("Opcodes::iret: Nested-Task-Flag isn't fully supported yet.")
+                self.main.cpu.cpuDump()
                 TSSsel = (<Segment>self.registers.segments.tss).segmentIndex
                 linkSel = self.registers.mmReadValueUnsignedWord(TSS_PREVIOUS_TASK_LINK, (<Segment>self.registers.segments.tss), False)
                 if ((linkSel & GDT_USE_LDT) or not self.registers.segments.inLimit(linkSel)):
@@ -2720,7 +2731,9 @@ cdef class Opcodes:
                 self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
                 return True
             elif ((tempEFLAGS & FLAG_VM) and not cpl):
+                self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return to VM86-Mode)")
+                self.main.cpu.cpuDump()
                 if ((oldESP - 24) >= oldESP):
                     raise HirnwichseException(CPU_EXCEPTION_SS, 0)
                 #if (not (<Segment>self.registers.segments.cs).isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
@@ -2739,7 +2752,9 @@ cdef class Opcodes:
                 self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
                 return True
             elif ((tempCS&3) > cpl): # outer privilege level; rpl > cpl
+                self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 self.main.notice("Opcodes::iret: test1: opl: rpl > cpl")
+                self.main.cpu.cpuDump()
                 if ((oldESP - (8 if (self.registers.operSize == OP_SIZE_DWORD) else 4)) >= oldESP):
                     raise HirnwichseException(CPU_EXCEPTION_SS, 0)
                 tempESP = self.stackPopValue(True)

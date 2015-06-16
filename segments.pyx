@@ -372,6 +372,12 @@ cdef class Paging: # TODO
         self.segments.main.notice("Paging::doPF: test2")
         #if (virtualAddress == 0xc1000000 and self.segments.main.cpu.savedCs == 0x8 and self.segments.main.cpu.savedEip == 0x80134706):
         #    self.segments.main.debugEnabled = True
+        #if (self.segments.main.cpu.savedCs == 0xff03 and self.segments.main.cpu.savedEip == 0x52b9):
+        #    self.segments.main.debugEnabled = True
+        #elif (self.segments.main.cpu.savedCs == 0xff03 and self.segments.main.cpu.savedEip == 0x52fa):
+        #    self.segments.main.debugEnabled = True
+        if (self.segments.main.cpu.savedCs == 0xfd4f and self.segments.main.cpu.savedEip == 0x2627 and self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx == 0x631):
+            self.segments.main.debugEnabled = True
         raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
         #return 0
     cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE:

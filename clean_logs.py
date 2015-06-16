@@ -36,30 +36,26 @@ class Clea:
                 if (l[0] in ("<", ">", "-")):
                     continue
                 m = re.match(r"(\d+),(\d+)c(\d+),(\d+)", l)
+                if (not m):
+                    m = re.match(r"(\d+)c(\d+)", l)
+                    #if (not m):
+                    #    m1 = re.match(r"(\d+),(\d+)c(\d+)", l)
                 if (m):
                     a1 = ((int(m.group(1))//10)*10)+2
-                    #a2 = int(os.popen("grep -n 0028:c0001444 {0:s}".format(self.fn2)).readline().rstrip().split(":")[0])+1
-                    #p = os.popen("grep -n 0008:0000758f {0:s}".format(self.fn2))
                     p = os.popen("grep -n 0028:c0001444 {0:s}".format(self.fn2))
                     while (True):
                         a2 = int(p.readline().rstrip().split(":")[0])+1
                         if (a2 >= a1 or a2 >= a1+1):
                             break
-                    #a2 = int(os.popen("grep -n 0008:00007492 {0:s}".format(self.fn2)).readline().rstrip().split(":")[0])+1
-                elif (re.match(r"(\d+)c(\d+)", l)):
-                    m = re.match(r"(\d+)c(\d+)", l)
-                    a1 = ((int(m.group(1))//10)*10)+2
-                    #a1 = int(os.popen("grep -n 0028:c0001100 {0:s}".format(self.fn2)).readline().rstrip().split(":")[0])-8
-                    #a1 = int(os.popen("grep -n 0028:c0001103 {0:s}".format(self.fn2)).readline().rstrip().split(":")[0])-8
+                #elif (m1):
+                elif (0):
+                    p = os.popen("grep -n 0028:c0001100 {0:s}".format(self.fn2))
+                    a1 = int(p.readline().rstrip().split(":")[0])+2
                     p = os.popen("grep -n 0028:c0001444 {0:s}".format(self.fn2))
                     while (True):
                         a2 = int(p.readline().rstrip().split(":")[0])+1
                         if (a2 >= a1 or a2 >= a1+1):
                             break
-                    #a1 = int(os.popen("grep -n 0008:00007554 {0:s}".format(self.fn2)).readline().rstrip().split(":")[0])-8
-                    #a2 = int(os.popen("grep -n 0008:0000758f {0:s}".format(self.fn2)).readline().rstrip().split(":")[0])+1
-                    #a1 = int(os.popen("grep -n 0008:000074f4 {0:s}".format(self.fn2)).readline().rstrip().split(":")[0])-8
-                    #a2 = int(os.popen("grep -n 0008:00007492 {0:s}".format(self.fn2)).readline().rstrip().split(":")[0])+1
                 else:
                     continue
             if ((a1%2)!=0 or (a2%1)!=0):
@@ -68,8 +64,8 @@ class Clea:
             cmdline = "cp {0:s} {0:s}.orig ; sed '{1:d},{2:d}d' {0:s}.orig > {0:s}".format(self.fn2, a1, a2)
             print(cmdline)
             sys.stdout.flush()
-            #time.sleep(3)
-            #print("Run")
+            time.sleep(3)
+            print("Run")
             os.system(cmdline)
             break
         self.fp3.close()
