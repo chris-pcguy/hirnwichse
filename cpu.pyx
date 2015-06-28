@@ -204,8 +204,8 @@ cdef class Cpu:
                     self.registers.readCodeSegSize()
                     self.saveCurrentInstPointer()
                     self.registers.tf = False
-                    self.exception(CPU_EXCEPTION_DB, -1)
-                    return
+                    raise HirnwichseException(CPU_EXCEPTION_DB)
+                    #return
             self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
             if (self.opcode in OPCODE_PREFIXES):
                 self.opcode = self.parsePrefixes(self.opcode)
@@ -248,6 +248,16 @@ cdef class Cpu:
             #    self.main.debugEnabled = True
             #if (self.savedCs == 0xff03 and self.savedEip == 0x4266):
             #    self.main.debugEnabled = True
+            #if (self.savedCs == 0x835 and self.savedEip == 0x18f5):
+            #    self.main.debugEnabled = True
+            #if (self.savedCs == 0x6a5 and self.savedEip == 0x4202):
+            #    self.main.debugEnabled = True
+            #if (self.savedCs == 0x835 and self.savedEip == 0x4202):
+            #    self.main.debugEnabled = True
+            #if (self.savedCs == 0x28 and self.savedEip == 0xc0007640 and self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx == 0x1f4):
+            #    self.main.debugEnabled = True
+            #if (self.savedCs == 0x8 and self.savedEip == 0x801ae979):
+            #    self.main.debugEnabled = True
             #test1 = self.main.mm.mmPhyReadValueUnsignedDword(0xc0002f6f)
             if (self.main.debugEnabled):
             #if (self.main.debugEnabled or test1 != self.oldCycleInc):
@@ -274,6 +284,7 @@ cdef class Cpu:
                 #self.main.notice("Cpu::doCycle: test6.3 {0:#010x}", self.registers.segments.paging.tlbTables.csReadValueUnsigned(0x300878, OP_SIZE_DWORD))
                 #self.main.notice("Cpu::doCycle: test7.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00375f9c))
                 #self.main.notice("Cpu::doCycle: test7.2 {0:#010x}", test1)
+                #self.main.notice("Cpu::doCycle: test8.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1ae9c1))
                 self.cpuDump()
                 #self.main.notice("CR0: {0:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_CR0))
                 #self.oldCycleInc = test1

@@ -431,6 +431,8 @@ cdef class Vga:
         if (not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
             return
         self.main.notice("VGA::vgaAreaWrite: writeMap=={0:x}; videoMemBase=={1:#07x}; videoMemSize=={2:d}", self.writeMap, self.videoMemBase, self.videoMemSize)
+        #if (offset == 0xb94ee and dataSize == 2):
+        #    self.main.debugEnabled = True
         if (not (offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize))):
             return
         if (self.refreshScreen): # TODO: FIXME: HACK

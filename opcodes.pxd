@@ -133,7 +133,7 @@ cdef class Opcodes:
     cdef int setWithCondFunc(self, unsigned char cond) except BITMASK_BYTE # if cond==True set 1, else 0
     cdef int arpl(self) except BITMASK_BYTE
     cdef int bound(self) except BITMASK_BYTE
-    cdef int btFunc(self, unsigned int offset, unsigned char newValType) except BITMASK_BYTE
+    cdef int btFunc(self, unsigned char newValType) except BITMASK_BYTE
     cdef int fpuOpcodes(self, unsigned char opcode) except BITMASK_BYTE
     cdef void run(self)
     # end of opcodes

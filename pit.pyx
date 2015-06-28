@@ -90,7 +90,7 @@ cdef class PitChannel:
             elif (self.channelId == 3):
                 if (clear):
                     self.pit.main.notice("PitChannel::mode2Func: raiseIrq(CMOS_RTC_IRQ): clear")
-                    (<Pic>self.pit.main.platform.pic).raiseIrq(CMOS_RTC_IRQ)
+                    (<Cmos>self.pit.main.platform.cmos).periodicFunc()
             else:
                 self.pit.main.notice("PitChannel::mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
     cpdef timerFunc(self): # TODO

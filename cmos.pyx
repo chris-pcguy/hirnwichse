@@ -9,7 +9,7 @@ from time import gmtime
 cdef class Cmos:
     def __init__(self, Hirnwichse main):
         self.main = main
-        self.dt = self.oldDt = None
+        self.dt = self.oldDt = self.secondsThread = None
         self.cmosIndex = self.statusB = self.rtcDelay = 0
         self.equipmentDefaultValue = 0x4
         self.configSpace = ConfigSpace(128, self.main)
@@ -31,6 +31,7 @@ cdef class Cmos:
         cdef unsigned int memSizeInK, extMemSizeInK, extMemSizeIn64K
         memSizeInK = extMemSizeInK = extMemSizeIn64K = 0
         self.configSpace.csResetData()
+        self.writeValue(CMOS_STATUS_REGISTER_A, 0x26, OP_SIZE_BYTE)
         self.writeValue(CMOS_STATUS_REGISTER_B, 0x02, OP_SIZE_BYTE)
         self.writeValue(CMOS_STATUS_REGISTER_D, 0x80, OP_SIZE_BYTE)
         self.writeValue(CMOS_EQUIPMENT_BYTE, self.getEquipmentDefaultValue(), OP_SIZE_BYTE)
@@ -110,6 +111,32 @@ cdef class Cmos:
         self.writeValue(CMOS_MONTH, month, OP_SIZE_BYTE)
         self.writeValue(CMOS_YEAR_NO_CENTURY, year, OP_SIZE_BYTE)
         self.writeValue(CMOS_CENTURY, century, OP_SIZE_BYTE)
+    cpdef secondsThreadFunc(self):
+        cdef unsigned char statusA
+        with nogil:
+            usleep(1000000)
+        statusA = self.readValue(CMOS_STATUS_REGISTER_A, OP_SIZE_BYTE)
+        if ((statusA & 0x60) == 0x60):
+            return
+        if ((self.statusB & 0x80) != 0):
+            return
+        self.writeValue(CMOS_STATUS_REGISTER_A, (statusA | 0x80), OP_SIZE_BYTE)
+        self.updateTime()
+        #self.main.misc.createThread(self.uipThreadFunc, True)
+        self.uipThreadFunc()
+    cpdef uipThreadFunc(self):
+        with nogil:
+            #usleep(244)
+            usleep(244000)
+        self.updateTime()
+        if ((self.statusB & 0x10) != 0):
+            self.writeValue(CMOS_STATUS_REGISTER_C, (self.readValue(CMOS_STATUS_REGISTER_C, OP_SIZE_BYTE) | 0x90), OP_SIZE_BYTE)
+            (<Pic>self.main.platform.pic).raiseIrq(CMOS_RTC_IRQ)
+        self.writeValue(CMOS_STATUS_REGISTER_A, (self.readValue(CMOS_STATUS_REGISTER_A, OP_SIZE_BYTE) & 0x7f), OP_SIZE_BYTE)
+    cdef void periodicFunc(self):
+        if ((self.statusB & 0x40) != 0):
+            self.writeValue(CMOS_STATUS_REGISTER_C, (self.readValue(CMOS_STATUS_REGISTER_C, OP_SIZE_BYTE) | 0xc0), OP_SIZE_BYTE)
+            (<Pic>self.main.platform.pic).raiseIrq(CMOS_RTC_IRQ)
     cdef void makeCheckSum(self):
         cdef unsigned short checkSum = (<Misc>self.main.misc).checksum(self.configSpace.csRead(0x10, 0x1e)) # 0x10..0x2d
         self.writeValue(CMOS_CHECKSUM_L, <unsigned char>checkSum, OP_SIZE_BYTE)
@@ -145,7 +172,6 @@ cdef class Cmos:
                 tempIndex = self.cmosIndex&0x7f
                 if (tempIndex in (0xc, 0xd)):
                     return
-                self.writeValue(tempIndex, data, OP_SIZE_BYTE)
                 if (tempIndex == CMOS_STATUS_REGISTER_A):
                     self.main.notice("CMOS::outPort: RTC is not fully supported yet. (data=={0:#04x})", data)
                     timeBase = (data>>4)&7
@@ -161,8 +187,16 @@ cdef class Cmos:
                     else:
                         self.rtcDelay = round(1.0e6/(65536.0/(1<<selectionBits)))
                 elif (tempIndex == CMOS_STATUS_REGISTER_B):
-                    self.statusB = data
-                    if (self.rtcDelay and (self.statusB & 0x40)!=0):
+                    data &= 0xf7
+                    if ((data & 0x80)!=0):
+                        data &= 0xef
+                    if ((data & 0x20)!=0):
+                        self.main.exitError("CMOS::outPort: statusB alarm set. (data=={0:#04x})", data)
+                        return
+                    if ((data & 0x1)!=0):
+                        self.main.exitError("CMOS::outPort: daylight set. (data=={0:#04x})", data)
+                        return
+                    if (self.rtcDelay and (data & 0x40)!=0):
                         self.rtcChannel.counterMode = 2
                         self.rtcChannel.tempTimerValue = self.rtcDelay
                         self.rtcChannel.runTimer()
@@ -171,6 +205,7 @@ cdef class Cmos:
                         if (self.rtcChannel.threadObject):
                             self.rtcChannel.threadObject.join()
                             self.rtcChannel.threadObject = None
+                    self.statusB = data
                 elif (tempIndex == CMOS_EXT_MEMORY_L):
                     self.writeValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
                 elif (tempIndex == CMOS_EXT_MEMORY_H):
@@ -179,6 +214,7 @@ cdef class Cmos:
                     self.writeValue(CMOS_EXT_MEMORY_L, data, OP_SIZE_BYTE)
                 elif (tempIndex == CMOS_EXT_MEMORY_H2):
                     self.writeValue(CMOS_EXT_MEMORY_H, data, OP_SIZE_BYTE)
+                self.writeValue(tempIndex, data, OP_SIZE_BYTE)
                 self.makeCheckSum()
             else:
                 self.main.exitError("CMOS::outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)
@@ -187,6 +223,7 @@ cdef class Cmos:
         return
     cdef void run(self):
         self.reset()
+        self.secondsThread = self.main.misc.createThread(self.secondsThreadFunc, True)
         ##self.updateTime()
         #self.main.platform.addHandlers((0x70, 0x71), self)
 

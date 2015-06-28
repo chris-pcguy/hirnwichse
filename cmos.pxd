@@ -4,13 +4,13 @@ from pic cimport Pic
 from misc cimport Misc
 from pit cimport PitChannel
 from mm cimport ConfigSpace
-
+from posix.unistd cimport usleep
 
 cdef class Cmos:
     cdef Hirnwichse main
     cdef ConfigSpace configSpace
     cdef PitChannel rtcChannel
-    cpdef object dt, oldDt
+    cpdef object dt, oldDt, secondsThread
     cdef unsigned char cmosIndex, equipmentDefaultValue, statusB
     cdef unsigned int rtcDelay
     cdef inline void setEquipmentDefaultValue(self, unsigned char value)
@@ -19,6 +19,9 @@ cdef class Cmos:
     cdef inline void writeValue(self, unsigned char index, unsigned int value, unsigned char size)
     cdef void reset(self)
     cdef void updateTime(self)
+    cpdef secondsThreadFunc(self)
+    cpdef uipThreadFunc(self)
+    cdef void periodicFunc(self)
     cdef void makeCheckSum(self)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)

@@ -376,8 +376,9 @@ cdef class Paging: # TODO
         #    self.segments.main.debugEnabled = True
         #elif (self.segments.main.cpu.savedCs == 0xff03 and self.segments.main.cpu.savedEip == 0x52fa):
         #    self.segments.main.debugEnabled = True
-        if (self.segments.main.cpu.savedCs == 0xfd4f and self.segments.main.cpu.savedEip == 0x2627 and self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx == 0x631):
-            self.segments.main.debugEnabled = True
+        #if (self.segments.main.cpu.savedCs == 0xfd4f and self.segments.main.cpu.savedEip == 0x2627 and self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx == 0x631):
+        #    self.segments.main.debugEnabled = True
+        self.instrFetch = self.implicitSV = False
         raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
         #return 0
     cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE:
@@ -438,22 +439,18 @@ cdef class Paging: # TODO
         cpl = self.segments.registers.getCPL()
         if (refresh):
             self.readAddresses(virtualAddress, written)
-        if ((cpl != 3 or (self.pageDirectoryEntry&PAGE_EVERY_RING and self.pageTableEntry&PAGE_EVERY_RING)) or self.implicitSV):
-            return True
-        if (written):
-            if (cpl != 3 and not self.segments.registers.writeProtectionOn):
-                return True
-            if (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE):
-                return True
-        self.implicitSV = False
-        self.segments.main.notice("Paging::accessAllowed: doPF")
-        self.doPF(virtualAddress, written)
-        return BITMASK_BYTE
+        if (not self.implicitSV and ((cpl == 3 and (not (self.pageDirectoryEntry&PAGE_EVERY_RING and self.pageTableEntry&PAGE_EVERY_RING))) or \
+          (written and ((cpl == 3 or self.segments.registers.writeProtectionOn) and not (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE))))):
+            self.segments.main.notice("Paging::accessAllowed: doPF")
+            self.doPF(virtualAddress, written)
+            return BITMASK_BYTE
+        return True
     cdef unsigned char setFlags(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except BITMASK_BYTE:
-        cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, pageDirectoryEntryMem, pageTableEntryMem, pageDirectoryEntryNew, pageTableEntryNew
+        cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, pageDirectoryEntryMem, pageTableEntryMem, pageTablesEntryNew, origVirtualAddress
         # TODO: for now only handling 4KB pages. (very inefficient)
         if (not dataSize):
             return True
+        origVirtualAddress = virtualAddress
         while (dataSize >= 0):
             pageDirectoryOffset = (virtualAddress>>22) << 2
             pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
@@ -465,18 +462,18 @@ cdef class Paging: # TODO
                 #self.segments.main.debug("Paging::setFlags: test5: pdo {0:#010x}; pto {1:#010x}", self.segments.main.mm.mmPhyReadValueUnsignedDword((self.pageDirectoryBaseAddress|pageDirectoryOffset)), self.segments.main.mm.mmPhyReadValueUnsignedDword(((pageDirectoryEntry&0xfffff000)|pageTableOffset)))
                 pageDirectoryEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|pageDirectoryOffset) # page directory
                 if (not (pageDirectoryEntry & PAGE_WAS_USED) or (written and not (pageDirectoryEntry & PAGE_WRITTEN_ON_PAGE))):
-                    pageDirectoryEntryNew = pageDirectoryEntry|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
-                    self.tlbDirectories.csWriteValue(pageDirectoryOffset, pageDirectoryEntryNew, OP_SIZE_DWORD)
+                    pageTablesEntryNew = pageDirectoryEntry|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
+                    self.tlbDirectories.csWriteValue(pageDirectoryOffset, pageTablesEntryNew, OP_SIZE_DWORD)
                     if (pageDirectoryEntry&0xfffff19f == pageDirectoryEntryMem&0xfffff19f):
-                        pageDirectoryEntryNew = pageDirectoryEntryMem|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
-                        self.segments.main.mm.mmPhyWriteValue(self.pageDirectoryBaseAddress|pageDirectoryOffset, pageDirectoryEntryNew, OP_SIZE_DWORD) # page directory
+                        pageTablesEntryNew = pageDirectoryEntryMem|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
+                        self.segments.main.mm.mmPhyWriteValue(self.pageDirectoryBaseAddress|pageDirectoryOffset, pageTablesEntryNew, OP_SIZE_DWORD) # page directory
                 if (not (pageTableEntry & PAGE_WAS_USED) or (written and not (pageTableEntry & PAGE_WRITTEN_ON_PAGE))):
-                    pageTableEntryNew = pageTableEntry|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
-                    self.tlbTables.csWriteValue(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTableEntryNew, OP_SIZE_DWORD)
+                    pageTablesEntryNew = pageTableEntry|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
+                    self.tlbTables.csWriteValue(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTablesEntryNew, OP_SIZE_DWORD)
                     pageTableEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntryMem&0xfffff000)|pageTableOffset) # page table
                     if (pageDirectoryEntry&0xfffff19f == pageDirectoryEntryMem&0xfffff19f and pageTableEntry&0xfffff19f == pageTableEntryMem&0xfffff19f):
-                        pageTableEntryNew = pageTableEntryMem|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
-                        self.segments.main.mm.mmPhyWriteValue(((pageDirectoryEntryMem&0xfffff000)|pageTableOffset), pageTableEntryNew, OP_SIZE_DWORD) # page table
+                        pageTablesEntryNew = pageTableEntryMem|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
+                        self.segments.main.mm.mmPhyWriteValue(((pageDirectoryEntryMem&0xfffff000)|pageTableOffset), pageTablesEntryNew, OP_SIZE_DWORD) # page table
                 #self.segments.main.debug("Paging::setFlags: test6: pdo {0:#010x}; pto {1:#010x}", self.segments.main.mm.mmPhyReadValueUnsignedDword((self.pageDirectoryBaseAddress|pageDirectoryOffset)), self.segments.main.mm.mmPhyReadValueUnsignedDword(((pageDirectoryEntry&0xfffff000)|pageTableOffset)))
             if (not dataSize):
                 break
@@ -492,28 +489,30 @@ cdef class Paging: # TODO
         self.readAddresses(virtualAddress, written)
         self.accessAllowed(virtualAddress, written, False)
         self.setFlags(virtualAddress, dataSize, written)
-        self.instrFetch = False
-        self.implicitSV = False
+        self.instrFetch = self.implicitSV = False
         if (self.segments.main.debugEnabled):
+        #IF 1:
             #self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
             #self.pageTableEntry = self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD) # page table
             pageDirectoryEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
             pageTableEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntryMem&0xfffff000)|self.pageTableOffset) # page table
-            self.segments.main.notice("Paging::readAddresses: savedEip=={0:#010x}; savedCs=={1:#06x}", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
-            self.segments.main.notice("Paging::readAddresses: virtualAddress=={0:#010x}; physicalAddress=={1:#010x}", virtualAddress, (self.pageTableEntry&0xfffff000)|self.pageOffset)
-            self.segments.main.notice("Paging::readAddresses: PDEL=={0:#010x}, PTEL=={1:#010x}", self.pageDirectoryEntry, self.pageTableEntry)
-            self.segments.main.notice("Paging::readAddresses: PDEM=={0:#010x}, PTEM=={1:#010x}", pageDirectoryEntryMem, pageTableEntryMem)
-            self.segments.main.notice("Paging::readAddresses: PDO=={0:#06x}, PTO=={1:#06x}, PO=={2:#06x}", self.pageDirectoryOffset, self.pageTableOffset, self.pageOffset)
+            if (self.segments.main.debugEnabled):
+            #if (self.segments.main.debugEnabled or self.pageDirectoryEntry != pageDirectoryEntryMem or self.pageTableEntry != pageTableEntryMem):
+                self.segments.main.notice("Paging::readAddresses: savedEip=={0:#010x}; savedCs=={1:#06x}", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
+                self.segments.main.notice("Paging::readAddresses: virtualAddress=={0:#010x}; physicalAddress=={1:#010x}", virtualAddress, (self.pageTableEntry&0xfffff000)|self.pageOffset)
+                self.segments.main.notice("Paging::readAddresses: PDEL=={0:#010x}, PTEL=={1:#010x}", self.pageDirectoryEntry, self.pageTableEntry)
+                self.segments.main.notice("Paging::readAddresses: PDEM=={0:#010x}, PTEM=={1:#010x}", pageDirectoryEntryMem, pageTableEntryMem)
+                self.segments.main.notice("Paging::readAddresses: PDO=={0:#06x}, PTO=={1:#06x}, PO=={2:#06x}", self.pageDirectoryOffset, self.pageTableOffset, self.pageOffset)
             if (self.pageDirectoryEntry != pageDirectoryEntryMem):
                 if (self.pageDirectoryEntry&0xfffff19f != pageDirectoryEntryMem&0xfffff19f):
-                    self.segments.main.notice("Paging::readAddresses: PDE too diff")
+                    self.segments.main.notice("Paging::readAddresses: PDE too diff; virtualAddress=={0:#010x}", virtualAddress)
                 else:
-                    self.segments.main.notice("Paging::readAddresses: PDE diff")
+                    self.segments.main.notice("Paging::readAddresses: PDE diff; virtualAddress=={0:#010x}", virtualAddress)
             if (self.pageTableEntry != pageTableEntryMem):
                 if (self.pageTableEntry&0xfffff19f != pageTableEntryMem&0xfffff19f):
-                    self.segments.main.notice("Paging::readAddresses: PTE too diff")
+                    self.segments.main.notice("Paging::readAddresses: PTE too diff; virtualAddress=={0:#010x}", virtualAddress)
                 else:
-                    self.segments.main.notice("Paging::readAddresses: PTE diff")
+                    self.segments.main.notice("Paging::readAddresses: PTE diff; virtualAddress=={0:#010x}", virtualAddress)
         return (self.pageTableEntry&0xfffff000)|self.pageOffset
 
 cdef class Segments:

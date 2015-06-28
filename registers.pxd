@@ -42,9 +42,9 @@ cdef class ModRMClass:
     cdef signed long int rmName2
     cdef unsigned char modRMOperands(self, unsigned char regSize, unsigned char modRMflags) except BITMASK_BYTE
     cdef unsigned long int getRMValueFull(self, unsigned char rmSize)
-    cdef signed long int modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride) except? BITMASK_BYTE
-    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride) except? BITMASK_BYTE
-    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char allowOverride, unsigned char valueOp) except? BITMASK_BYTE # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
+    cdef signed long int modRMLoadSigned(self, unsigned char regSize) except? BITMASK_BYTE
+    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize) except? BITMASK_BYTE
+    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp) except? BITMASK_BYTE # stdValueOp==OPCODE_SAVE
     cdef signed long int modRLoadSigned(self, unsigned char regSize)
     cdef unsigned long int modRLoadUnsigned(self, unsigned char regSize)
     cdef unsigned long int modRSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp)
@@ -262,7 +262,7 @@ cdef class Registers:
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize)
     cdef void setSZP_A(self, unsigned int value, unsigned char regSize)
     cdef void setSZP_COA(self, unsigned int value, unsigned char regSize)
-    cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except BITMASK_BYTE
+    cdef unsigned char getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except BITMASK_BYTE
     cdef unsigned char getCond(self, unsigned char index)
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method)
     cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) except BITMASK_BYTE

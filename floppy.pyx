@@ -230,6 +230,7 @@ cdef class FloppyController:
         if (toFloppy):
             (<FloppyDrive>self.drive[drive]).writeSectors(sector, count, data)
             return
+        self.main.notice("FloppyController::floppyXfer: sector=={0:d}; count=={1:d}", sector, count)
         return (<FloppyDrive>self.drive[drive]).readSectors(sector, count)
     cdef void addCommand(self, unsigned char command):
         cdef unsigned char cmdLength, cmd
@@ -269,12 +270,10 @@ cdef class FloppyController:
         normalOperation = data & 0x4
         prevNormalOperation = self.DOR & 0x4
         self.DOR = data
-        #if (not prevNormalOperation and normalOperation): # reset -> normal
-        #    pass
-        #el
-        if (prevNormalOperation and not normalOperation): # normal -> reset
-            self.msr &= FDC_MSR_NODMA
+        if (not prevNormalOperation and normalOperation): # reset -> normal
             self.doCmdReset()
+        elif (prevNormalOperation and not normalOperation): # normal -> reset
+            self.msr &= FDC_MSR_NODMA
     cdef inline void setMsr(self, unsigned char data):
         self.msr = data
     cdef void doCmdReset(self):

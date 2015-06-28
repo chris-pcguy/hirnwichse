@@ -69,8 +69,6 @@ cdef class ModRMClass:
                     self.rmName2 = self.registers.getCurrentOpcodeAddSignedByte()
                 elif (self.mod == 2):
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedWord()
-                if (self.rmName0 == CPU_REGISTER_BP): # TODO: damn, that can't be correct!?!
-                    self.rmNameSeg = (<Segment>self.registers.segments.ss)
             elif (self.regSize == OP_SIZE_DWORD):
                 if (self.rm == 4): # If RM==4; then SIB
                     modRMByte = self.registers.getCurrentOpcodeAddUnsignedByte()
@@ -79,21 +77,16 @@ cdef class ModRMClass:
                     self.ss = (modRMByte>>6)&3
                     if (index != 4):
                         self.rmName1 = index
-                    if (self.rm == CPU_REGISTER_ESP):
-                        self.rmNameSeg = (<Segment>self.registers.segments.ss)
+                self.rmName0 = self.rm
                 if (self.mod == 0 and self.rm == 5):
                     self.rmName0 = CPU_REGISTER_NONE
-                    self.rmName2 = self.registers.getCurrentOpcodeAddSignedDword()
-                else:
-                    self.rmName0 = self.rm
-                    if (self.rmName0 == CPU_REGISTER_EBP):
-                        self.rmNameSeg = (<Segment>self.registers.segments.ss)
-                    if (self.mod == 1):
-                        self.rmName2 = self.registers.getCurrentOpcodeAddSignedByte()
-                    elif (self.mod == 2):
-                        self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
-            if (self.registers.segmentOverridePrefix is not None):
-                self.rmNameSeg = self.registers.segmentOverridePrefix
+                    self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
+                elif (self.mod == 1):
+                    self.rmName2 = self.registers.getCurrentOpcodeAddSignedByte()
+                elif (self.mod == 2):
+                    self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
+            if (self.rmName0 in (CPU_REGISTER_ESP, CPU_REGISTER_EBP)):
+                self.rmNameSeg = (<Segment>self.registers.segments.ss)
         return True
     cdef unsigned long int getRMValueFull(self, unsigned char rmSize):
         cdef unsigned long int retAddr = 0
@@ -118,7 +111,7 @@ cdef class ModRMClass:
         elif (rmSize == OP_SIZE_DWORD):
             return <unsigned int>retAddr
         return retAddr
-    cdef signed long int modRMLoadSigned(self, unsigned char regSize, unsigned char allowOverride) except? BITMASK_BYTE:
+    cdef signed long int modRMLoadSigned(self, unsigned char regSize) except? BITMASK_BYTE:
         # NOTE: imm == unsigned ; disp == signed
         cdef unsigned long int mmAddr
         cdef signed long int returnInt
@@ -136,9 +129,9 @@ cdef class ModRMClass:
                 returnInt = self.registers.regReadSignedQword(self.rmName0)
         else:
             mmAddr = self.getRMValueFull(self.regSize)
-            returnInt = self.registers.mmReadValueSigned(mmAddr, regSize, self.rmNameSeg, allowOverride)
+            returnInt = self.registers.mmReadValueSigned(mmAddr, regSize, self.rmNameSeg, True)
         return returnInt
-    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize, unsigned char allowOverride) except? BITMASK_BYTE:
+    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize) except? BITMASK_BYTE:
         # NOTE: imm == unsigned ; disp == signed
         cdef unsigned long int mmAddr, returnInt
         if (self.mod == 3):
@@ -155,10 +148,10 @@ cdef class ModRMClass:
                 returnInt = self.registers.regReadUnsignedQword(self.rmName0)
         else:
             mmAddr = self.getRMValueFull(self.regSize)
-            returnInt = self.registers.mmReadValueUnsigned(mmAddr, regSize, self.rmNameSeg, allowOverride)
+            returnInt = self.registers.mmReadValueUnsigned(mmAddr, regSize, self.rmNameSeg, True)
         return returnInt
-    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char allowOverride, unsigned char valueOp) except? BITMASK_BYTE:
-        # stdAllowOverride==True, stdValueOp==OPCODE_SAVE
+    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp) except? BITMASK_BYTE:
+        # stdValueOp==OPCODE_SAVE
         cdef unsigned long int mmAddr
         if (self.mod != 3):
             mmAddr = self.getRMValueFull(self.regSize)
@@ -169,21 +162,21 @@ cdef class ModRMClass:
                     return self.registers.regWriteWithOpLowByte(self.rmName0, value, valueOp)
                 else: # self.rm >= 4
                     return self.registers.regWriteWithOpHighByte(self.rmName0, value, valueOp)
-            return <unsigned char>self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)
+            return <unsigned char>self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, True, valueOp)
         elif (regSize == OP_SIZE_WORD):
             value = <unsigned short>value
             if (self.mod == 3):
                 return self.registers.regWriteWithOpWord(self.rmName0, value, valueOp)
-            return <unsigned short>self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)
+            return <unsigned short>self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, True, valueOp)
         elif (regSize == OP_SIZE_DWORD):
             value = <unsigned int>value
             if (self.mod == 3):
                 return self.registers.regWriteWithOpDword(self.rmName0, value, valueOp)
-            return <unsigned int>self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)
+            return <unsigned int>self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, True, valueOp)
         elif (regSize == OP_SIZE_QWORD):
             if (self.mod == 3):
                 return self.registers.regWriteWithOpQword(self.rmName0, value, valueOp)
-            return self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, allowOverride, valueOp)
+            return self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, True, valueOp)
         self.registers.main.exitError("ModRMClass::modRMSave: if; else.")
         return 0
     cdef signed long int modRLoadSigned(self, unsigned char regSize):
@@ -321,7 +314,7 @@ cdef class Registers:
     cdef unsigned char getIOPL(self):
         return self.iopl
     cdef void syncCR0State(self):
-        self.protectedModeOn = self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE)
+        self.protectedModeOn = self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE) != 0
     cdef unsigned char getCurrentOpcodeUnsignedByte(self) except? BITMASK_BYTE:
         IF (CPU_CACHE_SIZE):
             return <unsigned char>self.readFromCacheUnsigned(OP_SIZE_BYTE)
@@ -510,8 +503,9 @@ cdef class Registers:
                     self.cpuCacheIndex = realNewEip - self.cpuCacheBase
                 else:
                     self.reloadCpuCache()
-        if (regId == CPU_REGISTER_CR3):
-            (<Paging>self.segments.paging).invalidateTables(value, True)
+        if (regId in (CPU_REGISTER_CR3, CPU_REGISTER_CR4)):
+            #(<Paging>self.segments.paging).invalidateTables(value, True)
+            (<Paging>self.segments.paging).invalidateTables(value, False)
             self.reloadCpuCache()
         return value # returned value is unsigned!!
     cdef unsigned long int regAdd(self, unsigned short regId, unsigned long int value, unsigned char regSize):
@@ -673,18 +667,16 @@ cdef class Registers:
     cdef void setSZP_COA(self, unsigned int value, unsigned char regSize):
         self.setSZP(value, regSize)
         self.cf = self.of = self.af = False
-    cdef unsigned short getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except BITMASK_BYTE:
-        cdef unsigned short regName
+    cdef unsigned char getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except BITMASK_BYTE:
+        cdef unsigned char regName
         regName = CPU_REGISTER_NONE
         if (modRMflags & MODRM_FLAGS_SREG):
             regName = CPU_REGISTER_SREG[reg]
         elif (modRMflags & MODRM_FLAGS_CREG):
             regName = CPU_REGISTER_CREG[reg]
         elif (modRMflags & MODRM_FLAGS_DREG):
-            if (reg in (4, 5)):
-                if (self.getFlagDword( CPU_REGISTER_CR4, CR4_FLAG_DE )):
-                    raise HirnwichseException(CPU_EXCEPTION_UD)
-                reg += 2
+            if (reg in (4, 5) and self.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_DE) != 0):
+                raise HirnwichseException(CPU_EXCEPTION_UD)
             regName = CPU_REGISTER_DREG[reg]
         else:
             regName = reg
