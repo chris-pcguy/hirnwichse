@@ -260,7 +260,7 @@ cdef class PysdlUI:
             return 0x3f
         elif (key == sdl2.SDL_SCANCODE_LEFTBRACKET):
             return 0x40
-        elif (key == sdl2.SDL_SCANCODE_NONUSBACKSLASH):
+        elif (key == sdl2.SDL_SCANCODE_BACKSLASH):
             return 0x41
         elif (key == sdl2.SDL_SCANCODE_RIGHTBRACKET):
             return 0x42
@@ -274,7 +274,7 @@ cdef class PysdlUI:
             return 0x46
         elif (key == sdl2.SDL_SCANCODE_TAB):
             return 0x47
-        elif (key == sdl2.SDL_SCANCODE_BACKSLASH): # left backslash??
+        elif (key == sdl2.SDL_SCANCODE_NONUSBACKSLASH):
             return 0x48
         elif (key == sdl2.SDL_SCANCODE_PRINTSCREEN):
             return 0x49

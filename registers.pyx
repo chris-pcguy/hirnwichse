@@ -320,7 +320,7 @@ cdef class Registers:
             return <unsigned char>self.readFromCacheUnsigned(OP_SIZE_BYTE)
         ELSE:
             cdef unsigned int opcodeAddr
-            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
             return self.mmReadValueUnsignedByte(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes) except? BITMASK_BYTE:
@@ -329,7 +329,7 @@ cdef class Registers:
             return self.readFromCacheAddSigned(numBytes)
         ELSE:
             cdef unsigned int opcodeAddr
-            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
             return self.mmReadValueSigned(opcodeAddr, numBytes, (<Segment>self.segments.cs), False)
@@ -339,7 +339,7 @@ cdef class Registers:
             return <unsigned char>self.readFromCacheAddUnsigned(OP_SIZE_BYTE)
         ELSE:
             cdef unsigned int opcodeAddr
-            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
             return self.mmReadValueUnsignedByte(opcodeAddr, (<Segment>self.segments.cs), False)
@@ -349,7 +349,7 @@ cdef class Registers:
             return <unsigned short>self.readFromCacheAddUnsigned(OP_SIZE_WORD)
         ELSE:
             cdef unsigned int opcodeAddr
-            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
             return self.mmReadValueUnsignedWord(opcodeAddr, (<Segment>self.segments.cs), False)
@@ -359,7 +359,7 @@ cdef class Registers:
             return <unsigned int>self.readFromCacheAddUnsigned(OP_SIZE_DWORD)
         ELSE:
             cdef unsigned int opcodeAddr
-            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
             return self.mmReadValueUnsignedDword(opcodeAddr, (<Segment>self.segments.cs), False)
@@ -369,7 +369,7 @@ cdef class Registers:
             return self.readFromCacheAddUnsigned(OP_SIZE_QWORD)
         ELSE:
             cdef unsigned int opcodeAddr
-            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
             return self.mmReadValueUnsignedQword(opcodeAddr, (<Segment>self.segments.cs), False)
@@ -379,23 +379,10 @@ cdef class Registers:
             return self.readFromCacheAddUnsigned(numBytes)
         ELSE:
             cdef unsigned int opcodeAddr
-            opcodeAddr = self.regReadUnsignedDword(CPU_REGISTER_EIP)
+            opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
             return self.mmReadValueUnsigned(opcodeAddr, numBytes, (<Segment>self.segments.cs), False)
-    cdef unsigned char getCurrentOpcodesAddr(self, unsigned short *retSeg, unsigned int *retAddr) except? BITMASK_BYTE: # get current opcode's addr
-        retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
-        retAddr[0] = self.regs[CPU_REGISTER_EIP]._union.dword.erx
-        return True
-    cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned int *retAddr) except? BITMASK_BYTE:
-        retSeg[0]  = self.segRead(CPU_SEGMENT_CS)
-        retAddr[0] = self.regs[CPU_REGISTER_EIP]._union.dword.erx
-        self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
-        IF (CPU_CACHE_SIZE):
-            return <unsigned char>self.readFromCacheAddUnsigned(OP_SIZE_BYTE)
-        ELSE:
-            (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueUnsignedByte(retAddr[0], (<Segment>self.segments.cs), False)
     cdef unsigned short segRead(self, unsigned short segId) except? BITMASK_BYTE:
         return self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue) except? BITMASK_BYTE:
@@ -472,6 +459,8 @@ cdef class Registers:
                 return self.readFlags()
             return self.regReadUnsignedDword(regId)
         elif (regSize == OP_SIZE_QWORD):
+            #if (regId == CPU_REGISTER_RFLAGS): # this isn't used yet.
+            #    return self.readFlags()
             return self.regReadUnsignedQword(regId)
         return 0
     cdef unsigned long int regWrite(self, unsigned short regId, unsigned long int value, unsigned char regSize):
@@ -483,7 +472,7 @@ cdef class Registers:
             return self.regWriteWord(regId, value)
         elif (regSize == OP_SIZE_DWORD):
             if (regId == CPU_REGISTER_EFLAGS):
-                return self.regWriteDwordEflags(value)
+                return self.regWriteDwordEflags(<unsigned int>value)
             return self.regWriteDword(regId, value)
         elif (regSize == OP_SIZE_QWORD):
             if (regId == CPU_REGISTER_RFLAGS):
@@ -491,7 +480,10 @@ cdef class Registers:
             return self.regWriteQword(regId, value)
         return 0
     cpdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value):
-        cdef unsigned int realNewEip
+        IF (CPU_CACHE_SIZE):
+            cdef unsigned int realNewEip, tempValue
+        ELSE:
+            cdef unsigned int tempValue
         if (regId == CPU_REGISTER_CR0):
             value |= 0x10
             value &= 0xe005003f
@@ -504,8 +496,12 @@ cdef class Registers:
                 else:
                     self.reloadCpuCache()
         if (regId in (CPU_REGISTER_CR3, CPU_REGISTER_CR4)):
-            #(<Paging>self.segments.paging).invalidateTables(value, True)
-            (<Paging>self.segments.paging).invalidateTables(value, False)
+            if (regId == CPU_REGISTER_CR3):
+                tempValue = value
+            else:
+                tempValue = self.regs[CPU_REGISTER_CR3]._union.dword.erx
+            #(<Paging>self.segments.paging).invalidateTables(tempValue, True)
+            (<Paging>self.segments.paging).invalidateTables(tempValue, False)
             self.reloadCpuCache()
         return value # returned value is unsigned!!
     cdef unsigned long int regAdd(self, unsigned short regId, unsigned long int value, unsigned char regSize):
@@ -815,8 +811,6 @@ cdef class Registers:
     cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) except BITMASK_BYTE:
         cdef unsigned char addrInLimit
         cdef unsigned short segId, segVal
-        if (segment is None or not segment.useGDT):
-            return True
         segId = segment.segId
         segVal = segment.segmentIndex
         if (not (segVal&0xfff8)):
@@ -854,9 +848,10 @@ cdef class Registers:
         if (self.vm and self.main.debugEnabled):
             self.main.debug("Registers::mmGetRealAddr: TODO. (VM is on)")
         if (segment is not None):
-            if (segment is (<Segment>self.segments.tss)):
+            if (self.protectedModeOn and segment is (<Segment>self.segments.tss)):
                 (<Paging>(<Segments>self.segments).paging).implicitSV = True
-            self.checkMemAccessRights(mmAddr, dataSize, segment, written)
+            if (segment.useGDT):
+                self.checkMemAccessRights(mmAddr, dataSize, segment, written)
             mmAddr += segment.base
         # TODO: check for limit asf...
         if (self.protectedModeOn and self.pagingOn): # TODO: is a20 even being applied after paging is enabled? (on the physical address... or even the virtual one?)

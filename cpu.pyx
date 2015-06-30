@@ -16,14 +16,15 @@ cdef class Cpu:
     cdef void reset(self):
         self.savedCs  = 0xf000
         self.savedEip = 0xfff0
-        self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = \
-          self.HRQ = False
+        self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = self.HRQ = False
         self.debugHalt = self.main.debugHalt
-        self.cycles = self.oldCycleInc = 0
+        self.savedSs = self.savedEsp = self.cycles = self.oldCycleInc = 0
         self.registers.reset()
     cdef inline void saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
         self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
+        self.savedSs  = self.registers.segRead(CPU_SEGMENT_SS)
+        self.savedEsp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
     cdef void setINTR(self, unsigned char state):
         self.INTR = state
         if (state):
@@ -53,6 +54,8 @@ cdef class Cpu:
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), self.savedCs)
             self.registers.regWriteDword(CPU_REGISTER_EIP, self.savedEip)
+            self.registers.segWriteSegment((<Segment>self.registers.segments.ss), self.savedSs)
+            self.registers.regWriteDword(CPU_REGISTER_ESP, self.savedEsp)
         #elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
         #    self.savedEip = <unsigned int>(self.savedEip+1)
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP and exceptionId != CPU_EXCEPTION_DB):
@@ -132,7 +135,7 @@ cdef class Cpu:
         self.main.notice("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESI), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_EDI))
         self.main.notice("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS))
+          self.registers.readFlags())
         self.main.notice("CS: {0:#06x}, SS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_CS), \
           self.registers.segRead(CPU_SEGMENT_SS))
         self.main.notice("DS: {0:#06x}, ES: {1:#06x}", self.registers.segRead(CPU_SEGMENT_DS), \
@@ -180,7 +183,7 @@ cdef class Cpu:
         #self.registers.reloadCpuCache()
         self.cycles += CPU_CLOCK_TICK
         self.registers.resetPrefixes()
-        #self.saveCurrentInstPointer()
+        self.saveCurrentInstPointer()
         if (<unsigned short>self.cycles == 0x00):
             if (self.main.platform.vga and self.main.platform.vga.ui):
                 self.main.platform.vga.ui.handleEventsWithoutWaiting()
@@ -191,7 +194,6 @@ cdef class Cpu:
                 self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet!")
             if (not self.registers.ssInhibit):
                 self.registers.readCodeSegSize()
-                self.saveCurrentInstPointer()
                 if (self.asyncEvent):
                     self.handleAsyncEvent()
                     return
@@ -202,11 +204,10 @@ cdef class Cpu:
                 self.registers.ssInhibit = False
                 if (self.registers.tf):
                     self.registers.readCodeSegSize()
-                    self.saveCurrentInstPointer()
                     self.registers.tf = False
                     raise HirnwichseException(CPU_EXCEPTION_DB)
                     #return
-            self.opcode = self.registers.getCurrentOpcodeAddWithAddr(&self.savedCs, &self.savedEip)
+            self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
             if (self.opcode in OPCODE_PREFIXES):
                 self.opcode = self.parsePrefixes(self.opcode)
             self.registers.readCodeSegSize()

@@ -293,8 +293,11 @@ cdef class Paging: # TODO
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress, unsigned char noGlobal):
         cdef unsigned int pageDirectoryEntry, pageTableEntry, i, j
         if (pageDirectoryBaseAddress&0xfff):
-            self.segments.main.exitError("Paging::invalidateTables: pageDirectoryBaseAddress&0xfff")
-            return
+            if (pageDirectoryBaseAddress&0xfff == 0x18):
+                self.segments.main.notice("Paging::invalidateTables: PCD and PWT aren't supported yet.")
+            else:
+                self.segments.main.exitError("Paging::invalidateTables: pageDirectoryBaseAddress&0xfff")
+                return
         self.pageDirectoryBaseAddress = (pageDirectoryBaseAddress&0xfffff000)
         self.tlbDirectories.csWrite(0, self.segments.main.mm.mmPhyRead(self.pageDirectoryBaseAddress, PAGE_DIRECTORY_LENGTH), PAGE_DIRECTORY_LENGTH)
         for i in range(PAGE_DIRECTORY_ENTRIES):

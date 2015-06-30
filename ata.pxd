@@ -9,7 +9,7 @@ cdef class AtaDrive:
     cpdef object fp
     cdef AtaController ataController
     cdef ConfigSpace configSpace
-    cdef unsigned char driveId, driveType, isLoaded, isWriteProtected, sectorShift
+    cdef unsigned char driveId, driveType, isLoaded, isWriteProtected, sectorShift, senseKey, senseAsc
     cdef unsigned short sectorSize, driveCode
     cdef unsigned long int sectors
     cdef bytes filename
@@ -42,6 +42,7 @@ cdef class AtaController:
     cdef void lowerAtaIrq(self)
     cdef void abortCommand(self)
     cdef void errorCommand(self, unsigned char errorRegister)
+    cdef void nopCommand(self)
     cdef void handlePacket(self)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)

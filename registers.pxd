@@ -93,8 +93,6 @@ cdef class Registers:
     cdef unsigned int getCurrentOpcodeAddUnsignedDword(self) except? BITMASK_BYTE
     cdef unsigned long int getCurrentOpcodeAddUnsignedQword(self) except? BITMASK_BYTE
     cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes) except? BITMASK_BYTE
-    cdef unsigned char getCurrentOpcodesAddr(self, unsigned short *retSeg, unsigned int *retAddr) except? BITMASK_BYTE # get current opcode's addr
-    cdef unsigned char getCurrentOpcodeAddWithAddr(self, unsigned short *retSeg, unsigned int *retAddr) except? BITMASK_BYTE
     cdef unsigned short segRead(self, unsigned short segId) except? BITMASK_BYTE
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue) except? BITMASK_BYTE
     cdef unsigned short segWriteSegment(self, Segment segment, unsigned short segValue) except? BITMASK_BYTE
@@ -113,16 +111,10 @@ cdef class Registers:
     cdef inline unsigned char regReadUnsignedHighByte(self, unsigned short regId):
         return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regReadUnsignedWord(self, unsigned short regId):
-        if (regId == CPU_REGISTER_FLAGS):
-            self.regs[regId]._union.word._union.rx = <unsigned short>self.readFlags()
         return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regReadUnsignedDword(self, unsigned short regId):
-        if (regId == CPU_REGISTER_EFLAGS):
-            self.regs[regId]._union.dword.erx = self.readFlags()
         return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regReadUnsignedQword(self, unsigned short regId):
-        if (regId == CPU_REGISTER_RFLAGS):
-            self.regs[regId]._union.rrx = self.readFlags()
         return self.regs[regId]._union.rrx
     cdef inline unsigned char regWriteLowByte(self, unsigned short regId, unsigned char value):
         self.regs[regId]._union.word._union.byte.rl = value

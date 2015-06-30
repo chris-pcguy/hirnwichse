@@ -191,7 +191,11 @@ cdef class GDBStubHandler:
             maxRegNum = GDB_NUM_REGISTERS
             hexToSend = bytes()
             while (currRegNum < maxRegNum and not self.gdbStub.main.quitEmu):
-                currData = (<Registers>self.gdbStub.main.cpu.registers).regReadUnsignedDword(currRegNum).to_bytes(OP_SIZE_DWORD, 'little')
+                if (currRegNum == CPU_REGISTER_EFLAGS):
+                    regVal = (<Registers>self.gdbStub.main.cpu.registers).readFlags()
+                else:
+                    regVal = (<Registers>self.gdbStub.main.cpu.registers).regReadUnsignedDword(currRegNum)
+                currData = regVal.to_bytes(OP_SIZE_DWORD, 'little')
                 hexToSend += self.bytesToHex(currData)
                 currRegNum += 1
             if (len(hexToSend) != SEND_REGHEX_SIZE):

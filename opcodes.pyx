@@ -2462,7 +2462,7 @@ cdef class Opcodes:
         if (intNum == -1):
             isSoftInt = True
             intNum = self.registers.getCurrentOpcodeAddUnsignedByte()
-        oldEFLAGS = self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS)
+        oldEFLAGS = self.registers.readFlags()
         #if (self.main.debugEnabled):
         IF 1:
             self.main.notice("Opcodes::interrupt: Go Interrupt {0:#04x}; isSoftInt=={1:d}", intNum, isSoftInt)
@@ -2673,7 +2673,7 @@ cdef class Opcodes:
         tempEIP = self.stackPopValue(True)
         tempCS = self.stackPopValue(True)
         tempEFLAGS = self.stackPopValue(True)
-        currentEFLAGS = self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS)
+        currentEFLAGS = self.registers.readFlags()
         if (self.registers.protectedModeOn):
             cpl = newCpl = self.registers.getCPL()
             if (currentEFLAGS & FLAG_VM):
@@ -2824,7 +2824,7 @@ cdef class Opcodes:
             tempCS |= newCpl
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
             self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
-            self.registers.getCurrentOpcodesAddr(&self.main.cpu.savedCs, &self.main.cpu.savedEip)
+            self.main.cpu.saveCurrentInstPointer()
             if (not gdtEntryCS.isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
                 self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.8")
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)

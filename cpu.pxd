@@ -18,8 +18,8 @@ cdef class Cpu:
     cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, \
       debugSingleStep
     cdef unsigned char INTR, HRQ
-    cdef public unsigned short savedCs
-    cdef public unsigned int savedEip
+    cdef public unsigned short savedCs, savedSs
+    cdef public unsigned int savedEip, savedEsp
     cdef public unsigned long int cycles
     cdef unsigned long int oldCycleInc
     cdef void reset(self)
