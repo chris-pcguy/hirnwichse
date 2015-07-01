@@ -54,8 +54,8 @@ cdef class Cpu:
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), self.savedCs)
             self.registers.regWriteDword(CPU_REGISTER_EIP, self.savedEip)
-            self.registers.segWriteSegment((<Segment>self.registers.segments.ss), self.savedSs)
-            self.registers.regWriteDword(CPU_REGISTER_ESP, self.savedEsp)
+        self.registers.segWriteSegment((<Segment>self.registers.segments.ss), self.savedSs)
+        self.registers.regWriteDword(CPU_REGISTER_ESP, self.savedEsp)
         #elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
         #    self.savedEip = <unsigned int>(self.savedEip+1)
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP and exceptionId != CPU_EXCEPTION_DB):

@@ -48,11 +48,14 @@ DEF COMMAND_SET_FEATURES = 0xef
 DEF PACKET_COMMAND_TEST_UNIT_READY = 0x00
 DEF PACKET_COMMAND_REQUEST_SENSE = 0x03
 DEF PACKET_COMMAND_INQUIRY = 0x12
+DEF PACKET_COMMAND_MODE_SENSE_6 = 0x1a
 DEF PACKET_COMMAND_START_STOP_UNIT = 0x1b
 DEF PACKET_COMMAND_READ_CAPACITY = 0x25
 DEF PACKET_COMMAND_READ_10 = 0x28
 DEF PACKET_COMMAND_READ_12 = 0xa8
+DEF PACKET_COMMAND_READ_SUBCHANNEL = 0x42
 DEF PACKET_COMMAND_READ_TOC = 0x43
+DEF PACKET_COMMAND_MODE_SENSE_10 = 0x5a
 
 DEF FD_HD_SECTOR_SIZE = 512
 DEF FD_HD_SECTOR_SHIFT = 9
@@ -229,7 +232,7 @@ cdef class AtaController:
         cdef AtaDrive drive
         drive = self.drive[driveId]
         self.head = 0
-        self.sector = self.sectorCount = 1
+        self.sector = self.sectorCount = self.sectorCountByte = 1
         if (not drive.driveCode):
             self.driveId = 0
         self.cylinder = drive.driveCode
@@ -255,8 +258,10 @@ cdef class AtaController:
         self.cylinder = self.lba / (HEADS*SPT)
         self.head = (self.lba / SPT) % HEADS
         self.sector = (self.lba % SPT) + 1
+        self.sectorCountByte = <unsigned char>self.sectorCount
     cdef void convertToLBA28(self):
-        if (self.useLBA and self.useLBA48):
+        #if (self.useLBA and self.useLBA48):
+        if (self.useLBA):
             self.sectorCount >>= 8
             self.lba >>= 24
             self.lba = (self.lba & 0xffffff) | (<unsigned long int>(self.head) << 24)
@@ -294,7 +299,7 @@ cdef class AtaController:
         if (errorRegister == 0x02):
             self.seekComplete = False
         elif (errorRegister == 0x50):
-            self.sectorCount = 3
+            self.sectorCount = self.sectorCountByte = 3
             drive.senseKey = errorRegister>>4
             drive.senseAsc = 0x24
             if (self.irq):
@@ -302,7 +307,7 @@ cdef class AtaController:
                     self.ata.main.debug("AtaController::errorCommand_1: raiseIrq")
                 (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
         elif (errorRegister == 0x20):
-            self.sectorCount = 3
+            self.sectorCount = self.sectorCountByte = 3
             drive.senseKey = errorRegister>>4
             drive.senseAsc = 0x3a
             if (self.irq):
@@ -318,13 +323,13 @@ cdef class AtaController:
         drive = self.drive[self.driveId]
         self.cmd = 0
         self.driveBusy = self.drq = self.err = False
-        self.sectorCount = 3
+        self.sectorCount = self.sectorCountByte = 3
         self.driveReady = True
         self.result = self.data = b''
         # TODO: HACK?: sectorCount/interrupt_reason
     cdef void handlePacket(self):
         cdef AtaDrive drive
-        cdef unsigned char cmd, dataSize, msf, startingTrack, tocFormat
+        cdef unsigned char cmd, dataSize, msf, startingTrack, tocFormat, subQ, PC, pageCode
         cdef unsigned short allocLength
         drive = self.drive[self.driveId]
         cmd = self.data[0]
@@ -363,47 +368,96 @@ cdef class AtaController:
         elif (cmd == PACKET_COMMAND_START_STOP_UNIT):
             pass
         elif (cmd == PACKET_COMMAND_READ_CAPACITY):
-            self.lba = drive.sectors - 1 # TODO: FIXME: 0-based?
-            if (self.lba > BITMASK_DWORD):
-                self.lba = BITMASK_DWORD
-            self.result = self.lba.to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
-            self.result += (CD_SECTOR_SIZE).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
-        elif (cmd == PACKET_COMMAND_READ_10):
-            self.lba = int.from_bytes(self.data[2:2+OP_SIZE_DWORD], byteorder="big", signed=False)
-            self.sectorCount = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
-            self.result = drive.readSectors(self.lba, self.sectorCount)
-        elif (cmd == PACKET_COMMAND_READ_12):
-            self.lba = int.from_bytes(self.data[2:2+OP_SIZE_DWORD], byteorder="big", signed=False)
-            self.sectorCount = int.from_bytes(self.data[6:6+OP_SIZE_DWORD], byteorder="big", signed=False)
-            self.result = drive.readSectors(self.lba, self.sectorCount)
-        elif (cmd == PACKET_COMMAND_READ_TOC):
-            msf = (self.data[1] >> 1) & 1
-            startingTrack = self.data[6]
-            allocLength = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
-            tocFormat = self.data[9] >> 6
-            if ((startingTrack > 1 and startingTrack != 0xaa) or tocFormat):
-                self.ata.main.notice("AtaController::handlePacket: startingTrack=={0:d}; tocFormat=={1:d}", startingTrack, tocFormat)
-                self.errorCommand(0x50)
-                return
-            self.result = (0x0012 if (startingTrack <= 1) else 0x000a).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
-            self.result += (0x0101).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
-            if (startingTrack <= 1):
-                self.result += (0x00140100).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
-                self.result += (0x200 if (msf) else 0).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
-            self.result += (0x0016aa00).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
-            if (msf):
-                self.result += (0).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
-                self.result += (<unsigned char>(((drive.sectors+150)//75)//60)).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
-                self.result += (<unsigned char>(((drive.sectors+150)//75)%60)).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
-                self.result += (<unsigned char>((drive.sectors+150)%75)).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+            if (drive.isLoaded):
+                self.lba = drive.sectors - 1 # TODO: FIXME: 0-based?
+                if (self.lba > BITMASK_DWORD):
+                    self.lba = BITMASK_DWORD
+                self.result = self.lba.to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                self.result += (CD_SECTOR_SIZE).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                #self.sectorCount = self.sectorCountByte = 2
             else:
-                self.result += (drive.sectors).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
-            self.result = self.result[0:min(len(self.result),allocLength)]
+                self.errorCommand(0x20)
+        elif (cmd in (PACKET_COMMAND_READ_10, PACKET_COMMAND_READ_12)):
+            self.lba = int.from_bytes(self.data[2:2+OP_SIZE_DWORD], byteorder="big", signed=False)
+            if (cmd == PACKET_COMMAND_READ_10):
+                self.sectorCount = self.sectorCountByte = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
+            else:
+                self.sectorCount = self.sectorCountByte = int.from_bytes(self.data[6:6+OP_SIZE_DWORD], byteorder="big", signed=False)
+            self.result = drive.readSectors(self.lba, self.sectorCount)
+        elif (cmd == PACKET_COMMAND_READ_SUBCHANNEL):
+            if (drive.isLoaded):
+                subQ = (self.data[2] >> 6) & 1
+                allocLength = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
+                if (subQ):
+                    self.ata.main.exitError("AtaController::handlePacket: subQ=={0:d}", subQ)
+                    return
+                self.result = b'\x00'*4
+                self.result = self.result[0:min(len(self.result),allocLength)]
+            else:
+                self.errorCommand(0x20)
+        elif (cmd == PACKET_COMMAND_READ_TOC):
+            if (drive.isLoaded):
+                msf = (self.data[1] >> 1) & 1
+                startingTrack = self.data[6]
+                allocLength = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
+                tocFormat = self.data[9] >> 6
+                if ((startingTrack > 1 and startingTrack != 0xaa) or tocFormat):
+                    self.ata.main.notice("AtaController::handlePacket: startingTrack=={0:d}; tocFormat=={1:d}", startingTrack, tocFormat)
+                    self.errorCommand(0x50)
+                    return
+                self.result = (0x0012 if (startingTrack <= 1) else 0x000a).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+                self.result += (0x0101).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+                if (startingTrack <= 1):
+                    self.result += (0x00140100).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                    self.result += (0x200 if (msf) else 0).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                self.result += (0x0016aa00).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                if (msf):
+                    self.result += (0).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+                    self.result += (<unsigned char>(((drive.sectors+150)//75)//60)).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+                    self.result += (<unsigned char>(((drive.sectors+150)//75)%60)).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+                    self.result += (<unsigned char>((drive.sectors+150)%75)).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+                else:
+                    self.result += (drive.sectors).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                self.result = self.result[0:min(len(self.result),allocLength)]
+            else:
+                self.errorCommand(0x20)
+        elif (cmd in (PACKET_COMMAND_MODE_SENSE_6, PACKET_COMMAND_MODE_SENSE_10)):
+            PC = (self.data[2] >> 6)
+            pageCode = (self.data[2] & 0x3f)
+            if (cmd == PACKET_COMMAND_MODE_SENSE_6):
+                allocLength = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
+            else:
+                allocLength = self.data[4]
+            if (PC == 0 and pageCode == 0x2a):
+                self.result = (0x001a).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+                if (drive.isLoaded):
+                    self.result += (0x12).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+                else:
+                    self.result += (0x70).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+                self.result += b'\x00'*7
+                self.result += (0x2a120300).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                self.result += (0x71602b00).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                self.result += (0x0b000002).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                self.result += (0x02000b00).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                self.result += (0).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                self.result = self.result[0:min(len(self.result),allocLength)]
+            else:
+                self.ata.main.notice("AtaController::handlePacket: PC=={0:d}; pageCode=={1:#04x}", PC, pageCode)
+                self.errorCommand(0x50)
         else:
             self.ata.main.exitError("AtaController::handlePacket: cmd is unknown! cmd == {0:#04x}, self.data == {1:s}", cmd, repr(self.data))
+            return
         if (not self.err):
-            self.driveReady = self.seekComplete = not len(self.result)
-            self.drq = len(self.result) != 0
+            self.driveReady = self.seekComplete = self.drq = len(self.result) != 0
+            self.sectorCount = self.sectorCountByte = (2 if (self.drq) else 3)
+            #if (cmd not in (PACKET_COMMAND_READ_10, PACKET_COMMAND_READ_12)):
+            #    self.cylinder = len(self.result)&0xfffe
+            if (self.cylinder == BITMASK_WORD):
+                self.cylinder = 0xfffe
+            if (len(self.result) <= self.cylinder):
+                self.cylinder = len(self.result)
+            elif (self.cylinder & 1):
+                self.cylinder &= 0xfffe
             self.raiseAtaIrq(False, True)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef AtaDrive drive
@@ -421,14 +475,25 @@ cdef class AtaController:
                 return ret
             ret = int.from_bytes(self.result[0:dataSize], byteorder="little", signed=False)
             self.result = self.result[dataSize:]
-            if (not (len(self.result) % drive.sectorSize)):
+            #self.ata.main.notice("AtaController::inPort_1.1: cmd=={0:#04x}; len-result: {1:d}", self.cmd, len(self.result))
+            self.driveReady = self.seekComplete = True
+            self.drq = len(self.result) != 0
+            if (self.cmd == COMMAND_PACKET):
+                #self.driveReady = self.seekComplete = self.drq = len(self.result) != 0
+                #self.driveReady = self.seekComplete = True
+                #self.drq = len(self.result) != 0
+                self.sectorCount = self.sectorCountByte = (2 if (self.drq) else 3)
+                if (self.drq):
+                    self.cylinder = len(self.result)&0xfffe
+            elif (not (len(self.result) % drive.sectorSize)):
                 self.lba += 1 # TODO
                 self.sectorCount -= 1
                 self.LbaToCHS()
-                self.drq = self.sectorCount != 0
-                if (self.cmd == COMMAND_PACKET):
-                    self.driveReady = self.seekComplete = not self.drq
-                self.raiseAtaIrq(False, True)
+                #self.drq = self.sectorCount != 0
+                #self.driveReady = self.seekComplete = True
+                #self.drq = len(self.result) != 0
+                #self.driveReady = self.seekComplete = not self.drq
+            self.raiseAtaIrq(False, True)
             return ret
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x1, 0x2, 0x3, 0x4, 0x5)):
@@ -436,47 +501,51 @@ cdef class AtaController:
                     if (ioPortAddr == 0x1):
                         return self.errorRegister
                     elif (ioPortAddr == 0x2):
-                        if (self.cmd == COMMAND_PACKET and not len(self.result)):
-                            self.sectorCount = 3 # TODO: HACK?
-                        elif (self.useLBA):
-                            if (self.HOB and self.useLBA48):
-                                return ((self.sectorCount & 0xff00) >> 8)
-                            return (self.sectorCount & 0x00ff)
-                        ret = <unsigned char>self.sectorCount
+                        #if (self.cmd == COMMAND_PACKET and not len(self.result)):
+                        #    self.sectorCount = 3 # TODO: HACK?
+                        #elif (self.useLBA):
+                        #    if (self.HOB and self.useLBA48):
+                        #        return ((self.sectorCount & 0xff00) >> 8)
+                        #    return (self.sectorCount & 0x00ff)
+                        #ret = <unsigned char>self.sectorCount
+                        ret = <unsigned char>self.sectorCountByte
                     elif (ioPortAddr == 0x3):
-                        if (self.useLBA):
-                            if (self.HOB and self.useLBA48):
-                                return ((self.lba & 0x0000ff000000) >> 24)
-                            return (self.lba & 0x0000000000ff)
+                        #if (self.useLBA):
+                        #    if (self.HOB and self.useLBA48):
+                        #        return ((self.lba & 0x0000ff000000) >> 24)
+                        #    return (self.lba & 0x0000000000ff)
                         ret = <unsigned char>self.sector
                     elif (ioPortAddr == 0x4):
-                        if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
-                            self.cylinder = len(self.result) # return length
-                        elif (self.useLBA):
-                            if (self.HOB and self.useLBA48):
-                                return ((self.lba & 0x00ff00000000) >> 32)
-                            return ((self.lba & 0x00000000ff00) >> 8)
+                        #if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
+                        #    self.cylinder = len(self.result) # return length
+                        #elif (self.useLBA):
+                        #    if (self.HOB and self.useLBA48):
+                        #        return ((self.lba & 0x00ff00000000) >> 32)
+                        #    return ((self.lba & 0x00000000ff00) >> 8)
                         ret = <unsigned char>self.cylinder
                     elif (ioPortAddr == 0x5):
-                        if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
-                            self.cylinder = len(self.result) # return length
-                        elif (self.useLBA):
-                            if (self.HOB and self.useLBA48):
-                                return ((self.lba & 0xff0000000000) >> 40)
-                            return ((self.lba & 0x000000ff0000) >> 16)
+                        #if (self.cmd == COMMAND_PACKET and len(self.result) <= BITMASK_WORD):
+                        #    self.cylinder = len(self.result) # return length
+                        #elif (self.useLBA):
+                        #    if (self.HOB and self.useLBA48):
+                        #        return ((self.lba & 0xff0000000000) >> 40)
+                        #    return ((self.lba & 0x000000ff0000) >> 16)
                         ret = <unsigned char>(self.cylinder >> 8)
             elif (ioPortAddr == 0x6):
-                ret = (0xa0) | (self.useLBA << 6) | (self.driveId << 4) | (((self.lba >> 24) if (self.useLBA) else self.head) & 0xf)
+                #ret = (0xa0) | (self.useLBA << 6) | (self.driveId << 4) | (((self.lba >> 24) if (self.useLBA) else self.head) & 0xf)
+                ret = (0xa0) | (self.useLBA << 6) | (self.driveId << 4) | (self.head & 0xf)
             elif (ioPortAddr == 0x7 or ioPortAddr == 0x1fe or ioPortAddr == 0x206):
-                #if (drive.isLoaded):
-                IF 1:
+                if (drive.isLoaded):
+                #IF 1:
                     ret = (self.driveBusy << 7) | (self.driveReady << 6) | (self.seekComplete << 4) | (self.drq << 3) | (self.indexPulse << 1) | (self.err)
                     self.indexPulseCount += 1
                     self.indexPulse = False
                     if (self.indexPulseCount >= 10): # stolen from bochs. thanks. :-)
                         self.indexPulse = True
                         self.indexPulseCount = 0
-                #else: # TODO: HACK: this circumvents the bochs bios 'IDE time out' which takes too long.
+                else: # TODO: HACK: this circumvents the bochs bios 'IDE time out' which takes too long.
+                    #ret = 0
+                    ret = 0x41
                 #ELSE:
                 #    #ret = 0x1
                 #    ret = 0x41
@@ -507,8 +576,6 @@ cdef class AtaController:
                     self.sectorCount -= 1
                     self.LbaToCHS()
                     self.drq = self.sectorCount != 0
-                    if (self.cmd == COMMAND_PACKET):
-                        self.driveReady = self.seekComplete = not self.drq
                     self.raiseAtaIrq(False, True)
             elif (self.cmd == COMMAND_PACKET):
                 if (self.ata.main.debugEnabled):
@@ -525,43 +592,48 @@ cdef class AtaController:
                 if (data & 3):
                     self.ata.main.notice("AtaController::outPort: overlapping packet and/or DMA is not supported yet: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
             elif (ioPortAddr == 0x2):
-                if (self.useLBA and self.useLBA48):
+                #if (self.useLBA and self.useLBA48):
+                IF 1:
                     if (not self.sectorCountFlipFlop):
                         self.sectorCount = (self.sectorCount & 0x00ff) | ((<unsigned char>data) << 8)
                     else:
                         self.sectorCount = (self.sectorCount & 0xff00) | (<unsigned char>data)
                     self.sectorCountFlipFlop = not self.sectorCountFlipFlop
-                else:
-                    self.sectorCount = (<unsigned char>data)
+                #else:
+                #    self.sectorCount = (<unsigned char>data)
+                self.sectorCountByte = (<unsigned char>data)
             elif (ioPortAddr == 0x3):
-                if (self.useLBA and self.useLBA48):
+                #if (self.useLBA and self.useLBA48):
+                IF 1:
                     if (not self.sectorLowFlipFlop):
                         self.lba = (self.lba & 0xffff00ffffff) | (<unsigned long int>(<unsigned char>data) << 24)
                     else:
                         self.lba = (self.lba & 0xffffffffff00) | (<unsigned char>data)
                     self.sectorLowFlipFlop = not self.sectorLowFlipFlop
-                else:
-                    self.lba = (self.lba & 0xffff00) | (<unsigned char>data)
+                #else:
+                #    self.lba = (self.lba & 0xffff00) | (<unsigned char>data)
                 self.sector = (<unsigned char>data)
             elif (ioPortAddr == 0x4):
-                if (self.useLBA and self.useLBA48):
+                #if (self.useLBA and self.useLBA48):
+                IF 1:
                     if (not self.sectorMiddleFlipFlop):
                         self.lba = (self.lba & 0xff00ffffffff) | (<unsigned long int>(<unsigned char>data) << 32)
                     else:
                         self.lba = (self.lba & 0xffffffff00ff) | ((<unsigned char>data) << 8)
                     self.sectorMiddleFlipFlop = not self.sectorMiddleFlipFlop
-                else:
-                    self.lba = (self.lba & 0xff00ff) | ((<unsigned char>data) << 8)
+                #else:
+                #    self.lba = (self.lba & 0xff00ff) | ((<unsigned char>data) << 8)
                 self.cylinder = (self.cylinder & 0xff00) | (<unsigned char>data)
             elif (ioPortAddr == 0x5):
-                if (self.useLBA and self.useLBA48):
+                #if (self.useLBA and self.useLBA48):
+                IF 1:
                     if (not self.sectorHighFlipFlop):
                         self.lba = (self.lba & 0x00ffffffffff) | (<unsigned long int>(<unsigned char>data) << 40)
                     else:
                         self.lba = (self.lba & 0xffffff00ffff) | ((<unsigned char>data) << 16)
                     self.sectorHighFlipFlop = not self.sectorHighFlipFlop
-                else:
-                    self.lba = (self.lba & 0x00ffff) | ((<unsigned char>data) << 16)
+                #else:
+                #    self.lba = (self.lba & 0x00ffff) | ((<unsigned char>data) << 16)
                 self.cylinder = (self.cylinder & 0x00ff) | ((<unsigned char>data) << 8)
             elif (ioPortAddr == 0x6):
                 self.driveId = ((data & SELECT_SLAVE_DRIVE) == SELECT_SLAVE_DRIVE)
@@ -580,15 +652,16 @@ cdef class AtaController:
                     (<Pic>self.ata.main.platform.pic).lowerIrq(self.irq)
                 self.result = self.data = b''
                 #self.driveReady = self.seekComplete = False # TODO: HACK
+                if (not self.useLBA):
+                    self.sectorCount = self.sectorCountByte
+                    self.lba = drive.ChsToSector(self.cylinder, self.head, self.sector)
+                    if (self.ata.main.debugEnabled):
+                        self.ata.main.debug("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}, sectorCount=={4:d}", self.lba, self.cylinder, self.head, self.sector, self.sectorCount)
                 if (not self.sectorCount):
                     if (self.useLBA and self.useLBA48):
                         self.sectorCount = BITMASK_WORD+1
                     else:
                         self.sectorCount = BITMASK_BYTE+1
-                if (not self.useLBA):
-                    self.lba = drive.ChsToSector(self.cylinder, self.head, self.sector)
-                    if (self.ata.main.debugEnabled):
-                        self.ata.main.debug("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}, sectorCount=={4:d}", self.lba, self.cylinder, self.head, self.sector, self.sectorCount)
                 if ((data & 0xf0) == COMMAND_RECALIBRATE):
                     data = COMMAND_RECALIBRATE
                 self.cmd = data
@@ -628,7 +701,7 @@ cdef class AtaController:
                             self.abortCommand()
                             return
                         else:
-                            self.sectorCount = 1
+                            self.sectorCount = self.sectorCountByte = 1
                     else:
                         self.abortCommand()
                         return
