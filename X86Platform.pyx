@@ -216,7 +216,8 @@ cdef class Platform:
         if (not isRomOptional):
             self.main.mm.mmPhyCopy(mmAddr&0xfffff, mmAddr, romSize)
     cdef void initMemory(self):
-        cdef unsigned int i
+        cdef MmArea mmArea
+        cdef unsigned short i
         if (not self.main or not self.main.mm or not self.main.memSize):
             self.main.exitError("X86Platform::initMemory: not self.main or not self.main.mm or not self.main.memSize")
             return
@@ -224,12 +225,14 @@ cdef class Platform:
             self.main.mm.mmAddArea(i, False)
         self.main.mm.mmAddArea(MM_NUMAREAS - 1, False)
         self.main.mm.mmAddArea(PCI_MEM_BASE >> 20, False)
-        i = SIZE_1MB-VGA_ROM_BASE
-        self.main.mm.mmPhyWrite(VGA_ROM_BASE, b'\xff'*i, i)
+        mmArea = self.main.mm.mmAreas[0]
+        self.main.mm.mmAreaClear(mmArea, VGA_ROM_BASE, BITMASK_BYTE, SIZE_1MB-VGA_ROM_BASE)
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
         if (self.main.vgaBiosFilename):
             self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), VGA_ROM_BASE, True)
         self.main.mm.mmSetReadOnly(MM_NUMAREAS - 1, True)
+        self.main.mm.mmAreaClear(mmArea, VGA_MEMAREA_ADDR, BITMASK_BYTE, 0x10000)
+        self.main.mm.mmAreaClear(mmArea, 0xb8000, BITMASK_BYTE, 0x8000)
     cdef void initDevicesPorts(self):
         self.addReadHandlers((0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
         self.addWriteHandlers((0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)

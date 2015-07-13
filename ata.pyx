@@ -261,7 +261,8 @@ cdef class AtaController:
         self.sectorCountByte = <unsigned char>self.sectorCount
     cdef void convertToLBA28(self):
         #if (self.useLBA and self.useLBA48):
-        if (self.useLBA):
+        #if (self.useLBA):
+        if (self.useLBA and not self.useLBA48):
             self.sectorCount >>= 8
             self.lba >>= 24
             self.lba = (self.lba & 0xffffff) | (<unsigned long int>(self.head) << 24)
@@ -643,6 +644,9 @@ cdef class AtaController:
                 self.head = data & 0xf
                 self.sectorCountFlipFlop = self.sectorHighFlipFlop = self.sectorMiddleFlipFlop = self.sectorLowFlipFlop = False
                 self.cmd = 0
+                if (self.useLBA48):
+                    self.ata.main.exitError("AtaController::outPort: TODO: lba48 isn't fully supported yet!")
+                    return
             elif (ioPortAddr == 0x7): # command port
                 if (self.driveId and not drive.isLoaded):
                     if (self.ata.main.debugEnabled):

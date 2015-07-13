@@ -813,21 +813,22 @@ cdef class Registers:
         cdef unsigned short segId, segVal
         segId = segment.segId
         segVal = segment.segmentIndex
-        if (not (segVal&0xfff8)):
-            self.main.notice("Registers::checkMemAccessRights: test1.1")
-            if (segId == CPU_SEGMENT_SS):
-                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
-            else:
-                raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
-        if (not segment.segPresent):
-            self.main.notice("Registers::checkMemAccessRights: test1.2")
-            if (segId == CPU_SEGMENT_SS):
-                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
-            else:
-                raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
+        if (segment.useGDT):
+            if (not (segVal&0xfff8)):
+                self.main.notice("Registers::checkMemAccessRights: test1.1")
+                if (segId == CPU_SEGMENT_SS):
+                    raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                else:
+                    raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+            if (not segment.segPresent):
+                self.main.notice("Registers::checkMemAccessRights: test1.2")
+                if (segId == CPU_SEGMENT_SS):
+                    raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                else:
+                    raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
         addrInLimit = segment.isAddressInLimit(mmAddr, dataSize)
         if (written):
-            if ((segment.segIsNormal and (segment.segIsCodeSeg or not segment.segIsRW)) or not addrInLimit):
+            if ((segment.useGDT and segment.segIsNormal and (segment.segIsCodeSeg or not segment.segIsRW)) or not addrInLimit):
                 self.main.notice("Registers::checkMemAccessRights: test1.3")
                 self.main.notice("Registers::checkMemAccessRights: test1.3.1; c0=={0:d}; c1=={1:d}; c2=={2:d}", segment.segIsNormal, (segment.segIsCodeSeg or not segment.segIsRW), not addrInLimit)
                 self.main.notice("Registers::checkMemAccessRights: test1.3.2; mmAddr=={0:#010x}; dataSize=={1:d}; base=={2:#010x}; limit=={3:#010x}", mmAddr, dataSize, segment.base, segment.limit)
@@ -836,7 +837,7 @@ cdef class Registers:
                 else:
                     raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
         else:
-            if ((segment.segIsNormal and segment.segIsCodeSeg and not segment.segIsRW) or not addrInLimit):
+            if ((segment.useGDT and segment.segIsNormal and segment.segIsCodeSeg and not segment.segIsRW) or not addrInLimit):
                 self.main.notice("Registers::checkMemAccessRights: test1.4")
                 raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
         return True
@@ -850,8 +851,8 @@ cdef class Registers:
         if (segment is not None):
             if (self.protectedModeOn and segment is (<Segment>self.segments.tss)):
                 (<Paging>(<Segments>self.segments).paging).implicitSV = True
-            if (segment.useGDT):
-                self.checkMemAccessRights(mmAddr, dataSize, segment, written)
+            #if (segment.useGDT):
+            self.checkMemAccessRights(mmAddr, dataSize, segment, written)
             mmAddr += segment.base
         # TODO: check for limit asf...
         if (self.protectedModeOn and self.pagingOn): # TODO: is a20 even being applied after paging is enabled? (on the physical address... or even the virtual one?)

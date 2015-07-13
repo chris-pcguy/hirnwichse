@@ -355,7 +355,8 @@ cdef class PysdlUI:
             self.updateScreen()
         elif (event.type == sdl2.SDL_KEYDOWN):
             if (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_MINUS):
-                self.vga.main.debugEnabled = not self.vga.main.debugEnabled
+                #self.vga.main.debugEnabled = not self.vga.main.debugEnabled
+                self.vga.main.debugEnabledTest = not self.vga.main.debugEnabledTest
                 return
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_PLUS):
                 #self.vga.refreshScreen = True

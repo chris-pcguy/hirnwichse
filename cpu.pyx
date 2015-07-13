@@ -18,7 +18,7 @@ cdef class Cpu:
         self.savedEip = 0xfff0
         self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = self.HRQ = False
         self.debugHalt = self.main.debugHalt
-        self.savedSs = self.savedEsp = self.cycles = self.oldCycleInc = 0
+        self.savedSs = self.savedEsp = self.cycles = 0
         self.registers.reset()
     cdef inline void saveCurrentInstPointer(self):
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
@@ -48,7 +48,7 @@ cdef class Cpu:
             self.cpuHalted = False
         return
     cpdef exception(self, unsigned char exceptionId, signed int errorCode=-1):
-        self.main.notice("Running exception_1: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
+        self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         self.cpuDump()
         #self.main.debugEnabled = True
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
@@ -62,6 +62,8 @@ cdef class Cpu:
             self.registers.rf = True
         elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP and self.registers.repPrefix):
             self.registers.rf = True
+        self.main.notice("Running exception_1.1: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
+        self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
             if (errorCode == -1):
                 self.main.exitError("CPU exception: errorCode should be set, is -1.")
@@ -77,6 +79,11 @@ cdef class Cpu:
         #if (self.savedCs == 0x70 and self.savedEip == 0x3b2):
         #if (self.savedCs == 0x70 and self.savedEip == 0x382):
         #    self.main.debugEnabled = True
+        #if (self.savedCs == 0xfcbf and self.savedEip == 0x2f27 and self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx == 0xc10f30bc):
+        #if (self.savedCs == 0xfcb2 and self.savedEip == 0x2ff7 and self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx == 0xc10f30bc):
+        #if (self.savedCs == 0x70 and self.savedEip == 0x0382):
+        #    self.main.debugEnabled = True
+        #    #self.main.debugEnabledTest = True
         if (len(exception.args) not in (1, 2)):
             self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', len(exception.args))
             return
@@ -154,6 +161,15 @@ cdef class Cpu:
           self.registers.regReadUnsignedDword(CPU_REGISTER_DR3))
         self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_DR6), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_DR7))
+        self.main.notice("savedCS: {0:#06x}, savedSS: {1:#06x}", self.savedCs, \
+          self.savedSs)
+        self.main.notice("savedEIP: {0:#010x}, savedESP: {1:#010x}", self.savedEip, self.savedEsp)
+        #self.main.notice("CS.limit: {0:#06x}, SS.limit: {1:#06x}", (<Segment>self.registers.segments.cs).limit, \
+        #  (<Segment>self.registers.segments.ss).limit)
+        #self.main.notice("DS.limit: {0:#06x}, ES.limit: {1:#06x}", (<Segment>self.registers.segments.ds).limit, \
+        #  (<Segment>self.registers.segments.es).limit)
+        #self.main.notice("FS.limit: {0:#06x}, GS.limit: {1:#06x}", (<Segment>self.registers.segments.fs).limit, \
+        #  (<Segment>self.registers.segments.gs).limit)
         self.main.notice("Opcode: {0:#04x}\n\n", self.opcode)
     cpdef doInfiniteCycles(self):
         try:
@@ -164,7 +180,9 @@ cdef class Cpu:
                     return
                 elif ((self.debugHalt and not self.debugSingleStep) or (self.cpuHalted and not self.main.exitIfCpuHalted)):
                     if (self.asyncEvent and not self.registers.ssInhibit):
+                        self.registers.resetPrefixes()
                         self.saveCurrentInstPointer()
+                        self.registers.readCodeSegSize()
                         self.handleAsyncEvent()
                     else:
                         self.registers.ssInhibit = False
@@ -177,7 +195,6 @@ cdef class Cpu:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
     cpdef doCycle(self):
-        #cdef unsigned int test1
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
         #self.registers.reloadCpuCache()
@@ -212,87 +229,15 @@ cdef class Cpu:
                 self.opcode = self.parsePrefixes(self.opcode)
             self.registers.readCodeSegSize()
             self.registers.rf = False
-            #if (self.savedEip == 0x476e0):
-            #if (self.savedCs == 0x8 and self.savedEip == 0xe14d):
-            #if (self.savedCs == 0xf and self.savedEip == 0x96d7):
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc0007870):
-            #if (self.registers.segments.paging.tlbTables.csReadValueUnsigned(0x3fec04, OP_SIZE_DWORD) != 0):
-            #if (self.savedCs == 0x2000 and self.savedEip == 0x1b66):
-            #if (self.savedCs == 0xf and self.savedEip == 0x3d859):
-            #if (self.savedCs == 0xb0):
-            #if (self.savedCs == 0xa8):
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc00059c4):
-            #if (self.savedCs == 0xffff and self.savedEip == 0x2ec):
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc0003780):
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc037a8f8):
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc00059ae and self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx == 0xffb04fbc):
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc00059ae and self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx == 0xffb04fb0):
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc0002570):
-            #if (self.savedCs == 0x247 and self.savedEip == 0x6c):
-            #    self.main.debugEnabled = True
-            #elif (self.savedCs == 0x247 and self.savedEip == 0x6d):
-            #    self.main.debugEnabled = False
-            #if (self.savedCs == 0xfcbf and self.savedEip == 0x2f28 and self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx == 0x4100):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0x685 and self.savedEip == 0x3fd):
-            #if (self.savedCs == 0x17 and self.savedEip == 0x1020):
-            #if (self.savedCs == 0x8 and self.savedEip == 0xf01004e3):
-            #if (self.savedCs == 0x8 and self.savedEip == 0xf0100661):
-            #if (self.savedCs == 0x8 and self.savedEip == 0x80134706 and self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx == 0xc1024000):
-            #if (self.savedCs == 0x8 and self.savedEip == 0x801990c2):
-            #if (self.savedCs == 0x8 and self.savedEip == 0x80137faf and self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx == 0x801630e2):
-            #if (self.savedCs == 0xff03 and self.savedEip == 0x52d0 and self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx == 0xbde2):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0xffff and self.savedEip == 0x25a5 and self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx == 0xc0010002):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0xffff and self.savedEip == 0x165b and self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx == 0xc0010002):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0xff03 and self.savedEip == 0x4266):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0x835 and self.savedEip == 0x18f5):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0x6a5 and self.savedEip == 0x4202):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0x835 and self.savedEip == 0x4202):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc0007640 and self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx == 0x1f4):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x801ae979):
-            #    self.main.debugEnabled = True
-            #test1 = self.main.mm.mmPhyReadValueUnsignedDword(0xc0002f6f)
-            if (self.main.debugEnabled):
-            #if (self.main.debugEnabled or test1 != self.oldCycleInc):
+            #if (self.savedCs == 0x28 and self.savedEip == 0xc00013b7):
+            #if (self.savedCs == 0x28 and self.savedEip == 0xc00013d1):
+            #    self.main.debugEnabledTest = True
+            if (self.main.debugEnabled or self.main.debugEnabledTest):
             #IF 1:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-                #self.main.notice("Cpu::doCycle: test1 PDE[0x9bfef8]=={0:#010x}==0x009c8267", self.main.mm.mmPhyReadValueUnsignedDword(0x9bfef8))
-                #self.main.notice("Cpu::doCycle: test2 PTE[0x9c8ff4]=={0:#010x}==0x00994025", self.main.mm.mmPhyReadValueUnsignedDword(0x9c8ff4))
-                IF 0:
-                    self.main.notice("Cpu::doCycle: test3.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f160))
-                    self.main.notice("Cpu::doCycle: test3.2 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f164))
-                    self.main.notice("Cpu::doCycle: test3.3 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f168))
-                    self.main.notice("Cpu::doCycle: test3.4 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1f16c))
-                    self.main.notice("Cpu::doCycle: test4.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffe0))
-                    self.main.notice("Cpu::doCycle: test4.2 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffe4))
-                    self.main.notice("Cpu::doCycle: test4.3 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffe8))
-                    self.main.notice("Cpu::doCycle: test4.4 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00ffffec))
-                    self.main.notice("Cpu::doCycle: test4.5 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffff0))
-                    self.main.notice("Cpu::doCycle: test4.6 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffff4))
-                    self.main.notice("Cpu::doCycle: test4.7 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffff8))
-                    self.main.notice("Cpu::doCycle: test4.8 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fffffc))
-                #self.main.notice("Cpu::doCycle: test5.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00fff004))
-                #self.main.notice("Cpu::doCycle: test6.1 {0:#010x}", self.registers.segments.paging.tlbTables.csReadValueUnsigned(0x3fec04, OP_SIZE_DWORD))
-                #self.main.notice("Cpu::doCycle: test6.2 {0:#010x}", self.registers.segments.paging.tlbDirectories.csReadValueUnsigned(0xc00, OP_SIZE_DWORD))
-                #self.main.notice("Cpu::doCycle: test6.3 {0:#010x}", self.registers.segments.paging.tlbTables.csReadValueUnsigned(0x300878, OP_SIZE_DWORD))
-                #self.main.notice("Cpu::doCycle: test7.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x00375f9c))
-                #self.main.notice("Cpu::doCycle: test7.2 {0:#010x}", test1)
-                #self.main.notice("Cpu::doCycle: test8.1 {0:#010x}", self.main.mm.mmPhyReadValueUnsignedDword(0x1ae9c1))
                 self.cpuDump()
-                #self.main.notice("CR0: {0:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_CR0))
-                #self.oldCycleInc = test1
-                #self.main.debugEnabled = True
-                #self.main.debugEnabled = False
-            #else:
-            #    self.main.debugEnabled = False
+                #self.main.notice("EAX: {0:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EAX))
+                #self.main.notice("ESP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESP), self.registers.readFlags())
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_UD)

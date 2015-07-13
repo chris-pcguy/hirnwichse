@@ -19,14 +19,19 @@ cdef class Segment:
         self.segmentIndex = segmentIndex
         if (not protectedModeOn):
             self.base = <unsigned int>segmentIndex<<4
-            self.isValid = True
+            self.isValid = self.segPresent = self.segIsNormal = True
             self.useGDT = False
             self.segSize = OP_SIZE_WORD
             if (doInit or (self.segments.registers.protectedModeOn and self.segments.registers.vm)):
+                self.accessByte = 0x92
+                if (self.segments.registers.protectedModeOn and self.segments.registers.vm):
+                    self.segmentIndex |= 0x3
+                    self.segDPL = 0x3
+                    self.accessByte |= 0x60
                 self.limit = 0xffff
-                self.segPresent = self.segIsRW = self.segIsNormal = True
+                self.segIsRW = True
                 self.segIsConforming = self.segUse4K = False
-                self.accessByte = self.flags = 0
+                self.flags = 0
                 self.segDPL = self.segments.registers.getCPL()
                 if (self.segId == CPU_SEGMENT_CS):
                     self.segIsCodeSeg = True

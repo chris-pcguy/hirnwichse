@@ -2,6 +2,7 @@
 from hirnwichse_main cimport Hirnwichse
 from cmos cimport Cmos
 from isadma cimport IsaDma
+from mm cimport MmArea
 from pic cimport Pic
 from pit cimport Pit
 from pci cimport Pci

@@ -21,7 +21,6 @@ cdef class Cpu:
     cdef public unsigned short savedCs, savedSs
     cdef public unsigned int savedEip, savedEsp
     cdef public unsigned long int cycles
-    cdef unsigned long int oldCycleInc
     cdef void reset(self)
     cdef inline void saveCurrentInstPointer(self)
     cdef void setINTR(self, unsigned char state)

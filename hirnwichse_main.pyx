@@ -36,7 +36,8 @@ cdef class Hirnwichse:
         self.cmdArgs = self.parser.parse_args(argv[1:])
 
         self.exitIfCpuHalted = self.cmdArgs.exitIfCpuHalted
-        self.debugEnabled    = self.cmdArgs.debugEnabled
+        #self.debugEnabled    = self.cmdArgs.debugEnabled
+        self.debugEnabledTest    = self.cmdArgs.debugEnabled
         self.debugHalt    = self.cmdArgs.debugHalt
         self.noUI    = self.cmdArgs.noUI
         self.romPath = self.cmdArgs.romPath.encode() # default: './bios'
@@ -51,6 +52,8 @@ cdef class Hirnwichse:
         self.fdaType    = self.cmdArgs.fdaType # default: 4
         self.fdbType    = self.cmdArgs.fdbType # default: 4
         self.memSize = self.cmdArgs.memSize
+        #self.debugEnabledTest = False
+        self.debugEnabled = False
     cpdef quitFunc(self):
         self.quitEmu = True
     def exitError(self, str msg, *msgArgs): # this needs to be 'def'
@@ -64,7 +67,7 @@ cdef class Hirnwichse:
             print("DEBUG: " + msg.format(*msgArgs))
     def notice(self, str msg, *msgArgs): # this needs to be 'def'
         print("NOTICE: " + msg.format(*msgArgs))
-        stdout.flush()
+        #stdout.flush()
     cpdef reset(self, unsigned char resetHardware):
         self.cpu.reset()
         if (resetHardware):

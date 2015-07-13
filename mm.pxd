@@ -2,7 +2,7 @@
 include "globals.pxi"
 
 from libc.stdlib cimport malloc
-from libc.string cimport memmove, memset
+from libc.string cimport memcpy, memset
 
 
 ctypedef bytes (*MmAreaReadType)(self, MmArea, unsigned int, unsigned int)
@@ -27,6 +27,7 @@ cdef class Mm:
         return <char*>(mmArea.data+offset)
     cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
+    cdef void mmAreaClear(self, MmArea mmArea, unsigned int offset, unsigned char clearByte, unsigned int dataSize)
     cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
     cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize)

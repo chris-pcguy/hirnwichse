@@ -2297,7 +2297,11 @@ cdef class Opcodes:
                 tempCS &= 0xfffc
                 tempCS |= cpl
                 self.registers.segWriteSegment((<Segment>self.registers.segments.ss), tempSS)
-                self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
+                stackAddrSize = (<Segment>self.registers.segments.ss).segSize
+                if (stackAddrSize == OP_SIZE_DWORD):
+                    self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
+                else:
+                    self.registers.regWriteWord(CPU_REGISTER_SP, <unsigned short>tempESP)
         self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
         self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
         return True
@@ -2485,7 +2489,7 @@ cdef class Opcodes:
                     self.main.notice("Opcodes::interrupt: task-gates aren't fully implemented yet. entrySegment=={0:#06x}", entrySegment)
                 gdtEntryCS = <GdtEntry>self.registers.segments.getEntry(entrySegment)
                 if (gdtEntryCS is None):
-                    raise HirnwichseException(CPU_EXCEPTION_GP, entrySegment)
+                    raise HirnwichseException(CPU_EXCEPTION_GP, (<Misc>self.main.misc).calculateInterruptErrorcode(entrySegment, 0, not isSoftInt))
                 entryType = (gdtEntryCS.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
                 if ((entrySegment & GDT_USE_LDT) or (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)) or not self.registers.segments.inLimit(entrySegment)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, (<Misc>self.main.misc).calculateInterruptErrorcode(entrySegment, 0, not isSoftInt))
@@ -2504,7 +2508,7 @@ cdef class Opcodes:
                 self.registers.nt = True
                 self.registers.mmWriteValue(TSS_PREVIOUS_TASK_LINK, oldTSSsel, OP_SIZE_WORD, (<Segment>self.registers.segments.tss), False)
                 if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), OP_SIZE_BYTE)):
-                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                    raise HirnwichseException(CPU_EXCEPTION_GP, not isSoftInt)
                 return True
             elif (entryType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TRAP_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
                 self.main.exitError("Opcodes::interrupt: unknown entryType {0:d}.", entryType)
@@ -2572,12 +2576,6 @@ cdef class Opcodes:
                     raise HirnwichseException(CPU_EXCEPTION_TS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
                 if (not gdtEntrySS.segPresent):
                     raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
-                if (idtEntry.entrySize == OP_SIZE_DWORD):
-                    if ((not oldVM and (newESP - (24 if (errorCode != -1) else 20)) >= newESP) or (oldVM and (newESP - (40 if (errorCode != -1) else 36)) >= newESP)):
-                        raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
-                else:
-                    if ((not oldVM and (newESP - (12 if (errorCode != -1) else 10)) >= newESP) or (oldVM and (newESP - (20 if (errorCode != -1) else 18)) >= newESP)):
-                        raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
                 cpl = gdtEntryCS.segDPL
                 self.registers.cpl = cpl # TODO: HACK!
                 if (not gdtEntryCS.isAddressInLimit(entryEip, OP_SIZE_BYTE)):
@@ -2590,7 +2588,18 @@ cdef class Opcodes:
                 oldSS = self.registers.segRead(CPU_SEGMENT_SS)
                 oldESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
                 self.registers.segWriteSegment((<Segment>self.registers.segments.ss), newSS)
-                self.registers.regWriteDword(CPU_REGISTER_ESP, newESP)
+                if ((<Segment>self.registers.segments.ss).segSize == OP_SIZE_WORD):
+                    newESP = <unsigned short>newESP
+                if (idtEntry.entrySize == OP_SIZE_DWORD):
+                    if ((not oldVM and (newESP - (24 if (errorCode != -1) else 20)) >= newESP) or (oldVM and (newESP - (40 if (errorCode != -1) else 36)) >= newESP)):
+                        raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
+                else:
+                    if ((not oldVM and (newESP - (12 if (errorCode != -1) else 10)) >= newESP) or (oldVM and (newESP - (20 if (errorCode != -1) else 18)) >= newESP)):
+                        raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
+                if ((<Segment>self.registers.segments.ss).segSize == OP_SIZE_DWORD):
+                    self.registers.regWriteDword(CPU_REGISTER_ESP, newESP)
+                else:
+                    self.registers.regWriteWord(CPU_REGISTER_SP, <unsigned short>newESP)
                 if (oldVM):
                     self.stackPushSegment((<Segment>self.registers.segments.gs), entrySize)
                     self.stackPushSegment((<Segment>self.registers.segments.fs), entrySize)
@@ -2732,28 +2741,32 @@ cdef class Opcodes:
                 #self.registers.ssInhibit = True
                 self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
                 return True
-            elif ((tempEFLAGS & FLAG_VM) and not cpl):
-                self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-                self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return to VM86-Mode)")
-                self.main.cpu.cpuDump()
-                if ((oldESP - 24) >= oldESP):
-                    raise HirnwichseException(CPU_EXCEPTION_SS, 0)
-                #if (not (<Segment>self.registers.segments.cs).isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
-                #    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
-                tempESP = self.stackPopValue(True)
-                tempSS = self.stackPopValue(True)
-                self.registers.regWriteDwordEflags(tempEFLAGS | FLAG_REQUIRED)
-                self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
-                self.registers.regWriteDword(CPU_REGISTER_EIP, <unsigned short>tempEIP)
-                self.stackPopSegment((<Segment>self.registers.segments.es))
-                self.stackPopSegment((<Segment>self.registers.segments.ds))
-                self.stackPopSegment((<Segment>self.registers.segments.fs))
-                self.stackPopSegment((<Segment>self.registers.segments.gs))
-                self.registers.segWriteSegment((<Segment>self.registers.segments.ss), tempSS)
-                self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
-                #self.registers.ssInhibit = True
-                self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
-                return True
+            elif (tempEFLAGS & FLAG_VM):
+                if (not cpl):
+                    self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+                    self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return to VM86-Mode)")
+                    self.main.cpu.cpuDump()
+                    if ((oldESP - 24) >= oldESP):
+                        raise HirnwichseException(CPU_EXCEPTION_SS, 0)
+                    #if (not (<Segment>self.registers.segments.cs).isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
+                    #    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                    tempESP = self.stackPopValue(True)
+                    tempSS = self.stackPopValue(True)
+                    self.registers.regWriteDwordEflags(tempEFLAGS | FLAG_REQUIRED)
+                    self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
+                    self.registers.regWriteDword(CPU_REGISTER_EIP, <unsigned short>tempEIP)
+                    self.stackPopSegment((<Segment>self.registers.segments.es))
+                    self.stackPopSegment((<Segment>self.registers.segments.ds))
+                    self.stackPopSegment((<Segment>self.registers.segments.fs))
+                    self.stackPopSegment((<Segment>self.registers.segments.gs))
+                    self.registers.segWriteSegment((<Segment>self.registers.segments.ss), tempSS)
+                    self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
+                    #self.registers.ssInhibit = True
+                    self.main.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
+                    return True
+                else:
+                    self.main.exitError("Opcodes::iret: TODO; tempeflags & vm and cpl != 0! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+                    return True
             elif ((tempCS&3) > cpl): # outer privilege level; rpl > cpl
                 self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
                 self.main.notice("Opcodes::iret: test1: opl: rpl > cpl")
@@ -2789,7 +2802,10 @@ cdef class Opcodes:
                         self.main.notice("Opcodes::iret: (isValid and (not codeSeg or not conforming) and (newCpl > dpl)), set segments to zero")
                         self.registers.segWriteSegment(tempSegment, 0)
                 self.registers.segWriteSegment((<Segment>self.registers.segments.ss), tempSS)
-                self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
+                if ((<Segment>self.registers.segments.ss).segSize == OP_SIZE_DWORD):
+                    self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
+                else:
+                    self.registers.regWriteWord(CPU_REGISTER_SP, <unsigned short>tempESP)
             if (not (tempCS&0xfff8)):
                 self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.6")
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
@@ -3312,7 +3328,7 @@ cdef class Opcodes:
               (opcode == 0xdd and ((opcode2>>3)&7) in (6, 7))): # FNSTSW/FINIT/FNSTSW
                 if ((opcode == 0xdd and ((opcode2>>3)&7) in (6, 7)) or \
                   (opcode == 0xd9 and ((opcode2>>3)&7) == 7) or \
-                  (opcode == 0xde and opcode2 in (0x60, 0x63))):
+                  (opcode == 0xde and opcode2 in (0x05, 0x60, 0x63))):
                     self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE) # FNSAVE
                 else:
                     self.registers.getCurrentOpcodeAddUnsignedByte()

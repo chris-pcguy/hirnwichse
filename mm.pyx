@@ -48,7 +48,10 @@ cdef class Mm:
         return mmArea.data[offset:offset+dataSize]
     cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         with nogil:
-            memmove(<char*>(mmArea.data+offset), data, dataSize)
+            memcpy(<char*>(mmArea.data+offset), data, dataSize)
+    cdef void mmAreaClear(self, MmArea mmArea, unsigned int offset, unsigned char clearByte, unsigned int dataSize):
+        with nogil:
+            memset(<char*>(mmArea.data+offset), clearByte, dataSize)
     cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         cdef unsigned int tempSize
         cdef bytes ret = b''
@@ -74,31 +77,18 @@ cdef class Mm:
         return ret
     cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         cdef unsigned int tempSize
-        if (dataSize > 0 and offset < VGA_ROM_BASE):
-            tempSize = min(dataSize, VGA_ROM_BASE-offset)
+        if (dataSize > 0):
             with nogil:
-                memmove(<char*>(mmArea.data+offset), data, tempSize)
+                memcpy(<char*>(mmArea.data+offset), data, dataSize)
         if (dataSize > 0 and offset < VGA_MEMAREA_ADDR):
             tempSize = min(dataSize, VGA_MEMAREA_ADDR-offset)
             if (dataSize <= tempSize):
                 return
-            data += tempSize
             dataSize -= tempSize
             offset += tempSize
         if (dataSize > 0 and offset < VGA_ROM_BASE):
             tempSize = min(dataSize, VGA_ROM_BASE-offset)
             self.main.platform.vga.vgaAreaWrite(offset, tempSize)
-            if (dataSize <= tempSize):
-                return
-            data += tempSize
-            dataSize -= tempSize
-            offset += tempSize
-        if (dataSize > 0 and offset >= VGA_ROM_BASE and offset < SIZE_1MB):
-            tempSize = min(dataSize, SIZE_1MB-offset)
-            with nogil:
-                memmove(<char*>(mmArea.data+offset), data, tempSize)
-            if (dataSize <= tempSize):
-                return
     cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
         cdef MmArea mmArea
         cdef unsigned short i, start, end
@@ -231,7 +221,7 @@ cdef class ConfigSpace:
                 self.main.debug("ConfigSpace::csWrite: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             return
         with nogil:
-            memmove(<char*>(self.csData+offset), <char*>data, size)
+            memcpy(<char*>(self.csData+offset), <char*>data, size)
     cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE:
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
