@@ -127,12 +127,16 @@ cdef class Registers:
         return value # returned value is unsigned!!
     cpdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value)
     cdef inline unsigned short regWriteWordFlags(self, unsigned short value):
+        value &= ~RESERVED_FLAGS_BITMASK
+        value |= FLAG_REQUIRED
         self.regs[CPU_REGISTER_FLAGS]._union.word._union.rx = value
         self.setFlags(self.regs[CPU_REGISTER_FLAGS]._union.dword.erx)
         return value # returned value is unsigned!!
     cdef inline unsigned int regWriteDwordEflags(self, unsigned int value):
-        self.setFlags(value)
+        value &= ~RESERVED_FLAGS_BITMASK
+        value |= FLAG_REQUIRED
         self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx = value
+        self.setFlags(value)
         return value # returned value is unsigned!!
     cdef inline unsigned long int regWriteQword(self, unsigned short regId, unsigned long int value):
         if (regId == CPU_REGISTER_RFLAGS):

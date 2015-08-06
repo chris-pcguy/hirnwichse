@@ -36,7 +36,7 @@ cdef class Hirnwichse:
         self.cmdArgs = self.parser.parse_args(argv[1:])
 
         self.exitIfCpuHalted = self.cmdArgs.exitIfCpuHalted
-        #self.debugEnabled    = self.cmdArgs.debugEnabled
+        self.debugEnabled    = self.cmdArgs.debugEnabled
         self.debugEnabledTest    = self.cmdArgs.debugEnabled
         self.debugHalt    = self.cmdArgs.debugHalt
         self.noUI    = self.cmdArgs.noUI
@@ -53,7 +53,7 @@ cdef class Hirnwichse:
         self.fdbType    = self.cmdArgs.fdbType # default: 4
         self.memSize = self.cmdArgs.memSize
         #self.debugEnabledTest = False
-        self.debugEnabled = False
+        #self.debugEnabled = False
     cpdef quitFunc(self):
         self.quitEmu = True
     def exitError(self, str msg, *msgArgs): # this needs to be 'def'

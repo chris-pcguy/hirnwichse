@@ -314,7 +314,7 @@ cdef class Paging: # TODO
                     if (not noGlobal or not (pageTableEntry & PAGE_GLOBAL)):
                         self.tlbTables.csWriteValue((i<<12)|j, pageTableEntry, OP_SIZE_DWORD)
             else:
-                self.tlbTables.csWrite((i<<12), b'\x00'*PAGE_DIRECTORY_LENGTH, PAGE_DIRECTORY_LENGTH)
+                self.tlbTables.csWrite((i<<12), bytes(PAGE_DIRECTORY_LENGTH), PAGE_DIRECTORY_LENGTH)
     cdef void invalidateTable(self, unsigned int virtualAddress):
         cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, i
         pageDirectoryOffset = (virtualAddress>>22) << 2
@@ -335,7 +335,7 @@ cdef class Paging: # TODO
             pageDirectoryEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|i)
             if (not (pageDirectoryEntry & PAGE_PRESENT)):
                 self.tlbDirectories.csWriteValue(i, 0, OP_SIZE_DWORD)
-                self.tlbTables.csWrite(((i>>2)<<12), b'\x00'*PAGE_DIRECTORY_LENGTH, PAGE_DIRECTORY_LENGTH)
+                self.tlbTables.csWrite(((i>>2)<<12), bytes(PAGE_DIRECTORY_LENGTH), PAGE_DIRECTORY_LENGTH)
                 continue
             elif ((pageDirectoryEntry&0xfffff000) == pageDirectoryEntryV):
                 self.tlbDirectories.csWriteValue(i, pageDirectoryEntry, OP_SIZE_DWORD)

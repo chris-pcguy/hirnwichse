@@ -846,8 +846,8 @@ cdef class Registers:
         origMmAddr = mmAddr
         if (allowOverride and self.segmentOverridePrefix is not None):
             segment = self.segmentOverridePrefix
-        if (self.vm and self.main.debugEnabled):
-            self.main.debug("Registers::mmGetRealAddr: TODO. (VM is on)")
+        #if (self.vm and self.main.debugEnabled):
+        #    self.main.debug("Registers::mmGetRealAddr: TODO. (VM is on)")
         if (segment is not None):
             if (self.protectedModeOn and segment is (<Segment>self.segments.tss)):
                 (<Paging>(<Segments>self.segments).paging).implicitSV = True

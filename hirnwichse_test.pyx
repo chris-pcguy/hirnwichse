@@ -5,8 +5,14 @@
 cdef class HirnwichseTest:
     def __init__(self):
         pass
+    cdef func1(self):
+        cdef bytes a = b"\xef\xbe\xad\xde"
+        cdef unsigned int *b = <unsigned int*>a
+        print("test3=={0:#010x}".format(b[0]))
     cpdef run(self):
-        print("test")
+        print("test1")
+        self.func1()
+        print("test2")
 
 
 

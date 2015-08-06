@@ -22,6 +22,8 @@ cdef class Opcodes:
     cdef void clc(self)
     cdef void stc(self)
     cdef void cmc(self)
+    cdef void clac(self)
+    cdef void stac(self)
     cdef int checkIOPL(self, unsigned short ioPortAddr, unsigned char dataSize) except BITMASK_BYTE
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except? BITMASK_BYTE
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except BITMASK_BYTE

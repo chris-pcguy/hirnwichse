@@ -228,7 +228,7 @@ cdef class GDBStubHandler:
                 if (mmArea.valid):
                     currData = (<Mm>self.gdbStub.main.mm).mmPhyRead(memAddr, blockSize)
                 else:
-                    currData = b'\x00'*blockSize
+                    currData = bytes(blockSize)
                 hexToSend = self.bytesToHex(currData)
                 self.putPacket(hexToSend)
                 memLength -= blockSize

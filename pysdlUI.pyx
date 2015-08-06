@@ -27,8 +27,8 @@ cdef class PysdlUI:
         self.replicate8Bit = self.mode9Bit = self.msbBlink = True
         self.screenSize = 720, 480
         self.charSize = (9, 16)
-        self.fontDataA = b'\x00'*VGA_FONTAREA_SIZE
-        self.fontDataB = b'\x00'*VGA_FONTAREA_SIZE
+        self.fontDataA = bytes(VGA_FONTAREA_SIZE)
+        self.fontDataB = bytes(VGA_FONTAREA_SIZE)
     cpdef initPysdl(self):
         cdef unsigned short event
         sdl2.SDL_Init(sdl2.SDL_INIT_TIMER | sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
@@ -355,7 +355,7 @@ cdef class PysdlUI:
             self.updateScreen()
         elif (event.type == sdl2.SDL_KEYDOWN):
             if (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_MINUS):
-                #self.vga.main.debugEnabled = not self.vga.main.debugEnabled
+                self.vga.main.debugEnabled = not self.vga.main.debugEnabled
                 self.vga.main.debugEnabledTest = not self.vga.main.debugEnabledTest
                 return
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_PLUS):

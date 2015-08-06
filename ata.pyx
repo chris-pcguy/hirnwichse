@@ -187,7 +187,7 @@ cdef class AtaDrive:
         self.fp.seek(offset)
         data = self.fp.read(size)
         if (len(data) < size): # floppy image is too short.
-            data += b'\x00'*(size-len(data))
+            data += bytes(size-len(data))
         self.fp.seek(oldPos)
         return data
     cdef bytes readSectors(self, unsigned long int sector, unsigned int count): # count in sectors
@@ -198,7 +198,7 @@ cdef class AtaDrive:
             self.ataController.ata.main.notice("AtaDrive::writeBytes: tried to write to optical drive!")
             return
         if (len(data) < size): # data is too short.
-            data += b'\x00'*(size-len(data))
+            data += bytes(size-len(data))
         oldPos = self.fp.tell()
         self.fp.seek(offset)
         retData = self.fp.write(data)
@@ -272,7 +272,7 @@ cdef class AtaController:
     cdef void raiseAtaIrq(self, unsigned char withDRQ, unsigned char doIRQ):
         if (self.irq and self.irqEnabled and doIRQ):
             if (self.ata.main.debugEnabled):
-                self.ata.main.debug("AtaController::raiseAtaIrq: raiseIrq")
+                self.ata.main.notice("AtaController::raiseAtaIrq: raiseIrq")
             (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
         if (withDRQ):
             self.drq = True
@@ -290,7 +290,7 @@ cdef class AtaController:
         self.errorCommand(0x04)
         if (self.irq):
             if (self.ata.main.debugEnabled):
-                self.ata.main.debug("AtaController::abortCommand: raiseIrq")
+                self.ata.main.notice("AtaController::abortCommand: raiseIrq")
             (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
     cdef void errorCommand(self, unsigned char errorRegister):
         cdef AtaDrive drive
@@ -305,7 +305,7 @@ cdef class AtaController:
             drive.senseAsc = 0x24
             if (self.irq):
                 if (self.ata.main.debugEnabled):
-                    self.ata.main.debug("AtaController::errorCommand_1: raiseIrq")
+                    self.ata.main.notice("AtaController::errorCommand_1: raiseIrq")
                 (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
         elif (errorRegister == 0x20):
             self.sectorCount = self.sectorCountByte = 3
@@ -313,7 +313,7 @@ cdef class AtaController:
             drive.senseAsc = 0x3a
             if (self.irq):
                 if (self.ata.main.debugEnabled):
-                    self.ata.main.debug("AtaController::errorCommand_1: raiseIrq")
+                    self.ata.main.notice("AtaController::errorCommand_1: raiseIrq")
                 (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
         self.driveReady = self.err = True
         self.errorRegister = errorRegister
@@ -338,7 +338,7 @@ cdef class AtaController:
         if (cmd == PACKET_COMMAND_TEST_UNIT_READY):
             if (drive.isLoaded):
                 self.nopCommand()
-                #self.result = b'\x00'*8
+                #self.result = bytes(8)
             else:
                 self.errorCommand(0x20)
         elif (cmd == PACKET_COMMAND_REQUEST_SENSE):
@@ -346,14 +346,14 @@ cdef class AtaController:
             self.result = b'\xf0'
             self.result += (0).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
             self.result += (drive.senseKey).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
-            self.result += b'\x00'*4
+            self.result += bytes(4)
             self.result += (0xa).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
-            self.result += b'\x00'*4
+            self.result += bytes(4)
             if (not drive.isLoaded):
                 self.result += b'\x3a\x00\x04\x01\x00\x00'
             else:
                 self.result += (drive.senseAsc).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
-                self.result += b'\x00'*5
+                self.result += bytes(5)
         elif (cmd == PACKET_COMMAND_INQUIRY):
             dataSize = self.data[4]
             if (dataSize < 36):
@@ -362,10 +362,10 @@ cdef class AtaController:
             if (drive.driveType == ATA_DRIVE_TYPE_CDROM):
                 self.result = drive.readValue(0).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
             else:
-                self.result = b'\x00'*2
+                self.result = bytes(2)
             self.result += b'\x00\x21'
             self.result += bytes([dataSize-5])
-            self.result += b'\x00'*(dataSize-5)
+            self.result += bytes(dataSize-5)
         elif (cmd == PACKET_COMMAND_START_STOP_UNIT):
             pass
         elif (cmd == PACKET_COMMAND_READ_CAPACITY):
@@ -392,7 +392,7 @@ cdef class AtaController:
                 if (subQ):
                     self.ata.main.exitError("AtaController::handlePacket: subQ=={0:d}", subQ)
                     return
-                self.result = b'\x00'*4
+                self.result = bytes(4)
                 self.result = self.result[0:min(len(self.result),allocLength)]
             else:
                 self.errorCommand(0x20)
@@ -435,7 +435,7 @@ cdef class AtaController:
                     self.result += (0x12).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
                 else:
                     self.result += (0x70).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
-                self.result += b'\x00'*7
+                self.result += bytes(7)
                 self.result += (0x2a120300).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
                 self.result += (0x71602b00).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
                 self.result += (0x0b000002).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
@@ -580,7 +580,7 @@ cdef class AtaController:
                     self.raiseAtaIrq(False, True)
             elif (self.cmd == COMMAND_PACKET):
                 if (self.ata.main.debugEnabled):
-                    self.ata.main.debug("AtaController::outPort_0: len(self.data) == {0:d}, self.data == {1:s}", len(self.data), repr(self.data))
+                    self.ata.main.notice("AtaController::outPort_0: len(self.data) == {0:d}, self.data == {1:s}", len(self.data), repr(self.data))
                 if (len(self.data) >= 12):
                     self.handlePacket()
                 else:
@@ -644,13 +644,13 @@ cdef class AtaController:
                 self.head = data & 0xf
                 self.sectorCountFlipFlop = self.sectorHighFlipFlop = self.sectorMiddleFlipFlop = self.sectorLowFlipFlop = False
                 self.cmd = 0
-                if (self.useLBA48):
+                if (self.useLBA and self.useLBA48):
                     self.ata.main.exitError("AtaController::outPort: TODO: lba48 isn't fully supported yet!")
                     return
             elif (ioPortAddr == 0x7): # command port
                 if (self.driveId and not drive.isLoaded):
                     if (self.ata.main.debugEnabled):
-                        self.ata.main.debug("AtaController::outPort: selected slave, but it's not present; return")
+                        self.ata.main.notice("AtaController::outPort: selected slave, but it's not present; return")
                     return
                 if (self.irq):
                     (<Pic>self.ata.main.platform.pic).lowerIrq(self.irq)
@@ -660,7 +660,7 @@ cdef class AtaController:
                     self.sectorCount = self.sectorCountByte
                     self.lba = drive.ChsToSector(self.cylinder, self.head, self.sector)
                     if (self.ata.main.debugEnabled):
-                        self.ata.main.debug("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}, sectorCount=={4:d}", self.lba, self.cylinder, self.head, self.sector, self.sectorCount)
+                        self.ata.main.notice("AtaController::outPort: test3: lba=={0:d}, cylinder=={1:d}, head=={2:d}, sector=={3:d}, sectorCount=={4:d}", self.lba, self.cylinder, self.head, self.sector, self.sectorCount)
                 if (not self.sectorCount):
                     if (self.useLBA and self.useLBA48):
                         self.sectorCount = BITMASK_WORD+1
@@ -738,7 +738,7 @@ cdef class AtaController:
                 self.doReset = ((data & CONTROL_REG_SRST) == CONTROL_REG_SRST)
                 self.HOB = ((data & CONTROL_REG_HOB) == CONTROL_REG_HOB)
                 if (self.ata.main.debugEnabled):
-                    self.ata.main.debug("AtaController::outPort: test2: prevReset=={0:d}; doReset=={1:d}; resetInProgress=={2:d}; irqEnabled=={3:d}; HOB=={4:d}", prevReset, self.doReset, self.resetInProgress, self.irqEnabled, self.HOB)
+                    self.ata.main.notice("AtaController::outPort: test2: prevReset=={0:d}; doReset=={1:d}; resetInProgress=={2:d}; irqEnabled=={3:d}; HOB=={4:d}", prevReset, self.doReset, self.resetInProgress, self.irqEnabled, self.HOB)
                 if (not prevReset and self.doReset):
                     self.reset(True)
                 elif (self.resetInProgress and not self.doReset):

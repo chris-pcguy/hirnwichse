@@ -376,10 +376,10 @@ cdef class Vga:
         self.main.notice("VGA::vgaAreaRead: offset=={0:#07x}; dataSize=={1:d}", offset, dataSize)
         if (not self.ui):
             self.main.notice("vgaAreaRead: not self.ui")
-            return b'\x00'*dataSize
+            return bytes(dataSize)
         if (not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
             self.main.notice("vgaAreaRead: not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)")
-            return b'\x00'*dataSize
+            return bytes(dataSize)
         if ((self.alphaDis or self.graphicalMode or (self.writeMap == 0x4)) and offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize)):
             retStr = b''
             for i in range(dataSize):
@@ -418,7 +418,7 @@ cdef class Vga:
                 retStr += bytes([<unsigned char>(~(<unsigned char>(latchReg>>24) | <unsigned char>(latchReg>>16) | <unsigned char>(latchReg>>8) | <unsigned char>latchReg))])
                 if (len(retStr) != dataSize):
                     self.main.exitError("vgaAreaRead: len(retStr)=={0:d} != dataSize=={1:d}", len(retStr), dataSize)
-                    return b'\x00'*dataSize
+                    return bytes(dataSize)
             return retStr
         self.main.notice("VGA::vgaAreaRead: test1: offset=={0:#07x}; dataSize=={1:d}", offset, dataSize)
         #return self.main.mm.mmAreaRead(self.mmArea, offset, dataSize)
