@@ -76,8 +76,8 @@ cdef class Opcodes:
     cdef int stackPopSegment(self, Segment segment) except BITMASK_BYTE
     cdef int stackPopRegId(self, unsigned short regId, unsigned char regSize) except BITMASK_BYTE
     cdef unsigned int stackPopValue(self, unsigned char increaseStackAddr)
-    cdef int stackPushValue(self, unsigned int value, unsigned char operSize, unsigned char segmentSource) except BITMASK_BYTE
-    cdef int stackPushSegment(self, Segment segment, unsigned char operSize) except BITMASK_BYTE
+    cdef int stackPushValue(self, unsigned int value, unsigned char operSize, unsigned char onlyWord) except BITMASK_BYTE
+    cdef int stackPushSegment(self, Segment segment, unsigned char operSize, unsigned char onlyWord) except BITMASK_BYTE
     cdef int stackPushRegId(self, unsigned short regId, unsigned char operSize) except BITMASK_BYTE
     cdef int pushIMM(self, unsigned char immIsByte) except BITMASK_BYTE
     cdef int imulR_RM_ImmFunc(self, unsigned char immIsByte) except BITMASK_BYTE

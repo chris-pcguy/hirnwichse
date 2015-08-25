@@ -54,7 +54,7 @@ cdef class Mm:
             memset(<char*>(mmArea.data+offset), clearByte, dataSize)
     cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
         cdef unsigned int tempSize
-        cdef bytes ret = b''
+        cdef bytes ret = bytes()
         if (dataSize > 0 and offset < VGA_MEMAREA_ADDR):
             tempSize = min(dataSize, VGA_MEMAREA_ADDR-offset)
             ret += mmArea.data[offset:offset+tempSize]
@@ -112,7 +112,15 @@ cdef class Mm:
             dataSize -= tempSize
         return data
     cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE:
-        return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=True)
+        cdef signed long int ret
+        ret = self.mmPhyReadValueUnsigned(mmAddr, dataSize)
+        if (dataSize == OP_SIZE_BYTE):
+            ret = <signed char>ret
+        elif (dataSize == OP_SIZE_WORD):
+            ret = <signed short>ret
+        elif (dataSize == OP_SIZE_DWORD):
+            ret = <signed int>ret
+        return ret
     cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) except? BITMASK_BYTE:
         cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         if (not mmArea.valid):
@@ -125,15 +133,18 @@ cdef class Mm:
     cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) except? BITMASK_BYTE:
         cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
         cdef unsigned char dataSize = OP_SIZE_WORD
+        cdef unsigned short ret = BITMASK_WORD
         cdef unsigned int tempAddr
         if (not mmArea.valid):
             self.main.notice("Mm::mmPhyReadValueUnsignedWord: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
             self.main.notice("Mm::mmPhyReadValueUnsignedWord: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             self.main.cpu.cpuDump()
-            return BITMASK_WORD
+            return ret
         tempAddr = (mmAddr&SIZE_1MB_MASK)
         if (tempAddr+dataSize > SIZE_1MB):
-            return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
+            ret = self.mmPhyReadValueUnsignedByte(mmAddr)
+            ret |= self.mmPhyReadValueUnsignedByte(mmAddr+1)<<8
+            return ret
         return (<unsigned short*>self.mmGetDataPointer(mmArea, tempAddr))[0]
     cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) except? BITMASK_BYTE:
         cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
@@ -223,21 +234,29 @@ cdef class ConfigSpace:
         with nogil:
             memcpy(<char*>(self.csData+offset), <char*>data, size)
     cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE:
+        cdef unsigned long int ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
-        return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=False)
-    cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE: # Big Endian
-        #if (self.main.debugEnabled):
-        #    self.main.debug("ConfigSpace::csReadValueUnsignedBE: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
-        return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=False)
+        ret = (<unsigned long int*>self.csGetDataPointer(offset))[0]
+        if (size == OP_SIZE_BYTE):
+            ret = <unsigned char>ret
+        elif (size == OP_SIZE_WORD):
+            ret = <unsigned short>ret
+        elif (size == OP_SIZE_DWORD):
+            ret = <unsigned int>ret
+        return ret
     cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE:
+        cdef signed long int ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueSigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
-        return int.from_bytes(self.csRead(offset, size), byteorder="little", signed=True)
-    cdef signed long int csReadValueSignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE: # Big Endian
-        #if (self.main.debugEnabled):
-        #    self.main.debug("ConfigSpace::csReadValueSignedBE: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
-        return int.from_bytes(self.csRead(offset, size), byteorder="big", signed=True)
+        ret = (<signed long int*>self.csGetDataPointer(offset))[0]
+        if (size == OP_SIZE_BYTE):
+            ret = <signed char>ret
+        elif (size == OP_SIZE_WORD):
+            ret = <signed short>ret
+        elif (size == OP_SIZE_DWORD):
+            ret = <signed int>ret
+        return ret
     cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE:
         if (size == OP_SIZE_BYTE):
             data = <unsigned char>data
@@ -248,17 +267,6 @@ cdef class ConfigSpace:
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csWriteValue: test1. (offset: {0:#06x}, data: {1:#04x}, size: {2:d})", offset, data, size)
         self.csWrite(offset, data.to_bytes(length=size, byteorder="little", signed=False), size)
-        return data
-    cdef unsigned long int csWriteValueBE(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE: # Big Endian
-        if (size == OP_SIZE_BYTE):
-            data = <unsigned char>data
-        elif (size == OP_SIZE_WORD):
-            data = <unsigned short>data
-        elif (size == OP_SIZE_DWORD):
-            data = <unsigned int>data
-        #if (self.main.debugEnabled):
-        #    self.main.debug("ConfigSpace::csWriteValueBE: test1. (offset: {0:#06x}, data: {1:#04x}, size: {2:d})", offset, data, size)
-        self.csWrite(offset, data.to_bytes(length=size, byteorder="big", signed=False), size)
         return data
 
 

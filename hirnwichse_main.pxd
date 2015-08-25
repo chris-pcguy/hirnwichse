@@ -15,7 +15,7 @@ cdef class Hirnwichse:
                               debugHalt, bootFrom, debugEnabledTest
     cdef public unsigned int memSize
     cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename, \
-                      cdromFilename
+                      cdrom1Filename, cdrom2Filename
     cpdef parseArgs(self)
     cpdef quitFunc(self)
     cpdef reset(self, unsigned char resetHardware)

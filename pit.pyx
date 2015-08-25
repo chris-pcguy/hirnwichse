@@ -51,7 +51,7 @@ cdef class PitChannel:
             elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
                 (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
             elif (self.channelId == 3):
-                clear = (<Pic>self.pit.main.platform.pic).isClear(CMOS_RTC_IRQ)
+                clear = (<Pic>self.pit.main.platform.pic).isClear(CMOS_RTC_IRQ) and (<Pic>self.pit.main.platform.pic).isClear(IRQ_SECOND_PIC)
                 if (clear):
                     (<Pic>self.pit.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
             if (self.channelId != 3):

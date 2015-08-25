@@ -19,6 +19,7 @@ cdef class FloppyDrive:
     cdef FloppyMedia media
     cdef bytes filename
     cdef unsigned char driveId, isLoaded, isWriteProtected, DIR, cylinder, head, sector, eot
+    cdef void reset(self)
     cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector)
     cdef unsigned char getDiskType(self, unsigned int size)
     cdef void loadDrive(self, bytes filename)

@@ -389,12 +389,12 @@ cdef class Registers:
         cdef Segment segment
         cdef unsigned char protectedModeOn, segType
         protectedModeOn = (self.protectedModeOn and not self.vm)
-        segment = self.segments.getSegment(segId, False)
-        if (protectedModeOn):
+        if (protectedModeOn and segValue > 3):
             segType = self.segments.getSegType(segValue)
             if (segType & GDT_ACCESS_NORMAL_SEGMENT and not (segType & GDT_ACCESS_ACCESSED)):
                 segType |= GDT_ACCESS_ACCESSED
                 self.segments.setSegType(segValue, segType)
+        segment = self.segments.getSegment(segId, False)
         segment.loadSegment(segValue, False)
         if (protectedModeOn):
             if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):
@@ -415,12 +415,12 @@ cdef class Registers:
         cdef unsigned short segId
         cdef unsigned char protectedModeOn, segType
         protectedModeOn = (self.protectedModeOn and not self.vm)
-        segId = segment.segId
-        if (protectedModeOn):
+        if (protectedModeOn and segValue > 3):
             segType = self.segments.getSegType(segValue)
             if (segType & GDT_ACCESS_NORMAL_SEGMENT and not (segType & GDT_ACCESS_ACCESSED)):
                 segType |= GDT_ACCESS_ACCESSED
                 self.segments.setSegType(segValue, segType)
+        segId = segment.segId
         segment.loadSegment(segValue, False)
         if (protectedModeOn):
             if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):

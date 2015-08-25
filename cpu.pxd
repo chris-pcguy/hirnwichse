@@ -25,13 +25,13 @@ cdef class Cpu:
     cdef inline void saveCurrentInstPointer(self)
     cdef void setINTR(self, unsigned char state)
     cdef void setHRQ(self, unsigned char state)
-    cpdef handleAsyncEvent(self)
-    cpdef exception(self, unsigned char exceptionId, signed int errorCode=?)
-    cpdef handleException(self, object exception)
+    cdef handleAsyncEvent(self)
+    cdef exception(self, unsigned char exceptionId, signed int errorCode=?)
+    cdef handleException(self, object exception)
     cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE
-    cpdef cpuDump(self)
-    cpdef doInfiniteCycles(self)
-    cpdef doCycle(self)
+    cdef cpuDump(self)
+    cdef doInfiniteCycles(self)
+    cdef doCycle(self)
     cpdef run(self, unsigned char infiniteCycles = ?)
 
 

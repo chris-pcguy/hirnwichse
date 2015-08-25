@@ -532,7 +532,7 @@ cdef class Opcodes:
         cdef Segment segment
         self.registers.syncCR0State()
         if (method == OPCODE_CALL):
-            self.stackPushSegment((<Segment>self.registers.segments.cs), self.registers.operSize)
+            self.stackPushSegment((<Segment>self.registers.segments.cs), self.registers.operSize, False)
             self.stackPushRegId(CPU_REGISTER_EIP, self.registers.operSize)
         if (self.registers.protectedModeOn and not self.registers.vm):
             gdtEntry = <GdtEntry>self.registers.segments.getEntry(segVal)
@@ -746,7 +746,10 @@ cdef class Opcodes:
         return True
     cdef int movRM16_SREG(self) except BITMASK_BYTE:
         self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_SREG)
-        self.modRMInstance.modRMSave(self.registers.operSize, self.registers.segRead(self.modRMInstance.regName), OPCODE_SAVE)
+        if (self.modRMInstance.mod == 3):
+            self.modRMInstance.modRMSave(self.registers.operSize, self.registers.segRead(self.modRMInstance.regName), OPCODE_SAVE)
+        else:
+            self.modRMInstance.modRMSave(OP_SIZE_WORD, self.registers.segRead(self.modRMInstance.regName), OPCODE_SAVE)
         return True
     cdef int movSREG_RM16(self) except BITMASK_BYTE:
         self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_SREG)
@@ -1331,7 +1334,7 @@ cdef class Opcodes:
         if (increaseStackAddr):
             self.registers.regAdd(CPU_REGISTER_SP, self.registers.operSize, stackAddrSize)
         return data
-    cdef int stackPushValue(self, unsigned int value, unsigned char operSize, unsigned char segmentSource) except BITMASK_BYTE:
+    cdef int stackPushValue(self, unsigned int value, unsigned char operSize, unsigned char onlyWord) except BITMASK_BYTE:
         cdef unsigned char stackAddrSize
         cdef unsigned int stackAddr
         stackAddrSize = (<Segment>self.registers.segments.ss).segSize
@@ -1344,12 +1347,13 @@ cdef class Opcodes:
         if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
              self.registers.segments.paging.getPhysicalAddress((<Segment>self.registers.segments.ss).base+stackAddr, operSize, True)
         self.registers.regWrite(CPU_REGISTER_SP, stackAddr, stackAddrSize)
-        if (operSize == OP_SIZE_WORD or segmentSource):
+        if (operSize == OP_SIZE_WORD or onlyWord):
             value = <unsigned short>value
+            operSize = OP_SIZE_WORD
         self.registers.mmWriteValue(stackAddr, value, operSize, (<Segment>self.registers.segments.ss), False)
         return True
-    cdef int stackPushSegment(self, Segment segment, unsigned char operSize) except BITMASK_BYTE:
-        return self.stackPushValue(self.registers.segRead(segment.segId), operSize, True)
+    cdef int stackPushSegment(self, Segment segment, unsigned char operSize, unsigned char onlyWord) except BITMASK_BYTE:
+        return self.stackPushValue(self.registers.segRead(segment.segId), operSize, onlyWord)
     cdef int stackPushRegId(self, unsigned short regId, unsigned char operSize) except BITMASK_BYTE:
         cdef unsigned int value
         value = self.registers.regReadUnsigned(regId, operSize)
@@ -1878,10 +1882,10 @@ cdef class Opcodes:
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x10000)
                 #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8112)
                 #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8102) # TODO: HACK for freq calibrating functions. don't declare tsc support.
-                #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8100) # TODO: HACK for freq calibrating functions. don't declare tsc support.; don't declare vme because cr4 is TODO
-                #self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00020)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
+                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8100) # TODO: HACK for freq calibrating functions. don't declare tsc support.; don't declare vme because cr4 is TODO
+                self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00020)
+                #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
+                #self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
             else:
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test3: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.main.cpu.savedEip, self.main.cpu.savedCs, eaxId)
                 #if (not (eaxId == 0x0 or eaxIsInvalid)):
@@ -2246,7 +2250,7 @@ cdef class Opcodes:
         else:
             self.main.exitError("pushSeg: unknown push-opcode: {0:#04x}", opcode)
             return False
-        return self.stackPushSegment(segment, self.registers.operSize)
+        return self.stackPushSegment(segment, self.registers.operSize, True)
     cdef int popSeg(self, unsigned char opcode) except BITMASK_BYTE:
         cdef Segment segment
         if (opcode == POP_DS):
@@ -2580,7 +2584,8 @@ cdef class Opcodes:
             if ((not gdtEntryCS.segIsConforming) and (gdtEntryCS.segDPL < cpl)):
                 # TODO: What to do if VM flag is true?
                 # inter-privilege-level-interrupt
-                #self.main.debug("Opcodes::interrupt: inter/inner")
+                if (self.main.debugEnabled):
+                    self.main.notice("Opcodes::interrupt: inter/inner")
                 if (oldVM):
                     self.main.notice("Opcodes::interrupt: Go Interrupt {0:#04x}; isSoftInt=={1:d}", intNum, isSoftInt)
                     self.main.notice("Opcodes::interrupt: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
@@ -2652,15 +2657,16 @@ cdef class Opcodes:
                 else:
                     self.registers.regWriteWord(CPU_REGISTER_SP, <unsigned short>newESP)
                 if (oldVM):
-                    self.stackPushSegment((<Segment>self.registers.segments.gs), entrySize)
-                    self.stackPushSegment((<Segment>self.registers.segments.fs), entrySize)
-                    self.stackPushSegment((<Segment>self.registers.segments.ds), entrySize)
-                    self.stackPushSegment((<Segment>self.registers.segments.es), entrySize)
-                self.stackPushValue(oldSS, entrySize, True)
+                    self.stackPushSegment((<Segment>self.registers.segments.gs), entrySize, False)
+                    self.stackPushSegment((<Segment>self.registers.segments.fs), entrySize, False)
+                    self.stackPushSegment((<Segment>self.registers.segments.ds), entrySize, False)
+                    self.stackPushSegment((<Segment>self.registers.segments.es), entrySize, False)
+                self.stackPushValue(oldSS, entrySize, False)
                 self.stackPushValue(oldESP, entrySize, False)
             else:
                 # intra-privilege-level-interrupt
-                #self.main.debug("Opcodes::interrupt: intra")
+                if (self.main.debugEnabled):
+                    self.main.notice("Opcodes::interrupt: intra")
                 if (oldVM):
                     self.main.notice("Opcodes::interrupt: VM86-Mode isn't supported yet. (exception from intra-privilege-level-interrupt)")
                     raise HirnwichseException(CPU_EXCEPTION_GP, (<Misc>self.main.misc).calculateInterruptErrorcode(entrySegment, 0, not isSoftInt))
@@ -2691,7 +2697,7 @@ cdef class Opcodes:
                 eflagsClearThis |= FLAG_VM | FLAG_NT
         self.registers.clearEFLAG(eflagsClearThis)
         self.stackPushValue(oldEFLAGS, entrySize, False)
-        self.stackPushSegment((<Segment>self.registers.segments.cs), entrySize)
+        self.stackPushSegment((<Segment>self.registers.segments.cs), entrySize, False)
         self.stackPushRegId(CPU_REGISTER_EIP, entrySize)
         if (self.registers.protectedModeOn and not isSoftInt and errorCode != -1):
             self.stackPushValue(errorCode, entrySize, False)

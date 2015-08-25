@@ -55,18 +55,12 @@ cdef class ConfigSpace:
     cdef unsigned char clearByte
     cdef unsigned int csSize
     cdef void csResetData(self, unsigned char clearByte = ?)
+    cdef inline char *csGetDataPointer(self, unsigned int offset):
+        return <char*>(self.csData+offset)
     cdef bytes csRead(self, unsigned int offset, unsigned int size)
     cdef void csWrite(self, unsigned int offset, char *data, unsigned int size)
     cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
-    cdef unsigned long int csReadValueUnsignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
     cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
-    cdef signed long int csReadValueSignedBE(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
     cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE
-    cdef unsigned long int csWriteValueBE(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE
-
-
-
-
-
 
 

@@ -105,6 +105,9 @@ cdef class FloppyDrive:
         self.controller = controller
         self.driveId = driveId
         self.media = FloppyMedia(self)
+        self.reset()
+    cdef void reset(self):
+        self.media.setDataForMedia(FLOPPY_DISK_TYPE_NONE)
         self.filename = b''
         self.fp = None
         self.isLoaded = False
@@ -140,12 +143,14 @@ cdef class FloppyDrive:
         cdef unsigned char cmosDiskType, driveType
         if (not filename or not access(filename, F_OK | R_OK)):
             self.controller.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s})", self.driveId, filename.decode())
+            self.reset()
             return
         self.filename = filename
         driveType = self.getDiskType(getsize(self.filename))
         self.media.setDataForMedia(driveType)
         if (driveType == FLOPPY_DISK_TYPE_NONE):
             self.controller.main.notice("FloppyDrive::loadDrive: driveType is DISK_TYPE_NONE")
+            self.reset()
             return
         elif (access(filename, F_OK | R_OK | W_OK)):
             self.fp = open(filename, "r+b")
@@ -157,6 +162,7 @@ cdef class FloppyDrive:
             self.isWriteProtected = True
         else:
             self.controller.main.notice("FD{0:d}: loadDrive: file isn't found/accessable. (filename: {1:s}, access-cmd)", self.driveId, filename)
+            self.reset()
             return
         self.DIR |= 0x80
         if (self.driveId in (0, 1)):
@@ -180,7 +186,7 @@ cdef class FloppyDrive:
         return data
     cdef bytes readSectors(self, unsigned int sector, unsigned int count): # count in sectors
         if (sector == 0): # HACK
-            if (not samefile(self.fp.fileno(), self.filename)):
+            if (not self.filename or not access(self.filename, F_OK | R_OK) or not samefile(self.fp.fileno(), self.filename)):
                 self.loadDrive(self.filename)
         return self.readBytes(sector<<9, count<<9)
     cdef void writeBytes(self, unsigned int offset, unsigned int size, bytes data):

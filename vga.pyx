@@ -287,11 +287,14 @@ cdef class Vga:
     cdef void setStartAddress(self):
         cdef unsigned int temp
         temp = self.startAddress
-        self.startAddress = self.crt.configSpace.csReadValueUnsignedBE(0xc, OP_SIZE_WORD)
+        self.startAddress = self.crt.configSpace.csReadValueUnsigned(0xc, OP_SIZE_BYTE)<<8
+        self.startAddress |= self.crt.configSpace.csReadValueUnsigned(0xd, OP_SIZE_BYTE)
+        self.main.notice("setStartAddress: startAddress=={0:#06x}", self.startAddress)
         if (not self.graphicalMode):
             self.startAddress <<= 1
         if (temp != self.startAddress):
-            self.refreshScreenFunction()
+            #self.refreshScreenFunction()
+            self.refreshScreen = True
     cdef unsigned int getColor(self, unsigned char color): # RGBA
         cdef unsigned char red, green, blue
         if (not self.enable8Bit):
@@ -436,12 +439,13 @@ cdef class Vga:
         self.main.notice("VGA::vgaAreaWrite: writeMap=={0:x}; videoMemBase=={1:#07x}; videoMemSize=={2:d}", self.writeMap, self.videoMemBase, self.videoMemSize)
         #if (offset == 0xb94ee and dataSize == 2):
         #    self.main.debugEnabled = True
-        if (not (offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize))):
-            return
-        if (self.refreshScreen): # TODO: FIXME: HACK
+        if (self.refreshScreen and self.writeMap): # TODO: FIXME: HACK
             #if (dataSize != self.videoMemSize and dataSize != 32768):
             self.refreshScreenFunction()
-        if ((self.alphaDis or self.graphicalMode or (self.writeMap == 0x4)) and self.writeMap):
+        if (not (offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize))):
+            return
+        #if ((self.alphaDis or self.graphicalMode or (self.writeMap == 0x4)) and self.writeMap):
+        if (self.writeMap):
             for i in range(dataSize):
                 selectedPlanes = self.writeMap
                 tempOffset = (offset+i-self.videoMemBase)
@@ -551,15 +555,16 @@ cdef class Vga:
                 x >>= 1
                 if (y >= rows):
                     break
-                if (self.alphaDis):
+                #if (self.alphaDis):
                 #IF 0:
+                IF 1:
                     #rectList.append(self.ui.putChar(x, y, <unsigned char>(self.plane0.csData[tempOffset]), <unsigned char>(self.plane1.csData[tempOffset])))
                     if (self.main.debugEnabled):
                         self.main.debug("VGA::vgaAreaWrite: x=={0:d}; y=={1:d}; ch=={2:#04x};{2:c}; cl=={3:#04x}: tempOffset=={4:#06x}; self.offset=={5:d}; offset=={6:#07x}; vMB=={7:#07x}; sA=={8:#07x}", x, y, <unsigned char>(self.plane0.csData[tempOffset]), <unsigned char>(self.plane1.csData[tempOffset]), tempOffset, self.offset, offset, self.videoMemBase, self.startAddress)
                     self.ui.putChar(x, y, <unsigned char>(self.plane0.csData[tempOffset]), <unsigned char>(self.plane1.csData[tempOffset]))
                     tempOffset += 2
-                else:
-                #ELSE:
+                #else:
+                ELSE:
                     #rectList.append(self.ui.putChar(x, y, <unsigned char>(self.mmArea.data[offset]), <unsigned char>(self.mmArea.data[offset+1])))
                     if (self.main.debugEnabled):
                         self.main.debug("VGA::vgaAreaWrite: x=={0:d}; y=={1:d}; ch=={2:#04x};{2:c}; cl=={3:#04x}: tempOffset=={4:#06x}; self.offset=={5:d}; offset=={6:#07x}; vMB=={7:#07x}; sA=={8:#07x}", x, y, <unsigned char>(self.mmArea.data[offset]), <unsigned char>(self.mmArea.data[offset+1]), tempOffset, self.offset, offset, self.videoMemBase, self.startAddress)

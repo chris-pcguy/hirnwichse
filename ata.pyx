@@ -754,7 +754,8 @@ cdef class AtaController:
             if (self.ata.main.hdaFilename): (<AtaDrive>self.drive[0]).loadDrive(self.ata.main.hdaFilename)
             if (self.ata.main.hdbFilename): (<AtaDrive>self.drive[1]).loadDrive(self.ata.main.hdbFilename)
         elif (self.controllerId == 1):
-            if (self.ata.main.cdromFilename): (<AtaDrive>self.drive[0]).loadDrive(self.ata.main.cdromFilename)
+            if (self.ata.main.cdrom1Filename): (<AtaDrive>self.drive[0]).loadDrive(self.ata.main.cdrom1Filename)
+            if (self.ata.main.cdrom2Filename): (<AtaDrive>self.drive[1]).loadDrive(self.ata.main.cdrom2Filename)
 
 
 cdef class Ata:
