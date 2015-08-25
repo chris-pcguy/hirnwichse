@@ -11,107 +11,77 @@ cdef class Mm:
     def __init__(self, Hirnwichse main):
         cdef unsigned short i
         self.main = main
-        for i in range(MM_NUMAREAS):
-            self.mmAreas[i].valid = False
-            self.mmAreas[i].readOnly = True
-            self.mmAreas[i].mmIndex = i
-            self.mmAreas[i].data = NULL
-            if (not i):
-                self.mmAreas[i].readHandler = <MmAreaReadType>self.mmAreaReadSystem
-                self.mmAreas[i].writeHandler = <MmAreaWriteType>self.mmAreaWriteSystem
-            else:
-                self.mmAreas[i].readHandler = <MmAreaReadType>self.mmAreaRead
-                self.mmAreas[i].writeHandler = <MmAreaWriteType>self.mmAreaWrite
-    cdef void mmAddArea(self, unsigned short mmIndex, unsigned char readOnly):
-        cdef MmArea mmArea
-        mmArea = self.mmAreas[mmIndex]
-        if (mmArea.data is NULL):
-            with nogil:
-                mmArea.data = <char*>malloc(SIZE_1MB)
-            if (mmArea.data is NULL):
-                self.main.exitError("Mm::mmAddArea: not mmArea.data.")
-                return
+        self.ignoreRomWrite = False
+        self.memSizeBytes = self.main.memSize*1024*1024
+        self.data = self.pciData = self.romData = NULL
         with nogil:
-            memset(mmArea.data, 0, SIZE_1MB)
-        mmArea.valid = True
-        mmArea.readOnly = readOnly
-        self.mmAreas[mmIndex] = mmArea
-    cdef void mmGetAreasCount(self, unsigned int mmAddr, unsigned int dataSize, unsigned short *begin, unsigned short *end):
-        begin[0] = mmAddr >> 20
-        end[0] = ((mmAddr+dataSize-1) >> 20) + 1
-    cdef void mmSetReadOnly(self, unsigned short mmIndex, unsigned char readOnly):
-        if (not self.mmAreas[mmIndex].valid):
-            self.main.exitError("Mm::mmSetReadOnly: mmArea is invalid!")
+            self.data = <char*>malloc(self.memSizeBytes)
+            self.pciData = <char*>malloc(SIZE_1MB)
+            self.romData = <char*>malloc(SIZE_1MB)
+        if (self.data is NULL or self.pciData is NULL or self.romData is NULL):
+            self.main.exitError("Mm::init: not self.data or not self.pciData or not self.romData.")
             return
-        self.mmAreas[mmIndex].readOnly = readOnly
-    cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
-        return mmArea.data[offset:offset+dataSize]
-    cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
         with nogil:
-            memcpy(<char*>(mmArea.data+offset), data, dataSize)
-    cdef void mmAreaClear(self, MmArea mmArea, unsigned int offset, unsigned char clearByte, unsigned int dataSize):
+            memset(self.data, 0, self.memSizeBytes)
+            memset(self.pciData, 0, SIZE_1MB)
+            memset(self.romData, 0, SIZE_1MB)
+    cdef void mmClear(self, unsigned long int offset, unsigned char clearByte, unsigned long int dataSize):
         with nogil:
-            memset(<char*>(mmArea.data+offset), clearByte, dataSize)
-    cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize):
-        cdef unsigned int tempSize
+            memset(<char*>(self.data+offset), clearByte, dataSize)
+    cdef bytes mmPhyRead(self, unsigned long int mmAddr, unsigned long int dataSize):
+        cdef unsigned long int tempOffset, tempSize
         cdef bytes ret = bytes()
-        if (dataSize > 0 and offset < VGA_MEMAREA_ADDR):
-            tempSize = min(dataSize, VGA_MEMAREA_ADDR-offset)
-            ret += mmArea.data[offset:offset+tempSize]
+        if (dataSize > 0 and mmAddr < VGA_MEMAREA_ADDR):
+            tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
+            ret += self.data[mmAddr:mmAddr+tempSize]
             if (dataSize <= tempSize):
                 return ret
             dataSize -= tempSize
-            offset += tempSize
-        if (dataSize > 0 and offset < VGA_ROM_BASE):
-            tempSize = min(dataSize, VGA_ROM_BASE-offset)
-            ret += self.main.platform.vga.vgaAreaRead(offset, tempSize)
-            if (dataSize <= tempSize):
-                return ret
-            dataSize -= tempSize
-            offset += tempSize
-        if (dataSize > 0 and offset >= VGA_ROM_BASE and offset < SIZE_1MB):
-            tempSize = min(dataSize, SIZE_1MB-offset)
-            ret += mmArea.data[offset:offset+tempSize]
-            if (dataSize <= tempSize):
-                return ret
-        return ret
-    cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize):
-        cdef unsigned int tempSize
-        if (dataSize > 0):
-            with nogil:
-                memcpy(<char*>(mmArea.data+offset), data, dataSize)
-        if (dataSize > 0 and offset < VGA_MEMAREA_ADDR):
-            tempSize = min(dataSize, VGA_MEMAREA_ADDR-offset)
-            if (dataSize <= tempSize):
-                return
-            dataSize -= tempSize
-            offset += tempSize
-        if (dataSize > 0 and offset < VGA_ROM_BASE):
-            tempSize = min(dataSize, VGA_ROM_BASE-offset)
-            self.main.platform.vga.vgaAreaWrite(offset, tempSize)
-    cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
-        cdef MmArea mmArea
-        cdef unsigned short i, start, end
-        cdef unsigned int tempAddr, tempSize
-        cdef bytes data = bytes()
-        self.mmGetAreasCount(mmAddr, dataSize, &start, &end)
-        for i in range(start, end):
-            mmArea = self.mmAreas[i]
-            tempSize = min(SIZE_1MB, dataSize)
-            tempAddr = (mmAddr&SIZE_1MB_MASK)
-            if (tempAddr+tempSize > SIZE_1MB):
-                tempSize = min(SIZE_1MB-tempAddr, tempSize)
-            if (mmArea.valid):
-                data += mmArea.readHandler(self, mmArea, tempAddr, tempSize)
-            else:
-                self.main.notice("Mm::mmPhyRead: not mmArea.valid! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, tempSize)
-                self.main.notice("Mm::mmPhyRead: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-                self.main.cpu.cpuDump()
-                data += b'\xff'*tempSize
             mmAddr += tempSize
+        if (dataSize > 0 and mmAddr >= VGA_MEMAREA_ADDR and mmAddr < VGA_ROM_BASE):
+            tempSize = min(dataSize, VGA_ROM_BASE-mmAddr)
+            ret += self.main.platform.vga.vgaAreaRead(mmAddr, tempSize)
+            if (dataSize <= tempSize):
+                return ret
             dataSize -= tempSize
-        return data
-    cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE:
+            mmAddr += tempSize
+        if (dataSize > 0 and mmAddr >= VGA_ROM_BASE and mmAddr < self.memSizeBytes):
+            tempSize = min(dataSize, self.memSizeBytes-mmAddr)
+            ret += self.data[mmAddr:mmAddr+tempSize]
+            if (dataSize <= tempSize):
+                return ret
+            dataSize -= tempSize
+            mmAddr += tempSize
+        if (dataSize > 0 and mmAddr >= self.memSizeBytes and mmAddr < PCI_MEM_BASE):
+            tempSize = min(dataSize, PCI_MEM_BASE-mmAddr)
+            self.main.notice("Mm::mmPhyRead: filling1; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
+            ret += b"\xff"*tempSize
+            if (dataSize <= tempSize):
+                return ret
+            dataSize -= tempSize
+            mmAddr += tempSize
+        if (dataSize > 0 and mmAddr >= PCI_MEM_BASE and mmAddr < PCI_MEM_BASE_PLUS_LIMIT):
+            tempOffset = mmAddr-PCI_MEM_BASE
+            tempSize = min(dataSize, PCI_MEM_BASE_PLUS_LIMIT-mmAddr)
+            ret += self.pciData[tempOffset:tempOffset+tempSize]
+            if (dataSize <= tempSize):
+                return ret
+            dataSize -= tempSize
+            mmAddr += tempSize
+        if (dataSize > 0 and mmAddr >= PCI_MEM_BASE_PLUS_LIMIT and mmAddr < LAST_MEMAREA_BASE_ADDR):
+            tempSize = min(dataSize, LAST_MEMAREA_BASE_ADDR-mmAddr)
+            self.main.notice("Mm::mmPhyRead: filling2; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
+            ret += b"\xff"*tempSize
+            if (dataSize <= tempSize):
+                return ret
+            dataSize -= tempSize
+            mmAddr += tempSize
+        if (dataSize > 0 and mmAddr >= LAST_MEMAREA_BASE_ADDR and mmAddr < SIZE_4GB):
+            tempOffset = mmAddr-LAST_MEMAREA_BASE_ADDR
+            tempSize = min(dataSize, SIZE_4GB-mmAddr)
+            ret += self.romData[tempOffset:tempOffset+tempSize]
+        return ret
+    cdef signed long int mmPhyReadValueSigned(self, unsigned long int mmAddr, unsigned char dataSize) except? BITMASK_BYTE:
         cdef signed long int ret
         ret = self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
@@ -121,81 +91,74 @@ cdef class Mm:
         elif (dataSize == OP_SIZE_DWORD):
             ret = <signed int>ret
         return ret
-    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) except? BITMASK_BYTE:
-        cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
-        if (not mmArea.valid):
-            self.main.notice("Mm::mmPhyReadValueUnsignedByte: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
-            self.main.notice("Mm::mmPhyReadValueUnsignedByte: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-            self.main.cpu.cpuDump()
-            return BITMASK_BYTE
-        mmAddr &= SIZE_1MB_MASK
-        return (<unsigned char*>self.mmGetDataPointer(mmArea, mmAddr))[0]
-    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) except? BITMASK_BYTE:
-        cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
-        cdef unsigned char dataSize = OP_SIZE_WORD
-        cdef unsigned short ret = BITMASK_WORD
-        cdef unsigned int tempAddr
-        if (not mmArea.valid):
-            self.main.notice("Mm::mmPhyReadValueUnsignedWord: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
-            self.main.notice("Mm::mmPhyReadValueUnsignedWord: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-            self.main.cpu.cpuDump()
-            return ret
-        tempAddr = (mmAddr&SIZE_1MB_MASK)
-        if (tempAddr+dataSize > SIZE_1MB):
-            ret = self.mmPhyReadValueUnsignedByte(mmAddr)
-            ret |= self.mmPhyReadValueUnsignedByte(mmAddr+1)<<8
-            return ret
-        return (<unsigned short*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) except? BITMASK_BYTE:
-        cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
-        cdef unsigned char dataSize = OP_SIZE_DWORD
-        cdef unsigned int tempAddr
-        if (not mmArea.valid):
-            self.main.notice("Mm::mmPhyReadValueUnsignedDword: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
-            self.main.notice("Mm::mmPhyReadValueUnsignedDword: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-            self.main.cpu.cpuDump()
-            return BITMASK_DWORD
-        tempAddr = (mmAddr&SIZE_1MB_MASK)
-        if (tempAddr+dataSize > SIZE_1MB):
-            return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
-        return (<unsigned int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr) except? BITMASK_BYTE:
-        cdef MmArea mmArea = self.mmAreas[mmAddr >> 20]
-        cdef unsigned char dataSize = OP_SIZE_QWORD
-        cdef unsigned int tempAddr
-        if (not mmArea.valid):
-            self.main.notice("Mm::mmPhyReadValueUnsignedQword: not mmArea.valid! (mmAddr: {0:#010x}; savedEip: {1:#010x}; savedCs: {2:#06x})", mmAddr, self.main.cpu.savedEip, self.main.cpu.savedCs)
-            self.main.notice("Mm::mmPhyReadValueUnsignedQword: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-            self.main.cpu.cpuDump()
-            return BITMASK_QWORD
-        tempAddr = (mmAddr&SIZE_1MB_MASK)
-        if (tempAddr+dataSize > SIZE_1MB):
-            return self.mmPhyReadValueUnsigned(mmAddr, dataSize)
-        return (<unsigned long int*>self.mmGetDataPointer(mmArea, tempAddr))[0]
-    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE:
+    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned long int mmAddr) except? BITMASK_BYTE:
+        if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_BYTE or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_BYTE)):
+            return (<unsigned char*>self.mmGetDataPointer(mmAddr))[0]
+        return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_BYTE)
+    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned long int mmAddr) except? BITMASK_BYTE:
+        if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_WORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_WORD)):
+            return (<unsigned short*>self.mmGetDataPointer(mmAddr))[0]
+        return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_WORD)
+    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned long int mmAddr) except? BITMASK_BYTE:
+        if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_DWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_DWORD)):
+            return (<unsigned int*>self.mmGetDataPointer(mmAddr))[0]
+        return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_DWORD)
+    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned long int mmAddr) except? BITMASK_BYTE:
+        if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_QWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_QWORD)):
+            return (<unsigned long int*>self.mmGetDataPointer(mmAddr))[0]
+        return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_QWORD)
+    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned long int mmAddr, unsigned char dataSize) except? BITMASK_BYTE:
         return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=False)
-    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize) except BITMASK_BYTE:
-        cdef MmArea mmArea
-        cdef unsigned short i, start, end
-        cdef unsigned int tempAddr, tempSize
-        self.mmGetAreasCount(mmAddr, dataSize, &start, &end)
-        for i in range(start, end):
-            mmArea = self.mmAreas[i]
-            tempSize = min(SIZE_1MB, dataSize)
-            tempAddr = (mmAddr&SIZE_1MB_MASK)
-            if (tempAddr+tempSize > SIZE_1MB):
-                tempSize = SIZE_1MB-tempAddr
-            if (mmArea.valid):
-                mmArea.writeHandler(self, mmArea, tempAddr, data, tempSize)
-            else:
-                self.main.notice("Mm::mmPhyWrite: not mmArea.valid! (mmAddr: {0:#010x}, dataSize: {1:d})", mmAddr, tempSize)
-                self.main.notice("Mm::mmPhyWrite: not mmArea.valid! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-                self.main.cpu.cpuDump()
-            mmAddr += tempSize
+    cdef unsigned char mmPhyWrite(self, unsigned long int mmAddr, char *data, unsigned long int dataSize) except BITMASK_BYTE:
+        cdef unsigned long int tempOffset, tempSize
+        if (dataSize > 0 and mmAddr < self.memSizeBytes):
+            tempSize = min(dataSize, self.memSizeBytes-mmAddr)
+            with nogil:
+                memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
+            if (dataSize > 0 and mmAddr < VGA_MEMAREA_ADDR):
+                tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
+                if (dataSize <= tempSize):
+                    return True
+                dataSize -= tempSize
+                mmAddr += tempSize
+                data += tempSize
+            if (dataSize > 0 and mmAddr >= VGA_MEMAREA_ADDR and mmAddr < VGA_ROM_BASE):
+                tempSize = min(dataSize, VGA_ROM_BASE-mmAddr)
+                self.main.platform.vga.vgaAreaWrite(mmAddr, tempSize)
+        if (dataSize > 0 and mmAddr >= self.memSizeBytes and mmAddr < PCI_MEM_BASE):
+            tempSize = min(dataSize, PCI_MEM_BASE-mmAddr)
+            self.main.notice("Mm::mmPhyWrite: filling1; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
+            if (dataSize <= tempSize):
+                return True
             dataSize -= tempSize
-            data = data[tempSize:]
+            mmAddr += tempSize
+            data += tempSize
+        if (dataSize > 0 and mmAddr >= PCI_MEM_BASE and mmAddr < PCI_MEM_BASE_PLUS_LIMIT):
+            tempOffset = mmAddr-PCI_MEM_BASE
+            tempSize = min(dataSize, PCI_MEM_BASE_PLUS_LIMIT-mmAddr)
+            with nogil:
+                memcpy(<char*>(self.pciData+tempOffset), <char*>(data), tempSize)
+            if (dataSize <= tempSize):
+                return True
+            dataSize -= tempSize
+            mmAddr += tempSize
+            data += tempSize
+        if (dataSize > 0 and mmAddr >= PCI_MEM_BASE_PLUS_LIMIT and mmAddr < LAST_MEMAREA_BASE_ADDR):
+            tempSize = min(dataSize, LAST_MEMAREA_BASE_ADDR-mmAddr)
+            self.main.notice("Mm::mmPhyWrite: filling2; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
+            if (dataSize <= tempSize):
+                return True
+            dataSize -= tempSize
+            mmAddr += tempSize
+            data += tempSize
+        if (not self.ignoreRomWrite):
+            if (dataSize > 0 and mmAddr >= LAST_MEMAREA_BASE_ADDR and mmAddr < SIZE_4GB):
+                tempOffset = mmAddr-LAST_MEMAREA_BASE_ADDR
+                tempSize = min(dataSize, SIZE_4GB-mmAddr)
+                with nogil:
+                    memcpy(<char*>(self.romData+tempOffset), <char*>(data), tempSize)
         return True
-    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize) except BITMASK_BYTE:
+    cdef unsigned char mmPhyWriteValue(self, unsigned long int mmAddr, unsigned long int data, unsigned char dataSize) except BITMASK_BYTE:
         if (dataSize == OP_SIZE_BYTE):
             data = <unsigned char>data
         elif (dataSize == OP_SIZE_WORD):
@@ -203,7 +166,7 @@ cdef class Mm:
         elif (dataSize == OP_SIZE_DWORD):
             data = <unsigned int>data
         return self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
-    cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize):
+    cdef void mmPhyCopy(self, unsigned long int destAddr, unsigned long int srcAddr, unsigned long int dataSize):
         self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
 
 

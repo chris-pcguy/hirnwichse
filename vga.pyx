@@ -271,7 +271,6 @@ cdef class Vga:
         self.processVideoMem = True
         self.newTimer = self.oldTimer = 0.0
         self.latchReg = [0, 0, 0, 0]
-        self.mmArea = self.main.mm.mmAreas[0]
         self.plane0 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane1 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane2 = ConfigSpace(VGA_PLANE_SIZE, self.main)
@@ -424,14 +423,13 @@ cdef class Vga:
                     return bytes(dataSize)
             return retStr
         self.main.notice("VGA::vgaAreaRead: test1: offset=={0:#07x}; dataSize=={1:d}", offset, dataSize)
-        #return self.main.mm.mmAreaRead(self.mmArea, offset, dataSize)
-        return self.mmArea.data[offset:offset+dataSize]
+        return self.main.mm.data[offset:offset+dataSize]
     cdef void vgaAreaWrite(self, unsigned int offset, unsigned int dataSize):
         #cdef list rectList
         cdef unsigned char selectedPlanes = 0, data, color
         cdef unsigned short x, y, rows
         cdef unsigned int tempOffset, i, j, k, pixelData
-        self.main.notice("VGA::vgaAreaWrite: offset=={0:#07x}; dataSize=={1:d}; data=={2:s}", offset, dataSize, repr(self.mmArea.data[offset:offset+dataSize]))
+        self.main.notice("VGA::vgaAreaWrite: offset=={0:#07x}; dataSize=={1:d}; data=={2:s}", offset, dataSize, repr(self.main.mm.data[offset:offset+dataSize]))
         if (not self.ui):
             return
         if (not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
@@ -458,7 +456,7 @@ cdef class Vga:
                     else:
                         selectedPlanes &= 10 # plane 1 and 3
                     tempOffset &= 0xfffe
-                data = self.mmArea.data[offset+i]
+                data = self.main.mm.data[offset+i]
                 self.main.notice("vgaAreaWrite: writeMap=={0:x}; selectedPlanes=={1:x}", self.writeMap, selectedPlanes)
                 if (selectedPlanes & 1):
                     self.plane0.csWriteValue(tempOffset, self.translateByte(data, 0), OP_SIZE_BYTE)
@@ -565,10 +563,10 @@ cdef class Vga:
                     tempOffset += 2
                 #else:
                 ELSE:
-                    #rectList.append(self.ui.putChar(x, y, <unsigned char>(self.mmArea.data[offset]), <unsigned char>(self.mmArea.data[offset+1])))
+                    #rectList.append(self.ui.putChar(x, y, <unsigned char>(self.main.mm.data[offset]), <unsigned char>(self.main.mm.data[offset+1])))
                     if (self.main.debugEnabled):
-                        self.main.debug("VGA::vgaAreaWrite: x=={0:d}; y=={1:d}; ch=={2:#04x};{2:c}; cl=={3:#04x}: tempOffset=={4:#06x}; self.offset=={5:d}; offset=={6:#07x}; vMB=={7:#07x}; sA=={8:#07x}", x, y, <unsigned char>(self.mmArea.data[offset]), <unsigned char>(self.mmArea.data[offset+1]), tempOffset, self.offset, offset, self.videoMemBase, self.startAddress)
-                    self.ui.putChar(x, y, <unsigned char>(self.mmArea.data[offset]), <unsigned char>(self.mmArea.data[offset+1]))
+                        self.main.debug("VGA::vgaAreaWrite: x=={0:d}; y=={1:d}; ch=={2:#04x};{2:c}; cl=={3:#04x}: tempOffset=={4:#06x}; self.offset=={5:d}; offset=={6:#07x}; vMB=={7:#07x}; sA=={8:#07x}", x, y, <unsigned char>(self.main.mm.data[offset]), <unsigned char>(self.main.mm.data[offset+1]), tempOffset, self.offset, offset, self.videoMemBase, self.startAddress)
+                    self.ui.putChar(x, y, <unsigned char>(self.main.mm.data[offset]), <unsigned char>(self.main.mm.data[offset+1]))
                     offset += 2
         self.newTimer = time()
         if (self.newTimer - self.oldTimer >= 0.05):

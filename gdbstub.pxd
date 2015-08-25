@@ -1,7 +1,7 @@
 
 from hirnwichse_main cimport Hirnwichse
 from misc cimport Misc
-from mm cimport Mm, MmArea
+from mm cimport Mm
 from registers cimport Registers
 
 cdef class GDBStubHandler:

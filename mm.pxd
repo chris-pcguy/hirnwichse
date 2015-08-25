@@ -5,49 +5,36 @@ from libc.stdlib cimport malloc
 from libc.string cimport memcpy, memset
 
 
-ctypedef bytes (*MmAreaReadType)(self, MmArea, unsigned int, unsigned int)
-ctypedef void (*MmAreaWriteType)(self, MmArea, unsigned int, char *, unsigned int)
-
-ctypedef struct MmArea:
-    unsigned char readOnly, valid
-    unsigned short mmIndex
-    MmAreaReadType readHandler
-    MmAreaWriteType writeHandler
-    char *data
-
 from hirnwichse_main cimport Hirnwichse
 
 cdef class Mm:
     cdef Hirnwichse main
-    cdef MmArea mmAreas[MM_NUMAREAS]
-    cdef void mmAddArea(self, unsigned short mmIndex, unsigned char mmReadOnly)
-    cdef void mmGetAreasCount(self, unsigned int mmAddr, unsigned int dataSize, unsigned short *begin, unsigned short *end)
-    cdef void mmSetReadOnly(self, unsigned short mmIndex, unsigned char mmReadOnly)
-    cdef inline char *mmGetDataPointer(self, MmArea mmArea, unsigned int offset):
-        return <char*>(mmArea.data+offset)
-    cdef bytes mmAreaRead(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
-    cdef void mmAreaWrite(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
-    cdef void mmAreaClear(self, MmArea mmArea, unsigned int offset, unsigned char clearByte, unsigned int dataSize)
-    cdef bytes mmAreaReadSystem(self, MmArea mmArea, unsigned int offset, unsigned int dataSize)
-    cdef void mmAreaWriteSystem(self, MmArea mmArea, unsigned int offset, char *data, unsigned int dataSize)
-    cdef bytes mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize)
-    cdef inline signed char mmPhyReadValueSignedByte(self, unsigned int mmAddr) except? BITMASK_BYTE:
+    cdef char *data
+    cdef char *pciData
+    cdef char *romData
+    cdef public unsigned char ignoreRomWrite
+    cdef unsigned long int memSizeBytes
+    cdef inline char *mmGetDataPointer(self, unsigned int mmAddr):
+        return <char*>(self.data+mmAddr)
+    cdef void mmClear(self, unsigned long int mmAddr, unsigned char clearByte, unsigned long int dataSize)
+    cdef bytes mmPhyRead(self, unsigned long int mmAddr, unsigned long int dataSize)
+    cdef inline signed char mmPhyReadValueSignedByte(self, unsigned long int mmAddr) except? BITMASK_BYTE:
         return <signed char>self.mmPhyReadValueUnsignedByte(mmAddr)
-    cdef inline signed short mmPhyReadValueSignedWord(self, unsigned int mmAddr) except? BITMASK_BYTE:
+    cdef inline signed short mmPhyReadValueSignedWord(self, unsigned long int mmAddr) except? BITMASK_BYTE:
         return <signed short>self.mmPhyReadValueUnsignedWord(mmAddr)
-    cdef inline signed int mmPhyReadValueSignedDword(self, unsigned int mmAddr) except? BITMASK_BYTE:
+    cdef inline signed int mmPhyReadValueSignedDword(self, unsigned long int mmAddr) except? BITMASK_BYTE:
         return <signed int>self.mmPhyReadValueUnsignedDword(mmAddr)
-    cdef inline signed long int mmPhyReadValueSignedQword(self, unsigned int mmAddr) except? BITMASK_BYTE:
+    cdef inline signed long int mmPhyReadValueSignedQword(self, unsigned long int mmAddr) except? BITMASK_BYTE:
         return <signed long int>self.mmPhyReadValueUnsignedQword(mmAddr)
-    cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE
-    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) except? BITMASK_BYTE
-    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) except? BITMASK_BYTE
-    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) except? BITMASK_BYTE
-    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr) except? BITMASK_BYTE
-    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE
-    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize) except BITMASK_BYTE
-    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize) except BITMASK_BYTE
-    cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize)
+    cdef signed long int mmPhyReadValueSigned(self, unsigned long int mmAddr, unsigned char dataSize) except? BITMASK_BYTE
+    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned long int mmAddr) except? BITMASK_BYTE
+    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned long int mmAddr) except? BITMASK_BYTE
+    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned long int mmAddr) except? BITMASK_BYTE
+    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned long int mmAddr) except? BITMASK_BYTE
+    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned long int mmAddr, unsigned char dataSize) except? BITMASK_BYTE
+    cdef unsigned char mmPhyWrite(self, unsigned long int mmAddr, char *data, unsigned long int dataSize) except BITMASK_BYTE
+    cdef unsigned char mmPhyWriteValue(self, unsigned long int mmAddr, unsigned long int data, unsigned char dataSize) except BITMASK_BYTE
+    cdef void mmPhyCopy(self, unsigned long int destAddr, unsigned long int srcAddr, unsigned long int dataSize)
 
 cdef class ConfigSpace:
     cdef Hirnwichse main
