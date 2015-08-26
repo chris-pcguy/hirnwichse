@@ -111,12 +111,11 @@ cdef class Mm:
         return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=False)
     cdef unsigned char mmPhyWrite(self, unsigned long int mmAddr, char *data, unsigned long int dataSize) except BITMASK_BYTE:
         cdef unsigned long int tempOffset, tempSize
-        if (dataSize > 0 and mmAddr < self.memSizeBytes):
-            tempSize = min(dataSize, self.memSizeBytes-mmAddr)
-            with nogil:
-                memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
-            if (dataSize > 0 and mmAddr < VGA_MEMAREA_ADDR):
+        if (dataSize > 0 and mmAddr < SIZE_1MB):
+            if (mmAddr < VGA_MEMAREA_ADDR):
                 tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
+                with nogil:
+                    memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
                 if (dataSize <= tempSize):
                     return True
                 dataSize -= tempSize
@@ -124,7 +123,33 @@ cdef class Mm:
                 data += tempSize
             if (dataSize > 0 and mmAddr >= VGA_MEMAREA_ADDR and mmAddr < VGA_ROM_BASE):
                 tempSize = min(dataSize, VGA_ROM_BASE-mmAddr)
+                with nogil:
+                    memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
                 self.main.platform.vga.vgaAreaWrite(mmAddr, tempSize)
+                if (dataSize <= tempSize):
+                    return True
+                dataSize -= tempSize
+                mmAddr += tempSize
+                data += tempSize
+            if (dataSize > 0 and mmAddr >= VGA_ROM_BASE and mmAddr < SIZE_1MB):
+                tempSize = min(dataSize, SIZE_1MB-mmAddr)
+                if (not self.ignoreRomWrite):
+                    with nogil:
+                        memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
+                if (dataSize <= tempSize):
+                    return True
+                dataSize -= tempSize
+                mmAddr += tempSize
+                data += tempSize
+        if (dataSize > 0 and mmAddr >= SIZE_1MB and mmAddr < self.memSizeBytes):
+            tempSize = min(dataSize, self.memSizeBytes-mmAddr)
+            with nogil:
+                memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
+            if (dataSize <= tempSize):
+                return True
+            dataSize -= tempSize
+            mmAddr += tempSize
+            data += tempSize
         if (dataSize > 0 and mmAddr >= self.memSizeBytes and mmAddr < PCI_MEM_BASE):
             tempSize = min(dataSize, PCI_MEM_BASE-mmAddr)
             self.main.notice("Mm::mmPhyWrite: filling1; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)

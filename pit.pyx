@@ -70,6 +70,7 @@ cdef class PitChannel:
                     #self.pit.main.notice("PitChannel::mode2Func: in while")
                     #if (not (self.counterValue&0xff)):
                     if (not (self.counterValue&0x7f)):
+                    #if (not (self.counterValue&0x3f)):
                         with nogil:
                             #usleep(self.tempTimerValue)
                             usleep(1)

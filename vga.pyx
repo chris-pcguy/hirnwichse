@@ -145,7 +145,9 @@ cdef class GDC(VGA_REGISTER_RAW):
     def __init__(self, Vga vga):
         VGA_REGISTER_RAW.__init__(self, VGA_GDC_AREA_SIZE, vga)
     cdef void setData(self, unsigned int data, unsigned char dataSize):
-        cdef unsigned short index = self.getIndex()
+        cdef unsigned short index
+        cdef unsigned int temp1, temp2
+        index = self.getIndex()
         VGA_REGISTER_RAW.setData(self, data, dataSize)
         if (index == VGA_GDC_RESET_REG_INDEX):
             self.vga.resetReg = data&0xf
@@ -167,6 +169,8 @@ cdef class GDC(VGA_REGISTER_RAW):
             self.vga.readMode = (data >> 3)&1
             self.vga.writeMode = data&3
         elif (index == VGA_GDC_MISC_GREG_INDEX):
+            temp1 = self.vga.videoMemBase
+            temp2 = self.vga.videoMemSize
             self.vga.alphaDis = (data&VGA_GDC_ALPHA_DIS) != 0
             #self.vga.alphaDis = True
             self.vga.chainOddEven = (data&VGA_GDC_CHAIN_ODD_EVEN) != 0
@@ -185,7 +189,8 @@ cdef class GDC(VGA_REGISTER_RAW):
                 self.vga.videoMemSize = 0x08000
             self.vga.main.notice("GDC::setData: videoMemBase=={0:#07x}; videoMemSize=={1:d}", self.vga.videoMemBase, self.vga.videoMemSize)
             self.vga.needLoadFont = True
-            self.vga.refreshScreen = True
+            if (temp1 != self.vga.videoMemBase or temp2 != self.vga.videoMemSize):
+                self.vga.refreshScreen = True
         elif (index == VGA_GDC_COLOR_DONT_CARE_INDEX):
             self.vga.colorDontCare = data&0xf
         elif (index == VGA_GDC_BIT_MASK_INDEX):

@@ -5,7 +5,7 @@ cdef class Misc:
     cdef unsigned short decToBcd(self, unsigned short dec)
     cdef unsigned short bcdToDec(self, unsigned short bcd)
     cdef unsigned long int reverseByteOrder(self, unsigned long int value, unsigned char valueSize)
-    cdef unsigned char calculateInterruptErrorcode(self, unsigned char num, unsigned char idt, unsigned char ext)
+    cdef unsigned short calculateInterruptErrorcode(self, unsigned char num, unsigned char idt, unsigned char ext)
     cpdef object createThread(self, object threadFunc, unsigned char startIt)
 
 

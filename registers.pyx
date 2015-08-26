@@ -871,8 +871,8 @@ cdef class Registers:
                 return ret
             while (dataSize > 0):
                 tempSize = min(dataSize, PAGE_DIRECTORY_LENGTH)
-                if (((mmAddr&0xfff)+tempSize) > PAGE_DIRECTORY_LENGTH):
-                    tempSize -= ((mmAddr&0xfff)+tempSize) - PAGE_DIRECTORY_LENGTH
+                if (((physAddr&0xfff)+tempSize) > PAGE_DIRECTORY_LENGTH):
+                    tempSize -= ((physAddr&0xfff)+tempSize) - PAGE_DIRECTORY_LENGTH
                 if (self.main.debugEnabled):
                     self.main.debug("Registers::mmRead: test1: mmAddr {0:#010x}; ret {1:s}; dataSize {2:d}", mmAddr, repr(ret), dataSize)
                 physAddr = self.mmGetRealAddr(mmAddr, tempSize, segment, allowOverride, False)
@@ -976,8 +976,8 @@ cdef class Registers:
                 return True
             while (dataSize > 0):
                 tempSize = min(dataSize, PAGE_DIRECTORY_LENGTH)
-                if (((mmAddr&0xfff)+tempSize) > PAGE_DIRECTORY_LENGTH):
-                    tempSize -= ((mmAddr&0xfff)+tempSize) - PAGE_DIRECTORY_LENGTH
+                if (((physAddr&0xfff)+tempSize) > PAGE_DIRECTORY_LENGTH):
+                    tempSize -= ((physAddr&0xfff)+tempSize) - PAGE_DIRECTORY_LENGTH
                 if (self.main.debugEnabled):
                     self.main.debug("Registers::mmWrite: test1: mmAddr {0:#010x}; data {1:s}; dataSize {2:d}; tempSize {3:d}", mmAddr, repr(data), dataSize, tempSize)
                 physAddr = self.mmGetRealAddr(mmAddr, tempSize, segment, allowOverride, True)

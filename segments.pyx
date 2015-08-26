@@ -99,8 +99,7 @@ cdef class GdtEntry:
         if (not self.segIsCodeSeg and self.segIsConforming):
             self.gdt.segments.main.notice("GdtEntry::parseEntryData: TODO: expand-down data segment may not supported yet!")
         if (self.flags & GDT_FLAG_LONGMODE): # TODO: int-mode isn't implemented yet...
-            self.gdt.segments.main.exitError("Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades...")
-            return
+            self.gdt.segments.main.notice("GdtEntry::parseEntryData: WTF: Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades... (long-mode; AMD64)")
     cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) except BITMASK_BYTE:
         ## address is an offset.
         if (self.segIsNormal and not self.segIsCodeSeg and self.segIsConforming):
@@ -266,11 +265,20 @@ cdef class Idt:
         self.segments.paging.implicitSV = True
         if (not self.tableLimit):
             self.segments.main.notice("Idt::getEntry: tableLimit is zero.")
-        address = self.tableBase+(num<<3)
+            return None
+        address = (num<<3)
+        if (address >= self.tableLimit):
+            self.segments.main.notice("Idt::getEntry: tableLimit is too small.")
+            return None
+        address += self.tableBase
         address = self.segments.registers.mmReadValueUnsignedQword(address, None, False)
         idtEntry = IdtEntry(address)
         if (idtEntry.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
             self.segments.main.notice("Idt::getEntry: entryType is LDT or TSS. (is this allowed?)")
+            return None
+        if (not idtEntry.entryPresent):
+            self.segments.main.notice("Idt::getEntry: idtEntry is not present.")
+            return None
         return idtEntry
     cdef unsigned char isEntryPresent(self, unsigned char num):
         return self.getEntry(num).entryPresent

@@ -47,7 +47,8 @@ cdef class PS2:
         self.auxb = self.outb = True
     cdef void appendToOutBytes(self, bytes data):
         self.appendToOutBytesJustAppend(data)
-        if (not self.outb and self.kbdClockEnabled):
+        #if (not self.outb and self.kbdClockEnabled):
+        if (self.kbdClockEnabled):
             self.activateTimer()
     cdef void appendToOutBytesImm(self, bytes data):
         self.appendToOutBytesJustAppend(data)
@@ -173,10 +174,12 @@ cdef class PS2:
                 self.main.notice("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x61):
-                return ((((int(time()*1e7) & 0xf) == 0) << 4) | \
+                retByte = ((((int(time()*1e7) & 0xf) == 0) << 4) | \
                         (self.ppcbT2Gate and PPCB_T2_GATE) | \
                         (self.ppcbT2Spkr and PPCB_T2_SPKR) | \
                         (self.ppcbT2Out  and PPCB_T2_OUT))
+                self.main.notice("PS2: inPort_4: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                return retByte
             elif (ioPortAddr == 0x92):
                 return ((<Registers>(<Cpu>self.main.cpu).registers).A20Active << 1)
             else:

@@ -27,7 +27,7 @@ cdef class Misc:
         data = value.to_bytes(length=valueSize, byteorder="big")
         value = int.from_bytes(bytes=data, byteorder="little")
         return value
-    cdef unsigned char calculateInterruptErrorcode(self, unsigned char num, unsigned char idt, unsigned char ext):
+    cdef unsigned short calculateInterruptErrorcode(self, unsigned char num, unsigned char idt, unsigned char ext):
         if (idt):
             return (num << 3)|2|ext
         return (num & 0xfc)|ext
