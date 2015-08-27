@@ -79,13 +79,13 @@ cdef class AtaDrive:
         self.sectorSize = 0
         self.driveCode = BITMASK_WORD
         self.senseKey = self.senseAsc = 0
-    cdef unsigned long int ChsToSector(self, unsigned int cylinder, unsigned char head, unsigned char sector):
+    cdef unsigned long int ChsToSector(self, unsigned int cylinder, unsigned char head, unsigned char sector) nogil:
         return (cylinder*HEADS+head)*SPT+(sector-1)
     cdef inline unsigned short readValue(self, unsigned char index):
         return self.configSpace.csReadValueUnsigned(index << 1, OP_SIZE_WORD)
     cdef inline void writeValue(self, unsigned char index, unsigned short value):
         self.configSpace.csWriteValue(index << 1, value, OP_SIZE_WORD)
-    cdef void reset(self):
+    cdef void reset(self) nogil:
         pass
     cdef void loadDrive(self, bytes filename):
         cdef unsigned char cmosDiskType, translateReg, translateValue, translateValueTemp
@@ -206,7 +206,7 @@ cdef class AtaDrive:
         self.fp.flush()
     cdef void writeSectors(self, unsigned long int sector, unsigned int count, bytes data):
         self.writeBytes(sector << self.sectorShift, count << self.sectorShift, data)
-    cdef void run(self):
+    cdef void run(self) nogil:
         pass
 
 
@@ -254,12 +254,12 @@ cdef class AtaController:
             self.driveBusy = self.resetInProgress = True
         #for drive in self.drive: # unused
         #    drive.reset()
-    cdef inline void LbaToCHS(self):
+    cdef inline void LbaToCHS(self) nogil:
         self.cylinder = self.lba / (HEADS*SPT)
         self.head = (self.lba / SPT) % HEADS
         self.sector = (self.lba % SPT) + 1
         self.sectorCountByte = <unsigned char>self.sectorCount
-    cdef void convertToLBA28(self):
+    cdef void convertToLBA28(self) nogil:
         #if (self.useLBA and self.useLBA48):
         #if (self.useLBA):
         if (self.useLBA and not self.useLBA48):
@@ -282,7 +282,7 @@ cdef class AtaController:
             self.errorRegister = 1
         else:
             self.errorRegister = 0
-    cdef void lowerAtaIrq(self):
+    cdef void lowerAtaIrq(self) nogil:
         self.driveReady = True
         self.drq = self.err = False
         self.errorRegister = 0

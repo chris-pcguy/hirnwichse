@@ -22,8 +22,8 @@ cdef class PS2:
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
-    cdef void setKbdClockEnable(self, unsigned char value)
-    cpdef activateTimer(self)
+    cdef void setKbdClockEnable(self, unsigned char value) nogil
+    cdef void activateTimer(self) nogil
     cpdef unsigned char periodic(self, unsigned char usecDelta)
     cpdef timerFunc(self)
     cpdef initThread(self)

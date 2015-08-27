@@ -68,16 +68,16 @@ cdef class Registers:
     cdef inline void checkCache(self, unsigned int mmAddr, unsigned char dataSize): # called on a memory write; reload cache for self-modifying-code
         if (mmAddr >= self.cpuCacheBase and mmAddr+dataSize <= self.cpuCacheBase+CPU_CACHE_SIZE):
             self.reloadCpuCache()
-    cdef void setA20Active(self, unsigned char A20Active)
+    cdef void setA20Active(self, unsigned char A20Active) nogil
     cdef signed long int readFromCacheAddSigned(self, unsigned char numBytes)
     cdef unsigned long int readFromCacheAddUnsigned(self, unsigned char numBytes)
     cdef unsigned long int readFromCacheUnsigned(self, unsigned char numBytes)
-    cdef void readCodeSegSize(self)
-    cdef unsigned int readFlags(self)
-    cdef void setFlags(self, unsigned int flags)
-    cdef unsigned char getCPL(self)
-    cdef unsigned char getIOPL(self)
-    cdef void syncCR0State(self)
+    cdef void readCodeSegSize(self) nogil
+    cdef unsigned int readFlags(self) nogil
+    cdef void setFlags(self, unsigned int flags) nogil
+    cdef unsigned char getCPL(self) nogil
+    cdef unsigned char getIOPL(self) nogil
+    cdef void syncCR0State(self) nogil
     cdef unsigned char getCurrentOpcodeUnsignedByte(self) except? BITMASK_BYTE
     cdef inline signed char getCurrentOpcodeAddSignedByte(self) except? BITMASK_BYTE:
         return <signed char>self.getCurrentOpcodeAddUnsignedByte()
@@ -93,52 +93,52 @@ cdef class Registers:
     cdef unsigned int getCurrentOpcodeAddUnsignedDword(self) except? BITMASK_BYTE
     cdef unsigned long int getCurrentOpcodeAddUnsignedQword(self) except? BITMASK_BYTE
     cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes) except? BITMASK_BYTE
-    cdef unsigned short segRead(self, unsigned short segId) except? BITMASK_BYTE
+    cdef unsigned short segRead(self, unsigned short segId) nogil except? BITMASK_BYTE
     cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue) except? BITMASK_BYTE
     cdef unsigned short segWriteSegment(self, Segment segment, unsigned short segValue) except? BITMASK_BYTE
-    cdef inline signed char regReadSignedLowByte(self, unsigned short regId):
+    cdef inline signed char regReadSignedLowByte(self, unsigned short regId) nogil:
         return <signed char>self.regs[regId]._union.word._union.byte.rl
-    cdef inline signed char regReadSignedHighByte(self, unsigned short regId):
+    cdef inline signed char regReadSignedHighByte(self, unsigned short regId) nogil:
         return <signed char>self.regs[regId]._union.word._union.byte.rh
-    cdef inline signed short regReadSignedWord(self, unsigned short regId):
+    cdef inline signed short regReadSignedWord(self, unsigned short regId) nogil:
         return <signed short>self.regs[regId]._union.word._union.rx
-    cdef inline signed int regReadSignedDword(self, unsigned short regId):
+    cdef inline signed int regReadSignedDword(self, unsigned short regId) nogil:
         return <signed int>self.regs[regId]._union.dword.erx
-    cdef inline signed long int regReadSignedQword(self, unsigned short regId):
+    cdef inline signed long int regReadSignedQword(self, unsigned short regId) nogil:
         return <signed long int>self.regs[regId]._union.rrx
-    cdef inline unsigned char regReadUnsignedLowByte(self, unsigned short regId):
+    cdef inline unsigned char regReadUnsignedLowByte(self, unsigned short regId) nogil:
         return self.regs[regId]._union.word._union.byte.rl
-    cdef inline unsigned char regReadUnsignedHighByte(self, unsigned short regId):
+    cdef inline unsigned char regReadUnsignedHighByte(self, unsigned short regId) nogil:
         return self.regs[regId]._union.word._union.byte.rh
-    cdef inline unsigned short regReadUnsignedWord(self, unsigned short regId):
+    cdef inline unsigned short regReadUnsignedWord(self, unsigned short regId) nogil:
         return self.regs[regId]._union.word._union.rx
-    cdef inline unsigned int regReadUnsignedDword(self, unsigned short regId):
+    cdef inline unsigned int regReadUnsignedDword(self, unsigned short regId) nogil:
         return self.regs[regId]._union.dword.erx
-    cdef inline unsigned long int regReadUnsignedQword(self, unsigned short regId):
+    cdef inline unsigned long int regReadUnsignedQword(self, unsigned short regId) nogil:
         return self.regs[regId]._union.rrx
-    cdef inline unsigned char regWriteLowByte(self, unsigned short regId, unsigned char value):
+    cdef inline unsigned char regWriteLowByte(self, unsigned short regId, unsigned char value) nogil:
         self.regs[regId]._union.word._union.byte.rl = value
         return value # returned value is unsigned!!
-    cdef inline unsigned char regWriteHighByte(self, unsigned short regId, unsigned char value):
+    cdef inline unsigned char regWriteHighByte(self, unsigned short regId, unsigned char value) nogil:
         self.regs[regId]._union.word._union.byte.rh = value
         return value # returned value is unsigned!!
-    cdef inline unsigned short regWriteWord(self, unsigned short regId, unsigned short value):
+    cdef inline unsigned short regWriteWord(self, unsigned short regId, unsigned short value) nogil:
         self.regs[regId]._union.word._union.rx = value
         return value # returned value is unsigned!!
     cpdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value)
-    cdef inline unsigned short regWriteWordFlags(self, unsigned short value):
+    cdef inline unsigned short regWriteWordFlags(self, unsigned short value) nogil:
         value &= ~RESERVED_FLAGS_BITMASK
         value |= FLAG_REQUIRED
         self.regs[CPU_REGISTER_FLAGS]._union.word._union.rx = value
         self.setFlags(self.regs[CPU_REGISTER_FLAGS]._union.dword.erx)
         return value # returned value is unsigned!!
-    cdef inline unsigned int regWriteDwordEflags(self, unsigned int value):
+    cdef inline unsigned int regWriteDwordEflags(self, unsigned int value) nogil:
         value &= ~RESERVED_FLAGS_BITMASK
         value |= FLAG_REQUIRED
         self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx = value
         self.setFlags(value)
         return value # returned value is unsigned!!
-    cdef inline unsigned long int regWriteQword(self, unsigned short regId, unsigned long int value):
+    cdef inline unsigned long int regWriteQword(self, unsigned short regId, unsigned long int value) nogil:
         if (regId == CPU_REGISTER_RFLAGS):
             self.setFlags(<unsigned int>value)
         else:
@@ -244,26 +244,25 @@ cdef class Registers:
     cdef unsigned short regWriteWithOpWord(self, unsigned short regId, unsigned short value, unsigned char valueOp)
     cdef unsigned int regWriteWithOpDword(self, unsigned short regId, unsigned int value, unsigned char valueOp)
     cdef unsigned long int regWriteWithOpQword(self, unsigned short regId, unsigned long int value, unsigned char valueOp)
-    cdef inline unsigned char valGetBit(self, unsigned int value, unsigned char bit): # return True if bit is set, otherwise False
+    cdef inline unsigned char valGetBit(self, unsigned int value, unsigned char bit) nogil: # return True if bit is set, otherwise False
         return (value&<unsigned int>(1<<bit))!=0
-    cdef inline unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state):
+    cdef inline unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state) nogil:
         if (state):
             return ( value | <unsigned int>(1<<bit) )
         return ( value & <unsigned int>(~(1<<bit)) )
-    cdef inline unsigned int clearEFLAG(self, unsigned int flags):
+    cdef inline unsigned int clearEFLAG(self, unsigned int flags) nogil:
         self.regWriteDwordEflags(self.readFlags() & (~flags))
-    cdef inline unsigned int getFlagDword(self, unsigned short regId, unsigned int flags):
+    cdef inline unsigned int getFlagDword(self, unsigned short regId, unsigned int flags) nogil:
         return (self.regReadUnsignedDword(regId)&flags)
-    cdef void setSZP(self, unsigned int value, unsigned char regSize)
-    cdef void setSZP_O(self, unsigned int value, unsigned char regSize)
-    cdef void setSZP_A(self, unsigned int value, unsigned char regSize)
-    cdef void setSZP_COA(self, unsigned int value, unsigned char regSize)
+    cdef void setSZP(self, unsigned int value, unsigned char regSize) nogil
+    cdef void setSZP_O(self, unsigned int value, unsigned char regSize) nogil
+    cdef void setSZP_A(self, unsigned int value, unsigned char regSize) nogil
+    cdef void setSZP_COA(self, unsigned int value, unsigned char regSize) nogil
     cdef unsigned char getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except BITMASK_BYTE
     cdef unsigned char getCond(self, unsigned char index)
-    cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method)
+    cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method) nogil
     cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) except BITMASK_BYTE
     cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) except? BITMASK_BYTE
-    cdef bytes mmRead(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride)
     cdef inline signed char mmReadValueSignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE:
         return <signed char>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
     cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE:
@@ -278,7 +277,6 @@ cdef class Registers:
     cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE
     cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE
     cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE
-    cdef unsigned char mmWrite(self, unsigned int mmAddr, bytes data, unsigned int dataSize, Segment segment, unsigned char allowOverride) except BITMASK_BYTE
     cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride) except BITMASK_BYTE
     cdef unsigned long int mmWriteValueWithOp(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride, unsigned char valueOp) except? BITMASK_BYTE
     cdef unsigned char switchTSS16(self) except BITMASK_BYTE

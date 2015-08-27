@@ -108,13 +108,13 @@ cdef class FloppyDrive:
         self.reset()
     cdef void reset(self):
         self.media.setDataForMedia(FLOPPY_DISK_TYPE_NONE)
-        self.filename = b''
+        self.filename = bytes()
         self.fp = None
         self.isLoaded = False
         self.isWriteProtected = True
         self.DIR = 0
         self.cylinder = self.head = self.sector = self.eot = 0
-    cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector):
+    cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector) nogil:
         return (cylinder*self.media.heads+head)*self.media.sectorsPerTrack+(sector-1)
     cdef unsigned char getDiskType(self, unsigned int size):
         cdef unsigned char diskType = FLOPPY_DISK_TYPE_NONE
@@ -208,7 +208,7 @@ cdef class FloppyController:
         self.main = self.fdc.main
         self.controllerId = controllerId
         self.fdcBufferIndex = 0 # TODO: maybe move this line...
-        self.command = self.result = self.fdcBuffer = b'' # and this too, to reset?
+        self.command = self.result = self.fdcBuffer = bytes() # and this too, to reset?
         self.drive = (FloppyDrive(self, 0), FloppyDrive(self, 1), FloppyDrive(self, 2), FloppyDrive(self, 3))
     cdef void reset(self, unsigned char hwReset):
         cdef unsigned char i
@@ -265,9 +265,9 @@ cdef class FloppyController:
     cdef inline void addToResult(self, unsigned char result):
         self.result += bytes([result])
     cdef inline void clearCommand(self):
-        self.command = b''
+        self.command = bytes()
     cdef inline void clearResult(self):
-        self.result = b''
+        self.result = bytes()
     cdef void setDor(self, unsigned char data):
         cdef unsigned char normalOperation, prevNormalOperation
         if (self.msr & FDC_MSR_NODMA):
@@ -280,7 +280,7 @@ cdef class FloppyController:
             self.doCmdReset()
         elif (prevNormalOperation and not normalOperation): # normal -> reset
             self.msr &= FDC_MSR_NODMA
-    cdef inline void setMsr(self, unsigned char data):
+    cdef inline void setMsr(self, unsigned char data) nogil:
         self.msr = data
     cdef void doCmdReset(self):
         self.reset(False)
@@ -478,7 +478,7 @@ cdef class FloppyController:
             if ((cmd & 0x1f) == 0x5): # write
                 (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
             elif ((cmd & 0x1f) == 0x6): # read
-                self.fdcBuffer = self.floppyXfer(drive, logicalSector, 1, b'', False)
+                self.fdcBuffer = self.floppyXfer(drive, logicalSector, 1, bytes(), False)
                 (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
             else:
                 self.main.exitError("FDC: handleCommand: unknown r/w cmd {0:#04x}.", cmd)
@@ -611,7 +611,7 @@ cdef class FloppyController:
                 self.handleResult()
             else:
                 logicalSector = (<FloppyDrive>self.drive[drive]).ChsToSector((<FloppyDrive>self.drive[drive]).cylinder, (<FloppyDrive>self.drive[drive]).head, (<FloppyDrive>self.drive[drive]).sector)
-                self.fdcBuffer = self.floppyXfer(drive, logicalSector, 1, b'', False)
+                self.fdcBuffer = self.floppyXfer(drive, logicalSector, 1, bytes(), False)
                 (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
         return data
     cdef void raiseFloppyIrq(self):

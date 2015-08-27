@@ -1,7 +1,7 @@
 
 include "globals.pxi"
 
-from libc.stdlib cimport malloc
+from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy, memset
 
 
@@ -14,9 +14,10 @@ cdef class Mm:
     cdef char *romData
     cdef public unsigned char ignoreRomWrite
     cdef unsigned long int memSizeBytes
-    cdef inline char *mmGetDataPointer(self, unsigned int mmAddr):
+    cpdef quitFunc(self)
+    cdef inline char *mmGetDataPointer(self, unsigned int mmAddr) nogil:
         return <char*>(self.data+mmAddr)
-    cdef void mmClear(self, unsigned long int mmAddr, unsigned char clearByte, unsigned long int dataSize)
+    cdef void mmClear(self, unsigned long int mmAddr, unsigned char clearByte, unsigned long int dataSize) nogil
     cdef bytes mmPhyRead(self, unsigned long int mmAddr, unsigned long int dataSize)
     cdef inline signed char mmPhyReadValueSignedByte(self, unsigned long int mmAddr) except? BITMASK_BYTE:
         return <signed char>self.mmPhyReadValueUnsignedByte(mmAddr)
@@ -41,13 +42,14 @@ cdef class ConfigSpace:
     cdef char *csData
     cdef unsigned char clearByte
     cdef unsigned int csSize
-    cdef void csResetData(self, unsigned char clearByte = ?)
-    cdef inline char *csGetDataPointer(self, unsigned int offset):
+    cpdef quitFunc(self)
+    cdef void csResetData(self, unsigned char clearByte) nogil
+    cdef inline char *csGetDataPointer(self, unsigned int offset) nogil:
         return <char*>(self.csData+offset)
     cdef bytes csRead(self, unsigned int offset, unsigned int size)
     cdef void csWrite(self, unsigned int offset, char *data, unsigned int size)
-    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
-    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE
+    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE
+    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE
     cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE
 
 

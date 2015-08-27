@@ -17,10 +17,11 @@ cdef class Segment:
         cdef unsigned char protectedModeOn, segType
         protectedModeOn = (self.segments.registers.protectedModeOn and not self.segments.registers.vm)
         self.segmentIndex = segmentIndex
+        self.readChecked = self.writeChecked = False
         if (not protectedModeOn):
             self.base = <unsigned int>segmentIndex<<4
             self.isValid = self.segPresent = self.segIsNormal = True
-            self.useGDT = False
+            self.useGDT = self.anotherLimit = False
             self.segSize = OP_SIZE_WORD
             if (doInit or (self.segments.registers.protectedModeOn and self.segments.registers.vm)):
                 self.accessByte = 0x92
@@ -40,7 +41,7 @@ cdef class Segment:
         if (not segmentIndex or gdtEntry is None):
             self.isValid = self.useGDT = self.base = self.limit = self.accessByte = self.flags = self.segSize = self.isValid = \
               self.segPresent = self.segIsCodeSeg = self.segIsRW = self.segIsConforming = self.segIsNormal = self.segUse4K = \
-              self.segDPL = 0
+              self.segDPL = self.anotherLimit = 0
             return False
         self.useGDT = True
         self.base = gdtEntry.base
@@ -56,13 +57,14 @@ cdef class Segment:
         self.segIsNormal = gdtEntry.segIsNormal
         self.segUse4K = gdtEntry.segUse4K
         self.segDPL = gdtEntry.segDPL
+        self.anotherLimit = (self.segIsNormal and not self.segIsCodeSeg and self.segIsConforming) != 0
         return True
     ### isSegReadableWritable:
     ### if codeseg, return True if readable, else False
     ### if dataseg, return True if writable, else False
     cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) except BITMASK_BYTE: # TODO: copied from GdtEntry::isAddressInLimit until a better solution is found... so never.
         ## address is an offset.
-        if (self.segIsNormal and not self.segIsCodeSeg and self.segIsConforming):
+        if (self.anotherLimit):
             if ((address+size)<self.limit or (not self.segSize and ((address+size-1)>BITMASK_WORD))):
                 self.segments.main.notice("Segment::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
                 return False
@@ -115,7 +117,7 @@ cdef class GdtEntry:
 cdef class IdtEntry:
     def __init__(self, unsigned long int entryData):
         self.parseEntryData(entryData)
-    cdef void parseEntryData(self, unsigned long int entryData):
+    cdef void parseEntryData(self, unsigned long int entryData) nogil:
         self.entryEip = entryData&0xffff # interrupt eip: lower word
         self.entryEip |= ((entryData>>48)&0xffff)<<16 # interrupt eip: upper word
         self.entrySegment = (entryData>>16)&0xffff # interrupt segment
@@ -535,7 +537,7 @@ cdef class Segments:
     def __init__(self, Registers registers, Hirnwichse main):
         self.registers = registers
         self.main = main
-    cdef void reset(self):
+    cdef void reset(self) nogil:
         self.ldtr = 0
     cdef Segment getSegment(self, unsigned short segmentId, unsigned char checkForValidness):
         cdef Segment segment
@@ -573,7 +575,7 @@ cdef class Segments:
         if (num & SELECTOR_USE_LDT):
             return self.ldt.checkSegmentLoadAllowed(num, segId)
         return self.gdt.checkSegmentLoadAllowed(num, segId)
-    cdef unsigned char inLimit(self, unsigned short num):
+    cdef unsigned char inLimit(self, unsigned short num) nogil:
         if (num & SELECTOR_USE_LDT):
             return ((num&0xfff8) <= self.ldt.tableLimit)
         return ((num&0xfff8) <= self.gdt.tableLimit)

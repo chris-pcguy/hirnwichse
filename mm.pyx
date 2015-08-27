@@ -4,6 +4,7 @@
 include "globals.pxi"
 include "cpu_globals.pxi"
 
+from traceback import print_exc
 from atexit import register
 
 
@@ -25,7 +26,23 @@ cdef class Mm:
             memset(self.data, 0, self.memSizeBytes)
             memset(self.pciData, 0, SIZE_1MB)
             memset(self.romData, 0, SIZE_1MB)
-    cdef void mmClear(self, unsigned long int offset, unsigned char clearByte, unsigned long int dataSize):
+        register(self.quitFunc)
+    cpdef quitFunc(self):
+        try:
+            self.main.quitFunc()
+            if (self.data is not NULL):
+                free(self.data)
+                self.data = NULL
+            if (self.pciData is not NULL):
+                free(self.pciData)
+                self.pciData = NULL
+            if (self.romData is not NULL):
+                free(self.romData)
+                self.romData = NULL
+        except:
+            print_exc()
+            self.main.exitError('Mm::quitFunc: exception, exiting...')
+    cdef void mmClear(self, unsigned long int offset, unsigned char clearByte, unsigned long int dataSize) nogil:
         with nogil:
             memset(<char*>(self.data+offset), clearByte, dataSize)
     cdef bytes mmPhyRead(self, unsigned long int mmAddr, unsigned long int dataSize):
@@ -203,8 +220,18 @@ cdef class ConfigSpace:
         if (not self.csData):
             self.main.exitError("ConfigSpace::run: not self.csData.")
             return
-        self.csResetData()
-    cdef void csResetData(self, unsigned char clearByte = 0x00):
+        self.csResetData(0)
+        register(self.quitFunc)
+    cpdef quitFunc(self):
+        try:
+            self.main.quitFunc()
+            if (self.csData is not NULL):
+                free(self.csData)
+                self.csData = NULL
+        except:
+            print_exc()
+            self.main.exitError('ConfigSpace::quitFunc: exception, exiting...')
+    cdef void csResetData(self, unsigned char clearByte) nogil:
         self.clearByte = clearByte
         with nogil:
             memset(self.csData, clearByte, self.csSize)
@@ -221,7 +248,7 @@ cdef class ConfigSpace:
             return
         with nogil:
             memcpy(<char*>(self.csData+offset), <char*>data, size)
-    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE:
+    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE:
         cdef unsigned long int ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
@@ -233,7 +260,7 @@ cdef class ConfigSpace:
         elif (size == OP_SIZE_DWORD):
             ret = <unsigned int>ret
         return ret
-    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) except? BITMASK_BYTE:
+    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE:
         cdef signed long int ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueSigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)

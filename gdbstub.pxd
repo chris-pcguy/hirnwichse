@@ -10,17 +10,17 @@ cdef class GDBStubHandler:
     cdef bytes lastReadData, lastWrittenData, cmdStr
     cdef unsigned char cmdStrChecksum, cmdStrChecksumProof, readState, initSent
     cdef unsigned int cmdStrChecksumIndex, connId
-    cdef clearData(self)
-    cdef sendPacketType(self, bytes packetType)
-    cdef putPacket(self, bytes data)
-    cdef handleRead(self)
+    cdef void clearData(self)
+    cdef void sendPacketType(self, bytes packetType)
+    cdef void putPacket(self, bytes data)
+    cdef void handleRead(self)
     cdef bytes byteToHex(self, unsigned char data)
     cdef bytes bytesToHex(self, bytes data)
     cdef bytes hexToByte(self, bytes data)
     cdef bytes hexToBytes(self, bytes data)
-    cdef sendInit(self, unsigned short gdbType)
-    cdef unhandledCmd(self, bytes data, unsigned char noMsg)
-    cdef handleCommand(self, bytes data)
+    cdef void sendInit(self, unsigned short gdbType)
+    cdef void unhandledCmd(self, bytes data, unsigned char noMsg)
+    cdef void handleCommand(self, bytes data)
 
 
 cdef class GDBStub:

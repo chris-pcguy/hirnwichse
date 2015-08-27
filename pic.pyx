@@ -32,7 +32,7 @@ cdef class PicChannel:
     def __init__(self, Pic pic, unsigned char master):
         self.pic    = pic
         self.master = master
-    cdef void reset(self):
+    cdef void reset(self) nogil:
         self.inInit = False
         self.step = PIC_DATA_STEP_ICW1
         self.cmdByte = 0
@@ -54,7 +54,7 @@ cdef class PicChannel:
             self.irqBasePort = 0x70
         self.mappedSlavesOnMasterMask = 0x4 # master
         self.slaveOnThisMasterIrq = 2 # slave
-    cdef void clearHighestInterrupt(self):
+    cdef void clearHighestInterrupt(self) nogil:
         cdef unsigned char irq, lowestPriority, highestPriority
         lowestPriority = self.lowestPriority
         highestPriority = lowestPriority+1
@@ -113,24 +113,24 @@ cdef class PicChannel:
             self.IRQ_in |= mask
             self.irr |= mask
             self.servicePicChannel()
-    cdef void lowerIrq(self, unsigned char irq):
+    cdef void lowerIrq(self, unsigned char irq) nogil:
         cdef unsigned char mask
         mask = (1 << (irq&7))
         if (self.IRQ_in & mask):
             self.IRQ_in &= (~mask)
             self.irr &= (~mask)
-    cdef unsigned char getCmdByte(self):
+    cdef unsigned char getCmdByte(self) nogil:
         return self.cmdByte
-    cdef void setCmdByte(self, unsigned char cmdByte):
+    cdef void setCmdByte(self, unsigned char cmdByte) nogil:
         self.cmdByte = cmdByte
-    cdef unsigned char getIrqBasePort(self):
+    cdef unsigned char getIrqBasePort(self) nogil:
         return self.irqBasePort
     cdef void setIrqBasePort(self, unsigned char irqBasePort):
         self.irqBasePort = irqBasePort
         if (self.irqBasePort & 7):
             self.pic.main.exitError("setIrqBasePort: (self.irqBasePort {0:#04x} MODULO 8) != 0. (channel{1:d})", \
                          irqBasePort, not self.master)
-    cdef void setMasterSlaveMap(self, unsigned char value):
+    cdef void setMasterSlaveMap(self, unsigned char value) nogil:
         if (self.master):
             self.mappedSlavesOnMasterMask = value
         else:
@@ -139,7 +139,7 @@ cdef class PicChannel:
         self.autoEOI = (flags&2)!=0
         if (not (flags & PIC_FLAG_80x86)):
             self.pic.main.exitError("setFlags: flags {0:#04x}, PIC_FLAG_80x86 not set! (channel{1:d})", flags, self.master==False)
-    cdef void setNeededRegister(self, unsigned char needRegister):
+    cdef void setNeededRegister(self, unsigned char needRegister) nogil:
         self.needRegister = needRegister
     cdef unsigned char getNeededRegister(self):
         if (self.needRegister == PIC_NEED_IRR):
@@ -149,7 +149,7 @@ cdef class PicChannel:
         else:
             self.pic.main.exitError("PicChannel::getNeededRegister: self.needRegister not in (PIC_NEED_IRR, PIC_NEED_ISR).")
             return 0
-    cdef void run(self):
+    cdef void run(self) nogil:
         self.reset()
 
 cdef class Pic:
@@ -197,6 +197,7 @@ cdef class Pic:
             self.main.cpu.registers.ssInhibit = True
             self.main.cpu.asyncEvent = True
         return not (temp1 or temp2 or temp3 or ch.intr)
+        #return not (temp1 or temp2 or temp3)
         #return not (temp2 or temp3 or ch.intr)
         #return not (temp1 or temp3 or ch.intr)
         #return not (temp1 or temp2 or ch.intr)

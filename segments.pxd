@@ -10,8 +10,8 @@ from registers cimport Registers
 
 cdef class Segment:
     cdef Segments segments
-    cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, \
-        segIsRW, segIsConforming, segIsNormal, segUse4K, segDPL, useGDT
+    cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, segIsRW, \
+        segIsConforming, segIsNormal, segUse4K, segDPL, useGDT, readChecked, writeChecked, anotherLimit
     cdef unsigned short segmentIndex, segId
     cdef unsigned int base, limit
     cdef unsigned char loadSegment(self, unsigned short segmentIndex, unsigned char doInit) except BITMASK_BYTE
@@ -29,7 +29,7 @@ cdef class IdtEntry:
     cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent
     cdef unsigned short entrySegment
     cdef unsigned int entryEip
-    cdef void parseEntryData(self, unsigned long int entryData)
+    cdef void parseEntryData(self, unsigned long int entryData) nogil
 
 
 cdef class Gdt:
@@ -37,7 +37,7 @@ cdef class Gdt:
     cdef unsigned short tableLimit
     cdef unsigned int tableBase
     cdef void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit)
-    cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
+    cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit) nogil:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
     cdef GdtEntry getEntry(self, unsigned short num)
@@ -53,7 +53,7 @@ cdef class Idt:
     cdef unsigned short tableLimit
     cdef unsigned int tableBase
     cdef void loadTable(self, unsigned int tableBase, unsigned short tableLimit)
-    cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit):
+    cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit) nogil:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
     cdef IdtEntry getEntry(self, unsigned char num)
@@ -68,7 +68,7 @@ cdef class Paging:
     cdef unsigned char instrFetch, implicitSV
     cdef unsigned short pageOffset
     cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
-    cdef inline void setInstrFetch(self):
+    cdef inline void setInstrFetch(self) nogil:
         self.instrFetch = True
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress, unsigned char noGlobal)
     cdef void invalidateTable(self, unsigned int virtualAddress)
@@ -88,7 +88,7 @@ cdef class Segments:
     cdef Segment cs, ds, es, fs, gs, ss, tss
     cdef tuple segs
     cdef unsigned short ldtr
-    cdef void reset(self)
+    cdef void reset(self) nogil
     cdef Segment getSegment(self, unsigned short segmentId, unsigned char checkForValidness)
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char getSegType(self, unsigned short num)
@@ -97,7 +97,7 @@ cdef class Segments:
     cdef unsigned char checkReadAllowed(self, unsigned short num)
     cdef unsigned char checkWriteAllowed(self, unsigned short num)
     cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId) except BITMASK_BYTE
-    cdef unsigned char inLimit(self, unsigned short num)
+    cdef unsigned char inLimit(self, unsigned short num) nogil
     cdef void run(self)
 
 

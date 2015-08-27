@@ -13,16 +13,16 @@ cdef class AtaDrive:
     cdef unsigned short sectorSize, driveCode
     cdef unsigned long int sectors
     cdef bytes filename
-    cdef unsigned long int ChsToSector(self, unsigned int cylinder, unsigned char head, unsigned char sector)
+    cdef unsigned long int ChsToSector(self, unsigned int cylinder, unsigned char head, unsigned char sector) nogil
     cdef inline unsigned short readValue(self, unsigned char index)
     cdef inline void writeValue(self, unsigned char index, unsigned short value)
-    cdef void reset(self)
+    cdef void reset(self) nogil
     cdef void loadDrive(self, bytes filename)
     cdef bytes readBytes(self, unsigned long int offset, unsigned int size)
     cdef bytes readSectors(self, unsigned long int sector, unsigned int count) # count in sectors
     cdef void writeBytes(self, unsigned long int offset, unsigned int size, bytes data)
     cdef void writeSectors(self, unsigned long int sector, unsigned int count, bytes data)
-    cdef void run(self)
+    cdef void run(self) nogil
 
 
 cdef class AtaController:
@@ -36,10 +36,10 @@ cdef class AtaController:
     cdef unsigned long int lba
     cdef void setSignature(self, unsigned char driveId)
     cdef void reset(self, unsigned char swReset)
-    cdef inline void LbaToCHS(self)
-    cdef void convertToLBA28(self)
+    cdef inline void LbaToCHS(self) nogil
+    cdef void convertToLBA28(self) nogil
     cdef void raiseAtaIrq(self, unsigned char withDRQ, unsigned char doIRQ)
-    cdef void lowerAtaIrq(self)
+    cdef void lowerAtaIrq(self) nogil
     cdef void abortCommand(self)
     cdef void errorCommand(self, unsigned char errorRegister)
     cdef void nopCommand(self)

@@ -30,7 +30,7 @@ cdef class Cmos:
     cdef void reset(self):
         cdef unsigned int memSizeInK, extMemSizeInK, extMemSizeIn64K
         memSizeInK = extMemSizeInK = extMemSizeIn64K = 0
-        self.configSpace.csResetData()
+        self.configSpace.csResetData(0)
         self.writeValue(CMOS_STATUS_REGISTER_A, 0x26, OP_SIZE_BYTE)
         self.writeValue(CMOS_STATUS_REGISTER_B, 0x02, OP_SIZE_BYTE)
         self.writeValue(CMOS_STATUS_REGISTER_D, 0x80, OP_SIZE_BYTE)

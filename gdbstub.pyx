@@ -51,14 +51,14 @@ cdef class GDBStubHandler:
         self.initSent = False
         self.lastWrittenData = bytes()
         self.clearData()
-    cdef clearData(self):
+    cdef void clearData(self):
         self.lastReadData = self.cmdStr = bytes()
         self.cmdStrChecksum = self.cmdStrChecksumProof = 0
         self.readState = RS_IDLE
-    cdef sendPacketType(self, bytes packetType):
+    cdef void sendPacketType(self, bytes packetType):
         self.connHandler.request.send(packetType)
         #self.connHandler.request.flush()
-    cdef putPacket(self, bytes data):
+    cdef void putPacket(self, bytes data):
         cdef bytes dataFull, dataChecksum
         if (self.connHandler and self.connHandler.request):
             dataChecksum = self.byteToHex(<unsigned char>((<Misc>self.gdbStub.main.misc).checksum(data)))
@@ -70,8 +70,7 @@ cdef class GDBStubHandler:
             #self.connHandler.request.flush()
         else:
             self.gdbStub.main.notice('GDBStubHandler::putPacket: connHandler[.request] is None.')
-
-    cdef handleRead(self):
+    cdef void handleRead(self):
         cdef bytes tempStr
         cdef unsigned char c
         if (self.connHandler and self.connHandler.request):
@@ -146,13 +145,13 @@ cdef class GDBStubHandler:
             returnValue += self.hexToByte(data[i:i+2])
             i += 2
         return returnValue
-    cdef sendInit(self, unsigned short gdbType):
+    cdef void sendInit(self, unsigned short gdbType):
         self.putPacket('T{0:02x}thread:{1:02x};'.format(gdbType, self.connId).encode())
-    cdef unhandledCmd(self, bytes data, unsigned char noMsg):
+    cdef void unhandledCmd(self, bytes data, unsigned char noMsg):
         if (not noMsg):
             self.gdbStub.main.notice('GDBStubHandler::handleCommand: unhandled cmd: {0:s}', repr(data))
         self.putPacket(bytes())
-    cdef handleCommand(self, bytes data):
+    cdef void handleCommand(self, bytes data):
         cdef unsigned int memAddr, memLength, blockSize, regVal
         cdef signed int threadNum, res_signal, res_thread, signal = 0, thread
         cdef unsigned short regOffset, maxRegNum, currRegNum

@@ -20,21 +20,21 @@ cdef class Cpu:
         self.debugHalt = self.main.debugHalt
         self.savedSs = self.savedEsp = self.cycles = 0
         self.registers.reset()
-    cdef inline void saveCurrentInstPointer(self):
+    cdef inline void saveCurrentInstPointer(self) nogil:
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
         self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
         self.savedSs  = self.registers.segRead(CPU_SEGMENT_SS)
         self.savedEsp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
-    cdef void setINTR(self, unsigned char state):
+    cdef void setINTR(self, unsigned char state) nogil:
         self.INTR = state
         if (state):
             self.asyncEvent = True
             self.cpuHalted = False
-    cdef void setHRQ(self, unsigned char state):
+    cdef void setHRQ(self, unsigned char state) nogil:
         self.HRQ = state
         if (state):
             self.asyncEvent = True
-    cdef handleAsyncEvent(self):
+    cdef void handleAsyncEvent(self):
         cdef unsigned char irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
         oldIF = self.registers.if_flag
@@ -47,7 +47,7 @@ cdef class Cpu:
             self.asyncEvent = False
             self.cpuHalted = False
         return
-    cdef exception(self, unsigned char exceptionId, signed int errorCode=-1):
+    cdef void exception(self, unsigned char exceptionId, signed int errorCode=-1):
         self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         self.cpuDump()
         #self.main.debugEnabled = True
@@ -73,7 +73,7 @@ cdef class Cpu:
             self.opcodes.interrupt(exceptionId)
         self.main.notice("Running exception_2: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         self.cpuDump()
-    cdef handleException(self, object exception):
+    cdef void handleException(self, object exception):
         cdef unsigned char exceptionId
         cdef signed int errorCode
         #if (self.savedCs == 0x70 and self.savedEip == 0x3b2):
@@ -132,7 +132,7 @@ cdef class Cpu:
                 self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
             opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
         return opcode
-    cdef cpuDump(self):
+    cdef void cpuDump(self):
         self.main.notice("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EAX), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_ECX))
         self.main.notice("EDX: {0:#010x}, EBX: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EDX), \
@@ -171,7 +171,7 @@ cdef class Cpu:
         #self.main.notice("FS.limit: {0:#06x}, GS.limit: {1:#06x}", (<Segment>self.registers.segments.fs).limit, \
         #  (<Segment>self.registers.segments.gs).limit)
         self.main.notice("Opcode: {0:#04x}\n\n", self.opcode)
-    cdef doInfiniteCycles(self):
+    cdef void doInfiniteCycles(self):
         try:
             while (not self.main.quitEmu):
                 if (self.cpuHalted and self.main.exitIfCpuHalted):
@@ -194,7 +194,7 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
-    cdef doCycle(self):
+    cdef void doCycle(self):
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
         #self.registers.reloadCpuCache()

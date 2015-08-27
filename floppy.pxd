@@ -20,7 +20,7 @@ cdef class FloppyDrive:
     cdef bytes filename
     cdef unsigned char driveId, isLoaded, isWriteProtected, DIR, cylinder, head, sector, eot
     cdef void reset(self)
-    cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector)
+    cdef unsigned int ChsToSector(self, unsigned char cylinder, unsigned char head, unsigned char sector) nogil
     cdef unsigned char getDiskType(self, unsigned int size)
     cdef void loadDrive(self, bytes filename)
     cdef bytes readBytes(self, unsigned int offset, unsigned int size)
@@ -44,7 +44,7 @@ cdef class FloppyController:
     cdef inline void clearCommand(self)
     cdef inline void clearResult(self)
     cdef void setDor(self, unsigned char data)
-    cdef inline void setMsr(self, unsigned char data)
+    cdef inline void setMsr(self, unsigned char data) nogil
     cdef void doCmdReset(self)
     cdef void resetChangeline(self)
     cdef void incrementSector(self)

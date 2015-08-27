@@ -23,10 +23,10 @@ cdef class IsaDmaController:
     cdef IsaDma isadma
     cdef tuple channel
     cdef unsigned char flipFlop, firstChannel, master, ctrlDisabled, cmdReg, statusReg
-    cdef void reset(self)
+    cdef void reset(self) nogil
     cdef void doCommand(self, unsigned char data)
     cdef void doManualRequest(self, unsigned char data)
-    cdef void setFlipFlop(self, unsigned char flipFlop)
+    cdef void setFlipFlop(self, unsigned char flipFlop) nogil
     cdef void setTransferMode(self, unsigned char transferModeByte)
     cdef void maskChannel(self, unsigned char channel, unsigned char maskIt)
     cdef void maskChannels(self, unsigned char maskByte)
@@ -37,7 +37,7 @@ cdef class IsaDmaController:
     cdef unsigned char getPageByte(self, unsigned char channel)
     cdef unsigned char getAddrByte(self, unsigned char channel)
     cdef unsigned char getCountByte(self, unsigned char channel)
-    cdef unsigned char getStatus(self)
+    cdef unsigned char getStatus(self) nogil
     cdef void controlHRQ(self)
     cdef void run(self)
 
@@ -48,7 +48,7 @@ cdef class IsaDma:
     cdef unsigned char HLDA, TC # extPageReg is unused.
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
-    cdef unsigned char getTC(self)
+    cdef unsigned char getTC(self) nogil
     cdef void setDRQ(self, unsigned char channel, unsigned char val)
     cdef void raiseHLDA(self)
     cdef void setDmaMemActions(self, unsigned char controllerId, unsigned char channelId, object classInstance, ReadFromMem readFromMem, WriteToMem writeToMem)

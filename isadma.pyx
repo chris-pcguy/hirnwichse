@@ -49,7 +49,7 @@ cdef class IsaDmaController:
         self.isadma = isadma
         self.main = self.isadma.main
         self.channel = (IsaDmaChannel(self, self.firstChannel), IsaDmaChannel(self, self.firstChannel+1), IsaDmaChannel(self, self.firstChannel+2), IsaDmaChannel(self, self.firstChannel+3))
-    cdef void reset(self):
+    cdef void reset(self) nogil:
         self.flipFlop = False
     cdef void doCommand(self, unsigned char data):
         self.cmdReg = data
@@ -62,7 +62,7 @@ cdef class IsaDmaController:
         else: # clear it
             self.statusReg &= ~(1 << (channel+4))
         self.controlHRQ()
-    cdef void setFlipFlop(self, unsigned char flipFlop):
+    cdef void setFlipFlop(self, unsigned char flipFlop) nogil:
         self.flipFlop = flipFlop
     cdef void setTransferMode(self, unsigned char transferModeByte):
         cdef unsigned char channel = transferModeByte&3
@@ -126,7 +126,7 @@ cdef class IsaDmaController:
             retVal = <unsigned char>((<IsaDmaChannel>self.channel[channel]).currentCount)
         self.setFlipFlop(not self.flipFlop)
         return retVal
-    cdef unsigned char getStatus(self):
+    cdef unsigned char getStatus(self) nogil:
         cdef unsigned char status
         status = self.statusReg
         self.statusReg &= 0xf0
@@ -235,7 +235,7 @@ cdef class IsaDma:
         else:
             self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", \
               ioPortAddr, data, dataSize)
-    cdef unsigned char getTC(self):
+    cdef unsigned char getTC(self) nogil:
         return self.TC
     cdef void setDRQ(self, unsigned char channel, unsigned char val):
         cdef unsigned int dmaBase, dmaRoof

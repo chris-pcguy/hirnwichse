@@ -34,7 +34,7 @@ cdef class VGA_REGISTER_RAW:
         self.index = 0
         self.configSpace = ConfigSpace(registerSize, self.vga.main)
     cdef void reset(self):
-        self.configSpace.csResetData()
+        self.configSpace.csResetData(0)
         self.index = 0
     cdef unsigned short getIndex(self):
         return self.index
@@ -690,7 +690,7 @@ cdef class Vga:
         else:
             self.main.notice("Vga::outPort: port {0:#06x} with dataSize {1:d} isn't supported. (data {2:#06x})", ioPortAddr, dataSize, data)
         return
-    cdef run(self):
+    cdef void run(self):
         #self.plane0.csResetData(BITMASK_BYTE)
         #self.plane1.csResetData(BITMASK_BYTE)
         #self.plane3.csResetData(BITMASK_BYTE)

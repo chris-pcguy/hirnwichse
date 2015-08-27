@@ -17,13 +17,13 @@ cdef class Opcodes:
     cdef int cli(self) except BITMASK_BYTE
     cdef int sti(self) except BITMASK_BYTE
     cdef int hlt(self) except BITMASK_BYTE
-    cdef void cld(self)
-    cdef void std(self)
-    cdef void clc(self)
-    cdef void stc(self)
-    cdef void cmc(self)
-    cdef void clac(self)
-    cdef void stac(self)
+    cdef void cld(self) nogil
+    cdef void std(self) nogil
+    cdef void clc(self) nogil
+    cdef void stc(self) nogil
+    cdef void cmc(self) nogil
+    cdef void clac(self) nogil
+    cdef void stac(self) nogil
     cdef int checkIOPL(self, unsigned short ioPortAddr, unsigned char dataSize) except BITMASK_BYTE
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except? BITMASK_BYTE
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except BITMASK_BYTE

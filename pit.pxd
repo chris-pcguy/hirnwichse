@@ -11,8 +11,8 @@ cdef class PitChannel:
     cdef unsigned char channelId, bcdMode, counterMode, counterWriteMode, \
       counterFlipFlop, timerEnabled, readBackStatusValue, readBackStatusIssued, resetChannel
     cdef unsigned int counterValue, counterStartValue, counterLatchValue, tempTimerValue
-    cdef void readBackCount(self)
-    cdef void readBackStatus(self)
+    cdef void readBackCount(self) nogil
+    cdef void readBackStatus(self) nogil
     cdef void mode0Func(self)
     cdef void mode2Func(self)
     cpdef timerFunc(self)
@@ -21,8 +21,8 @@ cdef class PitChannel:
 cdef class Pit:
     cdef Hirnwichse main
     cdef tuple channels
-    cpdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
+    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
+    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void run(self)
 
 

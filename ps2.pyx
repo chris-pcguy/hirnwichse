@@ -369,7 +369,7 @@ cdef class PS2:
         else:
             self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
         return
-    cdef void setKbdClockEnable(self, unsigned char value):
+    cdef void setKbdClockEnable(self, unsigned char value) nogil:
         cdef unsigned char prevKbdClockEnabled
         if (not value):
             self.kbdClockEnabled = False
@@ -378,7 +378,7 @@ cdef class PS2:
             self.kbdClockEnabled = True
             if (not prevKbdClockEnabled and not self.outb):
                 self.activateTimer()
-    cpdef activateTimer(self):
+    cdef void activateTimer(self) nogil:
         if (not self.timerPending):
             self.timerPending = 1
     cpdef unsigned char periodic(self, unsigned char usecDelta):

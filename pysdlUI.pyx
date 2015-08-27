@@ -336,9 +336,9 @@ cdef class PysdlUI:
             return 0x65
         elif (key == sdl2.SDL_SCANCODE_LGUI):
             return 0x66
-        elif (key == sdl2.SDL_SCANCODE_APPLICATION):
+        elif (key == sdl2.SDL_SCANCODE_RGUI):
             return 0x67
-        elif (key == sdl2.SDL_SCANCODE_MENU):
+        elif (key == sdl2.SDL_SCANCODE_APPLICATION):
             return 0x68
         elif (key == sdl2.SDL_SCANCODE_SYSREQ): # OR SYSRQ?
             return 0x69

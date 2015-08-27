@@ -67,7 +67,7 @@ cdef class Vga:
     cdef void vgaAreaWrite(self, unsigned int offset, unsigned int dataSize)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
-    cdef run(self)
+    cdef void run(self)
 
 
 

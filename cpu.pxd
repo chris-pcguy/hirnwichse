@@ -22,16 +22,16 @@ cdef class Cpu:
     cdef public unsigned int savedEip, savedEsp
     cdef public unsigned long int cycles
     cdef void reset(self)
-    cdef inline void saveCurrentInstPointer(self)
-    cdef void setINTR(self, unsigned char state)
-    cdef void setHRQ(self, unsigned char state)
-    cdef handleAsyncEvent(self)
-    cdef exception(self, unsigned char exceptionId, signed int errorCode=?)
-    cdef handleException(self, object exception)
+    cdef inline void saveCurrentInstPointer(self) nogil
+    cdef void setINTR(self, unsigned char state) nogil
+    cdef void setHRQ(self, unsigned char state) nogil
+    cdef void handleAsyncEvent(self)
+    cdef void exception(self, unsigned char exceptionId, signed int errorCode=?)
+    cdef void handleException(self, object exception) 
     cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE
-    cdef cpuDump(self)
-    cdef doInfiniteCycles(self)
-    cdef doCycle(self)
+    cdef void cpuDump(self)
+    cdef void doInfiniteCycles(self)
+    cdef void doCycle(self)
     cpdef run(self, unsigned char infiniteCycles = ?)
 
 
