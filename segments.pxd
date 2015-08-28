@@ -14,8 +14,8 @@ cdef class Segment:
         segIsConforming, segIsNormal, segUse4K, segDPL, useGDT, readChecked, writeChecked, anotherLimit
     cdef unsigned short segmentIndex, segId
     cdef unsigned int base, limit
-    cdef unsigned char loadSegment(self, unsigned short segmentIndex, unsigned char doInit) except BITMASK_BYTE
-    cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) except BITMASK_BYTE
+    cdef unsigned char loadSegment(self, unsigned short segmentIndex, unsigned char doInit) except BITMASK_BYTE_CONST
+    cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) except BITMASK_BYTE_CONST
 
 cdef class GdtEntry:
     cdef Gdt gdt
@@ -23,7 +23,7 @@ cdef class GdtEntry:
         segIsConforming, segIsNormal, segUse4K, segDPL
     cdef unsigned int base, limit
     cdef void parseEntryData(self, unsigned long int entryData)
-    cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) except BITMASK_BYTE
+    cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) except BITMASK_BYTE_CONST
 
 cdef class IdtEntry:
     cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent
@@ -43,10 +43,10 @@ cdef class Gdt:
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char getSegType(self, unsigned short num)
     cdef void setSegType(self, unsigned short num, unsigned char segmentType)
-    cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) except BITMASK_BYTE
+    cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) except BITMASK_BYTE_CONST
     cdef unsigned char checkReadAllowed(self, unsigned short num)
     cdef unsigned char checkWriteAllowed(self, unsigned short num)
-    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId) except BITMASK_BYTE
+    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId) except BITMASK_BYTE_CONST
 
 cdef class Idt:
     cdef Segments segments
@@ -73,11 +73,11 @@ cdef class Paging:
     cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress, unsigned char noGlobal)
     cdef void invalidateTable(self, unsigned int virtualAddress)
     cdef void invalidatePage(self, unsigned int virtualAddress)
-    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE
-    cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE
-    cdef unsigned char accessAllowed(self, unsigned int virtualAddress, unsigned char written, unsigned char refresh) except BITMASK_BYTE
-    cdef unsigned char setFlags(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except BITMASK_BYTE
-    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except? BITMASK_BYTE
+    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE_CONST
+    cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) except BITMASK_BYTE_CONST
+    cdef unsigned char accessAllowed(self, unsigned int virtualAddress, unsigned char written, unsigned char refresh) except BITMASK_BYTE_CONST
+    cdef unsigned char setFlags(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except BITMASK_BYTE_CONST
+    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) except? BITMASK_BYTE_CONST
     
 cdef class Segments:
     cdef Hirnwichse main
@@ -93,10 +93,10 @@ cdef class Segments:
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char getSegType(self, unsigned short num)
     cdef void setSegType(self, unsigned short num, unsigned char segmentType)
-    cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) except BITMASK_BYTE
+    cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) except BITMASK_BYTE_CONST
     cdef unsigned char checkReadAllowed(self, unsigned short num)
     cdef unsigned char checkWriteAllowed(self, unsigned short num)
-    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId) except BITMASK_BYTE
+    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId) except BITMASK_BYTE_CONST
     cdef unsigned char inLimit(self, unsigned short num) nogil
     cdef void run(self)
 

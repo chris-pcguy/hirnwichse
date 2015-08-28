@@ -40,11 +40,11 @@ cdef class ModRMClass:
     cdef unsigned char rm, reg, mod, ss, regSize
     cdef unsigned short rmName0, rmName1, regName
     cdef signed long int rmName2
-    cdef unsigned char modRMOperands(self, unsigned char regSize, unsigned char modRMflags) except BITMASK_BYTE
+    cdef unsigned char modRMOperands(self, unsigned char regSize, unsigned char modRMflags) except BITMASK_BYTE_CONST
     cdef unsigned long int getRMValueFull(self, unsigned char rmSize)
-    cdef signed long int modRMLoadSigned(self, unsigned char regSize) except? BITMASK_BYTE
-    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize) except? BITMASK_BYTE
-    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp) except? BITMASK_BYTE # stdValueOp==OPCODE_SAVE
+    cdef signed long int modRMLoadSigned(self, unsigned char regSize) except? BITMASK_BYTE_CONST
+    cdef unsigned long int modRMLoadUnsigned(self, unsigned char regSize) except? BITMASK_BYTE_CONST
+    cdef unsigned long int modRMSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp) except? BITMASK_BYTE_CONST # stdValueOp==OPCODE_SAVE
     cdef signed long int modRLoadSigned(self, unsigned char regSize)
     cdef unsigned long int modRLoadUnsigned(self, unsigned char regSize)
     cdef unsigned long int modRSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp)
@@ -78,24 +78,24 @@ cdef class Registers:
     cdef unsigned char getCPL(self) nogil
     cdef unsigned char getIOPL(self) nogil
     cdef void syncCR0State(self) nogil
-    cdef unsigned char getCurrentOpcodeUnsignedByte(self) except? BITMASK_BYTE
-    cdef inline signed char getCurrentOpcodeAddSignedByte(self) except? BITMASK_BYTE:
+    cdef unsigned char getCurrentOpcodeUnsignedByte(self) except? BITMASK_BYTE_CONST
+    cdef inline signed char getCurrentOpcodeAddSignedByte(self) except? BITMASK_BYTE_CONST:
         return <signed char>self.getCurrentOpcodeAddUnsignedByte()
-    cdef inline signed short getCurrentOpcodeAddSignedWord(self) except? BITMASK_BYTE:
+    cdef inline signed short getCurrentOpcodeAddSignedWord(self) except? BITMASK_BYTE_CONST:
         return <signed short>self.getCurrentOpcodeAddUnsignedWord()
-    cdef inline signed int getCurrentOpcodeAddSignedDword(self) except? BITMASK_BYTE:
+    cdef inline signed int getCurrentOpcodeAddSignedDword(self) except? BITMASK_BYTE_CONST:
         return <signed int>self.getCurrentOpcodeAddUnsignedDword()
-    cdef inline signed long int getCurrentOpcodeAddSignedQword(self) except? BITMASK_BYTE:
+    cdef inline signed long int getCurrentOpcodeAddSignedQword(self) except? BITMASK_BYTE_CONST:
         return <signed long int>self.getCurrentOpcodeAddUnsignedQword()
-    cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes) except? BITMASK_BYTE
-    cdef unsigned char getCurrentOpcodeAddUnsignedByte(self) except? BITMASK_BYTE
-    cdef unsigned short getCurrentOpcodeAddUnsignedWord(self) except? BITMASK_BYTE
-    cdef unsigned int getCurrentOpcodeAddUnsignedDword(self) except? BITMASK_BYTE
-    cdef unsigned long int getCurrentOpcodeAddUnsignedQword(self) except? BITMASK_BYTE
-    cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes) except? BITMASK_BYTE
-    cdef unsigned short segRead(self, unsigned short segId) nogil except? BITMASK_BYTE
-    cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue) except? BITMASK_BYTE
-    cdef unsigned short segWriteSegment(self, Segment segment, unsigned short segValue) except? BITMASK_BYTE
+    cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes) except? BITMASK_BYTE_CONST
+    cdef unsigned char getCurrentOpcodeAddUnsignedByte(self) except? BITMASK_BYTE_CONST
+    cdef unsigned short getCurrentOpcodeAddUnsignedWord(self) except? BITMASK_BYTE_CONST
+    cdef unsigned int getCurrentOpcodeAddUnsignedDword(self) except? BITMASK_BYTE_CONST
+    cdef unsigned long int getCurrentOpcodeAddUnsignedQword(self) except? BITMASK_BYTE_CONST
+    cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes) except? BITMASK_BYTE_CONST
+    cdef unsigned short segRead(self, unsigned short segId) nogil except? BITMASK_BYTE_CONST
+    cdef unsigned short segWrite(self, unsigned short segId, unsigned short segValue) except? BITMASK_BYTE_CONST
+    cdef unsigned short segWriteSegment(self, Segment segment, unsigned short segValue) except? BITMASK_BYTE_CONST
     cdef inline signed char regReadSignedLowByte(self, unsigned short regId) nogil:
         return <signed char>self.regs[regId]._union.word._union.byte.rl
     cdef inline signed char regReadSignedHighByte(self, unsigned short regId) nogil:
@@ -258,31 +258,31 @@ cdef class Registers:
     cdef void setSZP_O(self, unsigned int value, unsigned char regSize) nogil
     cdef void setSZP_A(self, unsigned int value, unsigned char regSize) nogil
     cdef void setSZP_COA(self, unsigned int value, unsigned char regSize) nogil
-    cdef unsigned char getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except BITMASK_BYTE
+    cdef unsigned char getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef unsigned char getCond(self, unsigned char index)
     cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method) nogil
-    cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) except BITMASK_BYTE
-    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) except? BITMASK_BYTE
-    cdef inline signed char mmReadValueSignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE:
+    cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) except BITMASK_BYTE_CONST
+    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) except? BITMASK_BYTE_CONST
+    cdef inline signed char mmReadValueSignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST:
         return <signed char>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
-    cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE:
+    cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST:
         return <signed short>self.mmReadValueUnsignedWord(mmAddr, segment, allowOverride)
-    cdef inline signed int mmReadValueSignedDword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE:
+    cdef inline signed int mmReadValueSignedDword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST:
         return <signed int>self.mmReadValueUnsignedDword(mmAddr, segment, allowOverride)
-    cdef inline signed long int mmReadValueSignedQword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE:
+    cdef inline signed long int mmReadValueSignedQword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST:
         return <signed long int>self.mmReadValueUnsignedQword(mmAddr, segment, allowOverride)
-    cdef signed long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE
-    cdef unsigned char mmReadValueUnsignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE
-    cdef unsigned short mmReadValueUnsignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE
-    cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE
-    cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE
-    cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE
-    cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride) except BITMASK_BYTE
-    cdef unsigned long int mmWriteValueWithOp(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride, unsigned char valueOp) except? BITMASK_BYTE
-    cdef unsigned char switchTSS16(self) except BITMASK_BYTE
-    cdef unsigned char saveTSS16(self) except BITMASK_BYTE
-    cdef unsigned char switchTSS32(self) except BITMASK_BYTE
-    cdef unsigned char saveTSS32(self) except BITMASK_BYTE
+    cdef signed long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST
+    cdef unsigned char mmReadValueUnsignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST
+    cdef unsigned short mmReadValueUnsignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST
+    cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST
+    cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST
+    cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) except? BITMASK_BYTE_CONST
+    cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride) except BITMASK_BYTE_CONST
+    cdef unsigned long int mmWriteValueWithOp(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride, unsigned char valueOp) except? BITMASK_BYTE_CONST
+    cdef unsigned char switchTSS16(self) except BITMASK_BYTE_CONST
+    cdef unsigned char saveTSS16(self) except BITMASK_BYTE_CONST
+    cdef unsigned char switchTSS32(self) except BITMASK_BYTE_CONST
+    cdef unsigned char saveTSS32(self) except BITMASK_BYTE_CONST
     cdef void run(self)
 
 

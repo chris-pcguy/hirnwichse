@@ -28,7 +28,7 @@ cdef class Cpu:
     cdef void handleAsyncEvent(self)
     cdef void exception(self, unsigned char exceptionId, signed int errorCode=?)
     cdef void handleException(self, object exception) 
-    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE
+    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE_CONST
     cdef void cpuDump(self)
     cdef void doInfiniteCycles(self)
     cdef void doCycle(self)

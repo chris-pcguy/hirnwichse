@@ -192,7 +192,7 @@ cdef class Pic:
         temp1 = ch.isr & (1<<irq) # partly commented out because the
         temp2 = ch.irr & (1<<irq) # PS/2 keyboard has a lower priority.
         temp3 = ch.imr & (1<<irq)
-        self.main.notice("Pic::isClear({0:d},{1:d}): temp1=={2:d}; temp2=={3:d}; temp3=={4:d}; ch.intr=={5:d}", irq, ma_sl, temp1, temp2, temp3, ch.intr)
+        #self.main.notice("Pic::isClear({0:d},{1:d}): temp1=={2:d}; temp2=={3:d}; temp3=={4:d}; ch.intr=={5:d}", irq, ma_sl, temp1, temp2, temp3, ch.intr)
         if (not temp1 and temp2 and ch.intr):
             self.main.cpu.registers.ssInhibit = True
             self.main.cpu.asyncEvent = True

@@ -102,7 +102,7 @@ cdef class Cpu:
         else:
             self.main.notice("CPU::handleException: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
         self.exception(exceptionId, errorCode)
-    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE:
+    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE_CONST:
         cdef unsigned char count
         count = 0
         while (opcode in OPCODE_PREFIXES and not self.main.quitEmu):

@@ -42,11 +42,11 @@ cdef class Mm:
         except:
             print_exc()
             self.main.exitError('Mm::quitFunc: exception, exiting...')
-    cdef void mmClear(self, unsigned long int offset, unsigned char clearByte, unsigned long int dataSize) nogil:
+    cdef void mmClear(self, unsigned int offset, unsigned char clearByte, unsigned int dataSize) nogil:
         with nogil:
             memset(<char*>(self.data+offset), clearByte, dataSize)
-    cdef bytes mmPhyRead(self, unsigned long int mmAddr, unsigned long int dataSize):
-        cdef unsigned long int tempOffset, tempSize
+    cdef char *mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize):
+        cdef unsigned int tempOffset, tempSize
         cdef bytes ret = bytes()
         if (dataSize > 0 and mmAddr < VGA_MEMAREA_ADDR):
             tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
@@ -98,7 +98,7 @@ cdef class Mm:
             tempSize = min(dataSize, SIZE_4GB-mmAddr)
             ret += self.romData[tempOffset:tempOffset+tempSize]
         return ret
-    cdef signed long int mmPhyReadValueSigned(self, unsigned long int mmAddr, unsigned char dataSize) except? BITMASK_BYTE:
+    cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE_CONST:
         cdef signed long int ret
         ret = self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
@@ -108,31 +108,44 @@ cdef class Mm:
         elif (dataSize == OP_SIZE_DWORD):
             ret = <signed int>ret
         return ret
-    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned long int mmAddr) except? BITMASK_BYTE:
+    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_BYTE or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_BYTE)):
             return (<unsigned char*>self.mmGetDataPointer(mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_BYTE)
-    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned long int mmAddr) except? BITMASK_BYTE:
+    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_WORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_WORD)):
             return (<unsigned short*>self.mmGetDataPointer(mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_WORD)
-    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned long int mmAddr) except? BITMASK_BYTE:
+    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_DWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_DWORD)):
             return (<unsigned int*>self.mmGetDataPointer(mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_DWORD)
-    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned long int mmAddr) except? BITMASK_BYTE:
+    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr) except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_QWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_QWORD)):
             return (<unsigned long int*>self.mmGetDataPointer(mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_QWORD)
-    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned long int mmAddr, unsigned char dataSize) except? BITMASK_BYTE:
+    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize) except? BITMASK_BYTE_CONST:
+        cdef char *temp
+        if (mmAddr <= VGA_MEMAREA_ADDR-dataSize or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-dataSize)):
+            temp = self.mmGetDataPointer(mmAddr)
+        else:
+            temp = self.mmPhyRead(mmAddr, dataSize)
+        if (dataSize == OP_SIZE_BYTE):
+            return (<unsigned char*>temp)[0]
+        elif (dataSize == OP_SIZE_WORD):
+            return (<unsigned short*>temp)[0]
+        elif (dataSize == OP_SIZE_DWORD):
+            return (<unsigned int*>temp)[0]
+        elif (dataSize == OP_SIZE_QWORD):
+            return (<unsigned long int*>temp)[0]
         return int.from_bytes(self.mmPhyRead(mmAddr, dataSize), byteorder="little", signed=False)
-    cdef unsigned char mmPhyWrite(self, unsigned long int mmAddr, char *data, unsigned long int dataSize) except BITMASK_BYTE:
-        cdef unsigned long int tempOffset, tempSize
+    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, char *data, unsigned int dataSize) except BITMASK_BYTE_CONST:
+        cdef unsigned int tempOffset, tempSize
         if (dataSize > 0 and mmAddr < SIZE_1MB):
             if (mmAddr < VGA_MEMAREA_ADDR):
                 tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
                 with nogil:
-                    memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
+                    memcpy(<char*>(self.data+mmAddr), data, tempSize)
                 if (dataSize <= tempSize):
                     return True
                 dataSize -= tempSize
@@ -141,7 +154,7 @@ cdef class Mm:
             if (dataSize > 0 and mmAddr >= VGA_MEMAREA_ADDR and mmAddr < VGA_ROM_BASE):
                 tempSize = min(dataSize, VGA_ROM_BASE-mmAddr)
                 with nogil:
-                    memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
+                    memcpy(<char*>(self.data+mmAddr), data, tempSize)
                 self.main.platform.vga.vgaAreaWrite(mmAddr, tempSize)
                 if (dataSize <= tempSize):
                     return True
@@ -152,7 +165,7 @@ cdef class Mm:
                 tempSize = min(dataSize, SIZE_1MB-mmAddr)
                 if (not self.ignoreRomWrite):
                     with nogil:
-                        memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
+                        memcpy(<char*>(self.data+mmAddr), data, tempSize)
                 if (dataSize <= tempSize):
                     return True
                 dataSize -= tempSize
@@ -161,7 +174,7 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= SIZE_1MB and mmAddr < self.memSizeBytes):
             tempSize = min(dataSize, self.memSizeBytes-mmAddr)
             with nogil:
-                memcpy(<char*>(self.data+mmAddr), <char*>(data), tempSize)
+                memcpy(<char*>(self.data+mmAddr), data, tempSize)
             if (dataSize <= tempSize):
                 return True
             dataSize -= tempSize
@@ -179,7 +192,7 @@ cdef class Mm:
             tempOffset = mmAddr-PCI_MEM_BASE
             tempSize = min(dataSize, PCI_MEM_BASE_PLUS_LIMIT-mmAddr)
             with nogil:
-                memcpy(<char*>(self.pciData+tempOffset), <char*>(data), tempSize)
+                memcpy(<char*>(self.pciData+tempOffset), data, tempSize)
             if (dataSize <= tempSize):
                 return True
             dataSize -= tempSize
@@ -198,17 +211,15 @@ cdef class Mm:
                 tempOffset = mmAddr-LAST_MEMAREA_BASE_ADDR
                 tempSize = min(dataSize, SIZE_4GB-mmAddr)
                 with nogil:
-                    memcpy(<char*>(self.romData+tempOffset), <char*>(data), tempSize)
+                    memcpy(<char*>(self.romData+tempOffset), data, tempSize)
         return True
-    cdef unsigned char mmPhyWriteValue(self, unsigned long int mmAddr, unsigned long int data, unsigned char dataSize) except BITMASK_BYTE:
-        if (dataSize == OP_SIZE_BYTE):
-            data = <unsigned char>data
-        elif (dataSize == OP_SIZE_WORD):
-            data = <unsigned short>data
-        elif (dataSize == OP_SIZE_DWORD):
-            data = <unsigned int>data
-        return self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
-    cdef void mmPhyCopy(self, unsigned long int destAddr, unsigned long int srcAddr, unsigned long int dataSize):
+    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize) except BITMASK_BYTE_CONST:
+        cdef char *temp
+        if (dataSize not in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD, OP_SIZE_QWORD)):
+            return self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
+        temp = <char*>&data
+        return self.mmPhyWrite(mmAddr, temp, dataSize)
+    cdef void mmPhyCopy(self, unsigned int destAddr, unsigned int srcAddr, unsigned int dataSize):
         self.mmPhyWrite(destAddr, self.mmPhyRead(srcAddr, dataSize), dataSize)
 
 
@@ -248,7 +259,7 @@ cdef class ConfigSpace:
             return
         with nogil:
             memcpy(<char*>(self.csData+offset), <char*>data, size)
-    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE:
+    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned long int ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
@@ -260,7 +271,7 @@ cdef class ConfigSpace:
         elif (size == OP_SIZE_DWORD):
             ret = <unsigned int>ret
         return ret
-    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE:
+    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE_CONST:
         cdef signed long int ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueSigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
@@ -272,7 +283,7 @@ cdef class ConfigSpace:
         elif (size == OP_SIZE_DWORD):
             ret = <signed int>ret
         return ret
-    cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE:
+    cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) except? BITMASK_BYTE_CONST:
         if (size == OP_SIZE_BYTE):
             data = <unsigned char>data
         elif (size == OP_SIZE_WORD):

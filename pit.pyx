@@ -38,7 +38,7 @@ cdef class PitChannel:
         elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
             (<PS2>self.pit.main.platform.ps2).ppcbT2Out = True
         #else:
-        self.pit.main.notice("PitChannel::mode0Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
+        #self.pit.main.notice("PitChannel::mode0Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
         self.timerEnabled = False
     cdef void mode2Func(self): # TODO
         cdef unsigned char clear
@@ -58,7 +58,7 @@ cdef class PitChannel:
                     (<Pic>self.pit.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
             if (self.channelId != 3):
                 #self.pit.main.notice("PitChannel::mode2Func: before while")
-                self.pit.main.notice("PitChannel::mode2Func({0:d}): counterValue=={1:d}", self.channelId, self.counterStartValue)
+                #self.pit.main.notice("PitChannel::mode2Func({0:d}): counterValue=={1:d}", self.channelId, self.counterStartValue)
                 with nogil:
                     self.counterValue = self.counterStartValue
                     #with nogil:
@@ -93,7 +93,7 @@ cdef class PitChannel:
                         #for i in range(60):
                         #    pass
                     self.counterValue = 1 # to be sure
-                self.pit.main.notice("PitChannel::mode2Func({0:d}): after while", self.channelId)
+                #self.pit.main.notice("PitChannel::mode2Func({0:d}): after while", self.channelId)
             with nogil:
                 #usleep(self.tempTimerValue)
                 usleep(0)
@@ -105,13 +105,13 @@ cdef class PitChannel:
                 #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0)")
                 if (clear):
                 #if (clear and self.pit.main.cpu.savedCs != 0x0028):
-                    self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0): clear")
+                    #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0): clear")
                     (<Pic>self.pit.main.platform.pic).raiseIrq(0)
             elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
                 (<PS2>self.pit.main.platform.ps2).ppcbT2Out = True
             elif (self.channelId == 3):
                 if (clear):
-                    self.pit.main.notice("PitChannel::mode2Func: raiseIrq(CMOS_RTC_IRQ): clear")
+                    #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(CMOS_RTC_IRQ): clear")
                     (<Cmos>self.pit.main.platform.cmos).periodicFunc()
             else:
                 self.pit.main.notice("PitChannel::mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
@@ -176,7 +176,7 @@ cdef class Pit:
         cdef PitChannel channel
         cdef unsigned char channelId, retVal
         cdef unsigned int temp
-        self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
+        #self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
@@ -203,7 +203,7 @@ cdef class Pit:
                     channel.counterFlipFlop = not channel.counterFlipFlop
                 else:
                     self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", channel.counterWriteMode)
-                self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
+                #self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
                 return retVal
             elif (ioPortAddr == 0x43):
                 self.main.notice("inPort: read from PIT command port 0x43 is ignored.")
@@ -216,7 +216,7 @@ cdef class Pit:
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef PitChannel channel
         cdef unsigned char channelId, bcd, modeNumber, counterWriteMode, i
-        self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
+        #self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
