@@ -486,7 +486,7 @@ cdef class Registers:
             cdef unsigned int tempValue
         if (regId == CPU_REGISTER_CR0):
             value |= 0x10
-            value &= 0xe005003f
+            value &= <unsigned int>0xe005003f
         self.regs[regId]._union.dword.erx = value
         IF (CPU_CACHE_SIZE):
             if (regId == CPU_REGISTER_EIP):

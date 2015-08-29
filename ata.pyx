@@ -42,6 +42,7 @@ DEF COMMAND_EXECUTE_DRIVE_DIAGNOSTIC = 0x90
 DEF COMMAND_INITIALIZE_DRIVE_PARAMETERS = 0x91
 DEF COMMAND_PACKET = 0xa0
 DEF COMMAND_IDENTIFY_DEVICE_PACKET = 0xa1
+DEF COMMAND_SET_MULTIPLE_MODE = 0xc6
 DEF COMMAND_IDENTIFY_DEVICE = 0xec
 DEF COMMAND_SET_FEATURES = 0xef
 
@@ -131,23 +132,43 @@ cdef class AtaDrive:
             # 20, 21 commented out: no buffer
             #self.writeValue(20, 2) # type
             #self.writeValue(21, self.sectorSize) # increment in hdd block size
+            if (self.driveId == 0):
+                self.configSpace.csWrite(10 << 1, "NS1_325476_8 1", 13)
+                self.configSpace.csWrite(27 << 1, "iHnriwhcesH_DD1_", 16)
+            else:
+                self.configSpace.csWrite(10 << 1, "NS1_325476_8 2", 13)
+                self.configSpace.csWrite(27 << 1, "iHnriwhcesH_DD2_", 16)
+            self.configSpace.csWrite(23 << 1, "WFRE0V10", 8)
+            self.writeValue(59, 0x10)
+            self.writeValue(53, 1)
             if (cylinders > 16383):
                 self.writeValue(54, 16383) # word 54==1 ; cylinders
             else:
                 self.writeValue(54, cylinders) # word 54==1 ; cylinders
             self.writeValue(55, HEADS) # word 55==3 ; heads
             self.writeValue(56, SPT) # word 56==6 ; spt
-            self.writeValue(83, (1 << 10)) # supports lba48
-            self.writeValue(86, (1 << 10)) # supports lba48
+            self.writeValue(82, 0x4000)
+            self.writeValue(83, 0x4400) # supports lba48
+            self.writeValue(84, 0x4000)
+            self.writeValue(85, 0x4000)
+            self.writeValue(86, 0x0400) # supports lba48
+            self.writeValue(87, 0x4000)
+            self.writeValue(117, 0)
+            self.writeValue(118, 0x100)
+            self.writeValue(119, 0x4000)
+            self.writeValue(120, 0x4000)
             if (not self.driveId):
                 self.writeValue(93, (1 << 12)) # is master drive
             self.writeValue(57, <unsigned short>self.sectors) # total number of addressable blocks.
             self.writeValue(58, <unsigned short>(self.sectors>>16)) # total number of addressable blocks.
             self.writeValue(60, <unsigned short>self.sectors) # total number of addressable blocks.
             self.writeValue(61, <unsigned short>(self.sectors>>16)) # total number of addressable blocks.
+            self.writeValue(47, 0x8010)
+            self.writeValue(59, 0x110)
             self.configSpace.csWriteValue(100 << 1, self.sectors, OP_SIZE_QWORD) # total number of addressable blocks.
         self.writeValue(48, 1) # supports dword access
         self.writeValue(49, (1 << 9)) # supports lba
+        self.writeValue(50, 0x4000)
         #if (cylinders <= 1024): # hardcoded
         if (cylinders <= 2048): # hardcoded
             translateValueTemp = ATA_TRANSLATE_NONE
@@ -178,7 +199,8 @@ cdef class AtaDrive:
                 self.ataController.ata.pciDevice.setData(0x42, 0x80, OP_SIZE_WORD)
         else:
             self.writeValue(0, 0x85c0) # word 0 ; atapi; removable drive
-            self.writeValue(85, (1 << 4)) # supports packet
+            self.writeValue(82, 0x4010) # supports packet
+            self.writeValue(85, 0x4010) # supports packet
             self.writeValue(125, CD_SECTOR_SIZE) # supports packet
     cdef bytes readBytes(self, unsigned long int offset, unsigned int size):
         cdef bytes data
@@ -222,7 +244,7 @@ cdef class AtaController:
             self.irq = ATA2_IRQ
             driveType = ATA_DRIVE_TYPE_CDROM
         else:
-            self.irq = None
+            self.irq = 0
             driveType = ATA_DRIVE_TYPE_NONE
         self.driveId = 0
         self.drive = (AtaDrive(self, 0, driveType), AtaDrive(self, 1, driveType))
@@ -231,7 +253,7 @@ cdef class AtaController:
     cdef void setSignature(self, unsigned char driveId):
         cdef AtaDrive drive
         drive = self.drive[driveId]
-        self.head = 0
+        self.head = self.multipleSectors = 0
         self.sector = self.sectorCount = self.sectorCountByte = 1
         if (not drive.driveCode):
             self.driveId = 0
@@ -546,7 +568,9 @@ cdef class AtaController:
                         self.indexPulseCount = 0
                 else: # TODO: HACK: this circumvents the bochs bios 'IDE time out' which takes too long.
                     #ret = 0
-                    ret = 0x41
+                    #ret = 0x41
+                    ret = 0x1
+                    #ret = 0x81
                 #ELSE:
                 #    #ret = 0x1
                 #    ret = 0x41
@@ -607,9 +631,9 @@ cdef class AtaController:
                 #if (self.useLBA and self.useLBA48):
                 IF 1:
                     if (not self.sectorLowFlipFlop):
-                        self.lba = (self.lba & 0xffff00ffffff) | (<unsigned long int>(<unsigned char>data) << 24)
+                        self.lba = (self.lba & <unsigned long int>0xffff00ffffff) | (<unsigned long int>(<unsigned char>data) << 24)
                     else:
-                        self.lba = (self.lba & 0xffffffffff00) | (<unsigned char>data)
+                        self.lba = (self.lba & <unsigned long int>0xffffffffff00) | (<unsigned char>data)
                     self.sectorLowFlipFlop = not self.sectorLowFlipFlop
                 #else:
                 #    self.lba = (self.lba & 0xffff00) | (<unsigned char>data)
@@ -618,9 +642,9 @@ cdef class AtaController:
                 #if (self.useLBA and self.useLBA48):
                 IF 1:
                     if (not self.sectorMiddleFlipFlop):
-                        self.lba = (self.lba & 0xff00ffffffff) | (<unsigned long int>(<unsigned char>data) << 32)
+                        self.lba = (self.lba & <unsigned long int>0xff00ffffffff) | (<unsigned long int>(<unsigned char>data) << 32)
                     else:
-                        self.lba = (self.lba & 0xffffffff00ff) | ((<unsigned char>data) << 8)
+                        self.lba = (self.lba & <unsigned long int>0xffffffff00ff) | ((<unsigned char>data) << 8)
                     self.sectorMiddleFlipFlop = not self.sectorMiddleFlipFlop
                 #else:
                 #    self.lba = (self.lba & 0xff00ff) | ((<unsigned char>data) << 8)
@@ -629,9 +653,9 @@ cdef class AtaController:
                 #if (self.useLBA and self.useLBA48):
                 IF 1:
                     if (not self.sectorHighFlipFlop):
-                        self.lba = (self.lba & 0x00ffffffffff) | (<unsigned long int>(<unsigned char>data) << 40)
+                        self.lba = (self.lba & <unsigned long int>0x00ffffffffff) | (<unsigned long int>(<unsigned char>data) << 40)
                     else:
-                        self.lba = (self.lba & 0xffffff00ffff) | ((<unsigned char>data) << 16)
+                        self.lba = (self.lba & <unsigned long int>0xffffff00ffff) | ((<unsigned char>data) << 16)
                     self.sectorHighFlipFlop = not self.sectorHighFlipFlop
                 #else:
                 #    self.lba = (self.lba & 0x00ffff) | ((<unsigned char>data) << 16)
@@ -728,10 +752,15 @@ cdef class AtaController:
                         self.abortCommand()
                         return
                     self.driveReady = self.seekComplete = True
+                elif (data == COMMAND_SET_MULTIPLE_MODE):
+                    if (not self.sectorCount or self.sectorCount > 16 or self.sectorCount&(self.sectorCount-1)):
+                        self.abortCommand()
+                        return
+                    self.multipleSectors = self.sectorCount
                 else:
                     self.ata.main.exitError("AtaController::outPort: unknown command 2: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
-                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES), data not in (COMMAND_RESET, COMMAND_PACKET))
+                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES, COMMAND_SET_MULTIPLE_MODE), data not in (COMMAND_RESET, COMMAND_PACKET))
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)

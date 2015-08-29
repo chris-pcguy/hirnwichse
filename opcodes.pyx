@@ -1643,7 +1643,7 @@ cdef class Opcodes:
                     if ((op1&1) and not (op2&1)): # it's already in protected mode, but it tries to switch to real mode...
                         self.main.exitError("opcodeGroup0F_01: LMSW: tried to switch to real mode from protected mode.")
                         return True
-                    op1 = ((op1&0xfffffff0)|(op2&0xf))
+                    op1 = ((op1&<unsigned long int>0xfffffff0)|(op2&0xf))
                     self.registers.regWriteDword(CPU_REGISTER_CR0, op1)
                     #self.registers.syncCR0State()
                 elif (operOpcodeModId == 7): # INVLPG
@@ -1839,36 +1839,36 @@ cdef class Opcodes:
         elif (operOpcode == 0xa2): # CPUID
             eaxId = self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
             self.main.notice("Opcodes::opcodeGroup0F: CPUID: TODO! (eax; {0:#010x})", eaxId)
-            #eaxIsInvalid = (eaxId >= 0x40000000 and eaxId <= 0x4fffffff)
+            #eaxIsInvalid = (eaxId >= <unsigned int>0x40000000 and eaxId <= <unsigned int>0x4fffffff)
             IF 0:
-                if (eaxId in (0x2, 0x3, 0x4, 0x5, 0x80000001, 0x80000005, 0x80000006, 0x80000007)):
+                if (eaxId in (0x2, 0x3, 0x4, 0x5, <unsigned int>0x80000001, <unsigned int>0x80000005, <unsigned int>0x80000006, <unsigned int>0x80000007)):
                     self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
                     self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
                     self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
                     self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
-                elif (eaxId == 0x80000000):
+                elif (eaxId == <unsigned int>0x80000000):
                     self.registers.regWriteDword(CPU_REGISTER_EAX, 0x80000007)
                     self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
                     self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
                     self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
-                elif (eaxId == 0x80000002):
+                elif (eaxId == <unsigned int>0x80000002):
                     self.registers.regWriteDword(CPU_REGISTER_EAX, 0x20202020)
                     self.registers.regWriteDword(CPU_REGISTER_EBX, 0x20202020)
                     self.registers.regWriteDword(CPU_REGISTER_ECX, 0x20202020)
                     self.registers.regWriteDword(CPU_REGISTER_EDX, 0x6e492020)
-                elif (eaxId == 0x80000003):
+                elif (eaxId == <unsigned int>0x80000003):
                     self.registers.regWriteDword(CPU_REGISTER_EAX, 0x286c6574)
                     self.registers.regWriteDword(CPU_REGISTER_EBX, 0x50202952)
                     self.registers.regWriteDword(CPU_REGISTER_ECX, 0x69746e65)
                     self.registers.regWriteDword(CPU_REGISTER_EDX, 0x52286d75)
-                elif (eaxId == 0x80000004):
+                elif (eaxId == <unsigned int>0x80000004):
                     self.registers.regWriteDword(CPU_REGISTER_EAX, 0x20342029)
                     self.registers.regWriteDword(CPU_REGISTER_EBX, 0x20555043)
                     self.registers.regWriteDword(CPU_REGISTER_ECX, 0x20202020)
                     self.registers.regWriteDword(CPU_REGISTER_EDX, 0x00202020)
-            if (eaxId & 0x70000000):
+            if (eaxId & <unsigned int>0x70000000):
                 self.main.exitError("Opcodes::opcodeGroup0F: CPUID test1: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.main.cpu.savedEip, self.main.cpu.savedCs, eaxId)
-            elif (eaxId & 0x80000000):
+            elif (eaxId & <unsigned int>0x80000000):
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test2: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.main.cpu.savedEip, self.main.cpu.savedCs, eaxId)
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
@@ -2454,7 +2454,8 @@ cdef class Opcodes:
             op1Word = self.registers.regReadUnsignedWord(CPU_REGISTER_AX)
             if (not operOp2):
                 raise HirnwichseException(CPU_EXCEPTION_DE)
-            temp, tempmod = divmod(op1Word, operOp2)
+            temp = op1Word//operOp2
+            tempmod = op1Word%operOp2
             if (temp != temp&bitMask):
                 raise HirnwichseException(CPU_EXCEPTION_DE)
             self.registers.regWriteLowByte(CPU_REGISTER_AL, temp)
@@ -2464,8 +2465,9 @@ cdef class Opcodes:
             sop2  = self.modRMInstance.modRMLoadSigned(operSize)
             if (sop1 == -0x8000 or not sop2):
                 raise HirnwichseException(CPU_EXCEPTION_DE)
-            operOp2 = abs(sop2)
-            temp, tempmod = divmod(sop1, operOp2)
+            operOp2 = -sop2 if (sop2 < 0) else sop2
+            temp = sop1//operOp2
+            tempmod = sop1%operOp2
             if (sop2 != operOp2):
                 temp = -temp
             if (<signed short>temp != <signed char>temp):
@@ -2477,7 +2479,8 @@ cdef class Opcodes:
             operOp1 |= self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
             if (not operOp2):
                 raise HirnwichseException(CPU_EXCEPTION_DE)
-            utemp, tempmod = divmod(operOp1, operOp2)
+            utemp = operOp1//operOp2
+            tempmod = operOp1%operOp2
             if (utemp != utemp&bitMask):
                 raise HirnwichseException(CPU_EXCEPTION_DE)
             self.registers.regWrite(CPU_REGISTER_AX, utemp, operSize)
@@ -2493,7 +2496,8 @@ cdef class Opcodes:
                 sop1 = <signed long int>sop1
             if (sop1 == -doubleBitMaskHalf or not sop2):
                 raise HirnwichseException(CPU_EXCEPTION_DE)
-            temp, tempmod = divmod(sop1, sop2)
+            temp = sop1//sop2
+            tempmod = sop1%sop2
             if (operSize == OP_SIZE_WORD):
                 if (<signed int>temp != <signed short>temp):
                     raise HirnwichseException(CPU_EXCEPTION_DE)
@@ -2907,7 +2911,7 @@ cdef class Opcodes:
         else:
             if (self.registers.operSize == OP_SIZE_DWORD):
                 tempEFLAGS = (tempEFLAGS & 0x257fd5)
-                tempEFLAGS |= self.registers.readFlags()&0xff1a0000
+                tempEFLAGS |= self.registers.readFlags()&<unsigned int>0xff1a0000
                 self.registers.regWriteDwordEflags(tempEFLAGS)
             else:
                 self.registers.regWriteWordFlags(<unsigned short>tempEFLAGS)
@@ -2930,7 +2934,8 @@ cdef class Opcodes:
         if (not imm8):
             raise HirnwichseException(CPU_EXCEPTION_DE)
         tempAL = self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL)
-        ALdiv, ALmod = divmod(tempAL, imm8)
+        ALdiv = tempAL//imm8
+        ALmod = tempAL%imm8
         self.registers.regWriteHighByte(CPU_REGISTER_AH, ALdiv)
         self.registers.regWriteLowByte(CPU_REGISTER_AL, ALmod)
         self.registers.setSZP_COA(ALmod, OP_SIZE_BYTE)

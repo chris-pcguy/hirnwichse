@@ -57,7 +57,7 @@ cdef class PciDevice:
                 origData = self.configSpace.csReadValueUnsigned(offset, OP_SIZE_DWORD)
                 memBarType = (origData >> 1) & 0x3
                 if (origData & 0x1):
-                    if (data == 0xfffffffc):
+                    if (data == <unsigned int>0xfffffffc):
                         data = 0xfffc
                 else:
                     if (not self.barSize[barIndex]):
@@ -65,13 +65,13 @@ cdef class PciDevice:
                     elif (memBarType != 0): #if (memBarType in (1, 2, 3)):
                         self.pci.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", memBarType)
                         return True
-                    elif (data == 0xfffffff0):
+                    elif (data == <unsigned int>0xfffffff0):
                         data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1)))
             elif ((not headerType and offset == PCI_ROM_ADDRESS) or (headerType == 1 and offset == PCI_BRIDGE_ROM_ADDRESS)):
                 barIndex = 6
                 if (not self.barSize[barIndex]):
                     return False
-                elif ((data & 0xfffff800) == 0xfffff800):
+                elif ((data & <unsigned int>0xfffff800) == <unsigned int>0xfffff800):
                     data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1))) # TODO: is this correct?
             self.configSpace.csWriteValue(offset, data, OP_SIZE_DWORD)
             return False
@@ -201,7 +201,7 @@ cdef class Pci:
             elif (ioPortAddr == 0xcf9):
                 ret = (self.pciReset and PCI_RESET_VALUE)
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
-                ret = self.readRegister((self.address&0xfffffffc)+(ioPortAddr&3), dataSize)
+                ret = self.readRegister((self.address&<unsigned int>0xfffffffc)+(ioPortAddr&3), dataSize)
             else:
                 self.main.exitError("PCI::inPort: port {0:#06x} is not supported. (dataSize {1:d})", ioPortAddr, dataSize)
         else:
@@ -233,7 +233,7 @@ cdef class Pci:
                     else:
                         self.main.reset(False)
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
-                self.writeRegister((self.address&0xfffffffc)+(ioPortAddr&3), data, dataSize)
+                self.writeRegister((self.address&<unsigned int>0xfffffffc)+(ioPortAddr&3), data, dataSize)
             else:
                 self.main.exitError("PCI::outPort: port {0:#06x} is not supported. (data == {1:#04x}, dataSize {2:d})", ioPortAddr, data, dataSize)
         else:

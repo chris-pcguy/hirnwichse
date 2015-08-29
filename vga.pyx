@@ -314,10 +314,9 @@ cdef class Vga:
                 color = (color & 0xf) | (self.colorSelect << 4)
             else:
                 color = (color & 0x3f) | ((self.colorSelect & 0xc) << 4)
-        red, green, blue = self.dac.configSpace.csRead(color*3, 3)
-        red <<= 2
-        green <<= 2
-        blue <<= 2
+        red = self.dac.configSpace.csReadValueUnsigned((color*3), 1) << 2
+        green = self.dac.configSpace.csReadValueUnsigned((color*3)+1, 1) << 2
+        blue = self.dac.configSpace.csReadValueUnsigned((color*3)+2, 1) << 2
         return ((red << 24) | (green << 16) | (blue << 8) | 0xff)
     cdef void readFontData(self): # TODO
         cdef unsigned short fontDataAddressA, fontDataAddressB
@@ -498,7 +497,8 @@ cdef class Vga:
                 pixelData |= (<unsigned char>self.plane2.csData[tempOffset])<<16
                 pixelData |= (<unsigned char>self.plane3.csData[tempOffset])<<24
                 if (not self.chain4):
-                    y, x = divmod((tempOffset-self.startAddress)%self.videoMemSize, self.offset)
+                    y = ((tempOffset-self.startAddress)%self.videoMemSize)//self.offset
+                    x = ((tempOffset-self.startAddress)%self.videoMemSize)%self.offset
                     #y *= self.charHeight
                     if (y >= rows):
                         break
@@ -525,7 +525,8 @@ cdef class Vga:
                         #    self.ui.putPixel((x<<3)+i, y+k, color)
                         self.ui.putPixel((x<<3)+i, y, color)
                 else:
-                    y, x = divmod((tempOffset-self.startAddress)%self.videoMemSize, self.offset<<2)
+                    y = ((tempOffset-self.startAddress)%self.videoMemSize)//(self.offset<<2)
+                    x = ((tempOffset-self.startAddress)%self.videoMemSize)%(self.offset<<2)
                     y *= self.charHeight
                     if (y >= rows):
                         break
@@ -554,7 +555,8 @@ cdef class Vga:
             rows //= self.charHeight
             dataSize = max(1, dataSize>>1)
             for i in range(dataSize):
-                y, x = divmod((tempOffset-self.startAddress)%self.videoMemSize, self.offset<<1)
+                y = ((tempOffset-self.startAddress)%self.videoMemSize)//(self.offset<<1)
+                x = ((tempOffset-self.startAddress)%self.videoMemSize)%(self.offset<<1)
                 x >>= 1
                 if (y >= rows):
                     break
