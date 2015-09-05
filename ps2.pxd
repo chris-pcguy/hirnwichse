@@ -7,9 +7,9 @@ from cpu cimport Cpu
 
 cdef class PS2:
     cdef Hirnwichse main
-    cdef public unsigned char ppcbT2Gate, ppcbT2Spkr, ppcbT2Out, kbdClockEnabled
-    cdef unsigned char lastUsedPort, lastUsedCmd, needWriteBytes, needWriteBytesMouse, irq1Requested, allowIrq1, irq12Requested, allowIrq12, sysf, \
-                        translateScancodes, currentScancodesSet, scanningEnabled, inb, outb, auxb, batInProgress, timerPending, timeout
+    cdef unsigned char ppcbT2Gate, ppcbT2Spkr, ppcbT2Out, kbdClockEnabled, lastUsedPort, lastUsedCmd, needWriteBytes, needWriteBytesMouse, \
+                    irq1Requested, allowIrq1, irq12Requested, allowIrq12, sysf, translateScancodes, currentScancodesSet, scanningEnabled, \
+                    inb, outb, auxb, batInProgress, timerPending, timeout
     cdef bytes outBuffer, mouseBuffer
     cdef void resetInternals(self, unsigned char powerUp)
     cdef void initDevice(self)

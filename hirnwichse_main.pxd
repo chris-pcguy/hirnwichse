@@ -7,15 +7,13 @@ from cpu cimport Cpu
 
 cdef class Hirnwichse:
     cpdef object parser, cmdArgs
-    cdef public Misc misc
-    cdef public Mm mm
-    cdef public Platform platform
-    cdef public Cpu cpu
-    cdef public unsigned char quitEmu, debugEnabled, exitIfCpuHalted, noUI, exitOnTripleFault, fdaType, fdbType, \
-                              debugHalt, bootFrom, debugEnabledTest
-    cdef public unsigned int memSize
-    cdef public bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename, \
-                      cdrom1Filename, cdrom2Filename
+    cdef Misc misc
+    cdef Mm mm
+    cdef Platform platform
+    cdef Cpu cpu
+    cdef unsigned char quitEmu, debugEnabled, exitIfCpuHalted, noUI, exitOnTripleFault, fdaType, fdbType, debugHalt, bootFrom, debugEnabledTest
+    cdef unsigned int memSize
+    cdef bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename, cdrom1Filename, cdrom2Filename
     cpdef parseArgs(self)
     cpdef quitFunc(self)
     cpdef reset(self, unsigned char resetHardware)

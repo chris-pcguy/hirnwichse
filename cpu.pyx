@@ -4,7 +4,7 @@
 include "globals.pxi"
 include "cpu_globals.pxi"
 
-from sys import exit
+from sys import exit #, stdout, stderr
 from time import sleep
 from traceback import print_exc
 from misc import HirnwichseException
@@ -13,7 +13,7 @@ from misc import HirnwichseException
 cdef class Cpu:
     def __init__(self, Hirnwichse main):
         self.main = main
-    cdef void reset(self):
+    cdef void reset(self) nogil:
         self.savedCs  = 0xf000
         self.savedEip = 0xfff0
         self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = self.HRQ = False
@@ -47,7 +47,7 @@ cdef class Cpu:
             self.asyncEvent = False
             self.cpuHalted = False
         return
-    cdef void exception(self, unsigned char exceptionId, signed int errorCode=-1):
+    cdef int exception(self, unsigned char exceptionId, signed int errorCode=-1) except BITMASK_BYTE_CONST:
         self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         self.cpuDump()
         #self.main.debugEnabled = True
@@ -67,13 +67,14 @@ cdef class Cpu:
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
             if (errorCode == -1):
                 self.main.exitError("CPU exception: errorCode should be set, is -1.")
-                return
+                return True
             self.opcodes.interrupt(exceptionId, errorCode)
         else:
             self.opcodes.interrupt(exceptionId)
         self.main.notice("Running exception_2: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         self.cpuDump()
-    cdef void handleException(self, object exception):
+        return True
+    cdef int handleException(self, object exception) except BITMASK_BYTE_CONST:
         cdef unsigned char exceptionId
         cdef signed int errorCode
         #if (self.savedCs == 0x70 and self.savedEip == 0x3b2):
@@ -82,54 +83,58 @@ cdef class Cpu:
         #if (self.savedCs == 0xfcbf and self.savedEip == 0x2f27 and self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx == 0xc10f30bc):
         #if (self.savedCs == 0xfcb2 and self.savedEip == 0x2ff7 and self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx == 0xc10f30bc):
         #if (self.savedCs == 0x70 and self.savedEip == 0x0382):
-        #    self.main.debugEnabled = True
-        #    #self.main.debugEnabledTest = True
+        #if (self.savedCs == 0xc000 and self.savedEip == 0x152):
+        #    self.main.debugEnabled = self.main.debugEnabledTest = True
         if (len(exception.args) not in (1, 2)):
             self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', len(exception.args))
-            return
+            return True
         errorCode = -1
         if (len(exception.args) == 2):
             if (not isinstance(exception.args[1], int)):
                 self.main.exitError('ERROR: errorCode not a int; type is {0:s}', type(exception.args[1]))
-                return
+                return True
             errorCode = exception.args[1]
         if (not isinstance(exception.args[0], int)):
             self.main.exitError('ERROR: exceptionId not a int; type is {0:s}', type(exception.args[0]))
-            return
+            return True
         exceptionId = exception.args[0]
         if (exceptionId == CPU_EXCEPTION_UD):
             self.main.notice("CPU::handleException: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
         else:
             self.main.notice("CPU::handleException: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
         self.exception(exceptionId, errorCode)
-    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE_CONST:
+        return True
+    cdef unsigned char parsePrefixes(self, unsigned char opcode) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned char count
         count = 0
         while (opcode in OPCODE_PREFIXES and not self.main.quitEmu):
             count += 1
             if (count >= 16):
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (opcode == OPCODE_PREFIX_OP):
                 self.registers.operandSizePrefix = True
             elif (opcode == OPCODE_PREFIX_ADDR):
                 self.registers.addressSizePrefix = True
-            elif (opcode == OPCODE_PREFIX_CS):
-                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.cs)
-            elif (opcode == OPCODE_PREFIX_SS):
-                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.ss)
-            elif (opcode == OPCODE_PREFIX_DS):
-                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.ds)
-            elif (opcode == OPCODE_PREFIX_ES):
-                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.es)
-            elif (opcode == OPCODE_PREFIX_FS):
-                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.fs)
-            elif (opcode == OPCODE_PREFIX_GS):
-                self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.gs)
             elif (opcode in OPCODE_PREFIX_REPS):
                 self.registers.repPrefix = opcode
+            else:
+                with gil:
+                    if (opcode == OPCODE_PREFIX_CS):
+                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.cs)
+                    elif (opcode == OPCODE_PREFIX_SS):
+                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.ss)
+                    elif (opcode == OPCODE_PREFIX_DS):
+                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.ds)
+                    elif (opcode == OPCODE_PREFIX_ES):
+                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.es)
+                    elif (opcode == OPCODE_PREFIX_FS):
+                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.fs)
+                    elif (opcode == OPCODE_PREFIX_GS):
+                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.gs)
             ### TODO: I don't think, that we ever need lockPrefix.
-            elif (opcode == OPCODE_PREFIX_LOCK):
-                self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
+            #elif (opcode == OPCODE_PREFIX_LOCK):
+            #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
             opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
         return opcode
     cdef void cpuDump(self):
@@ -233,8 +238,10 @@ cdef class Cpu:
             #if (self.savedCs == 0x28 and self.savedEip == 0xc00013d1):
             #    self.main.debugEnabledTest = True
             #if (self.savedCs == 0x28 and self.savedEip == 0xc03604fa):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x9f and self.savedEip == 0xd0c4):
+            #if (self.savedCs == 0x8 and self.savedEip == 0x80014068):
+            #if (self.savedCs == 0x8 and self.savedEip == 0x803d2f73):
+            #if (self.savedCs == 0x8 and self.savedEip == 0x803d3001):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             if (self.main.debugEnabled or self.main.debugEnabledTest):
             #IF 1:
@@ -247,6 +254,9 @@ cdef class Cpu:
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         except HirnwichseException as exception: # exception
             self.main.notice("Cpu::doCycle: testexc1")
+            #stdout.flush()
+            #print_exc()
+            #stderr.flush()
             try:
                 self.handleException(exception) # execute exception handler
             except HirnwichseException as exception: # exception
@@ -270,9 +280,9 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
-    cpdef run(self, unsigned char infiniteCycles = True):
+    cdef run(self, unsigned char infiniteCycles = True):
         self.registers = Registers(self.main)
-        self.opcodes = Opcodes(self.main)
+        self.opcodes = Opcodes(self.main, self)
         self.opcodes.registers = self.registers
         self.registers.run()
         self.opcodes.run()

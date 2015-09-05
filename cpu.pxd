@@ -13,25 +13,23 @@ from opcodes cimport Opcodes
 
 cdef class Cpu:
     cdef Hirnwichse main
-    cdef public Registers registers
+    cdef Registers registers
     cdef Opcodes opcodes
-    cdef public unsigned char asyncEvent, opcode, cpuHalted, debugHalt, \
-      debugSingleStep
-    cdef unsigned char INTR, HRQ
-    cdef public unsigned short savedCs, savedSs
-    cdef public unsigned int savedEip, savedEsp
-    cdef public unsigned long int cycles
-    cdef void reset(self)
+    cdef unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ
+    cdef unsigned short savedCs, savedSs
+    cdef unsigned int savedEip, savedEsp
+    cdef unsigned long int cycles
+    cdef void reset(self) nogil
     cdef inline void saveCurrentInstPointer(self) nogil
     cdef void setINTR(self, unsigned char state) nogil
     cdef void setHRQ(self, unsigned char state) nogil
     cdef void handleAsyncEvent(self)
-    cdef void exception(self, unsigned char exceptionId, signed int errorCode=?)
-    cdef void handleException(self, object exception) 
-    cdef unsigned char parsePrefixes(self, unsigned char opcode) except? BITMASK_BYTE_CONST
+    cdef int exception(self, unsigned char exceptionId, signed int errorCode=?) except BITMASK_BYTE_CONST
+    cdef int handleException(self, object exception) except BITMASK_BYTE_CONST
+    cdef unsigned char parsePrefixes(self, unsigned char opcode) nogil except? BITMASK_BYTE_CONST
     cdef void cpuDump(self)
     cdef void doInfiniteCycles(self)
     cdef void doCycle(self)
-    cpdef run(self, unsigned char infiniteCycles = ?)
+    cdef run(self, unsigned char infiniteCycles = ?)
 
 

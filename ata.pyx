@@ -801,7 +801,8 @@ cdef class Ata:
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int ret = BITMASKS_FF[dataSize]
         #if (self.main.debugEnabled):
-        IF 1:
+        #IF 1:
+        if (ioPortAddr&0xf or self.main.debugEnabled):
             #self.main.debug("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
             self.main.notice("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_WORD and (ioPortAddr&0xf)):
@@ -829,13 +830,15 @@ cdef class Ata:
         #elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
         #    ret = (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
         #if (self.main.debugEnabled):
-        IF 1:
+        #IF 1:
+        if (ioPortAddr&0xf or self.main.debugEnabled):
             #self.main.debug("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
             self.main.notice("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         #if (self.main.debugEnabled):
-        IF 1:
+        #IF 1:
+        if (ioPortAddr&0xf or self.main.debugEnabled):
             #self.main.debug("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
             self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_WORD and (ioPortAddr&0xf)):

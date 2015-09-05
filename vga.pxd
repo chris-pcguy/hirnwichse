@@ -56,15 +56,15 @@ cdef class Vga:
     cdef unsigned short vde,
     cdef unsigned int videoMemBase, startAddress, offset, videoMemSize
     cdef double newTimer, oldTimer
-    cdef void setStartAddress(self)
-    cdef unsigned int getColor(self, unsigned char color) # RGBA
-    cdef void readFontData(self)
-    cdef void setProcessVideoMem(self, unsigned char processVideoMem)
-    cdef unsigned char getProcessVideoMem(self)
-    cdef unsigned char translateByte(self, unsigned char data, unsigned char plane)
-    cdef void refreshScreenFunction(self)
-    cdef bytes vgaAreaRead(self, unsigned int offset, unsigned int dataSize)
-    cdef void vgaAreaWrite(self, unsigned int offset, unsigned int dataSize)
+    cdef void setStartAddress(self) nogil
+    cdef unsigned int getColor(self, unsigned short color) nogil # RGBA
+    cdef void readFontData(self) nogil
+    cdef void setProcessVideoMem(self, unsigned char processVideoMem) nogil
+    cdef unsigned char getProcessVideoMem(self) nogil
+    cdef unsigned char translateByte(self, unsigned char data, unsigned char plane) nogil
+    cdef void refreshScreenFunction(self) nogil
+    cdef char *vgaAreaRead(self, unsigned int offset, unsigned int dataSize)
+    cdef void vgaAreaWrite(self, unsigned int offset, unsigned int dataSize) nogil
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void run(self)

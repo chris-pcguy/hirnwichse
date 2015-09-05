@@ -12,6 +12,7 @@ from floppy cimport Floppy
 from serial_dev cimport Serial
 from parallel cimport Parallel
 from gdbstub cimport GDBStub
+from libc.string cimport memcpy
 
 ctypedef unsigned int (*InPort)(self, unsigned short, unsigned char)
 ctypedef void (*OutPort)(self, unsigned short, unsigned int, unsigned char)
@@ -25,18 +26,18 @@ cdef class PortHandler:
 
 cdef class Platform:
     cdef Hirnwichse main
-    cdef public IsaDma isadma
-    cdef public PS2 ps2
-    cdef public Pic pic
-    cdef public Pit pit
-    cdef public Pci pci
-    cdef public Vga vga
-    cdef public Ata ata
-    cdef public Floppy floppy
-    cdef public Serial serial
-    cdef public Parallel parallel
-    cdef public GDBStub gdbstub
-    cdef public Cmos cmos
+    cdef IsaDma isadma
+    cdef PS2 ps2
+    cdef Pic pic
+    cdef Pit pit
+    cdef Pci pci
+    cdef Vga vga
+    cdef Ata ata
+    cdef Floppy floppy
+    cdef Serial serial
+    cdef Parallel parallel
+    cdef GDBStub gdbstub
+    cdef Cmos cmos
     cdef list ports
     cdef void initDevices(self)
     cdef void resetDevices(self)

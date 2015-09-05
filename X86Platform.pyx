@@ -214,7 +214,7 @@ cdef class Platform:
                 mmAddr = SIZE_4GB-romMemSize
         self.loadRomToMem(romFileName, mmAddr, romSize)
         if (not isRomOptional):
-            self.main.mm.mmPhyCopy(mmAddr&SIZE_1MB_MASK, mmAddr, romSize)
+            memcpy(self.main.mm.mmGetDataPointer(mmAddr&SIZE_1MB_MASK), self.main.mm.mmGetRomDataPointer(mmAddr&SIZE_1MB_MASK), romSize)
     cdef void initMemory(self):
         cdef unsigned short i
         if (not self.main or not self.main.mm or not self.main.memSize):
