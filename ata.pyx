@@ -36,8 +36,18 @@ DEF CONTROL_REG_NIEN = 0x2
 
 DEF COMMAND_RESET = 0x08
 DEF COMMAND_RECALIBRATE = 0x10
+
 DEF COMMAND_READ_LBA28 = 0x20
+DEF COMMAND_READ_LBA28_WITHOUT_RETRIES = 0x21
+DEF COMMAND_READ_LBA48 = 0x24
+DEF COMMAND_READ_MULTIPLE_LBA48 = 0x29
+DEF COMMAND_READ_MULTIPLE_LBA28 = 0xc4
+
 DEF COMMAND_WRITE_LBA28 = 0x30
+DEF COMMAND_WRITE_LBA48 = 0x34
+DEF COMMAND_WRITE_MULTIPLE_LBA48 = 0x39
+DEF COMMAND_WRITE_MULTIPLE_LBA28 = 0xc5
+
 DEF COMMAND_EXECUTE_DRIVE_DIAGNOSTIC = 0x90
 DEF COMMAND_INITIALIZE_DRIVE_PARAMETERS = 0x91
 DEF COMMAND_PACKET = 0xa0
@@ -208,11 +218,11 @@ cdef class AtaDrive:
         oldPos = self.fp.tell()
         self.fp.seek(offset)
         data = self.fp.read(size)
-        if (len(data) < size): # floppy image is too short.
+        if (len(data) < size): # image is too short.
             data += bytes(size-len(data))
         self.fp.seek(oldPos)
         return data
-    cdef bytes readSectors(self, unsigned long int sector, unsigned int count): # count in sectors
+    cdef inline bytes readSectors(self, unsigned long int sector, unsigned int count): # count in sectors
         return self.readBytes(sector << self.sectorShift, count << self.sectorShift)
     cdef void writeBytes(self, unsigned long int offset, unsigned int size, bytes data):
         cdef unsigned long int oldPos
@@ -226,7 +236,7 @@ cdef class AtaDrive:
         retData = self.fp.write(data)
         self.fp.seek(oldPos)
         self.fp.flush()
-    cdef void writeSectors(self, unsigned long int sector, unsigned int count, bytes data):
+    cdef inline void writeSectors(self, unsigned long int sector, unsigned int count, bytes data):
         self.writeBytes(sector << self.sectorShift, count << self.sectorShift, data)
     cdef void run(self) nogil:
         pass
@@ -356,6 +366,7 @@ cdef class AtaController:
         cdef unsigned short allocLength
         drive = self.drive[self.driveId]
         cmd = self.data[0]
+        self.result = b''
         #self.ata.main.notice("AtaController::handlePacket_0: self.data == {0:s}", repr(self.data))
         if (cmd == PACKET_COMMAND_TEST_UNIT_READY):
             if (drive.isLoaded):
@@ -489,12 +500,12 @@ cdef class AtaController:
         drive = self.drive[self.driveId]
         if (ioPortAddr == 0x0): # data port
             if (not self.drq):
-                ret = BITMASK_BYTE
-                self.ata.main.notice("AtaController::inPort_1: not self.drq, returning BITMASK_BYTE; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                ret = BITMASK_DWORD
+                self.ata.main.notice("AtaController::inPort_1: not self.drq, returning BITMASK_DWORD; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
                 return ret
             if (len(self.result) < dataSize):
-                ret = BITMASK_BYTE
-                self.ata.main.notice("AtaController::inPort_1: len(self.result) < dataSize; data port is empty, returning BITMASK_BYTE; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                ret = BITMASK_DWORD
+                self.ata.main.notice("AtaController::inPort_1: len(self.result) < dataSize; data port is empty, returning BITMASK_DWORD; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
                 return ret
             ret = int.from_bytes(self.result[0:dataSize], byteorder="little", signed=False)
             self.result = self.result[dataSize:]
@@ -590,7 +601,7 @@ cdef class AtaController:
         drive = self.drive[self.driveId]
         if (ioPortAddr == 0x0): # data port
             self.data += (data).to_bytes(length=dataSize, byteorder="little", signed=False)
-            if (self.cmd == COMMAND_WRITE_LBA28):
+            if (self.cmd in (COMMAND_WRITE_LBA28, COMMAND_WRITE_LBA48, COMMAND_WRITE_MULTIPLE_LBA28, COMMAND_WRITE_MULTIPLE_LBA48)):
                 if (not self.drq):
                     self.ata.main.notice("AtaController::outPort_1: not self.drq, returning; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
@@ -718,13 +729,23 @@ cdef class AtaController:
                         return
                     self.driveReady = True
                     self.result = drive.configSpace.csRead(0, 512)
-                elif (data == COMMAND_READ_LBA28):
-                    self.convertToLBA28()
-                    self.result = drive.readSectors(self.lba, self.sectorCount)
-                elif (data in (COMMAND_WRITE_LBA28, COMMAND_PACKET)):
-                    if (data == COMMAND_WRITE_LBA28):
+                elif (data in (COMMAND_READ_LBA28, COMMAND_READ_LBA28_WITHOUT_RETRIES, COMMAND_READ_LBA48, COMMAND_READ_MULTIPLE_LBA28, COMMAND_READ_MULTIPLE_LBA48)):
+                    if (data in (COMMAND_READ_LBA28, COMMAND_READ_LBA28_WITHOUT_RETRIES, COMMAND_READ_MULTIPLE_LBA28)):
                         self.convertToLBA28()
-                    elif (self.controllerId == 1):
+                    if (data in (COMMAND_READ_MULTIPLE_LBA28, COMMAND_READ_MULTIPLE_LBA48)):
+                        if (not self.multipleSectors):
+                            self.abortCommand()
+                            return
+                    self.result = drive.readSectors(self.lba, self.sectorCount)
+                elif (data in (COMMAND_WRITE_LBA28, COMMAND_WRITE_LBA48, COMMAND_WRITE_MULTIPLE_LBA28, COMMAND_WRITE_MULTIPLE_LBA48)):
+                    if (data in (COMMAND_WRITE_LBA28, COMMAND_WRITE_MULTIPLE_LBA28)):
+                        self.convertToLBA28()
+                    if (data in (COMMAND_WRITE_MULTIPLE_LBA28, COMMAND_WRITE_MULTIPLE_LBA48)):
+                        if (not self.multipleSectors):
+                            self.abortCommand()
+                            return
+                elif (data == COMMAND_PACKET):
+                    if (self.controllerId == 1):
                         if (self.features & 2):
                             self.abortCommand()
                             return

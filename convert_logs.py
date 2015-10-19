@@ -80,7 +80,7 @@ class Comp:
         self.rfp2.flush()
         self.rfp2.close()
     def run(self):
-        #self.parse_f1()
+        self.parse_f1()
         self.parse_f2()
 
 

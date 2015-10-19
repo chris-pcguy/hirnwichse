@@ -13,10 +13,6 @@ cdef class Cmos:
         self.cmosIndex = self.statusB = self.rtcDelay = 0
         self.equipmentDefaultValue = 0x4
         self.configSpace = ConfigSpace(128, self.main)
-    cdef inline void setEquipmentDefaultValue(self, unsigned char value):
-        self.equipmentDefaultValue = value
-    cdef unsigned char getEquipmentDefaultValue(self):
-        return self.equipmentDefaultValue
     cdef inline unsigned int readValue(self, unsigned char index, unsigned char size):
         cdef unsigned int value
         value = self.configSpace.csReadValueUnsigned(index, size)

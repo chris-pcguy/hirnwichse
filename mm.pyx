@@ -89,7 +89,7 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= PCI_MEM_BASE and mmAddr < PCI_MEM_BASE_PLUS_LIMIT):
             tempOffset = mmAddr-PCI_MEM_BASE
             tempSize = min(dataSize, PCI_MEM_BASE_PLUS_LIMIT-mmAddr)
-            memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetPciDataPointer(mmAddr), tempSize)
+            memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetPciDataPointer(tempOffset), tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -107,7 +107,7 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= LAST_MEMAREA_BASE_ADDR and mmAddr < SIZE_4GB):
             tempOffset = mmAddr-LAST_MEMAREA_BASE_ADDR
             tempSize = min(dataSize, SIZE_4GB-mmAddr)
-            memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetRomDataPointer(mmAddr), tempSize)
+            memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetRomDataPointer(tempOffset), tempSize)
         return self.tempData
     cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) nogil except? BITMASK_BYTE_CONST:
         cdef signed long int ret

@@ -51,7 +51,8 @@ cdef class PS2:
         if (self.kbdClockEnabled):
             self.activateTimer()
     cdef void appendToOutBytesImm(self, bytes data):
-        self.appendToOutBytesJustAppend(data)
+        #self.appendToOutBytesJustAppend(data)
+        self.appendToOutBytes(data)
         self.outb = True
         if (self.allowIrq1):
             self.irq1Requested = True
@@ -195,7 +196,7 @@ cdef class PS2:
                     if (not self.kbdClockEnabled):
                         self.setKbdClockEnable(True)
                     if (data == 0x00):
-                        self.appendToOutBytes(b'\xfa')
+                        self.appendToOutBytesImm(b'\xfa')
                     elif (data == 0x05):
                         self.sysf = True
                         self.appendToOutBytesImm(b'\xfe')
@@ -221,7 +222,7 @@ cdef class PS2:
                         self.appendToOutBytes(b'\xfa')
                     elif (data == 0xf4):
                         self.scanningEnabled = True
-                        self.appendToOutBytes(b'\xfa')
+                        self.appendToOutBytesImm(b'\xfa')
                     elif (data == 0xf5):
                         self.resetInternals(True)
                         self.appendToOutBytes(b'\xfa')
@@ -310,7 +311,7 @@ cdef class PS2:
                 elif (data == 0x60): # write keyboard mode
                     self.needWriteBytes = 1
                 elif (data == 0xa4): # check if password is set
-                    self.appendToOutBytesDoIrq(b'\xf1') # no password is set
+                    self.appendToOutBytesImm(b'\xf1') # no password is set
                 elif (data in (0xa7, 0xa8, 0xa9)): # 0xa7: disable mouse, 0xa8: enable mouse, 0xa9: test mouse port
                     self.main.notice("PS2::outPort: mouse isn't supported yet. (data: {0:#04x})", data)
                     if (data == 0xa9):
@@ -321,12 +322,12 @@ cdef class PS2:
                     self.outb = False
                     self.auxb = False
                     self.sysf = True
-                    self.appendToOutBytesDoIrq(b'\x55')
+                    self.appendToOutBytesImm(b'\x55')
                 elif (data == 0xab):
                     if (self.outb):
                         self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0xab: outb is set.")
                         return
-                    self.appendToOutBytesDoIrq(b'\x00')
+                    self.appendToOutBytesImm(b'\x00')
                 elif (data == 0xad): # disable keyboard
                     self.setKbdClockEnable(False)
                 elif (data == 0xae): # enable keyboard
@@ -336,7 +337,7 @@ cdef class PS2:
                         self.main.exitError("ERROR: KBC::outPort: Port 0x64, data 0xd0: outb is set.")
                         return
                     outputByte = ((self.irq1Requested << 4) | ((<Registers>(<Cpu>self.main.cpu).registers).A20Active << 1) | 0x01)
-                    self.appendToOutBytesDoIrq(bytes([outputByte]))
+                    self.appendToOutBytesImm(bytes([outputByte]))
                 elif (data >= 0xd1 and data <= 0xd4):
                     self.needWriteBytes = 1
                 elif (data == 0xdd):
@@ -376,8 +377,8 @@ cdef class PS2:
         else:
             prevKbdClockEnabled = self.kbdClockEnabled
             self.kbdClockEnabled = True
-            if (not prevKbdClockEnabled and not self.outb):
-                self.activateTimer()
+            #if (not prevKbdClockEnabled and not self.outb):
+            self.activateTimer()
     cdef void activateTimer(self) nogil:
         if (not self.timerPending):
             self.timerPending = 1

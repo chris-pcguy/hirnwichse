@@ -709,6 +709,8 @@ cdef class Vga:
             elif (ioPortAddr == 0x403): # Bochs' Debug Port
                 stdout.write(chr(data))
                 stdout.flush()
+            elif (ioPortAddr == 0x8900):
+                self.main.exitError("Vga::outPort: port {0:#06x} APM shutdown. (dataSize byte, data {1:#04x})", ioPortAddr, data)
             else:
                 self.main.exitError("Vga::outPort: port {0:#06x} isn't supported. (dataSize byte, data {1:#04x})", ioPortAddr, data)
         elif (dataSize == OP_SIZE_WORD):
@@ -717,6 +719,8 @@ cdef class Vga:
             elif (ioPortAddr in (0x3b4, 0x3c4, 0x3ce, 0x3d4)):
                 self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
                 self.outPort(ioPortAddr+1, <unsigned char>(data>>8), OP_SIZE_BYTE)
+            elif (ioPortAddr == 0xb004):
+                self.main.exitError("Vga::outPort: port {0:#06x} ACPI shutdown. (dataSize word, data {1:#04x})", ioPortAddr, data)
             else:
                 self.main.notice("Vga::outPort: port {0:#06x} isn't supported. (dataSize word, data {1:#06x})", ioPortAddr, data)
         else:

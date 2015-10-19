@@ -19,9 +19,9 @@ cdef class AtaDrive:
     cdef void reset(self) nogil
     cdef void loadDrive(self, bytes filename)
     cdef bytes readBytes(self, unsigned long int offset, unsigned int size)
-    cdef bytes readSectors(self, unsigned long int sector, unsigned int count) # count in sectors
+    cdef inline bytes readSectors(self, unsigned long int sector, unsigned int count) # count in sectors
     cdef void writeBytes(self, unsigned long int offset, unsigned int size, bytes data)
-    cdef void writeSectors(self, unsigned long int sector, unsigned int count, bytes data)
+    cdef inline void writeSectors(self, unsigned long int sector, unsigned int count, bytes data)
     cdef void run(self) nogil
 
 

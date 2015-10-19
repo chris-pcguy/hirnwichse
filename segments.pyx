@@ -40,9 +40,9 @@ cdef class Segment:
                 return True
         gdtEntry = self.segments.getEntry(segmentIndex)
         if (not segmentIndex or gdtEntry is None):
-            self.isValid = self.useGDT = self.base = self.limit = self.accessByte = self.flags = self.segSize = self.isValid = \
-              self.segPresent = self.segIsCodeSeg = self.segIsRW = self.segIsConforming = self.segIsNormal = self.segUse4K = \
-              self.segDPL = self.anotherLimit = 0
+            self.useGDT = self.base = self.limit = self.accessByte = self.flags = self.segSize = self.isValid = \
+              self.segPresent = self.segIsCodeSeg = self.segIsRW = self.segIsConforming = self.segIsNormal = \
+              self.segUse4K = self.segDPL = self.anotherLimit = 0
             return False
         self.useGDT = True
         self.base = gdtEntry.base
@@ -59,20 +59,6 @@ cdef class Segment:
         self.segUse4K = gdtEntry.segUse4K
         self.segDPL = gdtEntry.segDPL
         self.anotherLimit = self.segIsNormal and not self.segIsCodeSeg and self.segIsConforming
-        return True
-    ### isSegReadableWritable:
-    ### if codeseg, return True if readable, else False
-    ### if dataseg, return True if writable, else False
-    cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST: # TODO: copied from GdtEntry::isAddressInLimit until a better solution is found... so never.
-        ## address is an offset.
-        if (self.anotherLimit):
-            if ((address+size)<self.limit or (not self.segSize and ((address+size-1)>BITMASK_WORD))):
-                #self.segments.main.notice("Segment::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
-                return False
-        else:
-            if ((address+size-1)>self.limit):
-                #self.segments.main.notice("Segment::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
-                return False
         return True
 
 
@@ -96,6 +82,7 @@ cdef class GdtEntry:
         self.segIsNormal = (self.accessByte & GDT_ACCESS_NORMAL_SEGMENT)!=0
         self.segUse4K = (self.flags & GDT_FLAG_USE_4K)!=0
         self.segDPL = ((self.accessByte & GDT_ACCESS_DPL)>>5)&3
+        self.anotherLimit = self.segIsNormal and not self.segIsCodeSeg and self.segIsConforming
         if (self.segUse4K):
             self.limit <<= 12
             self.limit |= 0xfff
@@ -103,17 +90,7 @@ cdef class GdtEntry:
         #    self.gdt.segments.main.notice("GdtEntry::parseEntryData: TODO: expand-down data segment may not supported yet!")
         #if (self.flags & GDT_FLAG_LONGMODE): # TODO: int-mode isn't implemented yet...
         #    self.gdt.segments.main.notice("GdtEntry::parseEntryData: WTF: Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades... (long-mode; AMD64)")
-    cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST:
-        ## address is an offset.
-        if (self.segIsNormal and not self.segIsCodeSeg and self.segIsConforming):
-            if ((address+size)<self.limit or (not self.segSize and ((address+size-1)>BITMASK_WORD))):
-                #self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
-                return False
-        else:
-            if ((address+size-1)>self.limit):
-                #self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
-                return False
-        return True
+
 
 cdef class IdtEntry:
     def __init__(self, unsigned long int entryData):

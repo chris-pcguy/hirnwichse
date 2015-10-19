@@ -15,15 +15,37 @@ cdef class Segment:
     cdef unsigned short segmentIndex, segId
     cdef unsigned int base, limit
     cdef unsigned char loadSegment(self, unsigned short segmentIndex, unsigned char doInit) except BITMASK_BYTE_CONST
-    cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST
+    cdef inline unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST: # TODO: copied from GdtEntry::isAddressInLimit until a better solution is found... so never.
+        ## address is an offset.
+        address += size
+        if (self.anotherLimit):
+            if (address<self.limit or (not self.segSize and ((address-1)>BITMASK_WORD))):
+                #self.segments.main.notice("Segment::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
+                return False
+        else:
+            if ((address-1)>self.limit):
+                #self.segments.main.notice("Segment::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
+                return False
+        return True
 
 cdef class GdtEntry:
     cdef Gdt gdt
     cdef unsigned char accessByte, flags, segSize, segPresent, segIsCodeSeg, segIsRW, \
-        segIsConforming, segIsNormal, segUse4K, segDPL
+        segIsConforming, segIsNormal, segUse4K, segDPL, anotherLimit
     cdef unsigned int base, limit
     cdef void parseEntryData(self, unsigned long int entryData) nogil
-    cdef unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST
+    cdef inline unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST:
+        ## address is an offset.
+        address += size
+        if (self.anotherLimit):
+            if (address<self.limit or (not self.segSize and ((address-1)>BITMASK_WORD))):
+                #self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
+                return False
+        else:
+            if ((address-1)>self.limit):
+                #self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address, size, self.limit)
+                return False
+        return True
 
 cdef class IdtEntry:
     cdef unsigned char entryType, entrySize, entryNeededDPL, entryPresent

@@ -13,7 +13,7 @@ from misc import HirnwichseException
 cdef class Cpu:
     def __init__(self, Hirnwichse main):
         self.main = main
-    cdef void reset(self) nogil:
+    cdef inline void reset(self) nogil:
         self.savedCs  = 0xf000
         self.savedEip = 0xfff0
         self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = self.HRQ = False
@@ -25,15 +25,6 @@ cdef class Cpu:
         self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
         self.savedSs  = self.registers.segRead(CPU_SEGMENT_SS)
         self.savedEsp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
-    cdef void setINTR(self, unsigned char state) nogil:
-        self.INTR = state
-        if (state):
-            self.asyncEvent = True
-            self.cpuHalted = False
-    cdef void setHRQ(self, unsigned char state) nogil:
-        self.HRQ = state
-        if (state):
-            self.asyncEvent = True
     cdef void handleAsyncEvent(self):
         cdef unsigned char irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
@@ -119,19 +110,18 @@ cdef class Cpu:
             elif (opcode in OPCODE_PREFIX_REPS):
                 self.registers.repPrefix = opcode
             else:
-                with gil:
-                    if (opcode == OPCODE_PREFIX_CS):
-                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.cs)
-                    elif (opcode == OPCODE_PREFIX_SS):
-                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.ss)
-                    elif (opcode == OPCODE_PREFIX_DS):
-                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.ds)
-                    elif (opcode == OPCODE_PREFIX_ES):
-                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.es)
-                    elif (opcode == OPCODE_PREFIX_FS):
-                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.fs)
-                    elif (opcode == OPCODE_PREFIX_GS):
-                        self.registers.segmentOverridePrefix = (<Segment>self.registers.segments.gs)
+                if (opcode == OPCODE_PREFIX_CS):
+                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.cs)
+                elif (opcode == OPCODE_PREFIX_SS):
+                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.ss)
+                elif (opcode == OPCODE_PREFIX_DS):
+                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.ds)
+                elif (opcode == OPCODE_PREFIX_ES):
+                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.es)
+                elif (opcode == OPCODE_PREFIX_FS):
+                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.fs)
+                elif (opcode == OPCODE_PREFIX_GS):
+                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.gs)
             ### TODO: I don't think, that we ever need lockPrefix.
             #elif (opcode == OPCODE_PREFIX_LOCK):
             #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
@@ -206,7 +196,7 @@ cdef class Cpu:
         self.cycles += CPU_CLOCK_TICK
         self.registers.resetPrefixes()
         self.saveCurrentInstPointer()
-        if (<unsigned short>self.cycles == 0x00):
+        if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>4))):
             if (self.main.platform.vga and self.main.platform.vga.ui):
                 self.main.platform.vga.ui.handleEventsWithoutWaiting()
         try:

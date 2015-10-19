@@ -63,7 +63,7 @@ cdef class Hirnwichse:
         stdout.flush()
         self.cpu.cpuDump()
         self.quitFunc()
-        #exit(1)
+        exit(1)
     def debug(self, str msg, *msgArgs): # this needs to be 'def'
         if (self.debugEnabled):
             print("DEBUG: " + msg.format(*msgArgs))

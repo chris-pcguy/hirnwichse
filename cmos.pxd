@@ -13,8 +13,10 @@ cdef class Cmos:
     cpdef object dt, oldDt, secondsThread
     cdef unsigned char cmosIndex, equipmentDefaultValue, statusB
     cdef unsigned int rtcDelay
-    cdef inline void setEquipmentDefaultValue(self, unsigned char value)
-    cdef unsigned char getEquipmentDefaultValue(self)
+    cdef inline void setEquipmentDefaultValue(self, unsigned char value):
+        self.equipmentDefaultValue = value
+    cdef inline unsigned char getEquipmentDefaultValue(self):
+        return self.equipmentDefaultValue
     cdef inline unsigned int readValue(self, unsigned char index, unsigned char size)
     cdef inline void writeValue(self, unsigned char index, unsigned int value, unsigned char size)
     cdef void reset(self)

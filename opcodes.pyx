@@ -1957,11 +1957,11 @@ cdef class Opcodes:
             bitSize = self.registers.operSize << 3
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             if (operOpcode == 0xac): # SHRD imm8
-                self.main.notice("Opcodes::opcodeGroup0F: SHRD_imm8: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                 count = self.registers.getCurrentOpcodeAddUnsignedByte()
+                self.main.notice("Opcodes::opcodeGroup0F: SHRD_imm8: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}, count: {2:#04x})", self.cpu.savedEip, self.cpu.savedCs, count)
             elif (operOpcode == 0xad): # SHRD CL
-                self.main.notice("Opcodes::opcodeGroup0F: SHRD_CL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                 count = self.registers.regReadUnsignedLowByte(CPU_REGISTER_CL)
+                self.main.notice("Opcodes::opcodeGroup0F: SHRD_CL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}, count: {2:#04x})", self.cpu.savedEip, self.cpu.savedCs, count)
             else:
                 self.main.exitError("group0F::SHRD: operOpcode {0:#04x} unknown.", operOpcode)
                 return True
@@ -2178,16 +2178,16 @@ cdef class Opcodes:
             self.registers.regWriteDword(CPU_REGISTER_EIP, op1)
         elif (operOpcodeId == 3): # 3/CALL FAR
             op1 = self.modRMInstance.getRMValueFull(self.registers.addrSize)
-            segVal = self.registers.mmReadValueUnsignedWord(op1+self.registers.operSize, self.modRMInstance.rmNameSeg, True)
-            op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSeg, True)
+            segVal = self.registers.mmReadValueUnsignedWord(op1+self.registers.operSize, <Segment>self.modRMInstance.rmNameSeg, True)
+            op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, <Segment>self.modRMInstance.rmNameSeg, True)
             return self.jumpFarDirect(OPCODE_CALL, segVal, op1)
         elif (operOpcodeId == 4): # 4/JMP NEAR
             op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize)
             self.registers.regWriteDword(CPU_REGISTER_EIP, op1)
         elif (operOpcodeId == 5): # 5/JMP FAR
             op1 = self.modRMInstance.getRMValueFull(self.registers.addrSize)
-            segVal = self.registers.mmReadValueUnsignedWord(op1+self.registers.operSize, self.modRMInstance.rmNameSeg, True)
-            op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, self.modRMInstance.rmNameSeg, True)
+            segVal = self.registers.mmReadValueUnsignedWord(op1+self.registers.operSize, <Segment>self.modRMInstance.rmNameSeg, True)
+            op1 = self.registers.mmReadValueUnsigned(op1, self.registers.operSize, <Segment>self.modRMInstance.rmNameSeg, True)
             return self.jumpFarDirect(OPCODE_JUMP, segVal, op1)
         elif (operOpcodeId == 6): # 6/PUSH
             op1 = self.modRMInstance.modRMLoadUnsigned(self.registers.operSize)
@@ -2386,10 +2386,10 @@ cdef class Opcodes:
         if (self.modRMInstance.mod == 3):
             raise HirnwichseException(CPU_EXCEPTION_UD)
         mmAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
-        offsetAddr = self.registers.mmReadValueUnsigned(mmAddr, self.registers.operSize, self.modRMInstance.rmNameSeg, True)
-        segmentAddr = self.registers.mmReadValueUnsignedWord(mmAddr+self.registers.operSize, self.modRMInstance.rmNameSeg, True)
+        offsetAddr = self.registers.mmReadValueUnsigned(mmAddr, self.registers.operSize, <Segment>self.modRMInstance.rmNameSeg, True)
+        segmentAddr = self.registers.mmReadValueUnsignedWord(mmAddr+self.registers.operSize, <Segment>self.modRMInstance.rmNameSeg, True)
         if (self.main.debugEnabled):
-            self.main.debug("lfpFunc: test_1 (segId: {0:d}; segmentAddr: {1:#06x}; mmAddr: {2:#010x}; rmNameSeg.segId: {3:d}; operSize: {4:d}; addrSize: {5:d})", segId, segmentAddr, mmAddr, self.modRMInstance.rmNameSeg.segId, self.registers.operSize, self.registers.addrSize)
+            self.main.debug("lfpFunc: test_1 (segId: {0:d}; segmentAddr: {1:#06x}; mmAddr: {2:#010x}; rmNameSeg.segId: {3:d}; operSize: {4:d}; addrSize: {5:d})", segId, segmentAddr, mmAddr, (<Segment>self.modRMInstance.rmNameSeg).segId, self.registers.operSize, self.registers.addrSize)
         self.registers.segWrite(segId, segmentAddr)
         self.modRMInstance.modRSave(self.registers.operSize, offsetAddr, OPCODE_SAVE)
         return True
@@ -2840,7 +2840,8 @@ cdef class Opcodes:
                     tempDS = self.stackPopValue(True)
                     tempFS = self.stackPopValue(True)
                     tempGS = self.stackPopValue(True)
-                    self.registers.regWriteDwordEflags(tempEFLAGS)
+                    if (self.registers.regWriteDwordEflags(tempEFLAGS)):
+                        self.main.cpu.asyncEvent = True
                     self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
                     self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
                     self.registers.segWriteSegment((<Segment>self.registers.segments.ss), tempSS)
@@ -2924,7 +2925,8 @@ cdef class Opcodes:
             tempEFLAGS &= eflagsMask
             currentEFLAGS &= ~eflagsMask
             currentEFLAGS |= tempEFLAGS
-            self.registers.regWriteDwordEflags(currentEFLAGS)
+            if (self.registers.regWriteDwordEflags(currentEFLAGS)):
+                self.main.cpu.asyncEvent = True
             tempCS &= 0xfffc
             tempCS |= newCpl
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
@@ -2937,9 +2939,11 @@ cdef class Opcodes:
             if (self.registers.operSize == OP_SIZE_DWORD):
                 tempEFLAGS = (tempEFLAGS & 0x257fd5)
                 tempEFLAGS |= self.registers.readFlags()&<unsigned int>0xff1a0000
-                self.registers.regWriteDwordEflags(tempEFLAGS)
+                if (self.registers.regWriteDwordEflags(tempEFLAGS)):
+                    self.main.cpu.asyncEvent = True
             else:
-                self.registers.regWriteWordFlags(<unsigned short>tempEFLAGS)
+                if (self.registers.regWriteWordFlags(<unsigned short>tempEFLAGS)):
+                    self.main.cpu.asyncEvent = True
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
             self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
         #self.registers.ssInhibit = True
@@ -3343,8 +3347,8 @@ cdef class Opcodes:
             raise HirnwichseException(CPU_EXCEPTION_UD)
         index = self.modRMInstance.modRLoadSigned(self.registers.operSize)
         returnInt = self.modRMInstance.getRMValueFull(self.registers.addrSize)
-        lowerBound = self.registers.mmReadValueSigned(returnInt, self.registers.operSize, self.modRMInstance.rmNameSeg, True)
-        upperBound = self.registers.mmReadValueSigned(returnInt+self.registers.operSize, self.registers.operSize, self.modRMInstance.rmNameSeg, True)
+        lowerBound = self.registers.mmReadValueSigned(returnInt, self.registers.operSize, <Segment>self.modRMInstance.rmNameSeg, True)
+        upperBound = self.registers.mmReadValueSigned(returnInt+self.registers.operSize, self.registers.operSize, <Segment>self.modRMInstance.rmNameSeg, True)
         if (index < lowerBound or index > upperBound):
             self.main.notice("bound_test1: index: {0:#06x}, lowerBound: {1:#06x}, upperBound: {2:#06x}", index, lowerBound, upperBound)
             raise HirnwichseException(CPU_EXCEPTION_BR)
@@ -3365,7 +3369,7 @@ cdef class Opcodes:
         else: # memory operand
             #self.main.notice("ATTENTION: this could be a WRONG IMPLEMENTATION of btFunc!!! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
             #self.cpu.cpuDump() # dump before
-            #self.main.notice("test1.1: rmName0=={0:d}, rmName1=={1:d}, rmName2=={2:#010x}, segId=={3:d}, segmentIndex=={4:d}, ss=={5:d}, regSize=={6:d}", self.modRMInstance.rmName0, self.modRMInstance.rmName1, self.modRMInstance.rmName2, self.modRMInstance.rmNameSeg.segId, self.modRMInstance.rmNameSeg.segmentIndex, self.modRMInstance.ss, self.modRMInstance.regSize)
+            #self.main.notice("test1.1: rmName0=={0:d}, rmName1=={1:d}, rmName2=={2:#010x}, segId=={3:d}, segmentIndex=={4:d}, ss=={5:d}, regSize=={6:d}", self.modRMInstance.rmName0, self.modRMInstance.rmName1, self.modRMInstance.rmName2, (<Segment>self.modRMInstance.rmNameSeg).segId, (<Segment>self.modRMInstance.rmNameSeg).segmentIndex, self.modRMInstance.ss, self.modRMInstance.regSize)
             ##### TODO!!!!!!!!!
             address = self.modRMInstance.getRMValueFull(self.registers.addrSize)
             #self.main.notice("test1.2: address=={0:#010x}, offset=={1:#010x}, opcode=={2:#04x}", address, offset, self.cpu.opcode)
@@ -3375,9 +3379,9 @@ cdef class Opcodes:
                 address += <signed int>(offset >> 3)
             offset &= 7
             #self.main.notice("test1.3: address=={0:#010x}, offset=={1:#010x}", address, offset)
-            value = self.registers.mmReadValueUnsigned(address, OP_SIZE_BYTE, self.modRMInstance.rmNameSeg, True)
+            value = self.registers.mmReadValueUnsigned(address, OP_SIZE_BYTE, <Segment>self.modRMInstance.rmNameSeg, True)
             state = self.registers.valGetBit(value, offset)
-            #self.main.notice("btFunc: test1.1: address=={0:#010x}; offset=={1:d}; value=={2:#04x}; state=={3:d}; segId=={4:d}", address, offset, value, state, self.modRMInstance.rmNameSeg.segId)
+            #self.main.notice("btFunc: test1.1: address=={0:#010x}; offset=={1:d}; value=={2:#04x}; state=={3:d}; segId=={4:d}", address, offset, value, state, (<Segment>self.modRMInstance.rmNameSeg).segId)
         self.registers.cf = state
         if (newValType != BT_NONE):
             if (newValType == BT_COMPLEMENT):
@@ -3392,8 +3396,8 @@ cdef class Opcodes:
             if (self.modRMInstance.mod == 3): # register operand
                 self.modRMInstance.modRMSave(self.registers.operSize, value, OPCODE_SAVE)
             else: # memory operands
-                self.registers.mmWriteValue(address, value, OP_SIZE_BYTE, self.modRMInstance.rmNameSeg, True)
-                #self.main.notice("btFunc: test1.2: address=={0:#010x}; offset=={1:d}; value=={2:#04x}; state=={3:d}; segId=={4:d}", address, offset, value, state, self.modRMInstance.rmNameSeg.segId)
+                self.registers.mmWriteValue(address, value, OP_SIZE_BYTE, <Segment>self.modRMInstance.rmNameSeg, True)
+                #self.main.notice("btFunc: test1.2: address=={0:#010x}; offset=={1:d}; value=={2:#04x}; state=={3:d}; segId=={4:d}", address, offset, value, state, (<Segment>self.modRMInstance.rmNameSeg).segId)
                 #self.cpu.cpuDump() # dump after
         #elif (self.modRMInstance.mod != 3): # memory operands
         #    self.cpu.cpuDump() # dump after
