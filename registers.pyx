@@ -5,7 +5,7 @@ include "globals.pxi"
 include "cpu_globals.pxi"
 
 from misc import HirnwichseException
-
+import struct
 
 # Parity Flag Table: DO NOT EDIT!!!
 cdef unsigned char PARITY_TABLE[256]
@@ -42,7 +42,7 @@ cdef class ModRMClass:
     def __init__(self, Registers registers):
         self.registers = registers
     cdef unsigned char modRMOperands(self, unsigned char regSize, unsigned char modRMflags) nogil except BITMASK_BYTE_CONST: # regSize in bytes
-        cdef unsigned char modRMByte, index
+        cdef unsigned char modRMByte
         modRMByte = self.registers.getCurrentOpcodeAddUnsignedByte()
         self.rmNameSeg = (<PyObject*>self.registers.segments.ds)
         self.rmName1 = CPU_REGISTER_NONE
@@ -73,10 +73,10 @@ cdef class ModRMClass:
                 if (self.rm == 4): # If RM==4; then SIB
                     modRMByte = self.registers.getCurrentOpcodeAddUnsignedByte()
                     self.rm  = modRMByte&0x7
-                    index   = (modRMByte>>3)&7
                     self.ss = (modRMByte>>6)&3
-                    if (index != 4):
-                        self.rmName1 = index
+                    modRMByte   = (modRMByte>>3)&7
+                    if (modRMByte != 4):
+                        self.rmName1 = modRMByte
                 self.rmName0 = self.rm
                 if (self.mod == 0 and self.rm == 5):
                     self.rmName0 = CPU_REGISTER_NONE
@@ -224,12 +224,98 @@ cdef class ModRMClass:
             return self.registers.regWriteWithOpQword(self.regName, value, valueOp)
 
 
+cdef class Fpu:
+    def __init__(self, Registers registers, Hirnwichse main):
+        self.registers = registers
+        self.main = main
+        #self.opcode = 0
+        memset(self.empty, 0, 10);
+    cdef void reset(self, unsigned char fninit):
+        cdef unsigned char i
+        if (fninit):
+            self.ctrl = 0x37f
+            self.tag = 0xffff
+        else:
+            memset(self.st, 0, 80)
+            self.ctrl = 0x40
+            self.tag = 0x5555
+        self.status = 0
+        self.dataSeg = self.instSeg = 0
+        self.dataPointer = self.instPointer = 0
+        self.opcode = 0 # TODO: should this get cleared?
+    cdef setPointers(self, unsigned short opcode, unsigned short dataSeg, unsigned int dataPointer):
+        self.opcode = opcode
+        self.instSeg = self.main.cpu.savedCs
+        self.instPointer = self.main.cpu.savedEip
+        self.dataSeg = dataSeg
+        self.dataPointer = dataPointer
+    cdef inline unsigned char getIndex(self, unsigned char index):
+        return (((self.status >> 11) & 7) + index) & 7
+    cdef inline void addTop(self, signed char index):
+        cdef char tempIndex
+        tempIndex = (self.status >> 11) & 7
+        self.status &= ~(7 << 11)
+        tempIndex += index
+        self.status |= (tempIndex & 7) << 11
+    cdef void setVal(self, unsigned char tempIndex, double tempDouble): # load
+        cdef unsigned long int tempVal
+        cdef tuple tempTuple
+        tempTuple = tempDouble.as_integer_ratio()
+        tempIndex = self.getIndex(tempIndex)
+        tempVal = ((tempTuple[0].bit_length()-tempTuple[1].bit_length())+16383)
+        memcpy(self.st[tempIndex], (<unsigned char*>&tempVal)+1, 1)
+        memcpy(self.st[tempIndex]+1, <unsigned char*>&tempVal, 1)
+        tempVal = <unsigned long int>((<double*>&tempDouble)[0])
+        tempVal <<= 41
+        memcpy(self.st[tempIndex]+2, (<unsigned char*>&tempVal)+7, 1)
+        memcpy(self.st[tempIndex]+3, (<unsigned char*>&tempVal)+6, 1)
+        memcpy(self.st[tempIndex]+4, (<unsigned char*>&tempVal)+5, 1)
+        memcpy(self.st[tempIndex]+5, (<unsigned char*>&tempVal)+4, 1)
+        memcpy(self.st[tempIndex]+6, (<unsigned char*>&tempVal)+3, 1)
+        memcpy(self.st[tempIndex]+7, (<unsigned char*>&tempVal)+2, 1)
+        memcpy(self.st[tempIndex]+8, (<unsigned char*>&tempVal)+1, 1)
+        memcpy(self.st[tempIndex]+9, <unsigned char*>&tempVal, 1)
+        tempVal = tempIndex<<1
+        self.tag &= ~(3<<tempVal)
+        if (not memcmp(self.st[tempIndex], self.empty, 10)): # TODO
+            self.tag |= 3<<tempVal
+        else:
+            #self.tag |= ~(3<<tempVal)
+            pass
+    cdef double getVal(self, unsigned char tempIndex): # store
+        cdef unsigned long int tempVal
+        cdef double tempDouble
+        tempIndex = self.getIndex(tempIndex)
+        memcpy((<unsigned char*>&tempVal)+7, self.st[tempIndex]+2, 1)
+        memcpy((<unsigned char*>&tempVal)+6, self.st[tempIndex]+3, 1)
+        memcpy((<unsigned char*>&tempVal)+5, self.st[tempIndex]+4, 1)
+        memcpy((<unsigned char*>&tempVal)+4, self.st[tempIndex]+5, 1)
+        memcpy((<unsigned char*>&tempVal)+3, self.st[tempIndex]+6, 1)
+        memcpy((<unsigned char*>&tempVal)+2, self.st[tempIndex]+7, 1)
+        memcpy((<unsigned char*>&tempVal)+1, self.st[tempIndex]+8, 1)
+        memcpy(<unsigned char*>&tempVal, self.st[tempIndex]+9, 1)
+        tempVal >>= 41
+        tempDouble = <double>((<unsigned long int*>&tempVal)[0])
+        return tempDouble
+    cdef void push(self, double tempDouble): # load
+        self.addTop(-1)
+        self.setVal(0, tempDouble)
+    cdef double pop(self): # store
+        cdef double tempDouble
+        tempDouble = self.getVal(0)
+        self.addTop(1)
+        return tempDouble
+    cdef void run(self):
+        pass
+
 
 cdef class Registers:
     def __init__(self, Hirnwichse main):
         self.main = main
         self.segments = Segments(self, self.main)
-    cdef void reset(self) nogil:
+        self.fpu = Fpu(self, self.main)
+        self.regWriteDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_ET)
+    cdef void reset(self):
         self.operSize = self.addrSize = self.cf = self.pf = self.af = self.zf = self.sf = self.tf = \
           self.if_flag = self.df = self.of = self.iopl = self.nt = self.rf = self.vm = self.ac = \
           self.vif = self.vip = self.id = self.cpl = self.protectedModeOn = self.pagingOn = writeProtectionOn = self.A20Active = self.ssInhibit = self.cacheDisabled = self.cpuCacheBase = self.cpuCacheIndex = 0
@@ -237,11 +323,12 @@ cdef class Registers:
             self.cpuCache = b''
         self.resetPrefixes()
         self.segments.reset()
+        self.fpu.reset(False)
         self.regWriteDwordEflags(FLAG_REQUIRED)
-        self.regWriteDword(CPU_REGISTER_CR0, 0x60000010)
+        self.regWriteDword(CPU_REGISTER_CR0, self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW) | CR0_FLAG_ET)
         self.regWriteDword(CPU_REGISTER_DR6, 0xffff1ff0)
         self.regWriteDword(CPU_REGISTER_DR7, 0x400)
-        self.regWriteDword(CPU_REGISTER_EDX, 0x421)
+        self.regWriteDword(CPU_REGISTER_EDX, 0x401)
         self.segWriteSegment((<Segment>self.segments.cs), 0xf000)
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef void reloadCpuCache(self):
@@ -275,10 +362,8 @@ cdef class Registers:
         IF (CPU_CACHE_SIZE):
             return <unsigned char>self.readFromCacheUnsigned(OP_SIZE_BYTE)
         ELSE:
-            cdef unsigned int opcodeAddr
-            opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             (<Paging>(<Segments>self.segments).paging).setInstrFetch()
-            return self.mmReadValueUnsignedByte(opcodeAddr, (<Segment>self.segments.cs), False)
+            return self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, (<Segment>self.segments.cs), False)
     cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
@@ -355,10 +440,14 @@ cdef class Registers:
                 segment.isValid = False
         if (segId == CPU_SEGMENT_CS):
             self.codeSegSize = segment.segSize
-            if (self.vm):
-                self.cpl = 3
-            elif (segment.isValid and segment.useGDT):
-                self.cpl = segValue & 0x3
+            if (self.protectedModeOn):
+                if (self.vm):
+                    self.cpl = 3
+                elif (segment.isValid and segment.useGDT):
+                    self.cpl = segValue & 0x3
+                else:
+                    self.main.exitError("Registers::segWrite: segment seems to be invalid!")
+                    return False
             else:
                 self.cpl = 0
         elif (segId == CPU_SEGMENT_SS):
@@ -1126,5 +1215,6 @@ cdef class Registers:
         return True
     cdef void run(self):
         self.segments.run()
+        self.fpu.run()
 
 

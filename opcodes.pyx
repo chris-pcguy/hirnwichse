@@ -5,6 +5,7 @@ include "globals.pxi"
 include "cpu_globals.pxi"
 
 from misc import HirnwichseException
+import struct
 
 
 DEF GROUP1_OP_ADD = 0
@@ -371,7 +372,7 @@ cdef class Opcodes:
         elif (opcode == 0xd7):
             retVal = self.xlatb()
         elif (opcode >= 0xd8 and opcode <= 0xdf):
-            retVal = self.fpuOpcodes(opcode)
+            retVal = self.fpuOpcodes(opcode-FPU_BASE_OPCODE)
         elif (opcode == 0xe0):
             retVal = self.loopFunc(OPCODE_LOOPNE)
         elif (opcode == 0xe1):
@@ -1895,9 +1896,9 @@ cdef class Opcodes:
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
             elif (eaxId >= 0x1):
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test4: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x421)
+                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x401)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x10000)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8112)
+                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8113)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
             else:
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test3: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
@@ -3388,30 +3389,49 @@ cdef class Opcodes:
         return True
     cdef int fpuOpcodes(self, unsigned char opcode) except BITMASK_BYTE_CONST:
         cdef unsigned char opcode2, reg
+        cdef unsigned int dataAddr
+        cdef unsigned long int data
         opcode2 = self.registers.getCurrentOpcodeUnsignedByte()
         reg = (opcode2 >> 3) & 7
-        self.main.notice("Opcodes::fpuOpcodes: FPU Opcodes: TODO! (opcode=={0:#04x}; opcode2=={1:#04x}; savedEip: {2:#010x}, savedCs: {3:#06x})", opcode, opcode2, self.cpu.savedEip, self.cpu.savedCs)
+        self.main.notice("Opcodes::fpuOpcodes: FPU Opcodes: TODO! (opcode=={0:#04x}; opcode2=={1:#04x}; savedEip: {2:#010x}, savedCs: {3:#06x})", FPU_BASE_OPCODE+opcode, opcode2, self.cpu.savedEip, self.cpu.savedCs)
         #if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)): # TODO
         #    raise HirnwichseException(CPU_EXCEPTION_UD)
         if (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS)) != 0):
             raise HirnwichseException(CPU_EXCEPTION_NM)
-        if (opcode in (0xd9, 0xdb, 0xdd, 0xde, 0xdf)):
-            if ((opcode == 0xdf and reg in (0, 3, 4)) or \
-              (opcode == 0xdb and opcode2 == 0xe3) or \
-              (opcode == 0xde and reg in (0, 1, 4, 6)) or \
-              (opcode == 0xd9 and reg == 7) or \
-              (opcode == 0xdd and reg in (6, 7))): # FNSTSW/FINIT/FNSTSW
-                if ((opcode == 0xdd and reg in (6, 7)) or \
-                  (opcode == 0xd9 and reg == 7) or \
-                  (opcode == 0xde and reg in (0, 1, 4, 6)) or \
-                  (opcode == 0xdf and reg in (0, 3))):
-                    self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE) # FNSAVE
-                else:
-                    self.registers.getCurrentOpcodeAddUnsignedByte()
-                return True
-        self.main.notice("Opcodes::fpuOpcodes: opcode=={0:#04x}, opcode2=={1:#04x}", opcode, opcode2)
-        raise HirnwichseException(CPU_EXCEPTION_UD)
-        #return True
+        if (opcode == 3 and opcode2 == 0xe3):
+            self.registers.getCurrentOpcodeAddUnsignedByte()
+            self.registers.fpu.reset(True)
+        else:
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            dataAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
+            self.registers.fpu.setPointers((opcode << 8) | opcode2, (<Segment>self.modRMInstance.rmNameSeg).segmentIndex, dataAddr)
+            if (opcode == 1 and reg == 7):
+                self.modRMInstance.modRMSave(OP_SIZE_WORD, self.registers.fpu.ctrl, OPCODE_SAVE)
+            elif (opcode == 5 and reg == 0):
+                data = self.registers.mmReadValueUnsignedQword(dataAddr, <Segment>self.modRMInstance.rmNameSeg, True)
+                self.registers.fpu.push((<double*>&data)[0])
+            elif (opcode == 5 and reg == 7):
+                self.modRMInstance.modRMSave(OP_SIZE_WORD, self.registers.fpu.status, OPCODE_SAVE)
+            else:
+                self.main.exitError("Opcodes::fpuOpcodes: opcode=={0:#04x}, opcode2=={1:#04x}", opcode, opcode2)
+                return False
+        IF 0:
+            if (opcode in (0xd9, 0xdb, 0xdd, 0xde, 0xdf)):
+                if ((opcode == 0xdf and reg in (0, 3, 4)) or \
+                (opcode == 0xdb and opcode2 == 0xe3) or \
+                (opcode == 0xde and reg in (0, 1, 4, 6)) or \
+                (opcode == 0xd9 and reg == 7) or \
+                (opcode == 0xdd and reg in (6, 7))): # FNSTSW/FINIT/FNSTSW
+                    if ((opcode == 0xdd and reg in (6, 7)) or \
+                    (opcode == 0xd9 and reg == 7) or \
+                    (opcode == 0xde and reg in (0, 1, 4, 6)) or \
+                    (opcode == 0xdf and reg in (0, 3))):
+                        self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE) # FNSAVE
+                    else:
+                        self.registers.getCurrentOpcodeAddUnsignedByte()
+                    return True
+        #raise HirnwichseException(CPU_EXCEPTION_UD)
+        return True
     cdef void run(self):
         self.modRMInstance = ModRMClass(self.registers)
     # end of opcodes

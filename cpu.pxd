@@ -20,7 +20,7 @@ cdef class Cpu:
     cdef unsigned short savedCs, savedSs
     cdef unsigned int savedEip, savedEsp
     cdef unsigned long int cycles
-    cdef inline void reset(self) nogil
+    cdef inline void reset(self)
     cdef inline void setINTR(self, unsigned char state) nogil:
         self.INTR = state
         if (state):

@@ -110,7 +110,7 @@ cdef class Segments:
     cdef Segment cs, ds, es, fs, gs, ss, tss
     cdef tuple segs
     cdef unsigned short ldtr
-    cdef void reset(self) nogil
+    cdef void reset(self)
     cdef Segment getSegment(self, unsigned short segmentId, unsigned char checkForValidness)
     cdef GdtEntry getEntry(self, unsigned short num)
     cdef unsigned char getSegType(self, unsigned short num) except? BITMASK_BYTE_CONST

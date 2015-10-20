@@ -325,3 +325,8 @@ DEF CPU_CACHE_SIZE = 0 # in bytes
 
 
 
+
+cdef unsigned char FPU_BASE_OPCODE = 0xd8
+
+
+

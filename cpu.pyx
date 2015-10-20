@@ -13,7 +13,7 @@ from misc import HirnwichseException
 cdef class Cpu:
     def __init__(self, Hirnwichse main):
         self.main = main
-    cdef inline void reset(self) nogil:
+    cdef inline void reset(self):
         self.savedCs  = 0xf000
         self.savedEip = 0xfff0
         self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = self.HRQ = False

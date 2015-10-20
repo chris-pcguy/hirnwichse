@@ -2,9 +2,11 @@
 include "globals.pxi"
 include "cpu_globals.pxi"
 
+from hirnwichse_main cimport Hirnwichse
 from mm cimport Mm
 from segments cimport Segment, GdtEntry, Gdt, Idt, Paging, Segments
 from cpython.ref cimport PyObject
+from libc.string cimport memcpy, memset, memcmp
 
 
 cdef:
@@ -33,7 +35,6 @@ cdef:
     struct RegStruct:
         qwordUnion _union
 
-from hirnwichse_main cimport Hirnwichse
 
 cdef class ModRMClass:
     cdef Registers registers
@@ -51,10 +52,28 @@ cdef class ModRMClass:
     cdef unsigned long int modRSave(self, unsigned char regSize, unsigned long int value, unsigned char valueOp) nogil
 
 
+cdef class Fpu:
+    cdef Hirnwichse main
+    cdef Registers registers
+    cdef unsigned char st[8][10]
+    cdef unsigned char empty[10]
+    cdef unsigned short ctrl, status, tag, dataSeg, instSeg, opcode
+    cdef unsigned int dataPointer, instPointer
+    cdef void reset(self, unsigned char fninit)
+    cdef setPointers(self, unsigned short opcode, unsigned short dataSeg, unsigned int dataPointer)
+    cdef inline unsigned char getIndex(self, unsigned char index)
+    cdef inline void addTop(self, signed char index)
+    cdef inline void setVal(self, unsigned char tempIndex, double data) # load
+    cdef inline double getVal(self, unsigned char tempIndex) # store
+    cdef void push(self, double data) # load
+    cdef double pop(self) # store
+    cdef void run(self)
+
 
 cdef class Registers:
     cdef Hirnwichse main
     cdef Segments segments
+    cdef Fpu fpu
     cdef RegStruct regs[CPU_REGISTERS]
     cdef PyObject *segmentOverridePrefix
     cdef unsigned char repPrefix, operandSizePrefix, addressSizePrefix, codeSegSize, cf, pf, af, zf, sf, tf, if_flag, df, of, iopl, \
@@ -62,7 +81,7 @@ cdef class Registers:
                         cacheDisabled, operSize, addrSize
     cdef unsigned int cpuCacheBase, cpuCacheIndex
     cdef bytes cpuCache
-    cdef void reset(self) nogil
+    cdef void reset(self)
     cdef inline void resetPrefixes(self) nogil:
         self.operandSizePrefix = self.addressSizePrefix = self.repPrefix = 0
         self.segmentOverridePrefix = NULL

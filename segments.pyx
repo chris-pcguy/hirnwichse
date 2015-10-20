@@ -531,7 +531,7 @@ cdef class Segments:
     def __init__(self, Registers registers, Hirnwichse main):
         self.registers = registers
         self.main = main
-    cdef void reset(self) nogil:
+    cdef void reset(self):
         self.ldtr = 0
     cdef Segment getSegment(self, unsigned short segmentId, unsigned char checkForValidness):
         cdef Segment segment
