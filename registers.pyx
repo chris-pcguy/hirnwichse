@@ -635,8 +635,8 @@ cdef class Registers:
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         return regName
     cdef inline unsigned char getCond(self, unsigned char index) nogil:
-        cdef unsigned char origIndex, ret = 0
-        origIndex = index
+        cdef unsigned char negateCheck, ret = 0
+        negateCheck = index & 1
         index >>= 1
         if (index == 0x0): # O
             ret = self.of
@@ -656,10 +656,10 @@ cdef class Registers:
             ret = self.zf or self.sf != self.of
         #else:
         #    self.main.exitError("getCond: index {0:#04x} is invalid.", index)
-        if (origIndex & 0x1):
+        if (negateCheck):
             ret = not ret
         return ret
-    cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method) nogil:
+    cdef inline void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method) nogil:
         cdef unsigned char unsignedOverflow, reg0Nibble, regSumuNibble, carried
         cdef unsigned int bitMaskHalf
         cdef unsigned long int regSumu
@@ -761,7 +761,7 @@ cdef class Registers:
             self.pf = PARITY_TABLE[<unsigned char>regSumu]
             self.zf = not regSumu
             self.sf = (regSumu & bitMaskHalf) != 0
-    cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) nogil except BITMASK_BYTE_CONST:
+    cdef inline unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char addrInLimit
         cdef unsigned short segId, segVal
         segId = segment.segId
@@ -811,7 +811,7 @@ cdef class Registers:
                         raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
             segment.readChecked = True
         return True
-    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST:
+    cdef inline unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST:
         cdef PyObject *segment2
         cdef unsigned int origMmAddr
         origMmAddr = mmAddr

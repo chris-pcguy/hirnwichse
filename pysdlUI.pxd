@@ -3,6 +3,7 @@ from hirnwichse_main cimport Hirnwichse
 from vga cimport Vga
 #from misc cimport Misc
 from ps2 cimport PS2
+from cpython.ref cimport PyObject
 
 
 cdef class PysdlUI:

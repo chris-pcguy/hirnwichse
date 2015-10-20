@@ -15,71 +15,71 @@ cdef class Opcodes:
     cdef Cpu cpu
     cdef Registers registers
     cdef ModRMClass modRMInstance
-    cdef int executeOpcode(self, unsigned char opcode) except BITMASK_BYTE_CONST
+    cdef inline int executeOpcode(self, unsigned char opcode) except BITMASK_BYTE_CONST
     cdef int cli(self) nogil except BITMASK_BYTE_CONST
     cdef int sti(self) nogil except BITMASK_BYTE_CONST
-    cdef int hlt(self) nogil except BITMASK_BYTE_CONST
-    cdef void cld(self) nogil
-    cdef void std(self) nogil
-    cdef void clc(self) nogil
-    cdef void stc(self) nogil
-    cdef void cmc(self) nogil
-    cdef void clac(self) nogil
-    cdef void stac(self) nogil
+    cdef inline int hlt(self) nogil except BITMASK_BYTE_CONST
+    cdef inline void cld(self) nogil
+    cdef inline void std(self) nogil
+    cdef inline void clc(self) nogil
+    cdef inline void stc(self) nogil
+    cdef inline void cmc(self) nogil
+    cdef inline void clac(self) nogil
+    cdef inline void stac(self) nogil
     cdef int checkIOPL(self, unsigned short ioPortAddr, unsigned char dataSize) nogil except BITMASK_BYTE_CONST
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except? BITMASK_BYTE_CONST
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except BITMASK_BYTE_CONST
     cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal) except BITMASK_BYTE_CONST
-    cdef int jumpFarAbsolutePtr(self) nogil except BITMASK_BYTE_CONST
-    cdef int loopFunc(self, unsigned char loopType) nogil except BITMASK_BYTE_CONST
+    cdef inline int jumpFarAbsolutePtr(self) nogil except BITMASK_BYTE_CONST
+    cdef inline int loopFunc(self, unsigned char loopType) nogil except BITMASK_BYTE_CONST
     cdef int opcodeR_RM(self, unsigned char opcode, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef int opcodeRM_R(self, unsigned char opcode, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef int opcodeAxEaxImm(self, unsigned char opcode, unsigned char operSize) nogil except BITMASK_BYTE_CONST
-    cdef int movImmToR(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
-    cdef int movRM_R(self, unsigned char operSize) except BITMASK_BYTE_CONST
-    cdef int movR_RM(self, unsigned char operSize, unsigned char cond) except BITMASK_BYTE_CONST
-    cdef int movRM16_SREG(self) except BITMASK_BYTE_CONST
-    cdef int movSREG_RM16(self) except BITMASK_BYTE_CONST
-    cdef int movAxMoffs(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
-    cdef int movMoffsAx(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
+    cdef inline int movImmToR(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
+    cdef inline int movRM_R(self, unsigned char operSize) except BITMASK_BYTE_CONST
+    cdef inline int movR_RM(self, unsigned char operSize, unsigned char cond) except BITMASK_BYTE_CONST
+    cdef inline int movRM16_SREG(self) except BITMASK_BYTE_CONST
+    cdef inline int movSREG_RM16(self) except BITMASK_BYTE_CONST
+    cdef inline int movAxMoffs(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
+    cdef inline int movMoffsAx(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int stosFuncWord(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int stosFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
-    cdef int stosFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
+    cdef inline int stosFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int movsFuncWord(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int movsFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
-    cdef int movsFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
+    cdef inline int movsFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int lodsFuncWord(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int lodsFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
-    cdef int lodsFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
+    cdef inline int lodsFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int cmpsFuncWord(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int cmpsFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
-    cdef int cmpsFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
+    cdef inline int cmpsFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int scasFuncWord(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int scasFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
-    cdef int scasFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
+    cdef inline int scasFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int inAxImm8(self, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef int inAxDx(self, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef int outImm8Ax(self, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef int outDxAx(self, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef int outsFuncWord(self, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef int outsFuncDword(self, unsigned char operSize) except BITMASK_BYTE_CONST
-    cdef int outsFunc(self, unsigned char operSize) except BITMASK_BYTE_CONST
+    cdef inline int outsFunc(self, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef int insFuncWord(self, unsigned char operSize) except BITMASK_BYTE_CONST
     cdef int insFuncDword(self, unsigned char operSize) except BITMASK_BYTE_CONST
-    cdef int insFunc(self, unsigned char operSize) except BITMASK_BYTE_CONST
-    cdef int jcxzShort(self) nogil except BITMASK_BYTE_CONST
-    cdef int jumpShort(self, unsigned char offsetSize, unsigned char cond) nogil except BITMASK_BYTE_CONST
-    cdef int callNearRel16_32(self) except BITMASK_BYTE_CONST
-    cdef int callPtr16_32(self) except BITMASK_BYTE_CONST
+    cdef inline int insFunc(self, unsigned char operSize) except BITMASK_BYTE_CONST
+    cdef inline int jcxzShort(self) nogil except BITMASK_BYTE_CONST
+    cdef inline int jumpShort(self, unsigned char offsetSize, unsigned char cond) nogil except BITMASK_BYTE_CONST
+    cdef inline int callNearRel16_32(self) except BITMASK_BYTE_CONST
+    cdef inline int callPtr16_32(self) except BITMASK_BYTE_CONST
     cdef int pushaWD(self) nogil except BITMASK_BYTE_CONST
     cdef int popaWD(self) nogil except BITMASK_BYTE_CONST
     cdef int pushfWD(self) nogil except BITMASK_BYTE_CONST
     cdef int popfWD(self) nogil except BITMASK_BYTE_CONST
-    cdef int stackPopSegment(self, Segment segment) nogil except BITMASK_BYTE_CONST
-    cdef int stackPopRegId(self, unsigned short regId, unsigned char regSize) nogil except BITMASK_BYTE_CONST
+    cdef inline int stackPopSegment(self, Segment segment) nogil except BITMASK_BYTE_CONST
+    cdef inline int stackPopRegId(self, unsigned short regId, unsigned char regSize) nogil except BITMASK_BYTE_CONST
     cdef unsigned int stackPopValue(self, unsigned char increaseStackAddr) nogil except? BITMASK_BYTE_CONST
     cdef int stackPushValue(self, unsigned int value, unsigned char operSize, unsigned char onlyWord) nogil except BITMASK_BYTE_CONST
-    cdef int stackPushSegment(self, Segment segment, unsigned char operSize, unsigned char onlyWord) nogil except BITMASK_BYTE_CONST
+    cdef inline int stackPushSegment(self, Segment segment, unsigned char operSize, unsigned char onlyWord) nogil except BITMASK_BYTE_CONST
     cdef int stackPushRegId(self, unsigned short regId, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int pushIMM(self, unsigned char immIsByte) except BITMASK_BYTE_CONST
     cdef int imulR_RM_ImmFunc(self, unsigned char immIsByte) except BITMASK_BYTE_CONST

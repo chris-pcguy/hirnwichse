@@ -282,12 +282,6 @@ cdef class Registers:
     cdef inline unsigned short regWriteWithOpWord(self, unsigned short regId, unsigned short value, unsigned char valueOp) nogil
     cdef inline unsigned int regWriteWithOpDword(self, unsigned short regId, unsigned int value, unsigned char valueOp) nogil
     cdef inline unsigned long int regWriteWithOpQword(self, unsigned short regId, unsigned long int value, unsigned char valueOp) nogil
-    cdef inline unsigned char valGetBit(self, unsigned int value, unsigned char bit) nogil: # return True if bit is set, otherwise False
-        return (value&<unsigned int>(1<<bit))!=0
-    cdef inline unsigned int valSetBit(self, unsigned int value, unsigned char bit, unsigned char state) nogil:
-        if (state):
-            return ( value | <unsigned int>(1<<bit) )
-        return ( value & <unsigned int>(~(1<<bit)) )
     cdef inline void clearEFLAG(self, unsigned int flags) nogil:
         self.regWriteDwordEflags(self.readFlags() & (~flags))
     cdef inline unsigned int getFlagDword(self, unsigned short regId, unsigned int flags) nogil:
@@ -298,9 +292,9 @@ cdef class Registers:
     cdef inline void setSZP_COA(self, unsigned int value, unsigned char regSize) nogil
     cdef inline unsigned char getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef inline unsigned char getCond(self, unsigned char index) nogil
-    cdef void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method) nogil
-    cdef unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) nogil except BITMASK_BYTE_CONST
-    cdef unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST
+    cdef inline void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method) nogil
+    cdef inline unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) nogil except BITMASK_BYTE_CONST
+    cdef inline unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST
     cdef inline signed short mmReadValueSignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         return <signed char>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
     cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:

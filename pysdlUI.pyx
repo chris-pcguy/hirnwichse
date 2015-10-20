@@ -6,9 +6,7 @@ include "globals.pxi"
 from sys import exit
 from traceback import print_exc
 from atexit import register
-import numpy
 import sdl2, sdl2.ext
-import ctypes
 
 
 #DEF EVENT_LIST = ( sdl2.SDL_ACTIVEEVENT, sdl2.SDL_MOUSEMOTION, sdl2.SDL_MOUSEBUTTONDOWN, sdl2.SDL_MOUSEBUTTONUP,\
@@ -391,7 +389,7 @@ cdef class PysdlUI:
         event = sdl2.SDL_Event()
         try:
             while (not self.vga.main.quitEmu):
-                sdl2.SDL_WaitEvent(ctypes.byref(event))
+                sdl2.SDL_WaitEvent(event)
                 self.handleSingleEvent(event)
                 #sdl2.timer.SDL_Delay(200)
         except (SystemExit, KeyboardInterrupt):
