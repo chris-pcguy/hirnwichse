@@ -1,11 +1,11 @@
 
-# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
 include "globals.pxi"
 include "cpu_globals.pxi"
 
 from misc import HirnwichseException
-import struct
+import gmpy2
 
 # Parity Flag Table: DO NOT EDIT!!!
 cdef unsigned char PARITY_TABLE[256]
@@ -228,27 +228,47 @@ cdef class Fpu:
     def __init__(self, Registers registers, Hirnwichse main):
         self.registers = registers
         self.main = main
+        self.st = [None]*8
         #self.opcode = 0
-        memset(self.empty, 0, 10);
+        gmpy2.get_context().precision=FPU_GMPY_PRECISION
     cdef void reset(self, unsigned char fninit):
         cdef unsigned char i
         if (fninit):
             self.ctrl = 0x37f
             self.tag = 0xffff
         else:
-            memset(self.st, 0, 80)
+            for i in range(8):
+                self.st[i] = None
+                self.st[i] = bytes(10)
             self.ctrl = 0x40
             self.tag = 0x5555
         self.status = 0
         self.dataSeg = self.instSeg = 0
         self.dataPointer = self.instPointer = 0
         self.opcode = 0 # TODO: should this get cleared?
-    cdef setPointers(self, unsigned short opcode, unsigned short dataSeg, unsigned int dataPointer):
+    cdef setPointers(self, unsigned short opcode):
         self.opcode = opcode
         self.instSeg = self.main.cpu.savedCs
         self.instPointer = self.main.cpu.savedEip
+    cdef setDataPointers(self, unsigned short dataSeg, unsigned int dataPointer):
         self.dataSeg = dataSeg
         self.dataPointer = dataPointer
+    cdef inline void setTag(self, unsigned char index, unsigned char tag):
+        index <<= 1
+        self.tag &= ~(3<<index)
+        self.tag |= tag<<index
+    cdef inline void setFlag(self, unsigned char index, unsigned char flag):
+        index = 1<<index
+        if (flag):
+            self.status |= index
+        else:
+            self.status &= ~index
+    cdef void setC(self, unsigned char index, unsigned char flag):
+        if (index < 3):
+            index = 8+index
+        else:
+            index = 14
+        self.setFlag(index, flag)
     cdef inline unsigned char getIndex(self, unsigned char index):
         return (((self.status >> 11) & 7) + index) & 7
     cdef inline void addTop(self, signed char index):
@@ -257,54 +277,44 @@ cdef class Fpu:
         self.status &= ~(7 << 11)
         tempIndex += index
         self.status |= (tempIndex & 7) << 11
-    cdef void setVal(self, unsigned char tempIndex, double tempDouble): # load
+    cdef void setVal(self, unsigned char tempIndex, object data, unsigned char setFlags): # load
         cdef unsigned long int tempVal
         cdef tuple tempTuple
-        tempTuple = tempDouble.as_integer_ratio()
-        tempIndex = self.getIndex(tempIndex)
-        tempVal = ((tempTuple[0].bit_length()-tempTuple[1].bit_length())+16383)
-        memcpy(self.st[tempIndex], (<unsigned char*>&tempVal)+1, 1)
-        memcpy(self.st[tempIndex]+1, <unsigned char*>&tempVal, 1)
-        tempVal = <unsigned long int>((<double*>&tempDouble)[0])
-        tempVal <<= 41
-        memcpy(self.st[tempIndex]+2, (<unsigned char*>&tempVal)+7, 1)
-        memcpy(self.st[tempIndex]+3, (<unsigned char*>&tempVal)+6, 1)
-        memcpy(self.st[tempIndex]+4, (<unsigned char*>&tempVal)+5, 1)
-        memcpy(self.st[tempIndex]+5, (<unsigned char*>&tempVal)+4, 1)
-        memcpy(self.st[tempIndex]+6, (<unsigned char*>&tempVal)+3, 1)
-        memcpy(self.st[tempIndex]+7, (<unsigned char*>&tempVal)+2, 1)
-        memcpy(self.st[tempIndex]+8, (<unsigned char*>&tempVal)+1, 1)
-        memcpy(self.st[tempIndex]+9, <unsigned char*>&tempVal, 1)
-        tempVal = tempIndex<<1
-        self.tag &= ~(3<<tempVal)
-        if (not memcmp(self.st[tempIndex], self.empty, 10)): # TODO
-            self.tag |= 3<<tempVal
+        cdef bytes tempData
+        data = gmpy2.mpfr(data)
+        if (not gmpy2.is_zero(data)):
+            tempTuple = data.as_integer_ratio()
+            tempIndex = self.getIndex(tempIndex)
+            tempVal = ((tempTuple[0].bit_length()-tempTuple[1].bit_length())+16383)
+            tempData = (gmpy2.to_binary(data))[:11:-1]
+            self.st[tempIndex] = tempVal.to_bytes(OP_SIZE_WORD, byteorder="big")+tempData
         else:
-            #self.tag |= ~(3<<tempVal)
-            pass
-    cdef double getVal(self, unsigned char tempIndex): # store
-        cdef unsigned long int tempVal
-        cdef double tempDouble
+            self.st[tempIndex] = bytes(10)
+        self.main.notice("Fpu::setVal: len(st[ti])=={0:d}, repr(st[ti]=={1:s})", len(self.st[tempIndex]), repr(self.st[tempIndex]))
+        if (gmpy2.is_zero(data)):
+            self.setTag(tempIndex, 1)
+        elif (not gmpy2.is_regular(data)):
+            self.setTag(tempIndex, 2)
+        else:
+            self.setTag(tempIndex, 0)
+        if (setFlags):
+            if (data.rc != 0):
+                self.setFlag(FPU_STATUS_PE, True)
+            self.setC(1, data.rc == 1)
+    cdef object getVal(self, unsigned char tempIndex): # store
+        cdef unsigned short exp
         tempIndex = self.getIndex(tempIndex)
-        memcpy((<unsigned char*>&tempVal)+7, self.st[tempIndex]+2, 1)
-        memcpy((<unsigned char*>&tempVal)+6, self.st[tempIndex]+3, 1)
-        memcpy((<unsigned char*>&tempVal)+5, self.st[tempIndex]+4, 1)
-        memcpy((<unsigned char*>&tempVal)+4, self.st[tempIndex]+5, 1)
-        memcpy((<unsigned char*>&tempVal)+3, self.st[tempIndex]+6, 1)
-        memcpy((<unsigned char*>&tempVal)+2, self.st[tempIndex]+7, 1)
-        memcpy((<unsigned char*>&tempVal)+1, self.st[tempIndex]+8, 1)
-        memcpy(<unsigned char*>&tempVal, self.st[tempIndex]+9, 1)
-        tempVal >>= 41
-        tempDouble = <double>((<unsigned long int*>&tempVal)[0])
-        return tempDouble
-    cdef void push(self, double tempDouble): # load
+        exp = int.from_bytes(self.st[tempIndex][:2],byteorder="big")-16383+1
+        return gmpy2.from_binary(b"\x04A\x00\x00"+bytes([FPU_GMPY_PRECISION])+b"\x00\x00\x00"+bytes([exp])+b"\x00\x00\x00"+self.st[tempIndex][9:1:-1])
+    cdef void push(self, object data, unsigned char setFlags): # load
         self.addTop(-1)
-        self.setVal(0, tempDouble)
-    cdef double pop(self): # store
-        cdef double tempDouble
-        tempDouble = self.getVal(0)
+        self.setVal(0, data, setFlags)
+    cdef object pop(self): # store
+        cdef object data
+        data = self.getVal(0)
+        self.setTag(self.getIndex(0), 3)
         self.addTop(1)
-        return tempDouble
+        return data
     cdef void run(self):
         pass
 

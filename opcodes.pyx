@@ -1,11 +1,11 @@
 
-# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
 include "globals.pxi"
 include "cpu_globals.pxi"
 
 from misc import HirnwichseException
-import struct
+import gmpy2
 
 
 DEF GROUP1_OP_ADD = 0
@@ -3390,46 +3390,86 @@ cdef class Opcodes:
     cdef int fpuOpcodes(self, unsigned char opcode) except BITMASK_BYTE_CONST:
         cdef unsigned char opcode2, reg
         cdef unsigned int dataAddr
-        cdef unsigned long int data
+        cdef unsigned long int tempVal
+        cdef double data
+        cdef object data2, data3
         opcode2 = self.registers.getCurrentOpcodeUnsignedByte()
+        self.registers.fpu.setPointers((opcode << 8) | opcode2)
         reg = (opcode2 >> 3) & 7
         self.main.notice("Opcodes::fpuOpcodes: FPU Opcodes: TODO! (opcode=={0:#04x}; opcode2=={1:#04x}; savedEip: {2:#010x}, savedCs: {3:#06x})", FPU_BASE_OPCODE+opcode, opcode2, self.cpu.savedEip, self.cpu.savedCs)
         #if (not self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_OSFXSR)): # TODO
         #    raise HirnwichseException(CPU_EXCEPTION_UD)
         if (self.registers.getFlagDword(CPU_REGISTER_CR0, (CR0_FLAG_EM | CR0_FLAG_TS)) != 0):
             raise HirnwichseException(CPU_EXCEPTION_NM)
-        if (opcode == 3 and opcode2 == 0xe3):
+        if (opcode == 1 and opcode2 == 0xe8): # FLD1
+            self.registers.getCurrentOpcodeAddUnsignedByte()
+            self.registers.fpu.push(1, False)
+        elif (opcode == 3 and opcode2 == 0xe3): # FNINIT
             self.registers.getCurrentOpcodeAddUnsignedByte()
             self.registers.fpu.reset(True)
+        elif (opcode == 6 and opcode2 == 0xd9): # FCOMPP
+            self.registers.getCurrentOpcodeAddUnsignedByte()
+            data2 = self.registers.fpu.getVal(0)
+            data3 = self.registers.fpu.getVal(1)
+            data2 -= data3
+            self.registers.fpu.setC(1, False)
+            if (data2 > 0):
+                self.registers.fpu.setC(3, False)
+                self.registers.fpu.setC(2, False)
+                self.registers.fpu.setC(0, False)
+            elif (data2 < 0):
+                self.registers.fpu.setC(3, False)
+                self.registers.fpu.setC(2, False)
+                self.registers.fpu.setC(0, True)
+            elif (not gmpy2.is_regular(data2)):
+                self.registers.fpu.setC(3, True)
+                self.registers.fpu.setC(2, True)
+                self.registers.fpu.setC(0, True)
+            else:
+                self.registers.fpu.setC(3, True)
+                self.registers.fpu.setC(2, False)
+                self.registers.fpu.setC(0, False)
+            self.registers.fpu.pop()
+            self.registers.fpu.pop()
+        elif (opcode == 7 and opcode2 == 0xe0): # FNSTSW ax
+            self.registers.getCurrentOpcodeAddUnsignedByte()
+            self.registers.regWriteWord(CPU_REGISTER_AX, self.registers.fpu.status)
         else:
             self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
             dataAddr = self.modRMInstance.getRMValueFull(self.registers.addrSize)
-            self.registers.fpu.setPointers((opcode << 8) | opcode2, (<Segment>self.modRMInstance.rmNameSeg).segmentIndex, dataAddr)
-            if (opcode == 1 and reg == 7):
+            self.registers.fpu.setDataPointers((<Segment>self.modRMInstance.rmNameSeg).segmentIndex, dataAddr)
+            if (opcode == 1 and reg == 7): # FNSTCW
                 self.modRMInstance.modRMSave(OP_SIZE_WORD, self.registers.fpu.ctrl, OPCODE_SAVE)
-            elif (opcode == 5 and reg == 0):
-                data = self.registers.mmReadValueUnsignedQword(dataAddr, <Segment>self.modRMInstance.rmNameSeg, True)
-                self.registers.fpu.push((<double*>&data)[0])
-            elif (opcode == 5 and reg == 7):
+            elif ((opcode == 5 and reg == 0) or (opcode == 4 and reg in (1, 5, 6))):
+                tempVal = self.registers.mmReadValueUnsignedQword(dataAddr, <Segment>self.modRMInstance.rmNameSeg, True)
+                data = (<double*>&tempVal)[0]
+                if (opcode == 5 and reg == 0): # FLD
+                    self.registers.fpu.push(data, False)
+                elif (opcode == 4):
+                    data2 = self.registers.fpu.getVal(0)
+                    if (reg == 1): # FMUL
+                        data3 = data2*gmpy2.mpfr(data)
+                        self.main.notice("Opcodes::fpuOpcodes: TODO: test4: repr(data3)=={0:s}, op1=={1:.32f}, op2=={2:.32f}", repr(data3), data2, gmpy2.mpfr(data))
+                        self.registers.fpu.setVal(0, data3, True)
+                    elif (reg == 5): # FSUB
+                        data3 = data2-gmpy2.mpfr(data)
+                        self.main.notice("Opcodes::fpuOpcodes: TODO: test6: repr(data3)=={0:s}, op1=={1:.32f}, op2=={2:.32f}", repr(data3), data2, gmpy2.mpfr(data))
+                        self.registers.fpu.setVal(0, data3, True)
+                    elif (reg == 6): # FDIV
+                        data3 = data2/gmpy2.mpfr(data)
+                        self.main.notice("Opcodes::fpuOpcodes: TODO: test5: repr(data3)=={0:s}, op1=={1:.32f}, op2=={2:.32f}", repr(data3), data2, gmpy2.mpfr(data))
+                        self.registers.fpu.setVal(0, data3, True)
+                    else:
+                        self.main.exitError("Opcodes::fpuOpcodes: TODO: test3: opcode=={0:#04x}, opcode2=={1:#04x}", FPU_BASE_OPCODE+opcode, opcode2)
+                        return False
+                else:
+                    self.main.exitError("Opcodes::fpuOpcodes: TODO: test2: opcode=={0:#04x}, opcode2=={1:#04x}", FPU_BASE_OPCODE+opcode, opcode2)
+                    return False
+            elif (opcode == 5 and reg == 7): # FNSTSW rm
                 self.modRMInstance.modRMSave(OP_SIZE_WORD, self.registers.fpu.status, OPCODE_SAVE)
             else:
-                self.main.exitError("Opcodes::fpuOpcodes: opcode=={0:#04x}, opcode2=={1:#04x}", opcode, opcode2)
+                self.main.exitError("Opcodes::fpuOpcodes: TODO: test1: opcode=={0:#04x}, opcode2=={1:#04x}", FPU_BASE_OPCODE+opcode, opcode2)
                 return False
-        IF 0:
-            if (opcode in (0xd9, 0xdb, 0xdd, 0xde, 0xdf)):
-                if ((opcode == 0xdf and reg in (0, 3, 4)) or \
-                (opcode == 0xdb and opcode2 == 0xe3) or \
-                (opcode == 0xde and reg in (0, 1, 4, 6)) or \
-                (opcode == 0xd9 and reg == 7) or \
-                (opcode == 0xdd and reg in (6, 7))): # FNSTSW/FINIT/FNSTSW
-                    if ((opcode == 0xdd and reg in (6, 7)) or \
-                    (opcode == 0xd9 and reg == 7) or \
-                    (opcode == 0xde and reg in (0, 1, 4, 6)) or \
-                    (opcode == 0xdf and reg in (0, 3))):
-                        self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE) # FNSAVE
-                    else:
-                        self.registers.getCurrentOpcodeAddUnsignedByte()
-                    return True
         #raise HirnwichseException(CPU_EXCEPTION_UD)
         return True
     cdef void run(self):

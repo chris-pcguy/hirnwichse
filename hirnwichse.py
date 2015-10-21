@@ -1,4 +1,5 @@
 #!/usr/bin/env python3.4
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
 from sys import exit
 from pyximport import install

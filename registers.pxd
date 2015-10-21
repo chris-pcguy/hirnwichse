@@ -6,7 +6,6 @@ from hirnwichse_main cimport Hirnwichse
 from mm cimport Mm
 from segments cimport Segment, GdtEntry, Gdt, Idt, Paging, Segments
 from cpython.ref cimport PyObject
-from libc.string cimport memcpy, memset, memcmp
 
 
 cdef:
@@ -55,18 +54,21 @@ cdef class ModRMClass:
 cdef class Fpu:
     cdef Hirnwichse main
     cdef Registers registers
-    cdef unsigned char st[8][10]
-    cdef unsigned char empty[10]
+    cdef list st
     cdef unsigned short ctrl, status, tag, dataSeg, instSeg, opcode
     cdef unsigned int dataPointer, instPointer
     cdef void reset(self, unsigned char fninit)
-    cdef setPointers(self, unsigned short opcode, unsigned short dataSeg, unsigned int dataPointer)
+    cdef setPointers(self, unsigned short opcode)
+    cdef setDataPointers(self, unsigned short dataSeg, unsigned int dataPointer)
+    cdef inline void setTag(self, unsigned char index, unsigned char tag)
+    cdef inline void setFlag(self, unsigned char index, unsigned char flag)
+    cdef void setC(self, unsigned char index, unsigned char flag)
     cdef inline unsigned char getIndex(self, unsigned char index)
     cdef inline void addTop(self, signed char index)
-    cdef inline void setVal(self, unsigned char tempIndex, double data) # load
-    cdef inline double getVal(self, unsigned char tempIndex) # store
-    cdef void push(self, double data) # load
-    cdef double pop(self) # store
+    cdef inline void setVal(self, unsigned char tempIndex, object data, unsigned char setFlags) # load
+    cdef inline object getVal(self, unsigned char tempIndex) # store
+    cdef void push(self, object data, unsigned char setFlags) # load
+    cdef object pop(self) # store
     cdef void run(self)
 
 
