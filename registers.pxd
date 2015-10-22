@@ -58,17 +58,21 @@ cdef class Fpu:
     cdef unsigned short ctrl, status, tag, dataSeg, instSeg, opcode
     cdef unsigned int dataPointer, instPointer
     cdef void reset(self, unsigned char fninit)
-    cdef setPointers(self, unsigned short opcode)
-    cdef setDataPointers(self, unsigned short dataSeg, unsigned int dataPointer)
-    cdef inline void setTag(self, unsigned char index, unsigned char tag)
-    cdef inline void setFlag(self, unsigned char index, unsigned char flag)
-    cdef void setC(self, unsigned char index, unsigned char flag)
+    cdef inline unsigned char getPrecision(self)
+    cdef inline void setPrecision(self)
+    cdef inline void setCtrl(self, unsigned short ctrl)
+    cdef inline void setPointers(self, unsigned short opcode)
+    cdef inline void setDataPointers(self, unsigned short dataSeg, unsigned int dataPointer)
+    cdef inline void setTag(self, unsigned short index, unsigned char tag)
+    cdef inline void setFlag(self, unsigned short index, unsigned char flag)
+    cdef inline void setExc(self, unsigned short index, unsigned char flag)
+    cdef inline void setC(self, unsigned short index, unsigned char flag)
     cdef inline unsigned char getIndex(self, unsigned char index)
     cdef inline void addTop(self, signed char index)
     cdef inline void setVal(self, unsigned char tempIndex, object data, unsigned char setFlags) # load
     cdef inline object getVal(self, unsigned char tempIndex) # store
-    cdef void push(self, object data, unsigned char setFlags) # load
-    cdef object pop(self) # store
+    cdef inline void push(self, object data, unsigned char setFlags) # load
+    cdef inline object pop(self) # store
     cdef void run(self)
 
 

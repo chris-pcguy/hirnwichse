@@ -5,7 +5,7 @@ include "globals.pxi"
 include "cpu_globals.pxi"
 
 from misc import HirnwichseException
-import gmpy2
+import gmpy2, struct
 
 # Parity Flag Table: DO NOT EDIT!!!
 cdef unsigned char PARITY_TABLE[256]
@@ -230,40 +230,50 @@ cdef class Fpu:
         self.main = main
         self.st = [None]*8
         #self.opcode = 0
-        gmpy2.get_context().precision=FPU_GMPY_PRECISION
     cdef void reset(self, unsigned char fninit):
         cdef unsigned char i
         if (fninit):
-            self.ctrl = 0x37f
+            self.setCtrl(0x37f)
             self.tag = 0xffff
         else:
             for i in range(8):
-                self.st[i] = None
                 self.st[i] = bytes(10)
-            self.ctrl = 0x40
+            self.setCtrl(0x40)
             self.tag = 0x5555
         self.status = 0
         self.dataSeg = self.instSeg = 0
         self.dataPointer = self.instPointer = 0
         self.opcode = 0 # TODO: should this get cleared?
-    cdef setPointers(self, unsigned short opcode):
+    cdef inline unsigned char getPrecision(self):
+        return FPU_PRECISION[(self.ctrl>>8)&3]
+    cdef inline void setPrecision(self):
+        gmpy2.get_context().precision=self.getPrecision()
+    cdef inline void setCtrl(self, unsigned short ctrl):
+        self.ctrl = ctrl
+        self.setPrecision()
+    cdef inline void setPointers(self, unsigned short opcode):
         self.opcode = opcode
         self.instSeg = self.main.cpu.savedCs
         self.instPointer = self.main.cpu.savedEip
-    cdef setDataPointers(self, unsigned short dataSeg, unsigned int dataPointer):
+    cdef inline void setDataPointers(self, unsigned short dataSeg, unsigned int dataPointer):
         self.dataSeg = dataSeg
         self.dataPointer = dataPointer
-    cdef inline void setTag(self, unsigned char index, unsigned char tag):
+    cdef inline void setTag(self, unsigned short index, unsigned char tag):
         index <<= 1
         self.tag &= ~(3<<index)
         self.tag |= tag<<index
-    cdef inline void setFlag(self, unsigned char index, unsigned char flag):
+    cdef inline void setFlag(self, unsigned short index, unsigned char flag):
         index = 1<<index
         if (flag):
             self.status |= index
         else:
             self.status &= ~index
-    cdef void setC(self, unsigned char index, unsigned char flag):
+    cdef inline void setExc(self, unsigned short index, unsigned char flag):
+        self.setFlag(index, flag)
+        index = 1<<index
+        if (flag and (self.ctrl & index) != 0):
+            self.setFlag(FPU_STATUS_ES, True)
+    cdef inline void setC(self, unsigned short index, unsigned char flag):
         if (index < 3):
             index = 8+index
         else:
@@ -277,20 +287,23 @@ cdef class Fpu:
         self.status &= ~(7 << 11)
         tempIndex += index
         self.status |= (tempIndex & 7) << 11
-    cdef void setVal(self, unsigned char tempIndex, object data, unsigned char setFlags): # load
-        cdef unsigned long int tempVal
+    cdef inline void setVal(self, unsigned char tempIndex, object data, unsigned char setFlags): # load
+        cdef signed int tempVal
         cdef tuple tempTuple
         cdef bytes tempData
         data = gmpy2.mpfr(data)
+        tempIndex = self.getIndex(tempIndex)
         if (not gmpy2.is_zero(data)):
             tempTuple = data.as_integer_ratio()
-            tempIndex = self.getIndex(tempIndex)
-            tempVal = ((tempTuple[0].bit_length()-tempTuple[1].bit_length())+16383)
+            tempVal = (tempTuple[0].bit_length()-tempTuple[1].bit_length())
+            tempVal = <unsigned short>(tempVal+16383)
+            if (gmpy2.is_signed(data)):
+                tempVal |= 0x8000
             tempData = (gmpy2.to_binary(data))[:11:-1]
             self.st[tempIndex] = tempVal.to_bytes(OP_SIZE_WORD, byteorder="big")+tempData
         else:
             self.st[tempIndex] = bytes(10)
-        self.main.notice("Fpu::setVal: len(st[ti])=={0:d}, repr(st[ti]=={1:s})", len(self.st[tempIndex]), repr(self.st[tempIndex]))
+        self.main.notice("Fpu::setVal: tempIndex=={0:d}, len(st[ti])=={1:d}, repr(st[ti]=={2:s})", tempIndex, len(self.st[tempIndex]), repr(self.st[tempIndex]))
         if (gmpy2.is_zero(data)):
             self.setTag(tempIndex, 1)
         elif (not gmpy2.is_regular(data)):
@@ -299,17 +312,24 @@ cdef class Fpu:
             self.setTag(tempIndex, 0)
         if (setFlags):
             if (data.rc != 0):
-                self.setFlag(FPU_STATUS_PE, True)
+                self.setExc(FPU_STATUS_PE, True)
             self.setC(1, data.rc == 1)
-    cdef object getVal(self, unsigned char tempIndex): # store
-        cdef unsigned short exp
+    cdef inline object getVal(self, unsigned char tempIndex): # store
+        cdef unsigned char negative
+        cdef unsigned int exp
         tempIndex = self.getIndex(tempIndex)
-        exp = int.from_bytes(self.st[tempIndex][:2],byteorder="big")-16383+1
-        return gmpy2.from_binary(b"\x04A\x00\x00"+bytes([FPU_GMPY_PRECISION])+b"\x00\x00\x00"+bytes([exp])+b"\x00\x00\x00"+self.st[tempIndex][9:1:-1])
-    cdef void push(self, object data, unsigned char setFlags): # load
+        self.main.notice("Fpu::getVal: tempIndex=={0:d}, len(st[ti])=={1:d}, repr(st[ti]=={2:s})", tempIndex, len(self.st[tempIndex]), repr(self.st[tempIndex]))
+        if (self.st[tempIndex] == bytes(10)):
+            return gmpy2.mpfr(0)
+        exp = int.from_bytes(self.st[tempIndex][:2],byteorder="big")
+        negative = (exp & 0x8000) != 0
+        exp &= <unsigned short>(~(<unsigned short>0x8000))
+        exp = <unsigned short>((exp-16383)+1)
+        return gmpy2.from_binary(b"\x04"+bytes([ 0x43 if (negative) else 0x41 ])+b"\x00\x00"+bytes([self.getPrecision()])+b"\x00\x00\x00"+struct.pack("<I", exp)+self.st[tempIndex][9:1:-1])
+    cdef inline void push(self, object data, unsigned char setFlags): # load
         self.addTop(-1)
         self.setVal(0, data, setFlags)
-    cdef object pop(self): # store
+    cdef inline object pop(self): # store
         cdef object data
         data = self.getVal(0)
         self.setTag(self.getIndex(0), 3)
@@ -338,7 +358,7 @@ cdef class Registers:
         self.regWriteDword(CPU_REGISTER_CR0, self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW) | CR0_FLAG_ET)
         self.regWriteDword(CPU_REGISTER_DR6, 0xffff1ff0)
         self.regWriteDword(CPU_REGISTER_DR7, 0x400)
-        self.regWriteDword(CPU_REGISTER_EDX, 0x401)
+        self.regWriteDword(CPU_REGISTER_EDX, 0x431)
         self.segWriteSegment((<Segment>self.segments.cs), 0xf000)
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef void reloadCpuCache(self):

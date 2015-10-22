@@ -8,6 +8,7 @@ from segments cimport GdtEntry, IdtEntry, Gdt, Idt, Paging, Segment, Segments
 from registers cimport ModRMClass, Registers
 from cpu cimport Cpu
 from mm cimport Mm
+from pic cimport Pic
 
 
 cdef class Opcodes:
@@ -138,6 +139,8 @@ cdef class Opcodes:
     cdef int arpl(self) except BITMASK_BYTE_CONST
     cdef int bound(self) except BITMASK_BYTE_CONST
     cdef int btFunc(self, unsigned char newValType) except BITMASK_BYTE_CONST
+    cdef int fwait(self) except BITMASK_BYTE_CONST
+    cdef int fpuFcomHelper(self, object data, unsigned char popRegs) except BITMASK_BYTE_CONST
     cdef int fpuOpcodes(self, unsigned char opcode) except BITMASK_BYTE_CONST
     cdef void run(self)
     # end of opcodes

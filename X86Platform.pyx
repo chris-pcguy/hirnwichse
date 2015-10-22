@@ -156,15 +156,16 @@ cdef class Platform:
         cdef unsigned int retVal, bitMask
         try:
             bitMask = BITMASKS_FF[dataSize]
-            for port in self.ports:
-                if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.inPort is NULL):
-                    continue
-                for portNum in port.ports:
-                    if (portNum == ioPortAddr):
-                        ##self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
-                        retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
-                        ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
-                        return retVal
+            if (ioPortAddr != 0x3f0):
+                for port in self.ports:
+                    if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.inPort is NULL):
+                        continue
+                    for portNum in port.ports:
+                        if (portNum == ioPortAddr):
+                            ##self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
+                            retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
+                            ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
+                            return retVal
             self.main.notice("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
             self.main.notice("inPort: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             return bitMask
