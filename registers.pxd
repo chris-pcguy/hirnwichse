@@ -187,7 +187,7 @@ cdef class Registers:
     cdef inline unsigned short regWriteWord(self, unsigned short regId, unsigned short value) nogil:
         self.regs[regId]._union.word._union.rx = value
         return value # returned value is unsigned!!
-    cdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value) nogil
+    cdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value) nogil except? BITMASK_BYTE_CONST
     cdef inline unsigned short regWriteWordFlags(self, unsigned short value) nogil:
         value &= ~RESERVED_FLAGS_BITMASK
         value |= FLAG_REQUIRED

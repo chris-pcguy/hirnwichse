@@ -60,6 +60,22 @@ cdef class Segment:
         self.segDPL = gdtEntry.segDPL
         self.anotherLimit = self.segIsNormal and not self.segIsCodeSeg and self.segIsConforming
         return True
+    cdef inline unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST: # TODO: copied from GdtEntry::isAddressInLimit until a better solution is found... so never.
+        ## address is an offset.
+        address += size-1
+        if (self.anotherLimit):
+            if ((address+1)<self.limit or (not self.segSize and (address>BITMASK_WORD))):
+                IF COMP_DEBUG:
+                    with gil:
+                        self.segments.main.notice("Segment::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, self.limit)
+                return False
+        else:
+            if (address>self.limit):
+                IF COMP_DEBUG:
+                    with gil:
+                        self.segments.main.notice("Segment::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, self.limit)
+                return False
+        return True
 
 
 cdef class GdtEntry:
@@ -90,6 +106,22 @@ cdef class GdtEntry:
         #    self.gdt.segments.main.notice("GdtEntry::parseEntryData: TODO: expand-down data segment may not supported yet!")
         #if (self.flags & GDT_FLAG_LONGMODE): # TODO: int-mode isn't implemented yet...
         #    self.gdt.segments.main.notice("GdtEntry::parseEntryData: WTF: Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades... (long-mode; AMD64)")
+    cdef inline unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST:
+        ## address is an offset.
+        address += size-1
+        if (self.anotherLimit):
+            if ((address+1)<self.limit or (not self.segSize and (address>BITMASK_WORD))):
+                IF COMP_DEBUG:
+                    with gil:
+                        self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, self.limit)
+                return False
+        else:
+            if (address>self.limit):
+                IF COMP_DEBUG:
+                    with gil:
+                        self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, self.limit)
+                return False
+        return True
 
 
 cdef class IdtEntry:
@@ -351,9 +383,10 @@ cdef class Paging: # TODO
         errorFlags |= (self.segments.registers.getCPL() == 3) << 2
         # TODO: reserved bits are set ; only with 4MB pages ; << 3
         #errorFlags |= self.instrFetch << 4 # TODO: CR4
-        #self.segments.main.debugEnabled = True
-        IF 0:
-        #IF 1:
+        #if (self.segments.main.cpu.savedCs == 0x167 and self.segments.main.cpu.savedEip == <unsigned int>0xbff77db0):
+        #    self.segments.main.debugEnabled = True
+        #    self.segments.main.debugEnabledTest = True
+        IF COMP_DEBUG:
             with gil:
                 self.segments.main.notice("Paging::doPF: savedEip=={0:#010x}; savedCs=={1:#06x}", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
                 self.segments.main.notice("Paging::doPF: virtualAddress=={0:#010x}; errorFlags=={1:#04x}", virtualAddress, errorFlags)
@@ -369,38 +402,37 @@ cdef class Paging: # TODO
         #self.segments.main.notice("Paging::readAddresses: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
         #self.invalidateTables(self.pageDirectoryBaseAddress, False)
         #self.invalidatePage(virtualAddress)
-        #if (self.segments.registers.cacheDisabled):
+        #if (self.segments.registers.cacheDisabled): # TODO?
         #    self.invalidateTable(virtualAddress)
         self.pageDirectoryOffset = (virtualAddress>>22) << 2
         self.pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         self.pageOffset = virtualAddress&0xfff
         self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
         if (not self.pageDirectoryEntry):
-            #if (self.segments.main.debugEnabled):
-            IF 0:
-                with gil:
-                    self.segments.main.notice("Paging::readAddresses: PDE-Entry is zero, reloading. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
-                    self.segments.main.notice("Paging::readAddresses: PDE-Entry is zero, reloading, PTE. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD), (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
+            IF COMP_DEBUG:
+                if (self.segments.main.debugEnabled):
+                    with gil:
+                        self.segments.main.notice("Paging::readAddresses: PDE-Entry is zero, reloading. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
+                        self.segments.main.notice("Paging::readAddresses: PDE-Entry is zero, reloading, PTE. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD), (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
             #self.invalidateTable(virtualAddress)
             self.invalidatePage(virtualAddress)
             self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
-            #if (self.segments.main.debugEnabled):
-            IF 0:
-                with gil:
-                    self.segments.main.notice("Paging::readAddresses: PDE-Entry was zero, reloaded. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
-                    self.segments.main.notice("Paging::readAddresses: PDE-Entry was zero, reloaded, PTE. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD), (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
+            IF COMP_DEBUG:
+                if (self.segments.main.debugEnabled):
+                    with gil:
+                        self.segments.main.notice("Paging::readAddresses: PDE-Entry was zero, reloaded. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
+                        self.segments.main.notice("Paging::readAddresses: PDE-Entry was zero, reloaded, PTE. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD), (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
         if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
-            #if (self.segments.main.debugEnabled):
-            IF 0:
-                with gil:
-                    self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present 1. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
-                    self.segments.main.notice("Paging::readAddresses: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
+            IF COMP_DEBUG:
+                if (self.segments.main.debugEnabled):
+                    with gil:
+                        self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present 1. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
+                        self.segments.main.notice("Paging::readAddresses: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
             #self.invalidateTable(virtualAddress)
             self.invalidatePage(virtualAddress)
             self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
             if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
-                IF 0:
-                #IF 1:
+                IF COMP_DEBUG:
                     with gil:
                         self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present 2. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
                 self.doPF(virtualAddress, written)
@@ -416,28 +448,27 @@ cdef class Paging: # TODO
             return False
         self.pageTableEntry = self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD) # page table
         if (not self.pageTableEntry):
-            #if (self.segments.main.debugEnabled):
-            IF 0:
-                with gil:
-                    self.segments.main.notice("Paging::readAddresses: PTE-Entry is zero, reloading. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
+            IF COMP_DEBUG:
+                if (self.segments.main.debugEnabled):
+                    with gil:
+                        self.segments.main.notice("Paging::readAddresses: PTE-Entry is zero, reloading. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
             #self.invalidateTable(virtualAddress)
             self.invalidatePage(virtualAddress)
             self.pageTableEntry = self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD) # page table
-            #if (self.segments.main.debugEnabled):
-            IF 0:
-                with gil:
-                    self.segments.main.notice("Paging::readAddresses: PTE-Entry was zero, reloaded. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
+            IF COMP_DEBUG:
+                if (self.segments.main.debugEnabled):
+                    with gil:
+                        self.segments.main.notice("Paging::readAddresses: PTE-Entry was zero, reloaded. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
         if (not (self.pageTableEntry & PAGE_PRESENT)):
-            #if (self.segments.main.debugEnabled):
-            IF 0:
-                with gil:
-                    self.segments.main.notice("Paging::readAddresses: PTE-Entry is not present 1. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
+            IF COMP_DEBUG:
+                if (self.segments.main.debugEnabled):
+                    with gil:
+                        self.segments.main.notice("Paging::readAddresses: PTE-Entry is not present 1. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
             #self.invalidateTable(virtualAddress)
             self.invalidatePage(virtualAddress)
             self.pageTableEntry = self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD) # page table
             if (not (self.pageTableEntry & PAGE_PRESENT)):
-                IF 0:
-                #IF 1:
+                IF COMP_DEBUG:
                     with gil:
                         self.segments.main.notice("Paging::readAddresses: PTE-Entry is not present 2. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
                 self.doPF(virtualAddress, written)
@@ -503,28 +534,30 @@ cdef class Paging: # TODO
         self.instrFetch = self.implicitSV = False
         #if (self.segments.main.debugEnabled):
         #IF 1:
-        IF 0:
-            #self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
-            #self.pageTableEntry = self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD) # page table
-            pageDirectoryEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
-            pageTableEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntryMem&<unsigned int>0xfffff000)|self.pageTableOffset) # page table
-            if (self.segments.main.debugEnabled):
-            #if (self.segments.main.debugEnabled or self.pageDirectoryEntry != pageDirectoryEntryMem or self.pageTableEntry != pageTableEntryMem):
-                self.segments.main.notice("Paging::readAddresses: savedEip=={0:#010x}; savedCs=={1:#06x}", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
-                self.segments.main.notice("Paging::readAddresses: virtualAddress=={0:#010x}; physicalAddress=={1:#010x}", virtualAddress, (self.pageTableEntry&<unsigned int>0xfffff000)|self.pageOffset)
-                self.segments.main.notice("Paging::readAddresses: PDEL=={0:#010x}, PTEL=={1:#010x}", self.pageDirectoryEntry, self.pageTableEntry)
-                self.segments.main.notice("Paging::readAddresses: PDEM=={0:#010x}, PTEM=={1:#010x}", pageDirectoryEntryMem, pageTableEntryMem)
-                self.segments.main.notice("Paging::readAddresses: PDO=={0:#06x}, PTO=={1:#06x}, PO=={2:#06x}", self.pageDirectoryOffset, self.pageTableOffset, self.pageOffset)
-            if (self.pageDirectoryEntry != pageDirectoryEntryMem):
-                if (self.pageDirectoryEntry&<unsigned int>0xfffff19f != pageDirectoryEntryMem&<unsigned int>0xfffff19f):
-                    self.segments.main.notice("Paging::readAddresses: PDE too diff; virtualAddress=={0:#010x}", virtualAddress)
-                else:
-                    self.segments.main.notice("Paging::readAddresses: PDE diff; virtualAddress=={0:#010x}", virtualAddress)
-            if (self.pageTableEntry != pageTableEntryMem):
-                if (self.pageTableEntry&<unsigned int>0xfffff19f != pageTableEntryMem&<unsigned int>0xfffff19f):
-                    self.segments.main.notice("Paging::readAddresses: PTE too diff; virtualAddress=={0:#010x}", virtualAddress)
-                else:
-                    self.segments.main.notice("Paging::readAddresses: PTE diff; virtualAddress=={0:#010x}", virtualAddress)
+        #IF 0:
+        IF COMP_DEBUG:
+            with gil:
+                #self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
+                #self.pageTableEntry = self.tlbTables.csReadValueUnsigned(((self.pageDirectoryOffset>>2)<<12)|self.pageTableOffset, OP_SIZE_DWORD) # page table
+                pageDirectoryEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
+                pageTableEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntryMem&<unsigned int>0xfffff000)|self.pageTableOffset) # page table
+                if (self.segments.main.debugEnabled):
+                #if (self.segments.main.debugEnabled or self.pageDirectoryEntry != pageDirectoryEntryMem or self.pageTableEntry != pageTableEntryMem):
+                    self.segments.main.notice("Paging::readAddresses: savedEip=={0:#010x}; savedCs=={1:#06x}", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
+                    self.segments.main.notice("Paging::readAddresses: virtualAddress=={0:#010x}; physicalAddress=={1:#010x}", virtualAddress, (self.pageTableEntry&<unsigned int>0xfffff000)|self.pageOffset)
+                    self.segments.main.notice("Paging::readAddresses: PDEL=={0:#010x}, PTEL=={1:#010x}", self.pageDirectoryEntry, self.pageTableEntry)
+                    self.segments.main.notice("Paging::readAddresses: PDEM=={0:#010x}, PTEM=={1:#010x}", pageDirectoryEntryMem, pageTableEntryMem)
+                    self.segments.main.notice("Paging::readAddresses: PDO=={0:#06x}, PTO=={1:#06x}, PO=={2:#06x}", self.pageDirectoryOffset, self.pageTableOffset, self.pageOffset)
+                if (self.pageDirectoryEntry != pageDirectoryEntryMem):
+                    if (self.pageDirectoryEntry&<unsigned int>0xfffff19f != pageDirectoryEntryMem&<unsigned int>0xfffff19f):
+                        self.segments.main.notice("Paging::readAddresses: PDE too diff; virtualAddress=={0:#010x}", virtualAddress)
+                    else:
+                        self.segments.main.notice("Paging::readAddresses: PDE diff; virtualAddress=={0:#010x}", virtualAddress)
+                if (self.pageTableEntry != pageTableEntryMem):
+                    if (self.pageTableEntry&<unsigned int>0xfffff19f != pageTableEntryMem&<unsigned int>0xfffff19f):
+                        self.segments.main.notice("Paging::readAddresses: PTE too diff; virtualAddress=={0:#010x}", virtualAddress)
+                    else:
+                        self.segments.main.notice("Paging::readAddresses: PTE diff; virtualAddress=={0:#010x}", virtualAddress)
         return (self.pageTableEntry&<unsigned int>0xfffff000)|self.pageOffset
 
 cdef class Segments:

@@ -272,7 +272,7 @@ cdef class Fpu:
         self.setFlag(index, flag)
         index = 1<<index
         if (flag and (self.ctrl & index) != 0):
-            self.setFlag(FPU_STATUS_ES, True)
+            self.setFlag(FPU_EXCEPTION_ES, True)
     cdef inline void setC(self, unsigned short index, unsigned char flag):
         if (index < 3):
             index = 8+index
@@ -312,8 +312,8 @@ cdef class Fpu:
             self.setTag(tempIndex, 0)
         if (setFlags):
             if (data.rc != 0):
-                self.setExc(FPU_STATUS_PE, True)
-            self.setC(1, data.rc == 1)
+                self.setExc(FPU_EXCEPTION_PE, True)
+            self.setC(1, data.rc > 0)
     cdef inline object getVal(self, unsigned char tempIndex): # store
         cdef unsigned char negative
         cdef unsigned int exp
@@ -356,9 +356,10 @@ cdef class Registers:
         self.fpu.reset(False)
         self.regWriteDwordEflags(FLAG_REQUIRED)
         self.regWriteDword(CPU_REGISTER_CR0, self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW) | CR0_FLAG_ET)
-        self.regWriteDword(CPU_REGISTER_DR6, 0xffff1ff0)
+        #self.regWriteDword(CPU_REGISTER_DR6, 0xffff1ff0) # why has bochs bit 12 set?
+        self.regWriteDword(CPU_REGISTER_DR6, 0xffff0ff0)
         self.regWriteDword(CPU_REGISTER_DR7, 0x400)
-        self.regWriteDword(CPU_REGISTER_EDX, 0x431)
+        self.regWriteDword(CPU_REGISTER_EDX, 0x521)
         self.segWriteSegment((<Segment>self.segments.cs), 0xf000)
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef void reloadCpuCache(self):
@@ -559,13 +560,22 @@ cdef class Registers:
                     self.main.cpu.asyncEvent = True
             else:
                 self.regWriteQword(regId, value)
-    cdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value) nogil:
+    cdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
             cdef unsigned int realNewEip
         if (regId == CPU_REGISTER_CR0):
             value |= 0x10
             value &= <unsigned int>0xe005003f
+        elif (regId == CPU_REGISTER_DR6):
+            value &= ~(1 << 12)
+            value |= <unsigned int>0xfffe0ff0
+        elif (regId == CPU_REGISTER_DR7):
+            value &= ~(<unsigned int>0xd000)
+            value |= (1 << 10)
         self.regs[regId]._union.dword.erx = value
+        if (regId == CPU_REGISTER_EIP and not (<Segment>self.segments.cs).isAddressInLimit(value, OP_SIZE_BYTE)):
+            with gil:
+                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         IF (CPU_CACHE_SIZE):
             if (regId == CPU_REGISTER_EIP):
                 realNewEip = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_DWORD, (<Segment>self.segments.cs), False, False)
@@ -938,10 +948,10 @@ cdef class Registers:
             segment2 = <PyObject*>self.segmentOverridePrefix
         else:
             segment2 = <PyObject*>segment
-        IF 0:
-        #if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmGetRealAddr_1: {0:s}: LIN {1:#010x}; dataSize {2:d}; segId {3:d}", "WR" if (written) else "RD", origMmAddr, dataSize, segment2.segId)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmGetRealAddr_1: {0:s}: LIN {1:#010x}; dataSize {2:d}; segId {3:d}", "WR" if (written) else "RD", origMmAddr, dataSize, (<Segment>segment2).segId)
         if (<Segment>segment2 is not None):
             if (self.protectedModeOn and <Segment>segment2 is (<Segment>self.segments.tss)):
                 (<Paging>(<Segments>self.segments).paging).implicitSV = True
@@ -953,10 +963,10 @@ cdef class Registers:
             mmAddr = (<Paging>(<Segments>self.segments).paging).getPhysicalAddress(mmAddr, dataSize, written)
         if (not self.A20Active): # A20 Active? if True == on, else off
             mmAddr &= <unsigned int>0xffefffff
-        IF 0:
-        # if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmGetRealAddr_2: {0:s}: LIN {1:#010x}; PHY {2:#010x}", "WR" if (written) else "RD", origMmAddr, mmAddr)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmGetRealAddr_2: {0:s}: LIN {1:#010x}; PHY {2:#010x}", "WR" if (written) else "RD", origMmAddr, mmAddr)
         return mmAddr
     cdef signed long int mmReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned char i
@@ -974,10 +984,10 @@ cdef class Registers:
                 return <signed int>ret
             return <signed long int>ret
         ret = self.main.mm.mmPhyReadValueSigned(physAddr, dataSize)
-        IF 0:
-        #if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmReadValueSigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmReadValueSigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
         return ret
     cdef inline unsigned char mmReadValueUnsignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned char ret
@@ -985,10 +995,10 @@ cdef class Registers:
         #    with gil:
         #        self.main.notice("Registers::mmReadValueUnsignedByte_1: virt mmAddr {0:#010x}; dataSize {1:d}", mmAddr, OP_SIZE_BYTE)
         ret = self.main.mm.mmPhyReadValueUnsignedByte(self.mmGetRealAddr(mmAddr, OP_SIZE_BYTE, segment, allowOverride, False))
-        IF 0:
-        #if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmReadValueUnsignedByte_2: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_BYTE)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmReadValueUnsignedByte_2: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_BYTE)
         return ret
     cdef unsigned short mmReadValueUnsignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned short ret
@@ -999,10 +1009,10 @@ cdef class Registers:
             ret |= <unsigned short>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
             return ret
         ret = self.main.mm.mmPhyReadValueUnsignedWord(physAddr)
-        IF 0:
-        #if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmReadValueUnsignedWord: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_WORD)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmReadValueUnsignedWord: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_WORD)
         return ret
     cdef unsigned int mmReadValueUnsignedDword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned int ret, physAddr
@@ -1014,10 +1024,10 @@ cdef class Registers:
             ret |= <unsigned int>self.mmReadValueUnsignedByte(mmAddr+3, segment, allowOverride)<<24
             return ret
         ret = self.main.mm.mmPhyReadValueUnsignedDword(physAddr)
-        IF 0:
-        #if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmReadValueUnsignedDword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_DWORD)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmReadValueUnsignedDword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_DWORD)
         return ret
     cdef unsigned long int mmReadValueUnsignedQword(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned int physAddr
@@ -1034,10 +1044,10 @@ cdef class Registers:
             ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+7, segment, allowOverride)<<56
             return ret
         ret = self.main.mm.mmPhyReadValueUnsignedQword(physAddr)
-        IF 0:
-        #if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmReadValueUnsignedQword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_QWORD)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmReadValueUnsignedQword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_QWORD)
         return ret
     cdef unsigned long int mmReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned char i
@@ -1049,18 +1059,18 @@ cdef class Registers:
                 ret |= <unsigned long int>self.mmReadValueUnsignedByte(mmAddr+i, segment, allowOverride)<<(i<<3)
             return ret
         ret = self.main.mm.mmPhyReadValueUnsigned(physAddr, dataSize)
-        IF 0:
-        #if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmReadValueUnsigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmReadValueUnsigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
         return ret
     cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char retVal, i
         cdef unsigned int physAddr
-        IF 0:
-        #if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmWriteValue: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmWriteValue: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
         physAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, True)
         if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < dataSize):
             for i in range(dataSize):
@@ -1098,10 +1108,10 @@ cdef class Registers:
                     data = (oldData^data)
                 #else:
                 #    self.main.exitError("Registers::mmWriteValueWithOp: unknown valueOp {0:d}.", valueOp)
-        IF 0:
-        #if (self.main.debugEnabled):
-            with gil:
-                self.main.notice("Registers::mmWriteValueWithOp: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Registers::mmWriteValueWithOp: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
         self.mmWriteValue(mmAddr, data, dataSize, segment, allowOverride)
         return data
     cdef unsigned char switchTSS16(self) except BITMASK_BYTE_CONST:

@@ -327,8 +327,9 @@ DEF CPU_CACHE_SIZE = 0 # in bytes
 
 
 cdef unsigned char FPU_BASE_OPCODE = 0xd8
-cdef unsigned char FPU_STATUS_PE = 5
-cdef unsigned char FPU_STATUS_ES = 7
+cdef unsigned char FPU_EXCEPTION_IM = 1
+cdef unsigned char FPU_EXCEPTION_PE = 5
+cdef unsigned char FPU_EXCEPTION_ES = 7
 cdef unsigned char FPU_PRECISION[4]
 FPU_PRECISION = (24, 0, 53, 64)
 cdef unsigned char FPU_IRQ = 13

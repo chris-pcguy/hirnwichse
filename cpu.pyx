@@ -39,8 +39,6 @@ cdef class Cpu:
             self.cpuHalted = False
         return
     cdef int exception(self, unsigned char exceptionId, signed int errorCode=-1) except BITMASK_BYTE_CONST:
-        self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
-        self.cpuDump()
         #self.main.debugEnabled = True
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
             self.registers.segWriteSegment((<Segment>self.registers.segments.cs), self.savedCs)
@@ -49,6 +47,12 @@ cdef class Cpu:
         self.registers.regWriteDword(CPU_REGISTER_ESP, self.savedEsp)
         #elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
         #    self.savedEip = <unsigned int>(self.savedEip+1)
+        if (exceptionId == CPU_EXCEPTION_UD):
+            self.main.notice("CPU::exception: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
+        else:
+            self.main.notice("CPU::exception: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
+        self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
+        self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP and exceptionId != CPU_EXCEPTION_DB):
             self.registers.rf = True
         elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP and self.registers.repPrefix):
@@ -89,10 +93,6 @@ cdef class Cpu:
             self.main.exitError('ERROR: exceptionId not a int; type is {0:s}', type(exception.args[0]))
             return True
         exceptionId = exception.args[0]
-        if (exceptionId == CPU_EXCEPTION_UD):
-            self.main.notice("CPU::handleException: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
-        else:
-            self.main.notice("CPU::handleException: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
         self.exception(exceptionId, errorCode)
         return True
     cdef unsigned char parsePrefixes(self, unsigned char opcode) nogil except? BITMASK_BYTE_CONST:
@@ -233,6 +233,10 @@ cdef class Cpu:
             #if (self.savedCs == 0x8 and self.savedEip == 0x803d2f73):
             #if (self.savedCs == 0x8 and self.savedEip == 0x803d3001):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x8 and self.savedEip == 0x80455574 and self.registers.regReadUnsignedDword(CPU_REGISTER_EBP) == 0x0004f534):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            if (self.savedCs == 0x8 and self.savedEip == 0x8042ac90 and self.registers.regReadUnsignedDword(CPU_REGISTER_EBP) == 0x0004f060):
+                self.main.debugEnabledTest = self.main.debugEnabled = True
             if (self.main.debugEnabled or self.main.debugEnabledTest):
             #IF 1:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)

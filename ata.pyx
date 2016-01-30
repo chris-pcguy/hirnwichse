@@ -43,6 +43,11 @@ DEF COMMAND_READ_LBA48 = 0x24
 DEF COMMAND_READ_MULTIPLE_LBA48 = 0x29
 DEF COMMAND_READ_MULTIPLE_LBA28 = 0xc4
 
+DEF COMMAND_VERIFY_SECTORS_LBA48 = 0x42
+DEF COMMAND_VERIFY_SECTORS_LBA28 = 0x40
+DEF COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY = 0x41
+
+
 DEF COMMAND_WRITE_LBA28 = 0x30
 DEF COMMAND_WRITE_LBA48 = 0x34
 DEF COMMAND_WRITE_MULTIPLE_LBA48 = 0x39
@@ -293,8 +298,8 @@ cdef class AtaController:
         self.sectorCountByte = <unsigned char>self.sectorCount
     cdef void convertToLBA28(self) nogil:
         #if (self.useLBA and self.useLBA48):
-        #if (self.useLBA):
-        if (self.useLBA and not self.useLBA48):
+        if (self.useLBA):
+        #if (self.useLBA and not self.useLBA48):
             self.sectorCount >>= 8
             self.lba >>= 24
             self.lba = (self.lba & 0xffffff) | (<unsigned long int>(self.head) << 24)
@@ -680,8 +685,8 @@ cdef class AtaController:
                 self.sectorCountFlipFlop = self.sectorHighFlipFlop = self.sectorMiddleFlipFlop = self.sectorLowFlipFlop = False
                 self.cmd = 0
                 if (self.useLBA and self.useLBA48):
-                    self.ata.main.exitError("AtaController::outPort: TODO: lba48 isn't fully supported yet!")
-                    return
+                    self.ata.main.notice("AtaController::outPort: TODO: lba48 isn't fully supported yet!")
+                    #return
             elif (ioPortAddr == 0x7): # command port
                 if (self.driveId and not drive.isLoaded):
                     if (self.ata.main.debugEnabled):
@@ -737,6 +742,13 @@ cdef class AtaController:
                             self.abortCommand()
                             return
                     self.result = drive.readSectors(self.lba, self.sectorCount)
+                elif (data in (COMMAND_VERIFY_SECTORS_LBA28, COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY, COMMAND_VERIFY_SECTORS_LBA48)):
+                    if (data in (COMMAND_VERIFY_SECTORS_LBA28, COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY)):
+                        self.convertToLBA28()
+                    if (not drive.isLoaded or drive.driveType != ATA_DRIVE_TYPE_HD):
+                        self.abortCommand()
+                        return
+                    self.driveReady = True
                 elif (data in (COMMAND_WRITE_LBA28, COMMAND_WRITE_LBA48, COMMAND_WRITE_MULTIPLE_LBA28, COMMAND_WRITE_MULTIPLE_LBA48)):
                     if (data in (COMMAND_WRITE_LBA28, COMMAND_WRITE_MULTIPLE_LBA28)):
                         self.convertToLBA28()
@@ -781,7 +793,7 @@ cdef class AtaController:
                 else:
                     self.ata.main.exitError("AtaController::outPort: unknown command 2: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
-                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES, COMMAND_SET_MULTIPLE_MODE), data not in (COMMAND_RESET, COMMAND_PACKET))
+                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES, COMMAND_SET_MULTIPLE_MODE, COMMAND_VERIFY_SECTORS_LBA28, COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY, COMMAND_VERIFY_SECTORS_LBA48), data not in (COMMAND_RESET, COMMAND_PACKET))
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)

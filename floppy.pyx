@@ -681,6 +681,8 @@ cdef class FloppyController:
             if (ioPortAddr == 0x2): # set dor
                 self.setDor(data)
                 return
+            elif (ioPortAddr == 0x3):
+                pass
             elif (ioPortAddr == 0x4): # set data rate
                 self.dataRate = data & 0x3
                 if (data & 0x80):

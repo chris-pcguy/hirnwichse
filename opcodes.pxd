@@ -140,7 +140,7 @@ cdef class Opcodes:
     cdef int bound(self) except BITMASK_BYTE_CONST
     cdef int btFunc(self, unsigned char newValType) except BITMASK_BYTE_CONST
     cdef int fwait(self) except BITMASK_BYTE_CONST
-    cdef int fpuFcomHelper(self, object data, unsigned char popRegs) except BITMASK_BYTE_CONST
+    cdef int fpuFcomHelper(self, object data, unsigned char popRegs, unsigned char regFlags) except BITMASK_BYTE_CONST
     cdef int fpuOpcodes(self, unsigned char opcode) except BITMASK_BYTE_CONST
     cdef void run(self)
     # end of opcodes
