@@ -204,7 +204,7 @@ cdef class PS2:
                         self.appendToOutBytes(b'\xfa')
                     elif (data == 0xed):
                         self.needWriteBytes = 1
-                        self.appendToOutBytesImm(b'\xfa')
+                        self.appendToOutBytes(b'\xfa')
                     elif (data == 0xee):
                         self.appendToOutBytes(b'\xee')
                     elif (data == 0xf0): # set scancodes
@@ -222,7 +222,7 @@ cdef class PS2:
                         self.appendToOutBytes(b'\xfa')
                     elif (data == 0xf4):
                         self.scanningEnabled = True
-                        self.appendToOutBytesImm(b'\xfa')
+                        self.appendToOutBytes(b'\xfa')
                     elif (data == 0xf5):
                         self.resetInternals(True)
                         self.appendToOutBytes(b'\xfa')

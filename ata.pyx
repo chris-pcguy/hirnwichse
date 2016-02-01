@@ -4,7 +4,7 @@
 include "globals.pxi"
 
 from os import access, F_OK, R_OK, W_OK, SEEK_END
-from os.path import getsize
+from os.path import getsize, samefile
 
 
 DEF HEADS = 16
@@ -61,6 +61,9 @@ DEF COMMAND_SET_MULTIPLE_MODE = 0xc6
 DEF COMMAND_IDENTIFY_DEVICE = 0xec
 DEF COMMAND_SET_FEATURES = 0xef
 
+DEF COMMAND_MEDIA_LOCK = 0xde
+DEF COMMAND_MEDIA_UNLOCK = 0xdf
+
 DEF PACKET_COMMAND_TEST_UNIT_READY = 0x00
 DEF PACKET_COMMAND_REQUEST_SENSE = 0x03
 DEF PACKET_COMMAND_INQUIRY = 0x12
@@ -79,6 +82,10 @@ DEF FD_HD_SECTOR_SHIFT = 9
 DEF CD_SECTOR_SIZE = 2048
 DEF CD_SECTOR_SHIFT = 11
 
+DEF ATA_ERROR_REG_MC  = 1 << 5
+DEF ATA_ERROR_REG_MCR = 1 << 3
+
+
 # the variables shouldn't need to be in AtaDrive, as there are no mixed constellations. (MS/SL: HD/CD,CD/HD)
 # instead, it's always ctrl0: HD/HD, ctrl1: CD/CD
 
@@ -89,6 +96,7 @@ cdef class AtaDrive:
         self.driveType = driveType
         self.isLoaded = False
         self.isWriteProtected = True
+        self.isLocked = False
         self.configSpace = ConfigSpace(512, self.ataController.ata.main)
         self.sectors = 0
         self.sectorShift = 0
@@ -233,6 +241,9 @@ cdef class AtaDrive:
         cdef unsigned long int oldPos
         if (self.driveType == ATA_DRIVE_TYPE_CDROM):
             self.ataController.ata.main.notice("AtaDrive::writeBytes: tried to write to optical drive!")
+            return
+        elif (self.isWriteProtected):
+            self.ataController.ata.main.notice("AtaDrive::writeBytes: isWriteProtected!")
             return
         if (len(data) < size): # data is too short.
             data += bytes(size-len(data))
@@ -790,10 +801,31 @@ cdef class AtaController:
                         self.abortCommand()
                         return
                     self.multipleSectors = self.sectorCount
+                elif (data == COMMAND_MEDIA_LOCK):
+                    if (not drive.isLoaded or drive.driveType != ATA_DRIVE_TYPE_HD):
+                        self.abortCommand()
+                        return
+                    if (not drive.isLocked):
+                        drive.isLocked = True
+                        self.err = False
+                    elif (not drive.filename or not access(drive.filename, F_OK | R_OK) or not samefile(drive.fp.fileno(), drive.filename)):
+                        self.errorRegister |= (ATA_ERROR_REG_MC | ATA_ERROR_REG_MCR)
+                        self.err = True
+                elif (data == COMMAND_MEDIA_UNLOCK):
+                    if (not drive.isLoaded or drive.driveType != ATA_DRIVE_TYPE_HD):
+                        self.abortCommand()
+                        return
+                    if (not drive.filename or not access(drive.filename, F_OK | R_OK) or not samefile(drive.fp.fileno(), drive.filename)):
+                        drive.loadDrive(drive.filename)
+                        self.errorRegister |= (ATA_ERROR_REG_MC | ATA_ERROR_REG_MCR)
+                        self.err = True
+                    elif (drive.isLocked):
+                        drive.isLocked = False
+                        self.err = False
                 else:
                     self.ata.main.exitError("AtaController::outPort: unknown command 2: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
-                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES, COMMAND_SET_MULTIPLE_MODE, COMMAND_VERIFY_SECTORS_LBA28, COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY, COMMAND_VERIFY_SECTORS_LBA48), data not in (COMMAND_RESET, COMMAND_PACKET))
+                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES, COMMAND_SET_MULTIPLE_MODE, COMMAND_VERIFY_SECTORS_LBA28, COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY, COMMAND_VERIFY_SECTORS_LBA48, COMMAND_MEDIA_LOCK, COMMAND_MEDIA_UNLOCK), data not in (COMMAND_RESET, COMMAND_PACKET))
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)

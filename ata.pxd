@@ -9,7 +9,7 @@ cdef class AtaDrive:
     cpdef object fp
     cdef AtaController ataController
     cdef ConfigSpace configSpace
-    cdef unsigned char driveId, driveType, isLoaded, isWriteProtected, sectorShift, senseKey, senseAsc
+    cdef unsigned char driveId, driveType, isLoaded, isWriteProtected, isLocked, sectorShift, senseKey, senseAsc
     cdef unsigned short sectorSize, driveCode
     cdef unsigned long int sectors
     cdef bytes filename

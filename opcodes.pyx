@@ -798,7 +798,8 @@ cdef class Opcodes:
                 ediVal = self.registers.regSubWord(CPU_REGISTER_DI, operSize)
             if (self.registers.repPrefix):
                 self.registers.regSubWord(CPU_REGISTER_CX, 1)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -821,7 +822,8 @@ cdef class Opcodes:
                 ediVal = self.registers.regSubDword(CPU_REGISTER_EDI, operSize)
             if (self.registers.repPrefix):
                 self.registers.regSubDword(CPU_REGISTER_ECX, 1)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -852,7 +854,8 @@ cdef class Opcodes:
                 ediVal = self.registers.regSubWord(CPU_REGISTER_DI, operSize)
             if (self.registers.repPrefix):
                 self.registers.regSubWord(CPU_REGISTER_CX, 1)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -877,7 +880,8 @@ cdef class Opcodes:
                 ediVal = self.registers.regSubDword(CPU_REGISTER_EDI, operSize)
             if (self.registers.repPrefix):
                 self.registers.regSubDword(CPU_REGISTER_ECX, 1)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -904,7 +908,8 @@ cdef class Opcodes:
             esiVal = (self.registers.regSubWord(CPU_REGISTER_SI, dataLength)+operSize)
         data = self.registers.mmReadValueUnsigned(esiVal, operSize, (<Segment>self.registers.segments.ds), True)
         self.registers.regWrite(CPU_REGISTER_AX, data, operSize)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWriteWord(CPU_REGISTER_CX, 0)
             self.registers.repPrefix = False
@@ -926,7 +931,8 @@ cdef class Opcodes:
             esiVal = (self.registers.regSubDword(CPU_REGISTER_ESI, dataLength)+operSize)
         data = self.registers.mmReadValueUnsigned(esiVal, operSize, (<Segment>self.registers.segments.ds), True)
         self.registers.regWrite(CPU_REGISTER_AX, data, operSize)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.regWriteDword(CPU_REGISTER_ECX, 0)
             self.registers.repPrefix = False
@@ -964,7 +970,8 @@ cdef class Opcodes:
             zfFlag = self.registers.zf
             if ((self.registers.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.registers.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
-        #self.cpu.cycles += (countVal) << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -994,7 +1001,8 @@ cdef class Opcodes:
             zfFlag = self.registers.zf
             if ((self.registers.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.registers.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
-        #self.cpu.cycles += (countVal) << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -1028,7 +1036,8 @@ cdef class Opcodes:
             zfFlag = self.registers.zf
             if ((self.registers.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.registers.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
-        #self.cpu.cycles += (countVal) << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -1055,7 +1064,8 @@ cdef class Opcodes:
             zfFlag = self.registers.zf
             if ((self.registers.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.registers.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
-        #self.cpu.cycles += (countVal) << CPU_CLOCK_TICK_SHIFT
+        with gil:
+            self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -1126,7 +1136,7 @@ cdef class Opcodes:
                 esiVal = self.registers.regSubWord(CPU_REGISTER_SI, operSize)
             if (self.registers.repPrefix):
                 self.registers.regSubWord(CPU_REGISTER_CX, 1)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -1151,7 +1161,7 @@ cdef class Opcodes:
                 esiVal = self.registers.regSubDword(CPU_REGISTER_ESI, operSize)
             if (self.registers.repPrefix):
                 self.registers.regSubDword(CPU_REGISTER_ECX, 1)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -1182,7 +1192,7 @@ cdef class Opcodes:
                 ediVal = self.registers.regSubWord(CPU_REGISTER_DI, operSize)
             if (self.registers.repPrefix):
                 self.registers.regSubWord(CPU_REGISTER_CX, 1)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -1207,8 +1217,7 @@ cdef class Opcodes:
                 ediVal = self.registers.regSubDword(CPU_REGISTER_EDI, operSize)
             if (self.registers.repPrefix):
                 self.registers.regSubDword(CPU_REGISTER_ECX, 1)
-        self.registers.regWriteDword(CPU_REGISTER_EDI, ediVal)
-        #self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
+        self.cpu.cycles += countVal << CPU_CLOCK_TICK_SHIFT
         if (self.registers.repPrefix):
             self.registers.repPrefix = False
         return True
@@ -1882,7 +1891,7 @@ cdef class Opcodes:
                     self.registers.regWriteDword(CPU_REGISTER_EBX, 0x20555043)
                     self.registers.regWriteDword(CPU_REGISTER_ECX, 0x20202020)
                     self.registers.regWriteDword(CPU_REGISTER_EDX, 0x00202020)
-            if (eaxId & <unsigned int>0x70000000):
+            if (eaxId & <unsigned int>0x30000000):
                 self.main.exitError("Opcodes::opcodeGroup0F: CPUID test1: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
             elif (eaxId & <unsigned int>0x80000000):
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test2: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
@@ -1890,7 +1899,7 @@ cdef class Opcodes:
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
-            elif (eaxId >= 0x1):
+            elif (eaxId == 0x1):
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test4: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x521)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x10000)
