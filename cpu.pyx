@@ -68,6 +68,14 @@ cdef class Cpu:
             self.opcodes.interrupt(exceptionId)
         self.main.notice("Running exception_2: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         self.cpuDump()
+        #if (exceptionId == CPU_EXCEPTION_GP and self.opcode == 0x8a and self.savedEip == 0x310a and self.savedCs == 0x17ff):
+        #    self.main.debugEnabledTest = self.main.debugEnabled = True
+        #if (exceptionId == CPU_EXCEPTION_GP and self.opcode == 0xae):
+        #    self.main.notice("Running exception_3: sleep()")
+        #    stdout.flush()
+        #    stderr.flush()
+        #    #sleep(3600)
+        #    exit()
         return True
     cdef int handleException(self, object exception) except BITMASK_BYTE_CONST:
         cdef unsigned char exceptionId
@@ -235,8 +243,10 @@ cdef class Cpu:
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x8 and self.savedEip == 0x80455574 and self.registers.regReadUnsignedDword(CPU_REGISTER_EBP) == 0x0004f534):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            if (self.savedCs == 0x8 and self.savedEip == 0x8042ac90 and self.registers.regReadUnsignedDword(CPU_REGISTER_EBP) == 0x0004f060):
-                self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x8 and self.savedEip == 0x8042ac90 and self.registers.regReadUnsignedDword(CPU_REGISTER_EBP) == 0x0004f060):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x17ff and self.savedEip == 0x310a):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
             if (self.main.debugEnabled or self.main.debugEnabledTest):
             #IF 1:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)

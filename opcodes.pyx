@@ -471,7 +471,7 @@ cdef class Opcodes:
                         with gil:
                             raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             elif (self.registers.getIOPL() < self.registers.getCPL()):
-                if ((self.registers.getCPL() == 3) and not self.registers.vip):
+                if ((self.registers.getCPL() == 3) and self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_PVI) != 0):
                     self.registers.vif = True
                     return True
                 else:
