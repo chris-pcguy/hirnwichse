@@ -42,6 +42,8 @@ DEF COMMAND_READ_LBA28_WITHOUT_RETRIES = 0x21
 DEF COMMAND_READ_LBA48 = 0x24
 DEF COMMAND_READ_MULTIPLE_LBA48 = 0x29
 DEF COMMAND_READ_MULTIPLE_LBA28 = 0xc4
+DEF COMMAND_READ_DMA = 0xc8
+DEF COMMAND_READ_DMA_EXT = 0x25
 
 DEF COMMAND_VERIFY_SECTORS_LBA48 = 0x42
 DEF COMMAND_VERIFY_SECTORS_LBA28 = 0x40
@@ -52,6 +54,9 @@ DEF COMMAND_WRITE_LBA28 = 0x30
 DEF COMMAND_WRITE_LBA48 = 0x34
 DEF COMMAND_WRITE_MULTIPLE_LBA48 = 0x39
 DEF COMMAND_WRITE_MULTIPLE_LBA28 = 0xc5
+DEF COMMAND_WRITE_DMA = 0xca
+DEF COMMAND_WRITE_DMA_EXT = 0x35
+DEF COMMAND_WRITE_DMA_FUA_EXT = 0x3d
 
 DEF COMMAND_EXECUTE_DRIVE_DIAGNOSTIC = 0x90
 DEF COMMAND_INITIALIZE_DRIVE_PARAMETERS = 0x91
@@ -190,8 +195,10 @@ cdef class AtaDrive:
             self.writeValue(59, 0x110)
             self.configSpace.csWriteValue(100 << 1, self.sectors, OP_SIZE_QWORD) # total number of addressable blocks.
         self.writeValue(48, 1) # supports dword access
-        self.writeValue(49, (1 << 9)) # supports lba
+        self.writeValue(49, ((1 << 9) | (1 << 8))) # supports lba
         self.writeValue(50, 0x4000)
+        self.writeValue(62, 0x480)
+        self.writeValue(63, 1)
         #if (cylinders <= 1024): # hardcoded
         if (cylinders <= 2048): # hardcoded
             translateValueTemp = ATA_TRANSLATE_NONE
@@ -216,10 +223,10 @@ cdef class AtaDrive:
             (<Cmos>self.ataController.ata.main.platform.cmos).writeValue((CMOS_HD0_SPT if (self.driveId == 0) else CMOS_HD1_SPT), SPT, OP_SIZE_BYTE)
             if (self.driveId == 0):
                 (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(CMOS_HD0_CONTROL_BYTE, 0xc8, OP_SIZE_BYTE) # hardcoded
-                self.ataController.ata.pciDevice.setData(0x40, 0x80, OP_SIZE_WORD)
+                self.ataController.ata.pciDevice.setData(0x40, 0x8000, OP_SIZE_WORD)
             else:
                 (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(CMOS_HD1_CONTROL_BYTE, 0x80, OP_SIZE_BYTE) # hardcoded
-                self.ataController.ata.pciDevice.setData(0x42, 0x80, OP_SIZE_WORD)
+                self.ataController.ata.pciDevice.setData(0x42, 0x8000, OP_SIZE_WORD)
         else:
             self.writeValue(0, 0x85c0) # word 0 ; atapi; removable drive
             self.writeValue(82, 0x4010) # supports packet
@@ -300,6 +307,7 @@ cdef class AtaController:
         else:
             self.driveReady = False
             self.driveBusy = self.resetInProgress = True
+        self.busmasterCommand = self.busmasterStatus = self.busmasterAddress = 0
         #for drive in self.drive: # unused
         #    drive.reset()
     cdef inline void LbaToCHS(self) nogil:
@@ -509,12 +517,47 @@ cdef class AtaController:
             elif (self.cylinder & 1):
                 self.cylinder &= 0xfffe
             self.raiseAtaIrq(False, True)
+    cdef void handleBusmaster(self):
+        cdef AtaDrive drive
+        cdef unsigned short memSize, tempSectors
+        cdef unsigned int memBase, tempEntry
+        drive = self.drive[self.driveId]
+        while (True):
+            tempEntry = self.ata.main.mm.mmPhyReadValueUnsignedDword(self.busmasterAddress)
+            memBase = tempEntry&0xfffffffe
+            tempEntry = self.ata.main.mm.mmPhyReadValueUnsignedDword(self.busmasterAddress+4)
+            memSize = tempEntry&0xfffe
+            if (not memSize):
+                memSize = SIZE_64KB
+            self.busmasterAddress += 8
+            if (self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM):
+                self.main.mm.mmPhyWrite(memBase, self.result[:memSize], memSize)
+                self.result = self.result[memSize:]
+            else:
+                drive.writeBytes(self.lba, memSize, self.main.mm.mmPhyRead(memBase, memSize))
+            tempSectors = memSize // drive.sectorSize
+            if (self.sectorCount > 0 and self.sectorCount >= tempSectors):
+                self.lba += tempSectors
+                self.sectorCount -= tempSectors
+            if ((self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM) and (len(self.result)!=0)!=(self.sectorCount!=0)):
+                break
+            if (tempEntry & BITMASKS_80[OP_SIZE_DWORD] or not self.sectorCount):
+                break
+        if ((self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM) and (len(self.result)!=0)!=(self.sectorCount!=0)):
+            self.busmasterStatus &= ~1
+            self.busmasterStatus |= 2
+        else:
+            if (tempEntry & BITMASKS_80[OP_SIZE_DWORD]):
+                self.busmasterStatus &= ~1
+            self.busmasterStatus |= 4
+            self.raiseAtaIrq(False, True)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef AtaDrive drive
-        cdef unsigned int ret
-        ret = 0
+        cdef unsigned char isBusmaster
+        cdef unsigned int ret = 0
         drive = self.drive[self.driveId]
-        if (ioPortAddr == 0x0): # data port
+        isBusmaster = self.ata.isBusmaster(ioPortAddr)
+        if (not isBusmaster and ioPortAddr == 0x0): # data port
             if (not self.drq):
                 ret = BITMASK_DWORD
                 self.ata.main.notice("AtaController::inPort_1: not self.drq, returning BITMASK_DWORD; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
@@ -546,7 +589,24 @@ cdef class AtaController:
             self.raiseAtaIrq(False, True)
             return ret
         elif (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr in (0x1, 0x2, 0x3, 0x4, 0x5)):
+            if (isBusmaster):
+                ioPortAddr -= self.ata.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD) & 0xfffc
+                ioPortAddr &= 0x7
+                if (ioPortAddr == 0x0):
+                    return (self.busmasterCommand & 0x9)
+                elif (ioPortAddr == 0x2):
+                    return (self.busmasterStatus & 0x67)
+                elif (ioPortAddr == 0x4):
+                    return (self.busmasterAddress & 0xff)
+                elif (ioPortAddr == 0x5):
+                    return ((self.busmasterAddress >> 8) & 0xff)
+                elif (ioPortAddr == 0x6):
+                    return ((self.busmasterAddress >> 16) & 0xff)
+                elif (ioPortAddr == 0x7):
+                    return ((self.busmasterAddress >> 24) & 0xff)
+                else:
+                    self.ata.main.notice("AtaController::inPort: read from reserved busmaster port; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+            elif (ioPortAddr in (0x1, 0x2, 0x3, 0x4, 0x5)):
                 if ((<AtaDrive>(self.drive[0])).isLoaded or (<AtaDrive>(self.drive[1])).isLoaded):
                     if (ioPortAddr == 0x1):
                         return self.errorRegister
@@ -594,9 +654,9 @@ cdef class AtaController:
                         self.indexPulse = True
                         self.indexPulseCount = 0
                 else: # TODO: HACK: this circumvents the bochs bios 'IDE time out' which takes too long.
-                    #ret = 0
+                    ret = 0
                     #ret = 0x41
-                    ret = 0x1
+                    #ret = 0x1
                     #ret = 0x81
                 #ELSE:
                 #    #ret = 0x1
@@ -605,7 +665,7 @@ cdef class AtaController:
                     (<Pic>self.ata.main.platform.pic).lowerIrq(self.irq)
             elif (ioPortAddr == 0x1ff or ioPortAddr == 0x207):
                 ret = BITMASK_BYTE
-                self.ata.main.notice("AtaController::inPort: what??? ;controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                self.ata.main.notice("AtaController::inPort: what???; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
             else:
                 self.ata.main.exitError("AtaController::inPort: TODO: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
         else:
@@ -613,9 +673,10 @@ cdef class AtaController:
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef AtaDrive drive
-        cdef unsigned char prevReset
+        cdef unsigned char prevReset, isBusmaster
         drive = self.drive[self.driveId]
-        if (ioPortAddr == 0x0): # data port
+        isBusmaster = self.ata.isBusmaster(ioPortAddr)
+        if (not isBusmaster and ioPortAddr == 0x0): # data port
             self.data += (data).to_bytes(length=dataSize, byteorder="little", signed=False)
             if (self.cmd in (COMMAND_WRITE_LBA28, COMMAND_WRITE_LBA48, COMMAND_WRITE_MULTIPLE_LBA28, COMMAND_WRITE_MULTIPLE_LBA48)):
                 if (not self.drq):
@@ -639,7 +700,37 @@ cdef class AtaController:
             else:
                 self.ata.main.exitError("AtaController::outPort: unknown command 1: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}; cmd: {5:#04x}", self.controllerId, self.driveId, ioPortAddr, data, dataSize, self.cmd)
         elif (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr == 0x1):
+            if (isBusmaster):
+                ioPortAddr -= self.ata.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD) & 0xfffc
+                ioPortAddr &= 0x7
+                if (ioPortAddr == 0x0):
+                    self.busmasterCommand = (data & 0x9)
+                    self.busmasterStatus &= ~1
+                    self.busmasterStatus |= (self.busmasterCommand & 1)
+                    if (self.busmasterCommand & 0x1):
+                        self.handleBusmaster()
+                elif (ioPortAddr == 0x2):
+                    self.busmasterStatus &= ~(0x40 | 0x20)
+                    self.busmasterStatus |= (data & (0x40 | 0x20))
+                    if (data & 0x4):
+                        self.busmasterStatus &= ~0x4
+                    if (data & 0x2):
+                        self.busmasterStatus &= ~0x2
+                elif (ioPortAddr == 0x4):
+                    self.busmasterAddress &= 0xffffff00
+                    self.busmasterAddress |= (data & 0xfc)
+                elif (ioPortAddr == 0x5):
+                    self.busmasterAddress &= 0xffff00ff
+                    self.busmasterAddress |= (data << 8)
+                elif (ioPortAddr == 0x6):
+                    self.busmasterAddress &= 0xff00ffff
+                    self.busmasterAddress |= (data << 16)
+                elif (ioPortAddr == 0x7):
+                    self.busmasterAddress &= 0x00ffffff
+                    self.busmasterAddress |= (data << 24)
+                else:
+                    self.ata.main.notice("AtaController::outPort: write to reserved busmaster port; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
+            elif (ioPortAddr == 0x1):
                 self.features = data
                 if (data & 3):
                     self.ata.main.notice("AtaController::outPort: overlapping packet and/or DMA is not supported yet: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
@@ -745,8 +836,8 @@ cdef class AtaController:
                         return
                     self.driveReady = True
                     self.result = drive.configSpace.csRead(0, 512)
-                elif (data in (COMMAND_READ_LBA28, COMMAND_READ_LBA28_WITHOUT_RETRIES, COMMAND_READ_LBA48, COMMAND_READ_MULTIPLE_LBA28, COMMAND_READ_MULTIPLE_LBA48)):
-                    if (data in (COMMAND_READ_LBA28, COMMAND_READ_LBA28_WITHOUT_RETRIES, COMMAND_READ_MULTIPLE_LBA28)):
+                elif (data in (COMMAND_READ_LBA28, COMMAND_READ_LBA28_WITHOUT_RETRIES, COMMAND_READ_LBA48, COMMAND_READ_MULTIPLE_LBA28, COMMAND_READ_MULTIPLE_LBA48, COMMAND_READ_DMA, COMMAND_READ_DMA_EXT)):
+                    if (data in (COMMAND_READ_LBA28, COMMAND_READ_LBA28_WITHOUT_RETRIES, COMMAND_READ_MULTIPLE_LBA28, COMMAND_READ_DMA)):
                         self.convertToLBA28()
                     if (data in (COMMAND_READ_MULTIPLE_LBA28, COMMAND_READ_MULTIPLE_LBA48)):
                         if (not self.multipleSectors):
@@ -760,8 +851,8 @@ cdef class AtaController:
                         self.abortCommand()
                         return
                     self.driveReady = True
-                elif (data in (COMMAND_WRITE_LBA28, COMMAND_WRITE_LBA48, COMMAND_WRITE_MULTIPLE_LBA28, COMMAND_WRITE_MULTIPLE_LBA48)):
-                    if (data in (COMMAND_WRITE_LBA28, COMMAND_WRITE_MULTIPLE_LBA28)):
+                elif (data in (COMMAND_WRITE_LBA28, COMMAND_WRITE_LBA48, COMMAND_WRITE_MULTIPLE_LBA28, COMMAND_WRITE_MULTIPLE_LBA48, COMMAND_WRITE_DMA, COMMAND_WRITE_DMA_EXT, COMMAND_WRITE_DMA_FUA_EXT)):
+                    if (data in (COMMAND_WRITE_LBA28, COMMAND_WRITE_MULTIPLE_LBA28, COMMAND_WRITE_DMA)):
                         self.convertToLBA28()
                     if (data in (COMMAND_WRITE_MULTIPLE_LBA28, COMMAND_WRITE_MULTIPLE_LBA48)):
                         if (not self.multipleSectors):
@@ -825,7 +916,7 @@ cdef class AtaController:
                 else:
                     self.ata.main.exitError("AtaController::outPort: unknown command 2: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
-                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES, COMMAND_SET_MULTIPLE_MODE, COMMAND_VERIFY_SECTORS_LBA28, COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY, COMMAND_VERIFY_SECTORS_LBA48, COMMAND_MEDIA_LOCK, COMMAND_MEDIA_UNLOCK), data not in (COMMAND_RESET, COMMAND_PACKET))
+                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES, COMMAND_SET_MULTIPLE_MODE, COMMAND_VERIFY_SECTORS_LBA28, COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY, COMMAND_VERIFY_SECTORS_LBA48, COMMAND_MEDIA_LOCK, COMMAND_MEDIA_UNLOCK, COMMAND_READ_DMA, COMMAND_READ_DMA_EXT, COMMAND_WRITE_DMA, COMMAND_WRITE_DMA_EXT, COMMAND_WRITE_DMA_FUA_EXT), data not in (COMMAND_RESET, COMMAND_PACKET, COMMAND_READ_DMA, COMMAND_READ_DMA_EXT, COMMAND_WRITE_DMA, COMMAND_WRITE_DMA_EXT, COMMAND_WRITE_DMA_FUA_EXT))
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)
@@ -857,20 +948,47 @@ cdef class Ata:
         self.main = main
         self.controller = (AtaController(self, 0), AtaController(self, 1))
         self.pciDevice = (<Pci>self.main.platform.pci).addDevice()
-        self.pciDevice.setVendorDeviceId(0x8086, 0x7010)
+        self.pciDevice.setVendorDeviceId(PCI_VENDOR_ID_INTEL, 0x7010)
         self.pciDevice.setDeviceClass(PCI_CLASS_PATA)
+        self.pciDevice.setBarSize(4, 4) # TODO?
+        self.pciDevice.setData(PCI_COMMAND, 0x1, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_STATUS, 0x280, OP_SIZE_WORD)
+        self.pciDevice.setData(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_4, 0xc001, OP_SIZE_DWORD)
     cdef void reset(self):
         cdef AtaController controller
         for controller in self.controller:
             controller.reset(False)
+    cdef unsigned char isBusmaster(self, unsigned short ioPortAddr):
+        cdef unsigned int temp
+        temp = self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
+        if (temp == BITMASK_DWORD or not (temp&1)):
+            return False
+        temp = temp&0xfffc
+        if (not temp):
+            return False
+        if (ioPortAddr >= temp and ioPortAddr < temp+16):
+            return True
+        return False
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+        cdef unsigned char isBusmaster = 0
         cdef unsigned int ret = BITMASKS_FF[dataSize]
+        isBusmaster = self.isBusmaster(ioPortAddr)
         #if (self.main.debugEnabled):
         #IF 1:
-        if (ioPortAddr&0xf or self.main.debugEnabled):
+        if (ioPortAddr&0xf or isBusmaster or self.main.debugEnabled):
             #self.main.debug("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
             self.main.notice("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
-        if (dataSize == OP_SIZE_WORD and (ioPortAddr&0xf)):
+        if (isBusmaster and dataSize != OP_SIZE_BYTE):
+            if (dataSize == OP_SIZE_WORD):
+                ret = self.inPort(ioPortAddr, OP_SIZE_BYTE)
+                ret |= self.inPort(ioPortAddr+1, OP_SIZE_BYTE) << 8
+                return ret
+            elif (dataSize == OP_SIZE_DWORD):
+                ret = self.inPort(ioPortAddr, OP_SIZE_WORD)
+                ret |= self.inPort(ioPortAddr+2, OP_SIZE_WORD) << 16
+                return ret
+        elif (dataSize == OP_SIZE_WORD and (ioPortAddr&0xf)):
             ret = self.inPort(ioPortAddr, OP_SIZE_BYTE)
             ret |= self.inPort(ioPortAddr, OP_SIZE_BYTE) << 8
             #if (self.main.debugEnabled):
@@ -886,7 +1004,12 @@ cdef class Ata:
                 #self.main.debug("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
                 self.main.notice("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
             return ret
-        if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
+        if (isBusmaster):
+            if (not ((ioPortAddr-(self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD) & 0xfffc)) & 0x8)):
+                ret = (<AtaController>self.controller[0]).inPort(ioPortAddr, dataSize)
+            else:
+                ret = (<AtaController>self.controller[1]).inPort(ioPortAddr, dataSize)
+        elif (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
             ret = (<AtaController>self.controller[0]).inPort(ioPortAddr-ATA1_BASE, dataSize)
         elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
             ret = (<AtaController>self.controller[1]).inPort(ioPortAddr-ATA2_BASE, dataSize)
@@ -896,17 +1019,28 @@ cdef class Ata:
         #    ret = (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
         #if (self.main.debugEnabled):
         #IF 1:
-        if (ioPortAddr&0xf or self.main.debugEnabled):
+        if (ioPortAddr&0xf or isBusmaster or self.main.debugEnabled):
             #self.main.debug("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
             self.main.notice("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
+        cdef unsigned char isBusmaster = 0
+        isBusmaster = self.isBusmaster(ioPortAddr)
         #if (self.main.debugEnabled):
         #IF 1:
-        if (ioPortAddr&0xf or self.main.debugEnabled):
+        if (ioPortAddr&0xf or isBusmaster or self.main.debugEnabled):
             #self.main.debug("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
             self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
-        if (dataSize == OP_SIZE_WORD and (ioPortAddr&0xf)):
+        if (isBusmaster and dataSize != OP_SIZE_BYTE):
+            if (dataSize == OP_SIZE_WORD):
+                self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
+                self.outPort(ioPortAddr+1, <unsigned char>(data >> 8), OP_SIZE_BYTE)
+                return
+            elif (dataSize == OP_SIZE_DWORD):
+                self.outPort(ioPortAddr, <unsigned short>data, OP_SIZE_WORD)
+                self.outPort(ioPortAddr+2, <unsigned short>(data >> 16), OP_SIZE_WORD)
+                return
+        elif (dataSize == OP_SIZE_WORD and (ioPortAddr&0xf)):
             self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
             self.outPort(ioPortAddr, <unsigned char>(data >> 8), OP_SIZE_BYTE)
             return
@@ -914,7 +1048,12 @@ cdef class Ata:
             self.outPort(ioPortAddr, <unsigned short>data, OP_SIZE_WORD)
             self.outPort(ioPortAddr, <unsigned short>(data >> 16), OP_SIZE_WORD)
             return
-        if (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
+        if (isBusmaster):
+            if (not ((ioPortAddr-(self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD) & 0xfffc)) & 0x8)):
+                (<AtaController>self.controller[0]).outPort(ioPortAddr, data, dataSize)
+            else:
+                (<AtaController>self.controller[1]).outPort(ioPortAddr, data, dataSize)
+        elif (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
             (<AtaController>self.controller[0]).outPort(ioPortAddr-ATA1_BASE, data, dataSize)
         elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
             (<AtaController>self.controller[1]).outPort(ioPortAddr-ATA2_BASE, data, dataSize)

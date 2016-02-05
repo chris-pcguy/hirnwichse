@@ -3603,12 +3603,22 @@ cdef class Opcodes:
             self.registers.fpu.reset(True)
         elif (opcode == 5 and (opcode2 >= 0xc0 and opcode2 <= 0xc7)): # FFREE
             self.setTag(self.getIndex(opcode2&0x7), 3)
+        elif ((opcode == 5 and (opcode2 >= 0xe0 and opcode2 <= 0xef)) or (opcode == 2 and opcode2 == 0xe9)): # FUCOM(P)
+            i = opcode2&0x7
+            data2 = self.registers.fpu.getVal(i)
+            if (opcode == 2):
+                i = 2
+            elif (opcode2 & 8):
+                i = 1
+            else:
+                i = 0
+            self.fpuFcomHelper(data2, i, False)
         elif ((opcode == 0 and (opcode2 >= 0xd0 and opcode2 <= 0xdf)) or (opcode == 6 and opcode2 == 0xd9)): # FCOM/FCOMP/FCOMPP
             i = opcode2&0x7
             data2 = self.registers.fpu.getVal(i)
             if (opcode == 6):
                 i = 2
-            elif (opcode2 >= 0xd8):
+            elif (opcode2 & 8):
                 i = 1
             else:
                 i = 0
@@ -3660,7 +3670,7 @@ cdef class Opcodes:
                 self.registers.mmWriteValue(dataAddr, self.registers.fpu.ctrl, OP_SIZE_WORD, <Segment>self.modRMInstance.rmNameSeg, True)
             elif (opcode == 5 and reg == 7): # FNSTSW rm
                 self.registers.mmWriteValue(dataAddr, self.registers.fpu.status, OP_SIZE_WORD, <Segment>self.modRMInstance.rmNameSeg, True)
-            elif (opcode in (0,2,4,6) or (opcode == 7 and reg in (5,)) or (opcode == 1 and reg in (0,2,3,4,6)) or (opcode == 3 and reg in (0,2,3)) or (opcode == 5 and reg in (0,2,3,4,6))):
+            elif (opcode in (0,2,4,6) or (opcode == 7 and reg in (2,3,5,7)) or (opcode == 1 and reg in (0,2,3,4,6)) or (opcode == 3 and reg in (0,2,3)) or (opcode == 5 and reg in (0,2,3,4,6))):
                 self.registers.fpu.setDataPointers((<Segment>self.modRMInstance.rmNameSeg).segmentIndex, dataAddr)
                 if (opcode in (0,2,4,6)):
                     if (opcode == 0): # fp32
@@ -3705,11 +3715,20 @@ cdef class Opcodes:
                     if (divZero):
                         self.registers.fpu.status |= 4
                 elif (opcode == 7):
-                    if (reg in (5,)): # FILD
+                    if (reg in (2, 3)): # FIST(P) m16int
+                        data2 = gmpy2.rint(self.registers.fpu.getVal(0))
+                        self.registers.mmWriteValue(dataAddr, struct.unpack(">H", struct.pack(">h", int(data2)))[0], OP_SIZE_WORD, <Segment>self.modRMInstance.rmNameSeg, True)
+                        if (reg == 3):
+                            self.registers.fpu.pop()
+                    elif (reg in (5,)): # FILD
                         signedInt = self.registers.mmReadValueSignedQword(dataAddr, <Segment>self.modRMInstance.rmNameSeg, True)
                         data2 = gmpy2.mpfr(signedInt)
                         self.main.notice("Opcodes::fpuOpcodes: TODO: test13: op1=={0:s}", repr(data2))
                         self.registers.fpu.push(data2, False)
+                    elif (reg == 7): # FISTP m64int
+                        data2 = gmpy2.rint(self.registers.fpu.getVal(0))
+                        self.registers.mmWriteValue(dataAddr, struct.unpack(">Q", struct.pack(">q", int(data2)))[0], OP_SIZE_QWORD, <Segment>self.modRMInstance.rmNameSeg, True)
+                        self.registers.fpu.pop()
                     else:
                         self.main.exitError("Opcodes::fpuOpcodes: TODO: test14: opcode=={0:#04x}, opcode2=={1:#04x}", FPU_BASE_OPCODE+opcode, opcode2)
                         return False

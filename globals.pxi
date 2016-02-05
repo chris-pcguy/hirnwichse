@@ -71,6 +71,8 @@ cdef unsigned char ATA_TRANSLATE_LBA   = 1
 cdef unsigned char ATA_TRANSLATE_LARGE = 2
 cdef unsigned char ATA_TRANSLATE_RECHS = 3
 
+cdef unsigned char ATA_BUSMASTER_CMD_READ_TO_MEM = 0x8
+
 cdef unsigned char CMOS_STATUSB_24HOUR = 0x02
 cdef unsigned char CMOS_STATUSB_BIN    = 0x04
 
@@ -203,6 +205,7 @@ cdef unsigned char PCI_BASE_ADDRESS_5 = 0x24
 cdef unsigned char PCI_ROM_ADDRESS = 0x30
 cdef unsigned char PCI_CAPABILITIES_POINTER = 0x34
 cdef unsigned char PCI_INTERRUPT_LINE = 0x3c
+cdef unsigned char PCI_INTERRUPT_PIN = 0x3d
 
 cdef unsigned char PCI_BRIDGE_IO_BASE_LOW = 0x1c
 cdef unsigned char PCI_BRIDGE_IO_LIMIT_LOW = 0x1d

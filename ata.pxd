@@ -31,8 +31,8 @@ cdef class AtaController:
     cdef bytes result, data
     cdef unsigned char controllerId, driveId, useLBA, useLBA48, irqEnabled, HOB, doReset, driveBusy, resetInProgress, driveReady, \
         errorRegister, drq, seekComplete, err, irq, cmd, sector, head, sectorCountFlipFlop, sectorHighFlipFlop, sectorMiddleFlipFlop, \
-        sectorLowFlipFlop, indexPulse, indexPulseCount, features, sectorCountByte, multipleSectors
-    cdef unsigned int sectorCount, cylinder
+        sectorLowFlipFlop, indexPulse, indexPulseCount, features, sectorCountByte, multipleSectors, busmasterCommand, busmasterStatus
+    cdef unsigned int sectorCount, cylinder, busmasterAddress
     cdef unsigned long int lba
     cdef void setSignature(self, unsigned char driveId)
     cdef void reset(self, unsigned char swReset)
@@ -44,6 +44,7 @@ cdef class AtaController:
     cdef void errorCommand(self, unsigned char errorRegister)
     cdef void nopCommand(self)
     cdef void handlePacket(self)
+    cdef void handleBusmaster(self)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void run(self)
@@ -54,6 +55,7 @@ cdef class Ata:
     cdef tuple controller
     cdef PciDevice pciDevice
     cdef void reset(self)
+    cdef unsigned char isBusmaster(self, unsigned short ioPortAddr)
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void run(self)

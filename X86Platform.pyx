@@ -165,6 +165,9 @@ cdef class Platform:
                         retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
                         ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
                         return retVal
+            if (self.ata.isBusmaster(ioPortAddr)):
+                retVal = self.ata.inPort(ioPortAddr, dataSize)&bitMask
+                return retVal
             self.main.notice("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
             self.main.notice("inPort: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             return bitMask
@@ -187,6 +190,9 @@ cdef class Platform:
                         ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
                         port.outPort(port.classObject, ioPortAddr, data, dataSize)
                         return
+            if (self.ata.isBusmaster(ioPortAddr)):
+                self.ata.outPort(ioPortAddr, data, dataSize)
+                return
             self.main.notice("outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
             self.main.notice("outPort: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
         except:
@@ -224,7 +230,7 @@ cdef class Platform:
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
         if (self.main.vgaBiosFilename):
             self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), VGA_ROM_BASE, True)
-        self.main.mm.ignoreRomWrite = True
+        #self.main.mm.ignoreRomWrite = True # TODO?
         self.main.mm.mmClear(VGA_MEMAREA_ADDR, BITMASK_BYTE, 0x10000)
         self.main.mm.mmClear(0xb8000, BITMASK_BYTE, 0x8000)
     cdef void initDevicesPorts(self):

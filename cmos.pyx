@@ -16,10 +16,12 @@ cdef class Cmos:
     cdef inline unsigned int readValue(self, unsigned char index, unsigned char size):
         cdef unsigned int value
         value = self.configSpace.csReadValueUnsigned(index, size)
+        #IF 1:
         if (self.main.debugEnabled):
             self.main.debug("Cmos::readValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
         return value
     cdef inline void writeValue(self, unsigned char index, unsigned int value, unsigned char size):
+        #IF 1:
         if (self.main.debugEnabled):
             self.main.debug("Cmos::writeValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
         self.configSpace.csWriteValue(index, value, size)
