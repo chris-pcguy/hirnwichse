@@ -531,14 +531,19 @@ cdef class AtaController:
                 memSize = SIZE_64KB
             self.busmasterAddress += 8
             if (self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM):
-                self.main.mm.mmPhyWrite(memBase, self.result[:memSize], memSize)
+                self.ata.main.mm.mmPhyWrite(memBase, self.result[:memSize], memSize)
                 self.result = self.result[memSize:]
             else:
-                drive.writeBytes(self.lba, memSize, self.main.mm.mmPhyRead(memBase, memSize))
+                drive.writeBytes(self.lba, memSize, self.ata.main.mm.mmPhyRead(memBase, memSize))
             tempSectors = memSize // drive.sectorSize
-            if (self.sectorCount > 0 and self.sectorCount >= tempSectors):
+            if (self.sectorCount > 0):
                 self.lba += tempSectors
-                self.sectorCount -= tempSectors
+                if (tempSectors > self.sectorCount):
+                    self.ata.main.notice("AtaController::handleBusmaster: TODO?: tempSectors > self.sectorCount; tempSectors: {0:d}; self.sectorCount: {1:d}", tempSectors, self.sectorCount)
+                    self.result = bytes()
+                    self.sectorCount = 0
+                else:
+                    self.sectorCount -= tempSectors
             if ((self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM) and (len(self.result)!=0)!=(self.sectorCount!=0)):
                 break
             if (tempEntry & BITMASKS_80[OP_SIZE_DWORD] or not self.sectorCount):
