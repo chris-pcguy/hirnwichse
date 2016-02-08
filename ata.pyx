@@ -91,6 +91,10 @@ DEF ATA_ERROR_REG_MC  = 1 << 5
 DEF ATA_ERROR_REG_MCR = 1 << 3
 
 
+cdef extern from "Python.h":
+    object PyBytes_FromStringAndSize(char *, Py_ssize_t)
+
+
 # the variables shouldn't need to be in AtaDrive, as there are no mixed constellations. (MS/SL: HD/CD,CD/HD)
 # instead, it's always ctrl0: HD/HD, ctrl1: CD/CD
 
@@ -519,9 +523,12 @@ cdef class AtaController:
             self.raiseAtaIrq(False, True)
     cdef void handleBusmaster(self):
         cdef AtaDrive drive
-        cdef unsigned short memSize, tempSectors
-        cdef unsigned int memBase, tempEntry
+        cdef unsigned int memBase, memSize, tempEntry, tempSectors
+        cdef bytes tempResult
+        cdef char *tempCharArray
         drive = self.drive[self.driveId]
+        #if (self.irq): # TODO?
+        #    (<Pic>self.ata.main.platform.pic).lowerIrq(self.irq)
         while (True):
             tempEntry = self.ata.main.mm.mmPhyReadValueUnsignedDword(self.busmasterAddress)
             memBase = tempEntry&0xfffffffe
@@ -531,11 +538,15 @@ cdef class AtaController:
                 memSize = SIZE_64KB
             self.busmasterAddress += 8
             if (self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM):
+                self.ata.main.notice("AtaController::handleBusmaster: test1: self.lba: {0:d}; self.sectorCount: {1:d}, memBase: {2:#010x}, memSize: {3:d}, len(self.result): {4:d}, self.result: {5:s}", self.lba, self.sectorCount, memBase, memSize, len(self.result), repr(self.result))
                 self.ata.main.mm.mmPhyWrite(memBase, self.result[:memSize], memSize)
                 self.result = self.result[memSize:]
             else:
-                drive.writeBytes(self.lba, memSize, self.ata.main.mm.mmPhyRead(memBase, memSize))
-            tempSectors = memSize // drive.sectorSize
+                tempCharArray = self.ata.main.mm.mmPhyRead(memBase, memSize)
+                tempResult = PyBytes_FromStringAndSize( tempCharArray, <Py_ssize_t>memSize)
+                self.ata.main.notice("AtaController::handleBusmaster: test2: self.lba: {0:d}; self.sectorCount: {1:d}, memBase: {2:#010x}, memSize: {3:d}, len(tempResult): {4:d}, tempResult: {5:s}", self.lba, self.sectorCount, memBase, memSize, len(tempResult), repr(tempResult))
+                drive.writeBytes(self.lba << drive.sectorShift, memSize, tempResult)
+            tempSectors = memSize >> drive.sectorShift
             if (self.sectorCount > 0):
                 self.lba += tempSectors
                 if (tempSectors > self.sectorCount):
@@ -546,7 +557,7 @@ cdef class AtaController:
                     self.sectorCount -= tempSectors
             if ((self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM) and (len(self.result)!=0)!=(self.sectorCount!=0)):
                 break
-            if (tempEntry & BITMASKS_80[OP_SIZE_DWORD] or not self.sectorCount):
+            elif (tempEntry & BITMASKS_80[OP_SIZE_DWORD] or not self.sectorCount):
                 break
         if ((self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM) and (len(self.result)!=0)!=(self.sectorCount!=0)):
             self.busmasterStatus &= ~1
@@ -955,10 +966,20 @@ cdef class Ata:
         self.pciDevice = (<Pci>self.main.platform.pci).addDevice()
         self.pciDevice.setVendorDeviceId(PCI_VENDOR_ID_INTEL, 0x7010)
         self.pciDevice.setDeviceClass(PCI_CLASS_PATA)
+        self.pciDevice.setBarSize(0, 4) # TODO?
+        self.pciDevice.setBarSize(1, 4) # TODO?
+        self.pciDevice.setBarSize(2, 4) # TODO?
+        self.pciDevice.setBarSize(3, 4) # TODO?
         self.pciDevice.setBarSize(4, 4) # TODO?
         self.pciDevice.setData(PCI_COMMAND, 0x1, OP_SIZE_BYTE)
         self.pciDevice.setData(PCI_STATUS, 0x280, OP_SIZE_WORD)
         self.pciDevice.setData(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_INTERRUPT_LINE, 14, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_INTERRUPT_PIN, 1, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_0, 0x1f1, OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_1, 0x3f5, OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_2, 0x171, OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_BASE_ADDRESS_3, 0x375, OP_SIZE_DWORD)
         self.pciDevice.setData(PCI_BASE_ADDRESS_4, 0xc001, OP_SIZE_DWORD)
     cdef void reset(self):
         cdef AtaController controller

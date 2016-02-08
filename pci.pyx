@@ -95,10 +95,15 @@ cdef class PciDevice:
             return False
         return True
     cdef unsigned int getData(self, unsigned int mmAddress, unsigned char dataSize):
-        return self.configSpace.csReadValueUnsigned(mmAddress, dataSize)
+        cdef unsigned int data
+        data = self.configSpace.csReadValueUnsigned(mmAddress, dataSize)
+        self.pci.main.notice("PciDevice::getData: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", mmAddress, data, dataSize)
+        return data
     cdef void setData(self, unsigned int mmAddress, unsigned int data, unsigned char dataSize):
         if (not self.checkWriteAccess(mmAddress, data, dataSize)):
+            self.pci.main.notice("PciDevice::setData: check says false: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", mmAddress, data, dataSize)
             return
+        self.pci.main.notice("PciDevice::setData: check says true: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", mmAddress, data, dataSize)
         self.configSpace.csWriteValue(mmAddress, data, dataSize)
     cdef void setVendorId(self, unsigned short vendorId):
         self.setData(PCI_VENDOR_ID, vendorId, OP_SIZE_WORD)

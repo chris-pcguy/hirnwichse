@@ -19,7 +19,7 @@ cdef class Mm:
             self.data = <char*>malloc(self.memSizeBytes)
             self.pciData = <char*>malloc(SIZE_1MB)
             self.romData = <char*>malloc(SIZE_1MB)
-            self.tempData = <char*>malloc(SIZE_4KB)
+            self.tempData = <char*>malloc(SIZE_1MB) # TODO: size
         if (self.data is NULL or self.pciData is NULL or self.romData is NULL or self.tempData is NULL):
             self.main.exitError("Mm::init: not self.data or not self.pciData or not self.romData or not self.tempData.")
             return
@@ -27,7 +27,7 @@ cdef class Mm:
             memset(self.data, 0, self.memSizeBytes)
             memset(self.pciData, 0, SIZE_1MB)
             memset(self.romData, 0, SIZE_1MB)
-            memset(self.tempData, 0, SIZE_4KB)
+            memset(self.tempData, 0, SIZE_1MB)
         register(self.quitFunc)
     cpdef quitFunc(self):
         try:
@@ -52,6 +52,10 @@ cdef class Mm:
             memset(<char*>(self.data+offset), clearByte, dataSize)
     cdef char *mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize) nogil:
         cdef unsigned int tempDataOffset = 0, tempOffset, tempSize
+        if (dataSize >= SIZE_1MB): # TODO: size
+            with gil:
+                self.main.exitError('Mm::mmPhyRead: dataSize >= SIZE_1MB, exiting...')
+            return self.tempData
         if (dataSize > 0 and mmAddr < VGA_MEMAREA_ADDR):
             tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
             memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetDataPointer(mmAddr), tempSize)
