@@ -247,6 +247,10 @@ cdef class Cpu:
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x17ff and self.savedEip == 0x310a):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x8 and self.savedEip == 0x8080275a):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x8 and self.savedEip == 0x808c8e52):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
             if (self.main.debugEnabled or self.main.debugEnabledTest):
             #IF 1:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)

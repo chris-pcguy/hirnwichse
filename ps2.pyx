@@ -204,7 +204,7 @@ cdef class PS2:
                         self.appendToOutBytes(b'\xfa')
                     elif (data == 0xed):
                         self.needWriteBytes = 1
-                        self.appendToOutBytes(b'\xfa')
+                        self.appendToOutBytesImm(b'\xfa')
                     elif (data == 0xee):
                         self.appendToOutBytes(b'\xee')
                     elif (data == 0xf0): # set scancodes
@@ -277,6 +277,8 @@ cdef class PS2:
                             if (self.allowIrq1 and self.outb):
                                 self.irq1Requested = True
                                 (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
+                        else:
+                            self.main.exitError("outPort: data_3 {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
                     elif (self.lastUsedPort == 0x60):
                         if (self.lastUsedCmd == 0xf0): # port 0x60
                             if (data == 0x00): # get scancodes
@@ -290,10 +292,12 @@ cdef class PS2:
                                 self.appendToOutBytes(b'\xff')
                         elif (self.lastUsedCmd == 0xf3): # port 0x60
                             self.appendToOutBytes(b'\xfa')
-                        elif (self.lastUsedCmd == 0xed): # port 0x60
-                            self.appendToOutBytes(b'\xfa')
+                        elif (self.lastUsedCmd == 0xed): # port 0x60; setLeds
+                            self.appendToOutBytesImm(b'\xfa')
+                        else:
+                            self.main.exitError("outPort: data_2 {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
                     else:
-                        self.main.notice("outPort: data {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
+                        self.main.exitError("outPort: data_1 {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
                     self.needWriteBytes -= 1
                     if (not self.needWriteBytes):
                         self.lastUsedPort = ioPortAddr

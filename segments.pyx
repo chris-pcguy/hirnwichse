@@ -335,8 +335,10 @@ cdef class Paging: # TODO
             if (pageDirectoryEntry & PAGE_PRESENT):
                 for j in range(PAGE_DIRECTORY_ENTRIES):
                     j <<= 2
+                    # TODO: handle global flag for non 4kb PDEs
                     pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&<unsigned int>0xfffff000)|j) # page table
-                    if (not noGlobal or not (pageTableEntry & PAGE_GLOBAL)):
+                    #if (not noGlobal or not (pageTableEntry & PAGE_GLOBAL)):
+                    if (not noGlobal or (self.segments.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_PGE) != 0 and not (pageTableEntry & PAGE_GLOBAL))):
                         self.tlbTables.csWriteValue((i<<12)|j, pageTableEntry, OP_SIZE_DWORD)
             else:
                 self.tlbTables.csResetAddr((i<<12), 0, PAGE_DIRECTORY_LENGTH)

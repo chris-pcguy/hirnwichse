@@ -360,7 +360,9 @@ cdef class Registers:
         #self.regWriteDword(CPU_REGISTER_DR6, 0xffff1ff0) # why has bochs bit 12 set?
         self.regWriteDword(CPU_REGISTER_DR6, 0xffff0ff0)
         self.regWriteDword(CPU_REGISTER_DR7, 0x400)
-        self.regWriteDword(CPU_REGISTER_EDX, 0x521)
+        #self.regWriteDword(CPU_REGISTER_EDX, 0x521)
+        #self.regWriteDword(CPU_REGISTER_EDX, 0x611)
+        self.regWriteDword(CPU_REGISTER_EDX, 0x631)
         self.segWriteSegment((<Segment>self.segments.cs), 0xf000)
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef void reloadCpuCache(self):
@@ -752,9 +754,12 @@ cdef class Registers:
         elif (modRMflags & MODRM_FLAGS_CREG):
             regName = CPU_REGISTER_CREG[reg]
         elif (modRMflags & MODRM_FLAGS_DREG):
-            if (reg in (4, 5) and self.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_DE) != 0):
-                with gil:
-                    raise HirnwichseException(CPU_EXCEPTION_UD)
+            if (reg in (4, 5)):
+                if (self.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_DE) != 0):
+                    with gil:
+                        raise HirnwichseException(CPU_EXCEPTION_UD)
+                else:
+                    reg += 2
             regName = CPU_REGISTER_DREG[reg]
         else:
             regName = reg

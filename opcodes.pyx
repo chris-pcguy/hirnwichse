@@ -1798,9 +1798,9 @@ cdef class Opcodes:
                 self.main.notice("TODO: MOV CR2, R32")
             elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
                 if (op2):
-                    self.main.exitError("opcodeGroup0F_22: CR4 IS NOT FULLY SUPPORTED yet.")
+                    self.main.notice("opcodeGroup0F_22: CR4 IS NOT FULLY SUPPORTED yet.")
                 elif (op2 & CR4_FLAG_VME):
-                    self.main.exitError("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT SUPPORTED yet.")
+                    self.main.notice("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT FULLY SUPPORTED yet.")
                 elif (op2 & CR4_FLAG_PSE):
                     self.main.exitError("opcodeGroup0F_22: PSE (page-size extension) IS NOT SUPPORTED yet.")
                 elif (op2 & CR4_FLAG_PAE):
@@ -1831,6 +1831,8 @@ cdef class Opcodes:
             elif (operOpcode == 0x30 and eaxId == 0x10):
                 self.cpu.cycles = self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
                 self.cpu.cycles |= <unsigned long int>self.registers.regReadUnsignedDword(CPU_REGISTER_EDX)<<32
+            elif (eaxId == 0x1b): # apic base
+                pass
             elif (eaxId == 0x8b): # no microcode loaded or rather supported.
                 pass
             else:
@@ -1901,9 +1903,12 @@ cdef class Opcodes:
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
             elif (eaxId == 0x1):
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test4: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x521)
+                #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x521)
+                #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x611)
+                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x631)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x10000)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8113)
+                #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8113)
+                self.registers.regWriteDword(CPU_REGISTER_EDX, 0xa117)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
             else:
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test3: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
@@ -2088,7 +2093,7 @@ cdef class Opcodes:
                 op2 = <unsigned int>(self.modRMInstance.modRMLoadSigned(OP_SIZE_WORD))
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
         elif (operOpcode in (0xc0, 0xc1)): # 0xc0: XADD RM8, R8 ;; 0xc1: XADD RM16_32, R16_32
-            self.main.notice("Opcodes::opcodeGroup0F: XADD: TODO!")
+            self.main.notice("Opcodes::opcodeGroup0F: XADD: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
             if (operOpcode == 0xc0): # 0xc0: XADD RM8, R8
                 byteSize = OP_SIZE_BYTE
             else:
@@ -2096,18 +2101,19 @@ cdef class Opcodes:
             self.modRMInstance.modRMOperands(byteSize, MODRM_FLAGS_NONE)
             op1 = self.modRMInstance.modRMLoadUnsigned(byteSize)
             op2 = self.modRMInstance.modRLoadUnsigned(byteSize)
-            self.modRMInstance.modRMSave(byteSize, op2, OPCODE_ADD)
+            self.modRMInstance.modRMSave(byteSize, op1+op2, OPCODE_SAVE)
             self.modRMInstance.modRSave(byteSize, op1, OPCODE_SAVE)
             self.registers.setFullFlags(op1, op2, byteSize, OPCODE_ADD)
         elif (operOpcode == 0xc7): # CMPXCHG8B M64
-            self.main.notice("Opcodes::opcodeGroup0F: CMPXCHG8B: TODO!")
-            operOpcodeMod = self.registers.getCurrentOpcodeAddUnsignedByte()
-            operOpcodeModId = (operOpcodeMod>>3)&7
+            self.main.notice("Opcodes::opcodeGroup0F: CMPXCHG8B: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+            self.modRMInstance.modRMOperands(self.registers.operSize, MODRM_FLAGS_NONE)
+            if (self.modRMInstance.mod == 3):
+                raise HirnwichseException(CPU_EXCEPTION_UD)
+            mmAddr = self.modRMInstance.getRMValueFull(self.registers.operSize)
             if (self.main.debugEnabled):
-                self.main.debug("Group0F_C7: operOpcodeModId=={0:d}", operOpcodeModId)
-            if (operOpcodeModId == 1):
-                op1 = self.registers.getCurrentOpcodeAddUnsigned(self.registers.addrSize)
-                qop1 = (<Mm>self.main.mm).mmPhyReadValueUnsignedQword(op1)
+                self.main.debug("Group0F_C7: self.modRMInstance.reg=={0:d}", self.modRMInstance.reg)
+            if (self.modRMInstance.reg == 1):
+                qop1 = self.registers.mmReadValueUnsignedQword(mmAddr, <Segment>self.modRMInstance.rmNameSeg, True)
                 qop2 = self.registers.regReadUnsignedDword(CPU_REGISTER_EDX)
                 qop2 <<= 32
                 qop2 |= self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
@@ -2116,13 +2122,13 @@ cdef class Opcodes:
                     qop2 = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
                     qop2 <<= 32
                     qop2 |= self.registers.regReadUnsignedDword(CPU_REGISTER_EBX)
-                    (<Mm>self.main.mm).mmPhyWriteValue(op1, qop2, OP_SIZE_QWORD)
+                    self.registers.mmWriteValue(mmAddr, qop2, OP_SIZE_QWORD, <Segment>self.modRMInstance.rmNameSeg, True)
                 else:
                     self.registers.zf = False
                     self.registers.regWriteDword(CPU_REGISTER_EDX, qop1>>32)
                     self.registers.regWriteDword(CPU_REGISTER_EAX, qop1)
             else:
-                self.main.notice("opcodeGroup0F_C7: operOpcodeModId {0:d} isn't supported yet.", operOpcodeModId)
+                self.main.notice("opcodeGroup0F_C7: self.modRMInstance.reg {0:d} isn't supported yet.", self.modRMInstance.reg)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode >= 0xc8 and operOpcode <= 0xcf): # BSWAP R32
             self.main.notice("Opcodes::opcodeGroup0F: BSWAP: TODO!")
