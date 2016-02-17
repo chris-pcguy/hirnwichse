@@ -19,6 +19,8 @@ cdef class Cpu:
         self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = self.HRQ = False
         self.debugHalt = self.main.debugHalt
         self.savedSs = self.savedEsp = self.cycles = 0
+        self.operSize = self.addrSize = 0
+        self.resetPrefixes()
         self.registers.reset()
     cdef inline void saveCurrentInstPointer(self) nogil:
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
@@ -55,7 +57,7 @@ cdef class Cpu:
         self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP and exceptionId != CPU_EXCEPTION_DB):
             self.registers.rf = True
-        elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP and self.registers.repPrefix):
+        elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP and self.repPrefix):
             self.registers.rf = True
         self.main.notice("Running exception_1.1: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         self.cpuDump()
@@ -88,6 +90,10 @@ cdef class Cpu:
         #if (self.savedCs == 0x70 and self.savedEip == 0x0382):
         #if (self.savedCs == 0xc000 and self.savedEip == 0x152):
         #    self.main.debugEnabled = self.main.debugEnabledTest = True
+        #if (self.savedCs == 0x8 and self.savedEip == 0x808b5d6b):
+        #    self.main.debugEnabledTest = self.main.debugEnabled = True
+        #if (self.savedCs == 0x137 and self.savedEip == 0x7fcf1025):
+        #    self.main.debugEnabledTest = self.main.debugEnabled = True
         if (len(exception.args) not in (1, 2)):
             self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', len(exception.args))
             return True
@@ -112,24 +118,24 @@ cdef class Cpu:
                 with gil:
                     raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (opcode == OPCODE_PREFIX_OP):
-                self.registers.operandSizePrefix = True
+                self.operandSizePrefix = True
             elif (opcode == OPCODE_PREFIX_ADDR):
-                self.registers.addressSizePrefix = True
+                self.addressSizePrefix = True
             elif (opcode in OPCODE_PREFIX_REPS):
-                self.registers.repPrefix = opcode
+                self.repPrefix = opcode
             else:
                 if (opcode == OPCODE_PREFIX_CS):
-                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.cs)
+                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.cs)
                 elif (opcode == OPCODE_PREFIX_SS):
-                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.ss)
+                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.ss)
                 elif (opcode == OPCODE_PREFIX_DS):
-                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.ds)
+                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.ds)
                 elif (opcode == OPCODE_PREFIX_ES):
-                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.es)
+                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.es)
                 elif (opcode == OPCODE_PREFIX_FS):
-                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.fs)
+                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.fs)
                 elif (opcode == OPCODE_PREFIX_GS):
-                    self.registers.segmentOverridePrefix = (<PyObject*>self.registers.segments.gs)
+                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.gs)
             ### TODO: I don't think, that we ever need lockPrefix.
             #elif (opcode == OPCODE_PREFIX_LOCK):
             #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
@@ -183,9 +189,9 @@ cdef class Cpu:
                     return
                 elif ((self.debugHalt and not self.debugSingleStep) or (self.cpuHalted and not self.main.exitIfCpuHalted)):
                     if (self.asyncEvent and not self.registers.ssInhibit):
-                        self.registers.resetPrefixes()
+                        self.resetPrefixes()
                         self.saveCurrentInstPointer()
-                        self.registers.readCodeSegSize()
+                        self.readCodeSegSize()
                         self.handleAsyncEvent()
                     else:
                         self.registers.ssInhibit = False
@@ -202,7 +208,7 @@ cdef class Cpu:
             self.debugSingleStep = False
         #self.registers.reloadCpuCache()
         self.cycles += CPU_CLOCK_TICK
-        self.registers.resetPrefixes()
+        self.resetPrefixes()
         self.saveCurrentInstPointer()
         if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>4))):
             if (self.main.platform.vga and self.main.platform.vga.ui):
@@ -213,7 +219,7 @@ cdef class Cpu:
             if (self.registers.tf):
                 self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet!")
             if (not self.registers.ssInhibit):
-                self.registers.readCodeSegSize()
+                self.readCodeSegSize()
                 if (self.asyncEvent):
                     self.handleAsyncEvent()
                     return
@@ -223,14 +229,14 @@ cdef class Cpu:
             else:
                 self.registers.ssInhibit = False
                 if (self.registers.tf):
-                    self.registers.readCodeSegSize()
+                    self.readCodeSegSize()
                     self.registers.tf = False
                     raise HirnwichseException(CPU_EXCEPTION_DB)
                     #return
             self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
             if (self.opcode in OPCODE_PREFIXES):
                 self.opcode = self.parsePrefixes(self.opcode)
-            self.registers.readCodeSegSize()
+            self.readCodeSegSize()
             self.registers.rf = False
             #if (self.savedCs == 0x28 and self.savedEip == 0xc00013b7):
             #if (self.savedCs == 0x28 and self.savedEip == 0xc00013d1):
@@ -251,6 +257,10 @@ cdef class Cpu:
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x8 and self.savedEip == 0x808c8e52):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x8 and self.savedEip == 0x8098147e and self.registers.regReadUnsignedDword(CPU_REGISTER_EDI) == 0xb9400000):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            if (self.savedCs == 0x137 and self.savedEip == 0x7fcf2ce9):
+                self.main.debugEnabledTest = self.main.debugEnabled = True
             if (self.main.debugEnabled or self.main.debugEnabledTest):
             #IF 1:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)

@@ -16,11 +16,15 @@ cdef class Cpu:
     cdef Hirnwichse main
     cdef Registers registers
     cdef Opcodes opcodes
-    cdef unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ
+    cdef PyObject *segmentOverridePrefix
+    cdef unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ, repPrefix, operandSizePrefix, addressSizePrefix, codeSegSize, operSize, addrSize
     cdef unsigned short savedCs, savedSs
     cdef unsigned int savedEip, savedEsp
     cdef unsigned long int cycles
     cdef inline void reset(self)
+    cdef inline void resetPrefixes(self) nogil:
+        self.operandSizePrefix = self.addressSizePrefix = self.repPrefix = 0
+        self.segmentOverridePrefix = NULL
     cdef inline void setINTR(self, unsigned char state) nogil:
         self.INTR = state
         if (state):
@@ -30,6 +34,9 @@ cdef class Cpu:
         self.HRQ = state
         if (state):
             self.asyncEvent = True
+    cdef inline void readCodeSegSize(self) nogil:
+        self.operSize = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
+        self.addrSize = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef inline void saveCurrentInstPointer(self) nogil
     cdef void handleAsyncEvent(self)
     cdef int exception(self, unsigned char exceptionId, signed int errorCode=?) except BITMASK_BYTE_CONST

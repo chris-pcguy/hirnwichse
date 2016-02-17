@@ -59,8 +59,6 @@ cdef class Vga:
     cdef void setStartAddress(self) nogil
     cdef unsigned int getColor(self, unsigned short color) nogil # RGBA
     cdef void readFontData(self) nogil
-    cdef void setProcessVideoMem(self, unsigned char processVideoMem) nogil
-    cdef unsigned char getProcessVideoMem(self) nogil
     cdef unsigned char translateByte(self, unsigned char data, unsigned char plane) nogil
     cdef void refreshScreenFunction(self) nogil
     cdef char *vgaAreaRead(self, unsigned int offset, unsigned int dataSize)

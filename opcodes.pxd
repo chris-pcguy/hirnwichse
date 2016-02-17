@@ -9,6 +9,7 @@ from registers cimport ModRMClass, Registers
 from cpu cimport Cpu
 from mm cimport Mm
 from pic cimport Pic
+from cpython.ref cimport PyObject
 
 
 cdef class Opcodes:

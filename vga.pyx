@@ -137,8 +137,9 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
         return self.state
     cdef void setMask(self, unsigned char value):
         self.mask = value
-        if (self.mask != 0xff):
-            self.vga.main.notice("DAC::setMask: mask == {0:#04x}", self.mask)
+        IF COMP_DEBUG:
+            if (self.mask != 0xff):
+                self.vga.main.notice("DAC::setMask: mask == {0:#04x}", self.mask)
 
 
 cdef class GDC(VGA_REGISTER_RAW):
@@ -187,7 +188,8 @@ cdef class GDC(VGA_REGISTER_RAW):
             elif (data == VGA_GDC_MEMBASE_B8000_32K):
                 self.vga.videoMemBase = 0xb8000
                 self.vga.videoMemSize = 0x08000
-            self.vga.main.notice("GDC::setData: videoMemBase=={0:#07x}; videoMemSize=={1:d}", self.vga.videoMemBase, self.vga.videoMemSize)
+            IF COMP_DEBUG:
+                self.vga.main.notice("GDC::setData: videoMemBase=={0:#07x}; videoMemSize=={1:d}", self.vga.videoMemBase, self.vga.videoMemSize)
             self.vga.needLoadFont = True
             if (temp1 != self.vga.videoMemBase or temp2 != self.vga.videoMemSize):
                 self.vga.refreshScreen = True
@@ -317,12 +319,16 @@ cdef class Vga:
             else:
                 color = (color & 0x3f) | ((self.colorSelect & 0xc) << 4)
         color *= 3
-        red = self.dac.configSpace.csReadValueUnsigned(color, 1) << 2
-        green = self.dac.configSpace.csReadValueUnsigned(color+1, 1) << 2
-        blue = self.dac.configSpace.csReadValueUnsigned(color+2, 1) << 2
-        return ((red << 24) | (green << 16) | (blue << 8) | 0xff)
+        red = (<unsigned char>self.dac.configSpace.csData[color]) << 2
+        green = (<unsigned char>self.dac.configSpace.csData[color+1]) << 2
+        blue = (<unsigned char>self.dac.configSpace.csData[color+2]) << 2
+        #with gil:
+        #    #red, green, blue = self.dac.configSpace.csRead(color, 3)
+        #    red, green, blue = self.dac.configSpace.csData[color:color+3]
+        #red, green, blue = red << 2, green << 2, blue << 2
+        return ((red << 16) | (green << 8) | blue)
     cdef void readFontData(self) nogil: # TODO
-        cdef unsigned short fontDataAddressA, fontDataAddressB
+        cdef unsigned short fontDataAddressA = 0, fontDataAddressB = 0
         cdef unsigned int posdata
         with gil:
             if (not self.ui or not self.needLoadFont):
@@ -330,19 +336,17 @@ cdef class Vga:
         if (not self.extMem):
             with gil:
                 self.main.notice("readFontData: what should I do here?")
-        fontDataAddressA =  (self.charSelA&3)<<14
-        fontDataAddressA |= VGA_FONTAREA_SIZE if (self.charSelA&4) else 0
-        fontDataAddressB =  (self.charSelB&3)<<14
-        fontDataAddressB |= VGA_FONTAREA_SIZE if (self.charSelB&4) else 0
+        if (self.charSelA):
+            fontDataAddressA =  (self.charSelA&3)<<14
+            fontDataAddressA |= VGA_FONTAREA_SIZE if (self.charSelA&4) else 0
+        if (self.charSelB):
+            fontDataAddressB =  (self.charSelB&3)<<14
+            fontDataAddressB |= VGA_FONTAREA_SIZE if (self.charSelB&4) else 0
         with gil:
             self.ui.charSize = (9 if (self.ui.mode9Bit) else 8, self.charHeight)
             self.ui.fontDataA = self.plane2.csRead(fontDataAddressA, VGA_FONTAREA_SIZE)
             self.ui.fontDataB = self.plane2.csRead(fontDataAddressB, VGA_FONTAREA_SIZE)
         self.needLoadFont = False
-    cdef void setProcessVideoMem(self, unsigned char processVideoMem) nogil:
-        self.processVideoMem = processVideoMem
-    cdef unsigned char getProcessVideoMem(self) nogil:
-        return self.processVideoMem
     cdef unsigned char translateByte(self, unsigned char data, unsigned char plane) nogil: # this function is 'inspired'/stolen from the ReactOS project. Thanks! :-)
         cdef unsigned char bitMask
         bitMask = self.bitMask
@@ -370,6 +374,9 @@ cdef class Vga:
     cdef void refreshScreenFunction(self) nogil:
         cdef unsigned char temp
         cdef unsigned int size
+        #with gil:
+        #    if (self.ui and self.graphicalMode):
+        #        self.ui.updateScreen()
         self.refreshScreen = False
         temp = self.writeMap
         self.writeMap = 0
@@ -379,6 +386,9 @@ cdef class Vga:
         self.vgaAreaWrite(self.videoMemBase+self.startAddress, size)
         #self.vgaAreaWrite(self.videoMemBase, self.videoMemSize)
         self.writeMap = temp
+        #with gil:
+        #    if (self.ui and self.graphicalMode):
+        #        self.ui.updateScreen()
     cdef char *vgaAreaRead(self, unsigned int offset, unsigned int dataSize):
         cdef unsigned int latchReg
         cdef unsigned char selectedPlanes
@@ -390,8 +400,8 @@ cdef class Vga:
         if (not self.ui):
             self.main.notice("vgaAreaRead: not self.ui")
             return bytes(dataSize)
-        if (not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
-            self.main.notice("vgaAreaRead: not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)")
+        if (not self.processVideoMem or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
+            self.main.notice("vgaAreaRead: not self.processVideoMem or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)")
             return bytes(dataSize)
         if ((self.alphaDis or self.graphicalMode or (self.writeMap == 0x4)) and offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize)):
             retStr = b''
@@ -421,7 +431,8 @@ cdef class Vga:
             self.latchReg[2] = (<unsigned char>self.plane2.csData[tempOffset])
             self.latchReg[3] = (<unsigned char>self.plane3.csData[tempOffset])
             if (self.readMode):
-                self.main.notice("VGA::vgaAreaRead: readMode==1")
+                IF COMP_DEBUG:
+                    self.main.notice("VGA::vgaAreaRead: readMode==1")
                 latchReg = self.latchReg[0]<<24
                 latchReg |= self.latchReg[1]<<16
                 latchReg |= self.latchReg[2]<<8
@@ -448,7 +459,7 @@ cdef class Vga:
         with gil:
             if (not self.ui):
                 return
-        if (not (self.getProcessVideoMem()) or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
+        if (not self.processVideoMem or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
             return
         #if (self.main.debugEnabled):
         IF 0:
@@ -608,7 +619,8 @@ cdef class Vga:
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned int retVal
         retVal = BITMASK_BYTE
-        self.main.notice("Vga::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
+        IF COMP_DEBUG:
+            self.main.notice("Vga::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize != OP_SIZE_BYTE):
             if (dataSize == OP_SIZE_WORD and ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
                 return BITMASK_WORD
@@ -616,10 +628,12 @@ cdef class Vga:
         elif (ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
             return BITMASK_BYTE
         elif ((ioPortAddr >= 0x3b0 and ioPortAddr <= 0x3bf) and (self.miscReg & VGA_EXTREG_COLOR_MODE) != 0):
-            self.main.notice("Vga::inPort: Trying to use mono-ports while being in color-mode.")
+            IF COMP_DEBUG:
+                self.main.notice("Vga::inPort: Trying to use mono-ports while being in color-mode.")
             return BITMASK_BYTE
         elif ((ioPortAddr >= 0x3d0 and ioPortAddr <= 0x3df) and (self.miscReg & VGA_EXTREG_COLOR_MODE) == 0):
-            self.main.notice("Vga::inPort: Trying to use color-ports while being in mono-mode.")
+            IF COMP_DEBUG:
+                self.main.notice("Vga::inPort: Trying to use color-ports while being in mono-mode.")
             return BITMASK_BYTE
         elif (ioPortAddr == 0x3c0):
             retVal = self.attrctrlreg.getIndex()
@@ -657,17 +671,21 @@ cdef class Vga:
             self.attrctrlreg.setFlipFlop(False)
         else:
             self.main.exitError("inPort: port {0:#06x} isn't supported. (dataSize byte)", ioPortAddr)
-        self.main.notice("Vga::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
+        IF COMP_DEBUG:
+            self.main.notice("Vga::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
         return <unsigned char>retVal
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (ioPortAddr not in (0x400, 0x401, 0x402, 0x403, 0x500, 0x504)):
-            self.main.notice("Vga::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
+            IF COMP_DEBUG:
+                self.main.notice("Vga::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if ((ioPortAddr >= 0x3b0 and ioPortAddr <= 0x3bf) and (self.miscReg & VGA_EXTREG_COLOR_MODE) != 0):
-                self.main.notice("Vga::outPort: Trying to use mono-ports while being in color-mode.")
+                IF COMP_DEBUG:
+                    self.main.notice("Vga::outPort: Trying to use mono-ports while being in color-mode.")
                 return
             elif ((ioPortAddr >= 0x3d0 and ioPortAddr <= 0x3df) and (self.miscReg & VGA_EXTREG_COLOR_MODE) == 0):
-                self.main.notice("Vga::outPort: Trying to use color-ports while being in mono-mode.")
+                IF COMP_DEBUG:
+                    self.main.notice("Vga::outPort: Trying to use color-ports while being in mono-mode.")
                 return
             elif (ioPortAddr in (0x1ce, 0x1cf)): # vbe dispi index/vbe dispi data
                 return
@@ -722,9 +740,11 @@ cdef class Vga:
             elif (ioPortAddr == 0xb004):
                 self.main.exitError("Vga::outPort: port {0:#06x} ACPI shutdown. (dataSize word, data {1:#04x})", ioPortAddr, data)
             else:
-                self.main.notice("Vga::outPort: port {0:#06x} isn't supported. (dataSize word, data {1:#06x})", ioPortAddr, data)
+                IF COMP_DEBUG:
+                    self.main.notice("Vga::outPort: port {0:#06x} isn't supported. (dataSize word, data {1:#06x})", ioPortAddr, data)
         else:
-            self.main.notice("Vga::outPort: port {0:#06x} with dataSize {1:d} isn't supported. (data {2:#06x})", ioPortAddr, dataSize, data)
+            IF COMP_DEBUG:
+                self.main.notice("Vga::outPort: port {0:#06x} with dataSize {1:d} isn't supported. (data {2:#06x})", ioPortAddr, dataSize, data)
         return
     cdef void run(self):
         #self.plane0.csResetData(BITMASK_BYTE)

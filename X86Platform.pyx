@@ -226,7 +226,7 @@ cdef class Platform:
         self.loadRom(join(self.main.romPath, self.main.biosFilename), 0xffff0000, False)
         if (self.main.vgaBiosFilename):
             self.loadRom(join(self.main.romPath, self.main.vgaBiosFilename), VGA_ROM_BASE, True)
-        #self.main.mm.ignoreRomWrite = True # TODO?
+        #self.main.mm.ignoreRomWrite = True # TODO: handle shadow at mm.pyx mmPhyWrite
         self.main.mm.mmClear(VGA_MEMAREA_ADDR, BITMASK_BYTE, 0x10000)
         self.main.mm.mmClear(0xb8000, BITMASK_BYTE, 0x8000)
     cdef void initDevicesPorts(self):

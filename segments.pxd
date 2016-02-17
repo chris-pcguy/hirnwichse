@@ -10,8 +10,8 @@ from registers cimport Registers
 
 cdef class Segment:
     cdef Segments segments
-    cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, segIsRW, \
-        segIsConforming, segIsNormal, segUse4K, segDPL, useGDT, readChecked, writeChecked, anotherLimit
+    cdef unsigned char accessByte, flags, isValid, segSize, segPresent, segIsCodeSeg, segIsRW, segIsConforming, \
+        segIsNormal, segUse4K, segDPL, useGDT, readChecked, writeChecked, anotherLimit, segIsGDTandNormal
     cdef unsigned short segmentIndex, segId
     cdef unsigned int base, limit
     cdef unsigned char loadSegment(self, unsigned short segmentIndex, unsigned char doInit) except BITMASK_BYTE_CONST
@@ -19,8 +19,8 @@ cdef class Segment:
 
 cdef class GdtEntry:
     cdef Gdt gdt
-    cdef unsigned char accessByte, flags, segSize, segPresent, segIsCodeSeg, segIsRW, \
-        segIsConforming, segIsNormal, segUse4K, segDPL, anotherLimit
+    cdef unsigned char accessByte, flags, segSize, segPresent, segIsCodeSeg, segIsRW, segIsConforming, \
+        segIsNormal, segUse4K, segDPL, anotherLimit
     cdef unsigned int base, limit
     cdef void parseEntryData(self, unsigned long int entryData) nogil
     cdef inline unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST
@@ -86,18 +86,17 @@ cdef class Segments:
     cdef Paging paging
     cdef Registers registers
     cdef Segment cs, ds, es, fs, gs, ss, tss
-    cdef tuple segs
     cdef unsigned short ldtr
     cdef void reset(self)
     cdef Segment getSegment(self, unsigned short segmentId, unsigned char checkForValidness)
-    cdef GdtEntry getEntry(self, unsigned short num)
-    cdef unsigned char getSegType(self, unsigned short num) except? BITMASK_BYTE_CONST
-    cdef unsigned char setSegType(self, unsigned short num, unsigned char segmentType) except BITMASK_BYTE_CONST
-    cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) except BITMASK_BYTE_CONST
-    cdef unsigned char checkReadAllowed(self, unsigned short num)
-    cdef unsigned char checkWriteAllowed(self, unsigned short num)
-    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId) except BITMASK_BYTE_CONST
-    cdef unsigned char inLimit(self, unsigned short num) nogil
+    cdef inline GdtEntry getEntry(self, unsigned short num)
+    cdef inline unsigned char getSegType(self, unsigned short num) except? BITMASK_BYTE_CONST
+    cdef inline unsigned char setSegType(self, unsigned short num, unsigned char segmentType) except BITMASK_BYTE_CONST
+    cdef inline unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) except BITMASK_BYTE_CONST
+    cdef inline unsigned char checkReadAllowed(self, unsigned short num)
+    cdef inline unsigned char checkWriteAllowed(self, unsigned short num)
+    cdef inline unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId) except BITMASK_BYTE_CONST
+    cdef inline unsigned char inLimit(self, unsigned short num) nogil
     cdef void run(self)
 
 

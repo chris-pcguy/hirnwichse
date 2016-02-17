@@ -1,5 +1,5 @@
 
-DEF COMP_DEBUG = 0
+DEF COMP_DEBUG = 1
 
 cdef unsigned char OP_SIZE_BYTE  = 1
 cdef unsigned char OP_SIZE_WORD  = 2

@@ -81,16 +81,12 @@ cdef class Registers:
     cdef Segments segments
     cdef Fpu fpu
     cdef RegStruct regs[CPU_REGISTERS]
-    cdef PyObject *segmentOverridePrefix
-    cdef unsigned char repPrefix, operandSizePrefix, addressSizePrefix, codeSegSize, cf, pf, af, zf, sf, tf, if_flag, df, of, iopl, \
+    cdef unsigned char cf, pf, af, zf, sf, tf, if_flag, df, of, iopl, \
                         nt, rf, vm, ac, vif, vip, id, cpl, A20Active, protectedModeOn, pagingOn, writeProtectionOn, ssInhibit, \
-                        cacheDisabled, operSize, addrSize
+                        cacheDisabled
     cdef unsigned int cpuCacheBase, cpuCacheIndex
     cdef bytes cpuCache
-    cdef void reset(self)
-    cdef inline void resetPrefixes(self) nogil:
-        self.operandSizePrefix = self.addressSizePrefix = self.repPrefix = 0
-        self.segmentOverridePrefix = NULL
+    cdef void reset(self) nogil
     cdef void reloadCpuCache(self)
     cdef inline void checkCache(self, unsigned int mmAddr, unsigned char dataSize): # called on a memory write; reload cache for self-modifying-code
         if (mmAddr >= self.cpuCacheBase and mmAddr+dataSize <= self.cpuCacheBase+CPU_CACHE_SIZE):
@@ -102,9 +98,6 @@ cdef class Registers:
     cdef signed long int readFromCacheAddSigned(self, unsigned char numBytes)
     cdef unsigned long int readFromCacheAddUnsigned(self, unsigned char numBytes)
     cdef unsigned long int readFromCacheUnsigned(self, unsigned char numBytes)
-    cdef inline void readCodeSegSize(self) nogil:
-        self.operSize = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-        self.addrSize = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef inline unsigned int readFlags(self) nogil:
         return (FLAG_REQUIRED | self.cf | (self.pf<<2) | (self.af<<4) | (self.zf<<6) | (self.sf<<7) | (self.tf<<8) | (self.if_flag<<9) | (self.df<<10) | \
           (self.of<<11) | (self.iopl<<12) | (self.nt<<14) | (self.rf<<16) | (self.vm<<17) | (self.ac<<18) | (self.vif<<19) | (self.vip<<20) | (self.id<<21))
@@ -319,7 +312,7 @@ cdef class Registers:
     cdef inline unsigned char getCond(self, unsigned char index) nogil
     cdef inline void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method) nogil
     cdef inline unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) nogil except BITMASK_BYTE_CONST
-    cdef inline unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST
+    cdef inline unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, PyObject *segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST
     cdef inline signed short mmReadValueSignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         return <signed char>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
     cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:

@@ -190,7 +190,7 @@ cdef class PS2:
         return 0
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
-            self.main.notice("PS2: outPort: port {0:#04x} ; data {1:#04x}", ioPortAddr, data)
+            self.main.notice("PS2: outPort: port {0:#04x} ; data {1:#04x}; savedCs=={2:#06x}; savedEip=={3:#06x}", ioPortAddr, data, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x60):
                 if (not self.needWriteBytes):
                     if (not self.kbdClockEnabled):
@@ -202,7 +202,7 @@ cdef class PS2:
                         self.appendToOutBytesImm(b'\xfe')
                     elif (data == 0xd3):
                         self.appendToOutBytes(b'\xfa')
-                    elif (data == 0xed):
+                    elif (data == 0xed): # setLeds
                         self.needWriteBytes = 1
                         self.appendToOutBytesImm(b'\xfa')
                     elif (data == 0xee):
@@ -264,8 +264,7 @@ cdef class PS2:
                                     elif (data == 0xf3):
                                         self.needWriteBytesMouse = 1
                                     elif (data == 0xff):
-                                        self.appendToOutBytesMouse(b'\xaa')
-                                        self.appendToOutBytesMouse(b'\x00')
+                                        self.appendToOutBytesMouse(b'\xaa\x00')
                             ELSE:
                                 self.appendToOutBytesMouse(b'\xfe')
                                 self.timeout = True
@@ -282,8 +281,7 @@ cdef class PS2:
                     elif (self.lastUsedPort == 0x60):
                         if (self.lastUsedCmd == 0xf0): # port 0x60
                             if (data == 0x00): # get scancodes
-                                self.appendToOutBytes(b'\xfa')
-                                self.appendToOutBytes(bytes([ self.currentScancodesSet+1 ]))
+                                self.appendToOutBytes(bytes([ 0xfa, self.currentScancodesSet+1 ]))
                             elif (data in (0x01, 0x02, 0x03)):
                                 self.currentScancodesSet = data-1
                                 self.main.notice("outPort: self.currentScancodesSet is now set to {0:d}. (port {1:#04x}; data {2:#04x})", self.currentScancodesSet, ioPortAddr, data)
@@ -391,18 +389,22 @@ cdef class PS2:
         retVal = self.irq1Requested
         self.irq1Requested = False
         if (not self.timerPending):
+            #self.main.notice("PS2::periodic: test1")
             return retVal
         if (usecDelta >= self.timerPending):
             self.timerPending = 0
         else:
             self.timerPending -= usecDelta
+            #self.main.notice("PS2::periodic: test2")
             return retVal
         if (self.outb):
+            #self.main.notice("PS2::periodic: test3")
             return retVal
         if (len(self.outBuffer) and (self.kbdClockEnabled or self.batInProgress)):
             self.outb = True
             if (self.allowIrq1):
                 self.irq1Requested = True
+        #self.main.notice("PS2::periodic: test4; retVal=={0:#04x}", retVal)
         return retVal
     cpdef timerFunc(self):
         cdef unsigned char retVal

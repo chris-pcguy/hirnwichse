@@ -11,12 +11,12 @@ cdef class PysdlUI:
     cpdef object window, screen, renderer
     cdef bytes fontDataA, fontDataB
     cdef tuple screenSize, charSize
+    #cdef dict points
+    cdef list points
     cdef unsigned char mode9Bit, replicate8Bit, msbBlink
     cpdef initPysdl(self)
     cpdef quitFunc(self)
     cpdef clearScreen(self)
-    cpdef object getCharRect(self, unsigned short x, unsigned short y)
-    cpdef object getBlankChar(self, unsigned int bgColor)
     cpdef object putPixel(self, unsigned short x, unsigned short y, unsigned char colors) # returns rect
     cpdef object putChar(self, unsigned short x, unsigned short y, unsigned char character, unsigned char colors) # returns rect
     cpdef setRepeatRate(self, unsigned short delay, unsigned short interval)
