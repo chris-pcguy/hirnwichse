@@ -348,7 +348,7 @@ cdef class Registers:
     cdef void reset(self) nogil:
         self.cf = self.pf = self.af = self.zf = self.sf = self.tf = \
           self.if_flag = self.df = self.of = self.iopl = self.nt = self.rf = self.vm = self.ac = \
-          self.vif = self.vip = self.id = self.cpl = self.protectedModeOn = self.pagingOn = writeProtectionOn = self.ssInhibit = self.cacheDisabled = self.cpuCacheBase = self.cpuCacheIndex = 0
+          self.vif = self.vip = self.id = self.cpl = self.protectedModeOn = self.pagingOn = self.writeProtectionOn = self.ssInhibit = self.cacheDisabled = self.cpuCacheBase = self.cpuCacheIndex = 0
         self.A20Active = True
         IF CPU_CACHE_SIZE:
             self.cpuCache = b''
@@ -362,6 +362,7 @@ cdef class Registers:
         self.regWriteDword(CPU_REGISTER_DR7, 0x400)
         #self.regWriteDword(CPU_REGISTER_EDX, 0x521)
         #self.regWriteDword(CPU_REGISTER_EDX, 0x611)
+        #self.regWriteDword(CPU_REGISTER_EDX, 0x631)
         self.regWriteDword(CPU_REGISTER_EDX, 0x635)
         self.segWriteSegment((<Segment>self.segments.cs), 0xf000)
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)

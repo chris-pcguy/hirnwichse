@@ -1720,6 +1720,8 @@ cdef class Opcodes:
             self.main.notice("Opcodes::opcodeGroup0F: LAR: test2.2! (op1=={0:#010x}; op2=={1:#06x})", op1, op2)
             self.modRMInstance.modRSave(self.cpu.operSize, op1, OPCODE_SAVE)
             self.registers.zf = True
+            #if (self.cpu.savedCs == 0x28 and self.cpu.savedEip == 0xc0002636 and op2 == 0x87):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
         elif (operOpcode == 0x03): # LSL
             self.main.notice("Opcodes::opcodeGroup0F: LSL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
             if (not protectedModeOn):
@@ -1921,6 +1923,7 @@ cdef class Opcodes:
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test4: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
                 #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x521)
                 #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x611)
+                #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x631)
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x635)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x10000)
                 #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8113)

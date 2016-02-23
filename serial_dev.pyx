@@ -7,7 +7,7 @@ from time import sleep
 from atexit import register
 from os import remove
 from os.path import exists
-import socket
+import socket, serial
 
 cdef class SerialPort:
     def __init__(self, Serial serial, unsigned char serialIndex):
@@ -21,6 +21,14 @@ cdef class SerialPort:
             self.serialFilename = self.main.serial2Filename
             self.irq = 3
         self.sock = self.fp = None
+        self.dlab = self.isDev = False
+        self.dataBits = 3
+        self.stopBits = 0
+        self.parity = 0
+        self.divisor = 1 # 12
+        self.interruptEnableRegister = self.interruptIdentificationFifoControl = self.modemControlRegister = self.modemStatusRegister = self.scratchRegister = 0
+        self.lineStatusRegister = 0x20
+        self.data = bytes()
         if (len(self.serialFilename)):
             if (self.serialFilename.startswith(b"socket:")):
                 self.serialFilename = self.serialFilename[7:]
@@ -30,18 +38,39 @@ cdef class SerialPort:
                 self.sock.bind(self.serialFilename)
                 self.sock.listen(1)
                 self.fp, addr = self.sock.accept()
+            elif (self.serialFilename.startswith(b"serial:")):
+                self.serialFilename = self.serialFilename[7:]
+                self.isDev = True
+                if (exists(self.serialFilename)):
+                    self.fp = serial.Serial(port=self.serialFilename)
+                    self.setBits()
             elif (exists(self.serialFilename)):
                 self.fp = open(self.serialFilename, "w+b")
-        self.dlab = False
-        self.dataBits = 3
-        self.stopBits = 0
-        self.parity = 0
-        self.divisor = 1 # 12
-        self.interruptEnableRegister = self.interruptIdentificationFifoControl = self.modemControlRegister = self.modemStatusRegister = self.scratchRegister = 0
-        self.lineStatusRegister = 0x20
-        self.data = bytes()
     cdef void reset(self):
         pass
+    cpdef setBits(self):
+        cdef unsigned char tempVal
+        self.fp.baudrate = 115200//self.divisor
+        if (self.parity & 1):
+            tempVal = self.parity >> 1
+            if (not tempVal):
+                self.fp.parity = serial.PARITY_ODD
+            elif (tempVal == 1):
+                self.fp.parity = serial.PARITY_EVEN
+            elif (tempVal == 2):
+                self.fp.parity = serial.PARITY_MARK
+            elif (tempVal == 3):
+                self.fp.parity = serial.PARITY_SPACE
+        else:
+            self.fp.parity = serial.PARITY_NONE
+        if (self.stopBits & 1):
+            if (self.dataBits): # dataBits != FIVEBITS
+                self.fp.stopbits = serial.STOPBITS_TWO
+            else:
+                self.fp.stopbits = serial.STOPBITS_ONE_POINT_FIVE
+        else:
+            self.fp.stopbits = serial.STOPBITS_ONE
+        self.fp.bytesize = 5+self.dataBits
     cpdef handleIrqs(self):
         if (self.fp is None):
             return
@@ -159,6 +188,7 @@ cdef class SerialPort:
                     self.main.notice("SerialPort::outPort_3: set divisor low")
                     self.divisor &= 0xff00
                     self.divisor |= data
+                    self.setBits()
                 else:
                     self.main.notice("SerialPort{0:d}::outPort: write character: {1:s}", self.serialIndex, chr(data))
                     self.writeData(bytes([data]))
@@ -167,6 +197,7 @@ cdef class SerialPort:
                     self.main.notice("SerialPort::outPort_3: set divisor high")
                     self.divisor &= 0x00ff
                     self.divisor |= (data<<8)
+                    self.setBits()
                 else:
                     self.main.notice("SerialPort::outPort_3: set interruptEnableRegister")
                     self.interruptEnableRegister = data
@@ -182,6 +213,7 @@ cdef class SerialPort:
                 self.stopBits = ((data >> 2) & 1)
                 self.parity = ((data >> 3) & 7)
                 self.dlab = ((data >> 7) & 1)
+                self.setBits()
             elif (ioPortAddr == 4):
                 self.modemControlRegister = data
             #elif (ioPortAddr == 5):

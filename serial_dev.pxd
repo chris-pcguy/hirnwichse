@@ -8,9 +8,10 @@ cdef class SerialPort:
     cdef Hirnwichse main
     cdef bytes serialFilename, data
     cpdef object sock, fp
-    cdef unsigned char serialIndex, dlab, dataBits, stopBits, parity, interruptEnableRegister, interruptIdentificationFifoControl, modemControlRegister, lineStatusRegister, modemStatusRegister, scratchRegister, irq
+    cdef unsigned char serialIndex, dlab, dataBits, stopBits, parity, interruptEnableRegister, interruptIdentificationFifoControl, modemControlRegister, lineStatusRegister, modemStatusRegister, scratchRegister, irq, isDev
     cdef unsigned short divisor
     cdef void reset(self)
+    cpdef setBits(self)
     cpdef handleIrqs(self)
     cpdef quitFunc(self)
     cdef void raiseIrq(self)

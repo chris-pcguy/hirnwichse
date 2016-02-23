@@ -103,24 +103,24 @@ cdef class Registers:
           (self.of<<11) | (self.iopl<<12) | (self.nt<<14) | (self.rf<<16) | (self.vm<<17) | (self.ac<<18) | (self.vif<<19) | (self.vip<<20) | (self.id<<21))
     cdef inline unsigned char setFlags(self, unsigned int flags) nogil:
         cdef unsigned char ifEnabled
-        self.cf = (flags&FLAG_CF)!=0
-        self.pf = (flags&FLAG_PF)!=0
-        self.af = (flags&FLAG_AF)!=0
-        self.zf = (flags&FLAG_ZF)!=0
-        self.sf = (flags&FLAG_SF)!=0
-        self.tf = (flags&FLAG_TF)!=0
-        ifEnabled = ((not self.if_flag) and ((flags&FLAG_IF)!=0))
-        self.if_flag = (flags&FLAG_IF)!=0
-        self.df = (flags&FLAG_DF)!=0
-        self.of = (flags&FLAG_OF)!=0
+        self.cf = flags&1
+        self.pf = (flags>>2)&1
+        self.af = (flags>>4)&1
+        self.zf = (flags>>6)&1
+        self.sf = (flags>>7)&1
+        self.tf = (flags>>8)&1
+        ifEnabled = ((not self.if_flag) and ((flags>>9)&1))
+        self.if_flag = (flags>>9)&1
+        self.df = (flags>>10)&1
+        self.of = (flags>>11)&1
         self.iopl = (flags>>12)&3
-        self.nt = (flags&FLAG_NT)!=0
-        self.rf = (flags&FLAG_RF)!=0
-        self.vm = (flags&FLAG_VM)!=0
-        self.ac = (flags&FLAG_AC)!=0
-        self.vif = (flags&FLAG_VIF)!=0
-        self.vip = (flags&FLAG_VIP)!=0
-        self.id = (flags&FLAG_ID)!=0
+        self.nt = (flags>>14)&1
+        self.rf = (flags>>16)&1
+        self.vm = (flags>>17)&1
+        self.ac = (flags>>18)&1
+        self.vif = (flags>>19)&1
+        self.vip = (flags>>20)&1
+        self.id = (flags>>21)&1
         return ifEnabled
     cdef inline unsigned char getCPL(self) nogil:
         if (not self.protectedModeOn):
@@ -194,107 +194,152 @@ cdef class Registers:
     cdef inline unsigned long int regWriteQword(self, unsigned short regId, unsigned long int value) nogil:
         IF 0:
         #if (regId == CPU_REGISTER_RFLAGS):
-            return self.setFlags(<unsigned int>value)
-            self.main.cpu.asyncEvent = True
+            if (self.setFlags(<unsigned int>value)):
+                self.main.cpu.asyncEvent = True
         #else:
-        ELSE:
-            self.regs[regId]._union.rrx = value
+        #ELSE:
+        self.regs[regId]._union.rrx = value
         return value
     cdef signed long int regReadSigned(self, unsigned short regId, unsigned char regSize) nogil
     cdef unsigned long int regReadUnsigned(self, unsigned short regId, unsigned char regSize) nogil
     cdef void regWrite(self, unsigned short regId, unsigned long int value, unsigned char regSize) nogil
     cdef inline unsigned char regAddLowByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteLowByte(regId, (self.regReadUnsignedLowByte(regId)+value))
+        self.regs[regId]._union.word._union.byte.rl += value
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regAddHighByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteHighByte(regId, (self.regReadUnsignedHighByte(regId)+value))
+        self.regs[regId]._union.word._union.byte.rh += value
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regAddWord(self, unsigned short regId, unsigned short value) nogil:
-        return self.regWriteWord(regId, (self.regReadUnsignedWord(regId)+value))
+        self.regs[regId]._union.word._union.rx += value
+        return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regAddDword(self, unsigned short regId, unsigned int value) nogil:
-        return self.regWriteDword(regId, (self.regReadUnsignedDword(regId)+value))
+        self.regs[regId]._union.dword.erx += value
+        return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regAddQword(self, unsigned short regId, unsigned long int value) nogil:
-        return self.regWriteQword(regId, (self.regReadUnsignedQword(regId)+value))
+        self.regs[regId]._union.rrx += value
+        return self.regs[regId]._union.rrx
     cdef inline unsigned long int regAdd(self, unsigned short regId, unsigned long int value, unsigned char regSize) nogil
     cdef inline unsigned char regAdcLowByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regAddLowByte(regId, (value+self.cf))
+        self.regs[regId]._union.word._union.byte.rl += value+self.cf
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regAdcHighByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regAddHighByte(regId, (value+self.cf))
+        self.regs[regId]._union.word._union.byte.rh += value+self.cf
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regAdcWord(self, unsigned short regId, unsigned short value) nogil:
-        return self.regAddWord(regId, (value+self.cf))
+        self.regs[regId]._union.word._union.rx += value+self.cf
+        return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regAdcDword(self, unsigned short regId, unsigned int value) nogil:
-        return self.regAddDword(regId, (value+self.cf))
+        self.regs[regId]._union.dword.erx += value+self.cf
+        return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regAdcQword(self, unsigned short regId, unsigned long int value) nogil:
-        return self.regAddQword(regId, (value+self.cf))
+        self.regs[regId]._union.rrx += value+self.cf
+        return self.regs[regId]._union.rrx
     cdef inline unsigned char regSubLowByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteLowByte(regId, (self.regReadUnsignedLowByte(regId)-value))
+        self.regs[regId]._union.word._union.byte.rl -= value
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regSubHighByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteHighByte(regId, (self.regReadUnsignedHighByte(regId)-value))
+        self.regs[regId]._union.word._union.byte.rh -= value
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regSubWord(self, unsigned short regId, unsigned short value) nogil:
-        return self.regWriteWord(regId, (self.regReadUnsignedWord(regId)-value))
+        self.regs[regId]._union.word._union.rx -= value
+        return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regSubDword(self, unsigned short regId, unsigned int value) nogil:
-        return self.regWriteDword(regId, (self.regReadUnsignedDword(regId)-value))
+        self.regs[regId]._union.dword.erx -= value
+        return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regSubQword(self, unsigned short regId, unsigned long int value) nogil:
-        return self.regWriteQword(regId, (self.regReadUnsignedQword(regId)-value))
+        self.regs[regId]._union.rrx -= value
+        return self.regs[regId]._union.rrx
     cdef inline unsigned long int regSub(self, unsigned short regId, unsigned long int value, unsigned char regSize) nogil
     cdef inline unsigned char regSbbLowByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regSubLowByte(regId, (value+self.cf))
+        self.regs[regId]._union.word._union.byte.rl -= value+self.cf
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regSbbHighByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regSubHighByte(regId, (value+self.cf))
+        self.regs[regId]._union.word._union.byte.rh -= value+self.cf
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regSbbWord(self, unsigned short regId, unsigned short value) nogil:
-        return self.regSubWord(regId, (value+self.cf))
+        self.regs[regId]._union.word._union.rx -= value+self.cf
+        return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regSbbDword(self, unsigned short regId, unsigned int value) nogil:
-        return self.regSubDword(regId, (value+self.cf))
+        self.regs[regId]._union.dword.erx -= value+self.cf
+        return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regSbbQword(self, unsigned short regId, unsigned long int value) nogil:
-        return self.regSubQword(regId, (value+self.cf))
+        self.regs[regId]._union.rrx -= value+self.cf
+        return self.regs[regId]._union.rrx
     cdef inline unsigned char regXorLowByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteLowByte(regId, (self.regReadUnsignedLowByte(regId)^value))
+        self.regs[regId]._union.word._union.byte.rl ^= value
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regXorHighByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteHighByte(regId, (self.regReadUnsignedHighByte(regId)^value))
+        self.regs[regId]._union.word._union.byte.rh ^= value
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regXorWord(self, unsigned short regId, unsigned short value) nogil:
-        return self.regWriteWord(regId, (self.regReadUnsignedWord(regId)^value))
+        self.regs[regId]._union.word._union.rx ^= value
+        return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regXorDword(self, unsigned short regId, unsigned int value) nogil:
-        return self.regWriteDword(regId, (self.regReadUnsignedDword(regId)^value))
+        self.regs[regId]._union.dword.erx ^= value
+        return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regXorQword(self, unsigned short regId, unsigned long int value) nogil:
-        return self.regWriteQword(regId, (self.regReadUnsignedQword(regId)^value))
+        self.regs[regId]._union.rrx ^= value
+        return self.regs[regId]._union.rrx
     cdef inline unsigned char regAndLowByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteLowByte(regId, (self.regReadUnsignedLowByte(regId)&value))
+        self.regs[regId]._union.word._union.byte.rl &= value
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regAndHighByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteHighByte(regId, (self.regReadUnsignedHighByte(regId)&value))
+        self.regs[regId]._union.word._union.byte.rh &= value
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regAndWord(self, unsigned short regId, unsigned short value) nogil:
-        return self.regWriteWord(regId, (self.regReadUnsignedWord(regId)&value))
+        self.regs[regId]._union.word._union.rx &= value
+        return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regAndDword(self, unsigned short regId, unsigned int value) nogil:
-        return self.regWriteDword(regId, (self.regReadUnsignedDword(regId)&value))
+        self.regs[regId]._union.dword.erx &= value
+        return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regAndQword(self, unsigned short regId, unsigned long int value) nogil:
-        return self.regWriteQword(regId, (self.regReadUnsignedQword(regId)&value))
+        self.regs[regId]._union.rrx &= value
+        return self.regs[regId]._union.rrx
     cdef inline unsigned char regOrLowByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteLowByte(regId, (self.regReadUnsignedLowByte(regId)|value))
+        self.regs[regId]._union.word._union.byte.rl |= value
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regOrHighByte(self, unsigned short regId, unsigned char value) nogil:
-        return self.regWriteHighByte(regId, (self.regReadUnsignedHighByte(regId)|value))
+        self.regs[regId]._union.word._union.byte.rh |= value
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regOrWord(self, unsigned short regId, unsigned short value) nogil:
-        return self.regWriteWord(regId, (self.regReadUnsignedWord(regId)|value))
+        self.regs[regId]._union.word._union.rx |= value
+        return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regOrDword(self, unsigned short regId, unsigned int value) nogil:
-        return self.regWriteDword(regId, (self.regReadUnsignedDword(regId)|value))
+        self.regs[regId]._union.dword.erx |= value
+        return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regOrQword(self, unsigned short regId, unsigned long int value) nogil:
-        return self.regWriteQword(regId, (self.regReadUnsignedQword(regId)|value))
+        self.regs[regId]._union.rrx |= value
+        return self.regs[regId]._union.rrx
     cdef inline unsigned char regNegLowByte(self, unsigned short regId) nogil:
-        return self.regWriteLowByte(regId, (-self.regReadUnsignedLowByte(regId)))
+        self.regs[regId]._union.word._union.byte.rl = -(self.regs[regId]._union.word._union.byte.rl)
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regNegHighByte(self, unsigned short regId) nogil:
-        return self.regWriteHighByte(regId, (-self.regReadUnsignedHighByte(regId)))
+        self.regs[regId]._union.word._union.byte.rh = -(self.regs[regId]._union.word._union.byte.rh)
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regNegWord(self, unsigned short regId) nogil:
-        return self.regWriteWord(regId, (-self.regReadUnsignedWord(regId)))
+        self.regs[regId]._union.word._union.rx = -(self.regs[regId]._union.word._union.rx)
+        return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regNegDword(self, unsigned short regId) nogil:
-        return self.regWriteDword(regId, (-self.regReadUnsignedDword(regId)))
+        self.regs[regId]._union.dword.erx = -(self.regs[regId]._union.dword.erx)
+        return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regNegQword(self, unsigned short regId) nogil:
-        return self.regWriteQword(regId, (-self.regReadUnsignedQword(regId)))
+        self.regs[regId]._union.rrx = -(self.regs[regId]._union.rrx)
+        return self.regs[regId]._union.rrx
     cdef inline unsigned char regNotLowByte(self, unsigned short regId) nogil:
-        return self.regWriteLowByte(regId, (~self.regReadUnsignedLowByte(regId)))
+        self.regs[regId]._union.word._union.byte.rl = ~(self.regs[regId]._union.word._union.byte.rl)
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regNotHighByte(self, unsigned short regId) nogil:
-        return self.regWriteHighByte(regId, (~self.regReadUnsignedHighByte(regId)))
+        self.regs[regId]._union.word._union.byte.rh = ~(self.regs[regId]._union.word._union.byte.rh)
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regNotWord(self, unsigned short regId) nogil:
-        return self.regWriteWord(regId, (~self.regReadUnsignedWord(regId)))
+        self.regs[regId]._union.word._union.rx = ~(self.regs[regId]._union.word._union.rx)
+        return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regNotDword(self, unsigned short regId) nogil:
-        return self.regWriteDword(regId, (~self.regReadUnsignedDword(regId)))
+        self.regs[regId]._union.dword.erx = ~(self.regs[regId]._union.dword.erx)
+        return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regNotQword(self, unsigned short regId) nogil:
-        return self.regWriteQword(regId, (~self.regReadUnsignedQword(regId)))
+        self.regs[regId]._union.rrx = ~(self.regs[regId]._union.rrx)
+        return self.regs[regId]._union.rrx
     cdef inline unsigned char regWriteWithOpLowByte(self, unsigned short regId, unsigned char value, unsigned char valueOp) nogil
     cdef inline unsigned char regWriteWithOpHighByte(self, unsigned short regId, unsigned char value, unsigned char valueOp) nogil
     cdef inline unsigned short regWriteWithOpWord(self, unsigned short regId, unsigned short value, unsigned char valueOp) nogil

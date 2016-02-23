@@ -1,12 +1,17 @@
 
 #cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
+include "cpu_globals.pxi"
+include "globals.pxi"
+
 import struct
 from time import time
 
 cdef class HirnwichseTest:
     def __init__(self):
-        pass
+        self.cf = self.pf = self.af = self.zf = self.sf = self.tf = \
+          self.if_flag = self.df = self.of = self.iopl = self.nt = self.rf = self.vm = self.ac = \
+          self.vif = self.vip = self.id = 0
     cdef void func1(self):
         cdef unsigned char a1[8]
         cdef unsigned char a2[8]
@@ -66,15 +71,58 @@ cdef class HirnwichseTest:
         with nogil:
             for i in range(10000000):
                 pass
+    cdef void func4(self, unsigned int flags):
+        cdef unsigned char ifEnabled
+        """
+        self.cf = (flags&FLAG_CF)!=0
+        self.pf = (flags&FLAG_PF)!=0
+        self.af = (flags&FLAG_AF)!=0
+        self.zf = (flags&FLAG_ZF)!=0
+        self.sf = (flags&FLAG_SF)!=0
+        self.tf = (flags&FLAG_TF)!=0
+        ifEnabled = ((not False) and ((flags&FLAG_IF)!=0))
+        self.if_flag = (flags&FLAG_IF)!=0
+        self.df = (flags&FLAG_DF)!=0
+        self.of = (flags&FLAG_OF)!=0
+        self.iopl = (flags>>12)&3
+        self.nt = (flags&FLAG_NT)!=0
+        self.rf = (flags&FLAG_RF)!=0
+        self.vm = (flags&FLAG_VM)!=0
+        self.ac = (flags&FLAG_AC)!=0
+        self.vif = (flags&FLAG_VIF)!=0
+        self.vip = (flags&FLAG_VIP)!=0
+        self.id = (flags&FLAG_ID)!=0
+        """
+        #return (FLAG_REQUIRED | self.cf | (self.pf<<2) | (self.af<<4) | (self.zf<<6) | (self.sf<<7) | (self.tf<<8) | (self.if_flag<<9) | (self.df<<10) | \
+        #  (self.of<<11) | (self.iopl<<12) | (self.nt<<14) | (self.rf<<16) | (self.vm<<17) | (self.ac<<18) | (self.vif<<19) | (self.vip<<20) | (self.id<<21))
+        self.cf = flags&1
+        self.pf = (flags>>2)&1
+        self.af = (flags>>4)&1
+        self.zf = (flags>>6)&1
+        self.sf = (flags>>7)&1
+        self.tf = (flags>>8)&1
+        ifEnabled = ((not False) and ((flags>>9)&1))
+        self.if_flag = (flags>>9)&1
+        self.df = (flags>>10)&1
+        self.of = (flags>>11)&1
+        self.iopl = (flags>>12)&3
+        self.nt = (flags>>14)&1
+        self.rf = (flags>>16)&1
+        self.vm = (flags>>17)&1
+        self.ac = (flags>>18)&1
+        self.vif = (flags>>19)&1
+        self.vip = (flags>>20)&1
+        self.id = (flags>>21)&1
     cpdef run(self):
         cdef unsigned int i
         cdef double time1, time2
         print("test1")
         #self.func1()
         time1 = time()
-        #for i in range(100000000):
-        #    self.func2(0x40)
-        self.func3()
+        for i in range(100000000):
+            #self.func2(0x40)
+            self.func4(BITMASK_DWORD)
+        #self.func3()
         time2 = time()-time1
         print("test3: {0:f}".format(time2))
         print("test2")
