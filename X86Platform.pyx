@@ -1,6 +1,7 @@
 
 #cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
+include "cpu_globals.pxi"
 include "globals.pxi"
 
 from os import stat
@@ -194,6 +195,8 @@ cdef class Platform:
         except:
             print_exc()
             exit(1)
+    cpdef fpuLowerIrq(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
+        self.pic.lowerIrq(FPU_IRQ)
     cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize):
         cdef object romFp
         cdef bytes romData
@@ -264,6 +267,7 @@ cdef class Platform:
         self.addReadHandlers(SERIAL_PORTS, self.serial, <InPort>self.serial.inPort)
         self.addWriteHandlers(PARALLEL_PORTS, self.parallel, <OutPort>self.parallel.outPort)
         self.addWriteHandlers(SERIAL_PORTS, self.serial, <OutPort>self.serial.outPort)
+        self.addWriteHandlers(FPU_PORTS, self, <OutPort>self.fpuLowerIrq)
     cdef void runDevices(self):
         self.cmos.run()
         self.pic.run()

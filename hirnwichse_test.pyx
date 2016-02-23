@@ -2,6 +2,7 @@
 #cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
 import struct
+from time import time
 
 cdef class HirnwichseTest:
     def __init__(self):
@@ -38,9 +39,44 @@ cdef class HirnwichseTest:
         for i in range(10):
             print("test3_c3[{0:d}]=={1:#04x}".format(i, c3[i]))
         #print("test3_c3=={0:s}".format(repr(c3)))
+    cdef void func2(self, unsigned char var1):
+        if (var1 >= 0x00 and var1 <= 0x0f):
+            pass
+        elif (var1 >= 0x10 and var1 <= 0x1f):
+            pass
+        elif (var1 >= 0x20 and var1 <= 0x2f):
+            pass
+        elif (var1 >= 0x30 and var1 <= 0x3f):
+            pass
+        #
+        elif ((var1 & 0xf0) == 0x40):
+            pass
+        elif (var1 >= 0x50 and var1 <= 0x5f):
+            pass
+        elif (var1 >= 0x60 and var1 <= 0x6f):
+            pass
+        elif (var1 >= 0x70 and var1 <= 0x7f):
+            pass
+        elif (var1 >= 0x80 and var1 <= 0x8f):
+            pass
+        elif (var1 >= 0x90 and var1 <= 0xff):
+            pass
+    cdef void func3(self):
+        cdef unsigned long int i
+        with nogil:
+            for i in range(10000000):
+                pass
     cpdef run(self):
+        cdef unsigned int i
+        cdef double time1, time2
         print("test1")
-        self.func1()
+        #self.func1()
+        time1 = time()
+        #for i in range(100000000):
+        #    self.func2(0x40)
+        self.func3()
+        time2 = time()-time1
+        print("test3: {0:f}".format(time2))
         print("test2")
 
 

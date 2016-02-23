@@ -254,7 +254,7 @@ cdef class PS2:
                         elif (self.lastUsedCmd == 0xd4): # port 0x64
                             if (self.main.debugEnabled):
                                 self.main.debug("outPort: self.lastUsedPort == 0x64; self.lastUsedCmd == 0xd4. (port {0:#04x}; data {1:#04x}; self.needWriteBytesMouse {2:d})", ioPortAddr, data, self.needWriteBytesMouse)
-                            IF 0: # mouse present
+                            IF 1: # mouse present
                                 self.appendToOutBytesMouse(b'\xfa')
                                 if (self.needWriteBytesMouse > 0):
                                     self.needWriteBytesMouse -= 1

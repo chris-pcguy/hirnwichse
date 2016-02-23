@@ -362,7 +362,7 @@ cdef class Registers:
         self.regWriteDword(CPU_REGISTER_DR7, 0x400)
         #self.regWriteDword(CPU_REGISTER_EDX, 0x521)
         #self.regWriteDword(CPU_REGISTER_EDX, 0x611)
-        self.regWriteDword(CPU_REGISTER_EDX, 0x631)
+        self.regWriteDword(CPU_REGISTER_EDX, 0x635)
         self.segWriteSegment((<Segment>self.segments.cs), 0xf000)
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef void reloadCpuCache(self):

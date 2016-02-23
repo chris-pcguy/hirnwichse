@@ -67,28 +67,46 @@ cdef class PitChannel:
                     #    #usleep(1)
                     #    #usleep(100)
                     #    #usleep(3000)
+                    #if (self.counterMode == 3 and self.counterValue&0x1):
+                    #    self.counterValue -= 1
                     while ((self.counterValue >= 2 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
+                    #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                         #for i in range(60):
                         #    pass
-                        if (self.counterMode == 3 and self.counterValue >= 3):
+                        if (self.counterMode == 3):
                             self.counterValue -= 2 # HACK
+                            #self.counterValue -= 4 # HACK
                         else:
                             self.counterValue -= 1 # HACK
+                            #self.counterValue -= 2 # HACK
                         #self.pit.main.notice("PitChannel::mode2Func: in while")
                         #if (not (self.counterValue&0x1fff)):
                         #if (not (self.counterValue&0xfff)):
                         #if (not (self.counterValue&0xff)):
                         #if (not (self.counterValue&0x7f)):
-                        if (not (self.counterValue&0x3f)):
-                        #IF 1:
-                            #with nogil:
-                            IF 1:
-                                #usleep(self.tempTimerValue)
-                                usleep(0)
-                                #usleep(1)
-                                #usleep(100)
+                        #if (not (self.counterValue&0x3f)):
+                        #if (not (self.counterValue&0x1f)):
+                        #if (not (self.counterValue&0xf)):
+                        #if (not (self.counterValue&0x7)):
+                        #if (not (self.counterValue&0x3)):
+                        #if (not (self.counterValue&0x1)):
+                        IF 1:
+                        #IF 0:
+                            #usleep(self.tempTimerValue)
+                            #usleep(0)
+                            #usleep(1)
+                            #usleep(5)
+                            usleep(10)
+                            #usleep(25)
+                            #usleep(50)
+                            #usleep(100)
                         #for i in range(1000000):
+                        #for i in range(50000):
+                        #for i in range(30000):
+                        #for i in range(10000):
+                        #for i in range(5000):
                         #for i in range(1000):
+                        #for i in range(250):
                         #for i in range(100):
                         #for i in range(60):
                         #    pass
@@ -176,7 +194,9 @@ cdef class Pit:
         cdef PitChannel channel
         cdef unsigned char channelId, retVal
         cdef unsigned int temp
-        #self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
+        IF COMP_DEBUG:
+        #IF 1:
+            self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
@@ -203,7 +223,9 @@ cdef class Pit:
                     channel.counterFlipFlop = not channel.counterFlipFlop
                 else:
                     self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", channel.counterWriteMode)
-                #self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
+                IF COMP_DEBUG:
+                #IF 1:
+                    self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
                 return retVal
             elif (ioPortAddr == 0x43):
                 self.main.notice("inPort: read from PIT command port 0x43 is ignored.")
@@ -216,7 +238,9 @@ cdef class Pit:
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef PitChannel channel
         cdef unsigned char channelId, bcd, modeNumber, counterWriteMode, i
-        #self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
+        IF COMP_DEBUG:
+        #IF 1:
+            self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3

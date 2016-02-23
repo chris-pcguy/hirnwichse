@@ -10,4 +10,4 @@ ATA
 VM86
 
 Fix rare issues with cpu exceptions (Win95)
-
+PIT (ReactOS 0.4.0)

@@ -48,6 +48,7 @@ cdef class Platform:
     cdef void delWriteHandlers(self, tuple portNums)
     cpdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
     cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
+    cpdef fpuLowerIrq(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
     cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize)
     cdef void loadRom(self, bytes romFileName, unsigned long int mmAddr, unsigned char isRomOptional)
     cdef void initMemory(self)
