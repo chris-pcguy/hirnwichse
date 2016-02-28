@@ -264,9 +264,9 @@ cdef class Platform:
         self.addWriteHandlers(FDC_FIRST_WRITE_PORTS, self.floppy, <OutPort>self.floppy.outPort)
         #self.addWriteHandlers(FDC_SECOND_WRITE_PORTS, self.floppy, <OutPort>self.floppy.outPort)
         self.addReadHandlers(PARALLEL_PORTS, self.parallel, <InPort>self.parallel.inPort)
-        self.addReadHandlers(SERIAL_PORTS, self.serial, <InPort>self.serial.inPort)
+        self.addReadHandlers(SERIAL_READ_PORTS, self.serial, <InPort>self.serial.inPort)
         self.addWriteHandlers(PARALLEL_PORTS, self.parallel, <OutPort>self.parallel.outPort)
-        self.addWriteHandlers(SERIAL_PORTS, self.serial, <OutPort>self.serial.outPort)
+        self.addWriteHandlers(SERIAL_WRITE_PORTS, self.serial, <OutPort>self.serial.outPort)
         self.addWriteHandlers(FPU_PORTS, self, <OutPort>self.fpuLowerIrq)
     cdef void runDevices(self):
         self.cmos.run()

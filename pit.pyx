@@ -84,9 +84,9 @@ cdef class PitChannel:
                         #if (not (self.counterValue&0xfff)):
                         #if (not (self.counterValue&0xff)):
                         #if (not (self.counterValue&0x7f)):
-                        if (not (self.counterValue&0x3f)):
+                        #if (not (self.counterValue&0x3f)):
                         #if (not (self.counterValue&0x1f)):
-                        #if (not (self.counterValue&0xf)):
+                        if (not (self.counterValue&0xf)):
                         #if (not (self.counterValue&0x7)):
                         #if (not (self.counterValue&0x3)):
                         #if (not (self.counterValue&0x1)):

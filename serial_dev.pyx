@@ -7,7 +7,7 @@ from time import sleep
 from atexit import register
 from os import remove
 from os.path import exists
-import socket, serial
+import socket, serial as seriallib
 
 cdef class SerialPort:
     def __init__(self, Serial serial, unsigned char serialIndex):
@@ -16,9 +16,11 @@ cdef class SerialPort:
         self.serialIndex = serialIndex
         if (not self.serialIndex):
             self.serialFilename = self.main.serial1Filename
-            self.irq = 4
         else:
             self.serialFilename = self.main.serial2Filename
+        if (not (self.serialIndex & 1)):
+            self.irq = 4
+        else:
             self.irq = 3
         self.sock = self.fp = None
         self.dlab = self.isDev = False
@@ -26,10 +28,11 @@ cdef class SerialPort:
         self.stopBits = 0
         self.parity = 0
         self.divisor = 1 # 12
-        self.interruptEnableRegister = self.interruptIdentificationFifoControl = self.modemControlRegister = self.modemStatusRegister = self.scratchRegister = 0
-        self.lineStatusRegister = 0x20
+        self.interruptEnableRegister = self.modemControlRegister = self.modemStatusRegister = self.scratchRegister = 0
+        self.lineStatusRegister = 0x60
+        self.interruptIdentificationFifoControl = 0x2
         self.data = bytes()
-        if (len(self.serialFilename)):
+        if (len(self.serialFilename) > 0):
             if (self.serialFilename.startswith(b"socket:")):
                 self.serialFilename = self.serialFilename[7:]
                 if (exists(self.serialFilename)):
@@ -42,51 +45,70 @@ cdef class SerialPort:
                 self.serialFilename = self.serialFilename[7:]
                 self.isDev = True
                 if (exists(self.serialFilename)):
-                    self.fp = serial.Serial(port=self.serialFilename)
+                    self.fp = seriallib.Serial(port=self.serialFilename.decode())
                     self.setBits()
-            elif (exists(self.serialFilename)):
+            else:
                 self.fp = open(self.serialFilename, "w+b")
     cdef void reset(self):
         pass
+    cpdef setFlags(self):
+        self.lineStatusRegister &= ~0x1
+        if (not len(self.data)):
+            self.readData()
+        if (self.isDev):
+            self.lineStatusRegister &= ~0x60
+            if (not self.fp.outWaiting()):
+                if (self.interruptEnableRegister & 0x2):
+                    self.raiseIrq() # write irq
+                    self.interruptIdentificationFifoControl = 0x2
+                self.lineStatusRegister |= 0x60
+            if (self.fp.inWaiting()):
+                if (self.interruptEnableRegister & 0x1):
+                    self.raiseIrq() # read irq
+                    self.interruptIdentificationFifoControl = 0x4
+                self.lineStatusRegister |= 0x1
+        if (len(self.data) > 0):
+            self.lineStatusRegister |= 0x1
     cpdef setBits(self):
         cdef unsigned char tempVal
-        self.fp.baudrate = 115200//self.divisor
-        if (self.parity & 1):
-            tempVal = self.parity >> 1
-            if (not tempVal):
-                self.fp.parity = serial.PARITY_ODD
-            elif (tempVal == 1):
-                self.fp.parity = serial.PARITY_EVEN
-            elif (tempVal == 2):
-                self.fp.parity = serial.PARITY_MARK
-            elif (tempVal == 3):
-                self.fp.parity = serial.PARITY_SPACE
-        else:
-            self.fp.parity = serial.PARITY_NONE
-        if (self.stopBits & 1):
-            if (self.dataBits): # dataBits != FIVEBITS
-                self.fp.stopbits = serial.STOPBITS_TWO
+        if (self.isDev):
+            self.fp.baudrate = 115200//self.divisor
+            if (self.parity & 1):
+                tempVal = self.parity >> 1
+                if (not tempVal):
+                    self.fp.parity = seriallib.PARITY_ODD
+                elif (tempVal == 1):
+                    self.fp.parity = seriallib.PARITY_EVEN
+                elif (tempVal == 2):
+                    self.fp.parity = seriallib.PARITY_MARK
+                elif (tempVal == 3):
+                    self.fp.parity = seriallib.PARITY_SPACE
             else:
-                self.fp.stopbits = serial.STOPBITS_ONE_POINT_FIVE
-        else:
-            self.fp.stopbits = serial.STOPBITS_ONE
-        self.fp.bytesize = 5+self.dataBits
+                self.fp.parity = seriallib.PARITY_NONE
+            if (self.stopBits & 1):
+                if (self.dataBits): # dataBits != FIVEBITS
+                    self.fp.stopbits = seriallib.STOPBITS_TWO
+                else:
+                    self.fp.stopbits = seriallib.STOPBITS_ONE_POINT_FIVE
+            else:
+                self.fp.stopbits = seriallib.STOPBITS_ONE
+            self.fp.bytesize = 5+self.dataBits
     cpdef handleIrqs(self):
         if (self.fp is None):
             return
         while (not self.main.quitEmu):
-            self.readData()
-            self.writeData(bytes())
+            self.setFlags()
             sleep(1)
     cpdef quitFunc(self):
         if (self.sock is not None):
             self.sock.close()
             if (exists(self.serialFilename)):
                 remove(self.serialFilename)
+        elif (self.fp):
+            self.fp.close()
     cdef void raiseIrq(self):
         if (self.modemControlRegister & 0x8):
             self.main.notice("SerialPort::raiseIrq: raiseIrq enabled (self.serialIndex {0:d})", self.serialIndex)
-            (<Pic>self.main.platform.pic).lowerIrq(self.irq)
             (<Pic>self.main.platform.pic).raiseIrq(self.irq)
         else:
             self.main.notice("SerialPort::raiseIrq: raiseIrq disabled (self.serialIndex {0:d})", self.serialIndex)
@@ -101,17 +123,21 @@ cdef class SerialPort:
                             self.data += self.fp.recv(1)
                     except BlockingIOError:
                         pass
+                elif (self.isDev):
+                    if (self.fp.inWaiting() > 0):
+                        self.data += self.fp.read(1)
                 else:
                     self.data += self.fp.read(1)
             #usleep(100000)
             #usleep(round(1.0e6/(115200.0/self.divisor)))
             if ((self.interruptEnableRegister & 0x1) and len(self.data) > 0):
-                self.raiseIrq()
+                self.raiseIrq() # read irq
+                self.interruptIdentificationFifoControl = 0x4
     cdef void writeData(self, bytes data):
         cdef unsigned int retlen
         if (self.fp is not None):
             if (len(data) > 0):
-                self.lineStatusRegister &= ~0x20
+                self.lineStatusRegister &= ~0x60
                 self.main.notice("SerialPort{0:d}::writeData: write string: {1:s}", self.serialIndex, data.decode())
                 if (self.modemControlRegister & 0x10):
                     self.data += data
@@ -123,16 +149,26 @@ cdef class SerialPort:
                         self.fp.flush()
                 #usleep(100000)
                 #usleep(round(1.0e6/(115200.0/self.divisor)))
-                if (retlen <= len(data)):
-                    self.lineStatusRegister |= 0x20
+                if (self.isDev):
+                    if (self.fp.outWaiting()):
+                        self.lineStatusRegister |= 0x60
+                elif (retlen <= len(data)):
+                    self.lineStatusRegister |= 0x60
                 #if (1):
-                #self.lineStatusRegister |= 0x20
-                if (self.interruptEnableRegister & 0x2):
-                    self.raiseIrq()
+                #self.lineStatusRegister |= 0x60
+                if (self.isDev):
+                    if (self.interruptEnableRegister & 0x2 and not self.fp.outWaiting()):
+                        self.raiseIrq() # write irq
+                        self.interruptIdentificationFifoControl = 0x2
+                else:
+                    if (self.interruptEnableRegister & 0x2):
+                        self.raiseIrq() # write irq
+                        self.interruptIdentificationFifoControl = 0x2
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef unsigned char ret = BITMASK_BYTE
         cdef bytes tempData
         if (self.fp is None):
+            self.main.notice("SerialPort::inPort_4: fp is None")
             return ret
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0):
@@ -143,7 +179,7 @@ cdef class SerialPort:
                         self.readData()
                     if (len(self.data) > 0):
                         ret = self.data[0]
-                        self.main.notice("SerialPort{0:d}::inPort: read character: {1:s}", self.serialIndex, chr(ret))
+                        self.main.notice("SerialPort{0:d}::inPort_3: read character: {1:s}", self.serialIndex, chr(ret))
                         if (len(self.data) > 1):
                             self.data = self.data[1:]
                         else:
@@ -156,19 +192,16 @@ cdef class SerialPort:
                 else:
                     return self.interruptEnableRegister
             elif (ioPortAddr == 2):
-                return 0x1
+                (<Pic>self.main.platform.pic).lowerIrq(self.irq)
+                if (not self.interruptIdentificationFifoControl):
+                    self.interruptIdentificationFifoControl = 0x1
+                return self.interruptIdentificationFifoControl
             elif (ioPortAddr == 3):
                 return ((self.dlab << 7) | (self.parity << 3) | (self.stopBits << 2) | (self.dataBits))
             elif (ioPortAddr == 4):
                 return self.modemControlRegister
             elif (ioPortAddr == 5):
-                self.lineStatusRegister &= ~1
-                if (self.sock is not None):
-                    self.readData()
-                    if (len(self.data) > 0):
-                        self.lineStatusRegister |= 1
-                elif (len(self.data) > 0):
-                    self.lineStatusRegister |= 1
+                self.setFlags()
                 return self.lineStatusRegister
             elif (ioPortAddr == 6):
                 return self.modemStatusRegister
@@ -181,6 +214,7 @@ cdef class SerialPort:
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (self.fp is None):
+            self.main.notice("SerialPort::outPort_4: fp is None")
             return
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0):
@@ -216,10 +250,6 @@ cdef class SerialPort:
                 self.setBits()
             elif (ioPortAddr == 4):
                 self.modemControlRegister = data
-            #elif (ioPortAddr == 5):
-            #    self.lineStatusRegister = data
-            elif (ioPortAddr == 6):
-                self.modemStatusRegister = data
             elif (ioPortAddr == 7):
                 self.scratchRegister = data
             else:
@@ -245,6 +275,7 @@ cdef class Serial:
     cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
         cdef SerialPort port
         cdef unsigned int ret = BITMASK_BYTE
+        self.main.notice("Serial::inPort_1: port {0:#04x} dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in SERIAL1_PORTS):
                 port = self.ports[0]
@@ -253,16 +284,19 @@ cdef class Serial:
                 port = self.ports[1]
                 ret = port.inPort(ioPortAddr-SERIAL2_PORTS[0], dataSize)
             else:
-                self.main.exitError("Serial::inPort_1: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+                self.main.exitError("Serial::inPort_2: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
                 return ret
+        elif (dataSize == OP_SIZE_WORD):
+            ret = self.inPort(ioPortAddr, OP_SIZE_BYTE)
+            ret |= self.inPort(ioPortAddr+1, OP_SIZE_BYTE)<<8
         else:
-            self.main.exitError("Serial::inPort_2: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+            self.main.exitError("Serial::inPort_3: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
             return ret
-        self.main.notice("Serial::inPort_3: port {0:#04x} data {1:#04x} dataSize {2:d}.", ioPortAddr, ret, dataSize)
+        self.main.notice("Serial::inPort_4: port {0:#04x} data {1:#04x} dataSize {2:d}.", ioPortAddr, ret, dataSize)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef SerialPort port
-        self.main.notice("Serial::outPort_3: port {0:#04x} data {1:#04x} dataSize {2:d}.", ioPortAddr, data, dataSize)
+        self.main.notice("Serial::outPort_1: port {0:#04x} data {1:#04x} dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in SERIAL1_PORTS):
                 port = self.ports[0]
@@ -271,9 +305,12 @@ cdef class Serial:
                 port = self.ports[1]
                 port.outPort(ioPortAddr-SERIAL2_PORTS[0], data, dataSize)
             else:
-                self.main.exitError("Serial::outPort_1: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
+                self.main.exitError("Serial::outPort_2: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
+        elif (dataSize == OP_SIZE_WORD):
+            self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)
+            self.outPort(ioPortAddr+1, <unsigned char>(data>>8), OP_SIZE_BYTE)
         else:
-            self.main.exitError("Serial::outPort_2: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
+            self.main.exitError("Serial::outPort_3: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
         return
     cdef void run(self):
         cdef SerialPort port

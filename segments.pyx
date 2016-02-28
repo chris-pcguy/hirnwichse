@@ -380,8 +380,6 @@ cdef class Paging: # TODO
     cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) nogil except BITMASK_BYTE_CONST:
         cdef unsigned int errorFlags, pageDirectoryEntryMem, pageTableEntryMem
         self.invalidatePage(virtualAddress)
-        pageDirectoryEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
-        pageTableEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntryMem&<unsigned int>0xfffff000)|self.pageTableOffset) # page table
         if (self.pageDirectoryEntry & PAGE_SIZE):
             errorFlags = (self.pageDirectoryEntry & PAGE_PRESENT) != 0
         else:
@@ -395,6 +393,8 @@ cdef class Paging: # TODO
         #    self.segments.main.debugEnabledTest = True
         #IF COMP_DEBUG:
         IF 1:
+            pageDirectoryEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
+            pageTableEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntryMem&<unsigned int>0xfffff000)|self.pageTableOffset) # page table
             with gil:
                 self.segments.main.notice("Paging::doPF: savedEip=={0:#010x}; savedCs=={1:#06x}", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
                 self.segments.main.notice("Paging::doPF: virtualAddress=={0:#010x}; errorFlags=={1:#04x}", virtualAddress, errorFlags)
@@ -446,7 +446,7 @@ cdef class Paging: # TODO
                         self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present 2. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
                 self.doPF(virtualAddress, written)
                 return BITMASK_BYTE
-        elif (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4MB page
+        if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4MB page
             # size is 4MB if CR4/PSE is set
             # size is 2MB if CR4/PAE is set
             # if CR4/PAE bit is set size is 2MB and CR4/PSE bit appears as always set.

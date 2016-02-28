@@ -11,6 +11,7 @@ cdef class SerialPort:
     cdef unsigned char serialIndex, dlab, dataBits, stopBits, parity, interruptEnableRegister, interruptIdentificationFifoControl, modemControlRegister, lineStatusRegister, modemStatusRegister, scratchRegister, irq, isDev
     cdef unsigned short divisor
     cdef void reset(self)
+    cpdef setFlags(self)
     cpdef setBits(self)
     cpdef handleIrqs(self)
     cpdef quitFunc(self)

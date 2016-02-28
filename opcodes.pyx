@@ -2151,7 +2151,7 @@ cdef class Opcodes:
             else:
                 self.main.notice("opcodeGroup0F_C7: self.modRMInstance.reg {0:d} isn't supported yet.", self.modRMInstance.reg)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
-        elif ((operOpcode & 0xf8) == 0xc8):
+        elif ((operOpcode & 0xf8) == 0xc8): # BSWAP R32
             self.main.notice("Opcodes::opcodeGroup0F: BSWAP: TODO!")
             regName  = operOpcode&7
             op1 = self.registers.regReadUnsignedDword(regName)
@@ -3667,7 +3667,7 @@ cdef class Opcodes:
             elif ((opcode2 & 0xf8) == 0xe8):
                 data3 = self.registers.fpu.getVal(i)-self.registers.fpu.getVal(0)
             elif ((opcode2 & 0xf0) == 0xf0):
-                if ((opcode2 & 0xf8) == 0xf0):
+                if (not (opcode2 & 0x8)): # 0xf0 .. 0xf7
                     data2 = self.registers.fpu.getVal(0)
                     data3 = self.registers.fpu.getVal(i)
                 else:

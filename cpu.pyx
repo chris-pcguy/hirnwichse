@@ -94,6 +94,8 @@ cdef class Cpu:
         #    self.main.debugEnabledTest = self.main.debugEnabled = True
         #if (self.savedCs == 0x137 and self.savedEip == 0x7fcf1025):
         #    self.main.debugEnabledTest = self.main.debugEnabled = True
+        #if (self.savedCs == 0x17cf and self.savedEip == 0x56ad):
+        #    self.main.debugEnabledTest = self.main.debugEnabled = True
         if (len(exception.args) not in (1, 2)):
             self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', len(exception.args))
             return True

@@ -328,7 +328,7 @@ cdef class Vga:
         #red, green, blue = red << 2, green << 2, blue << 2
         return ((red << 16) | (green << 8) | blue)
     cdef void readFontData(self) nogil: # TODO
-        cdef unsigned short fontDataAddressA = 0, fontDataAddressB = 0
+        cdef unsigned short fontDataAddressA, fontDataAddressB
         cdef unsigned int posdata
         with gil:
             if (not self.ui or not self.needLoadFont):
@@ -336,12 +336,14 @@ cdef class Vga:
         if (not self.extMem):
             with gil:
                 self.main.notice("readFontData: what should I do here?")
-        if (self.charSelA):
-            fontDataAddressA =  (self.charSelA&3)<<14
-            fontDataAddressA |= VGA_FONTAREA_SIZE if (self.charSelA&4) else 0
-        if (self.charSelB):
-            fontDataAddressB =  (self.charSelB&3)<<14
-            fontDataAddressB |= VGA_FONTAREA_SIZE if (self.charSelB&4) else 0
+        #if (self.charSelA):
+        #IF 1:
+        fontDataAddressA =  (self.charSelA&3)<<14
+        fontDataAddressA |= VGA_FONTAREA_SIZE if (self.charSelA&4) else 0
+        #if (self.charSelB):
+        #IF 1:
+        fontDataAddressB =  (self.charSelB&3)<<14
+        fontDataAddressB |= VGA_FONTAREA_SIZE if (self.charSelB&4) else 0
         with gil:
             self.ui.charSize = (9 if (self.ui.mode9Bit) else 8, self.charHeight)
             self.ui.fontDataA = self.plane2.csRead(fontDataAddressA, VGA_FONTAREA_SIZE)
