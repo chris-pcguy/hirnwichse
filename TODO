@@ -9,5 +9,11 @@ Opcodes::interrupt
 ATA
 VM86
 
-Fix rare issues with cpu exceptions (Win95)
+Fix rare issues with cpu exceptions (Win95) (Fixed?)
 PIT (ReactOS 0.4.0)
+PS2
+RS232
+
+
+FPU! (exitError while "df" on OpenBSD 5.5 floppy)
+

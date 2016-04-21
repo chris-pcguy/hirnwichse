@@ -11,3 +11,6 @@ This project may have included some parts of other projects, such as Qemu or Boc
 
 Thanks to all of them!
 
+
+Big endian systems aren't supported (yet).
+

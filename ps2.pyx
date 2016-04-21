@@ -30,8 +30,8 @@ cdef class PS2:
         ##    self.setKeyboardRepeatRate(0x2a) # do this in pygameUI.pyx instead!!
     cdef void initDevice(self):
         self.resetInternals(True)
-        self.lastUsedPort = 0x64
-        self.lastUsedCmd = 0
+        self.lastUsedPort = self.lastUsedCmd = 0
+        self.lastUsedController = True # 0x64
         self.ppcbT2Gate = self.ppcbT2Spkr = self.ppcbT2Out = False
         self.irq1Requested = self.irq12Requested = self.sysf = False
         self.outb = self.inb = self.auxb = self.batInProgress = self.timeout = False
@@ -127,7 +127,7 @@ cdef class PS2:
                 retByte = (0x10 | \
                         (self.timeout << 6) | \
                         (self.auxb << 5) | \
-                        ((self.lastUsedPort != 0x60) << 3) | \
+                        (self.lastUsedController << 3) | \
                         (self.sysf << 2) | \
                         (self.inb << 1) | \
                         self.outb)
@@ -192,6 +192,7 @@ cdef class PS2:
         if (dataSize == OP_SIZE_BYTE):
             self.main.notice("PS2: outPort: port {0:#04x} ; data {1:#04x}; savedCs=={2:#06x}; savedEip=={3:#06x}", ioPortAddr, data, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x60):
+                self.lastUsedController = False
                 if (not self.needWriteBytes):
                     if (not self.kbdClockEnabled):
                         self.setKbdClockEnable(True)
@@ -251,12 +252,16 @@ cdef class PS2:
                             (<Registers>(<Cpu>self.main.cpu).registers).setA20Active( (data & PS2_A20) != 0 )
                             if (not (data & PS2_CPU_RESET)):
                                 (<Cpu>self.main.cpu).reset()
+                        elif (self.lastUsedCmd == 0xd2): # port 0x64
+                            self.appendToOutBytesImm(bytes([data]))
+                        elif (self.lastUsedCmd == 0xd3): # port 0x64
+                            self.appendToOutBytesMouse(bytes([data]))
                         elif (self.lastUsedCmd == 0xd4): # port 0x64
                             #if (self.main.debugEnabled):
                             IF 1:
                                 self.main.notice("outPort: self.lastUsedPort == 0x64; self.lastUsedCmd == 0xd4. (port {0:#04x}; data {1:#04x}; self.needWriteBytesMouse {2:d})", ioPortAddr, data, self.needWriteBytesMouse)
-                            #IF 0:
-                            IF 1: # mouse present
+                            IF 0:
+                            #IF 1: # mouse present
                                 self.appendToOutBytesMouse(b'\xfa')
                                 if (self.needWriteBytesMouse > 0):
                                     self.needWriteBytesMouse -= 1
@@ -296,12 +301,13 @@ cdef class PS2:
                             self.appendToOutBytesImm(b'\xfa')
                         else:
                             self.main.exitError("outPort: data_2 {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
-                    else:
+                    elif (self.lastUsedPort):
                         self.main.exitError("outPort: data_1 {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
                     self.needWriteBytes -= 1
                     if (not self.needWriteBytes):
-                        self.lastUsedPort = ioPortAddr
+                        self.lastUsedPort = self.lastUsedCmd = 0
             elif (ioPortAddr == 0x64):
+                self.lastUsedController = True
                 if (data == 0x20): # read keyboard mode
                     if (self.outb):
                         self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0x20: outb is set.")
@@ -358,6 +364,8 @@ cdef class PS2:
                 if (self.needWriteBytes > 0):
                     self.lastUsedPort = ioPortAddr
                     self.lastUsedCmd = data
+                else:
+                    self.lastUsedPort = self.lastUsedCmd = 0
             elif (ioPortAddr == 0x61):
                 if (data & PORT_61H_LOWER_TIMER_IRQ):
                     self.main.notice("PS2::outPort: timer lowerIrq")
@@ -414,8 +422,10 @@ cdef class PS2:
             if (self.timerPending):
                 retVal = self.periodic(1)
                 if (retVal&1):
+                #if (retVal&1 or self.irq1Requested):
                     (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
             elif (len(self.outBuffer) and (self.kbdClockEnabled or self.batInProgress) and self.allowIrq1):
+            #elif (self.irq1Requested):
                 (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
             #else:
             if (len(self.outBuffer)):

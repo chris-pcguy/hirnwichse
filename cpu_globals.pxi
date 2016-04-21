@@ -250,8 +250,9 @@ cdef unsigned char OPCODE_JUMP = 16
 cdef unsigned char OPCODE_CALL = 17
 
 #cdef unsigned char CPU_CLOCK_TICK_SHIFT = 8
-cdef unsigned char CPU_CLOCK_TICK_SHIFT = 4
-#cdef unsigned char CPU_CLOCK_TICK_SHIFT = 3
+#cdef unsigned char CPU_CLOCK_TICK_SHIFT = 4
+cdef unsigned char CPU_CLOCK_TICK_SHIFT = 3
+#cdef unsigned char CPU_CLOCK_TICK_SHIFT = 2
 #cdef unsigned char CPU_CLOCK_TICK_SHIFT = 0
 cdef unsigned int CPU_CLOCK_TICK = 1<<CPU_CLOCK_TICK_SHIFT
 

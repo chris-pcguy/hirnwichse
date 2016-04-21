@@ -7,6 +7,23 @@ include "globals.pxi"
 import struct
 from time import time
 
+
+cdef extern from "hirnwichse_test.h":
+    struct test_struct_1:
+        unsigned char a
+        unsigned char b
+        unsigned char c
+        unsigned char d
+        unsigned char e
+        unsigned char f
+        unsigned char g
+        unsigned char h
+    union ts1u:
+        test_struct_1 ts1s
+        unsigned char ts1v
+
+
+
 cdef class HirnwichseTest:
     def __init__(self):
         self.cf = self.pf = self.af = self.zf = self.sf = self.tf = \
@@ -113,19 +130,33 @@ cdef class HirnwichseTest:
         self.vif = (flags>>19)&1
         self.vip = (flags>>20)&1
         self.id = (flags>>21)&1
+    cdef void func5(self):
+        cdef ts1u ts1
+        #ts1.ts1s.a = 1
+        #ts1.ts1s.b = 0
+        #ts1.ts1s.c = 0
+        #ts1.ts1s.d = 0
+        #ts1.ts1s.e = 1
+        #ts1.ts1s.f = 1
+        #ts1.ts1s.g = 0
+        #ts1.ts1s.h = 1
+        #print(bin(ts1.ts1v))
+        ts1.ts1v = 0x80
+        print(ts1.ts1s.a, ts1.ts1s.b, ts1.ts1s.c, ts1.ts1s.d, ts1.ts1s.e, ts1.ts1s.f, ts1.ts1s.g, ts1.ts1s.h)
     cpdef run(self):
-        cdef unsigned int i
-        cdef double time1, time2
-        print("test1")
-        #self.func1()
-        time1 = time()
-        for i in range(100000000):
-            #self.func2(0x40)
-            self.func4(BITMASK_DWORD)
-        #self.func3()
-        time2 = time()-time1
-        print("test3: {0:f}".format(time2))
-        print("test2")
+        #cdef unsigned int i
+        #cdef double time1, time2
+        #print("test1")
+        ##self.func1()
+        #time1 = time()
+        #for i in range(100000000):
+        #    #self.func2(0x40)
+        #    self.func4(BITMASK_DWORD)
+        ##self.func3()
+        #time2 = time()-time1
+        #print("test3: {0:f}".format(time2))
+        #print("test2")
+        self.func5()
 
 
 

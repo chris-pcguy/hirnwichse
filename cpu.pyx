@@ -30,7 +30,7 @@ cdef class Cpu:
     cdef void handleAsyncEvent(self):
         cdef unsigned char irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
-        oldIF = self.registers.if_flag
+        oldIF = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag
         if (self.INTR and oldIF):
             irqVector = (<Pic>self.main.platform.pic).IAC()
             self.opcodes.interrupt(irqVector)
@@ -56,9 +56,9 @@ cdef class Cpu:
         self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP and exceptionId != CPU_EXCEPTION_DB):
-            self.registers.rf = True
+            self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = True
         elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP and self.repPrefix):
-            self.registers.rf = True
+            self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = True
         self.main.notice("Running exception_1.1: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
         self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
@@ -153,7 +153,7 @@ cdef class Cpu:
         self.main.notice("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESI), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_EDI))
         self.main.notice("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), \
-          self.registers.readFlags())
+          self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS))
         self.main.notice("CS: {0:#06x}, SS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_CS), \
           self.registers.segRead(CPU_SEGMENT_SS))
         self.main.notice("DS: {0:#06x}, ES: {1:#06x}", self.registers.segRead(CPU_SEGMENT_DS), \
@@ -219,30 +219,30 @@ cdef class Cpu:
             if (self.main.platform.vga and self.main.platform.vga.ui):
                 self.main.platform.vga.ui.handleEventsWithoutWaiting()
         try:
-            #if (self.registers.df):
+            #if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
             #    self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
-            if (self.registers.tf):
+            if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
                 self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet!")
             if (not self.registers.ssInhibit):
                 self.readCodeSegSize()
                 if (self.asyncEvent):
                     self.handleAsyncEvent()
                     return
-                elif (self.registers.tf):
+                elif (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
                     self.registers.ssInhibit = True
                 # handle dr0-3 here
             else:
                 self.registers.ssInhibit = False
-                if (self.registers.tf):
+                if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
                     self.readCodeSegSize()
-                    self.registers.tf = False
+                    self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf = False
                     raise HirnwichseException(CPU_EXCEPTION_DB)
                     #return
             self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
             if (self.opcode in OPCODE_PREFIXES):
                 self.opcode = self.parsePrefixes(self.opcode)
             self.readCodeSegSize()
-            self.registers.rf = False
+            self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = False
             #if (self.savedCs == 0x28 and self.savedEip == 0xc00013b7):
             #if (self.savedCs == 0x28 and self.savedEip == 0xc00013d1):
             #    self.main.debugEnabledTest = True
@@ -275,7 +275,7 @@ cdef class Cpu:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
                 self.cpuDump()
                 #self.main.notice("EAX: {0:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EAX))
-                #self.main.notice("ESP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESP), self.registers.readFlags())
+                #self.main.notice("ESP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESP), self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS))
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_UD)

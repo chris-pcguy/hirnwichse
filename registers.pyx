@@ -346,16 +346,14 @@ cdef class Registers:
         self.fpu = Fpu(self, self.main)
         self.regWriteDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_ET)
     cdef void reset(self) nogil:
-        self.cf = self.pf = self.af = self.zf = self.sf = self.tf = \
-          self.if_flag = self.df = self.of = self.iopl = self.nt = self.rf = self.vm = self.ac = \
-          self.vif = self.vip = self.id = self.cpl = self.protectedModeOn = self.pagingOn = self.writeProtectionOn = self.ssInhibit = self.cacheDisabled = self.cpuCacheBase = self.cpuCacheIndex = 0
+        self.cpl = self.protectedModeOn = self.pagingOn = self.writeProtectionOn = self.ssInhibit = self.cacheDisabled = self.cpuCacheBase = self.cpuCacheIndex = 0
         self.A20Active = True
         IF CPU_CACHE_SIZE:
             self.cpuCache = b''
         with gil:
             self.segments.reset()
             self.fpu.reset(False)
-        self.regWriteDwordEflags(FLAG_REQUIRED)
+        self.regWriteDword(CPU_REGISTER_EFLAGS, FLAG_REQUIRED)
         self.regWriteDword(CPU_REGISTER_CR0, self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW) | CR0_FLAG_ET)
         #self.regWriteDword(CPU_REGISTER_DR6, 0xffff1ff0) # why has bochs bit 12 set?
         self.regWriteDword(CPU_REGISTER_DR6, 0xffff0ff0)
@@ -393,6 +391,14 @@ cdef class Registers:
         if (self.cpuCacheIndex+numBytes >= CPU_CACHE_SIZE):
             self.reloadCpuCache()
         return retVal
+    cdef inline unsigned char setFlags(self, unsigned int flags) nogil:
+        cdef unsigned char ifEnabled
+        ifEnabled = ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((flags>>9)&1))
+        self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx = flags
+        if (ifEnabled):
+            with gil:
+                self.main.cpu.asyncEvent = True
+        return True
     cdef unsigned char getCurrentOpcodeUnsignedByte(self) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
             return <unsigned char>self.readFromCacheUnsigned(OP_SIZE_BYTE)
@@ -463,7 +469,7 @@ cdef class Registers:
         cdef Segment segment
         cdef unsigned char protectedModeOn, segType
         with nogil:
-            protectedModeOn = (self.protectedModeOn and not self.vm)
+            protectedModeOn = (self.protectedModeOn and not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
             if (protectedModeOn and segValue > 3):
                 with gil:
                     segType = self.segments.getSegType(segValue)
@@ -481,7 +487,7 @@ cdef class Registers:
             if (segId == CPU_SEGMENT_CS):
                 self.main.cpu.codeSegSize = segment.segSize
                 if (self.protectedModeOn):
-                    if (self.vm):
+                    if (self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
                         self.cpl = 3
                     elif (segment.isValid and segment.useGDT):
                         self.cpl = segValue & 0x3
@@ -498,7 +504,7 @@ cdef class Registers:
     cdef unsigned char segWriteSegment(self, Segment segment, unsigned short segValue) nogil except BITMASK_BYTE_CONST:
         cdef unsigned short segId
         cdef unsigned char protectedModeOn, segType
-        protectedModeOn = (self.protectedModeOn and not self.vm)
+        protectedModeOn = (self.protectedModeOn and not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
         if (protectedModeOn and segValue > 3):
             with gil:
                 segType = self.segments.getSegType(segValue)
@@ -515,7 +521,7 @@ cdef class Registers:
                         segment.isValid = False
         if (segId == CPU_SEGMENT_CS):
             self.main.cpu.codeSegSize = segment.segSize
-            if (self.vm):
+            if (self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
                 self.cpl = 3
             elif (segment.isValid and segment.useGDT):
                 self.cpl = segValue & 0x3
@@ -555,23 +561,11 @@ cdef class Registers:
         if (regSize == OP_SIZE_BYTE):
             self.regWriteLowByte(regId, value)
         elif (regSize == OP_SIZE_WORD):
-            if (regId == CPU_REGISTER_FLAGS):
-                if (self.regWriteWordFlags(<unsigned short>value)):
-                    self.main.cpu.asyncEvent = True
-            else:
-                self.regWriteWord(regId, value)
+            self.regWriteWord(regId, value)
         elif (regSize == OP_SIZE_DWORD):
-            if (regId == CPU_REGISTER_EFLAGS):
-                if (self.regWriteDwordEflags(<unsigned int>value)):
-                    self.main.cpu.asyncEvent = True
-            else:
-                self.regWriteDword(regId, value)
+            self.regWriteDword(regId, value)
         elif (regSize == OP_SIZE_QWORD):
-            if (regId == CPU_REGISTER_RFLAGS):
-                if (self.regWriteDwordEflags(<unsigned int>value)):
-                    self.main.cpu.asyncEvent = True
-            else:
-                self.regWriteQword(regId, value)
+            self.regWriteQword(regId, value)
     cdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
             cdef unsigned int realNewEip
@@ -584,6 +578,10 @@ cdef class Registers:
         elif (regId == CPU_REGISTER_DR7):
             value &= ~(<unsigned int>0xd000)
             value |= (1 << 10)
+        elif (regId == CPU_REGISTER_EFLAGS):
+            value &= ~RESERVED_FLAGS_BITMASK
+            value |= FLAG_REQUIRED
+            self.setFlags(value)
         self.regs[regId]._union.dword.erx = value
         if (regId == CPU_REGISTER_EIP and not (<Segment>self.segments.cs).isAddressInLimit(value, OP_SIZE_BYTE)):
             with gil:
@@ -743,18 +741,18 @@ cdef class Registers:
         #    self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp {0:d}.", valueOp)
         return 0
     cdef inline void setSZP(self, unsigned int value, unsigned char regSize) nogil:
-        self.sf = (value>>((regSize<<3)-1))!=0
-        self.zf = value==0
-        self.pf = PARITY_TABLE[<unsigned char>value]
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>((regSize<<3)-1))!=0
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = value==0
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<unsigned char>value]
     cdef inline void setSZP_O(self, unsigned int value, unsigned char regSize) nogil:
         self.setSZP(value, regSize)
-        self.of = False
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = False
     cdef inline void setSZP_A(self, unsigned int value, unsigned char regSize) nogil:
         self.setSZP(value, regSize)
-        self.af = False
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
     cdef inline void setSZP_COA(self, unsigned int value, unsigned char regSize) nogil:
         self.setSZP(value, regSize)
-        self.cf = self.of = self.af = False
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
     cdef inline unsigned char getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char regName
         regName = CPU_REGISTER_NONE
@@ -783,21 +781,21 @@ cdef class Registers:
         negateCheck = index & 1
         index >>= 1
         if (index == 0x0): # O
-            ret = self.of
+            ret = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of
         elif (index == 0x1): # B
-            ret = self.cf
+            ret = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (index == 0x2): # Z
-            ret = self.zf
+            ret = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
         elif (index == 0x3): # BE
-            ret = self.cf or self.zf
+            ret = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf or self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
         elif (index == 0x4): # S
-            ret = self.sf
+            ret = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf
         elif (index == 0x5): # P
-            ret = self.pf
+            ret = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf
         elif (index == 0x6): # L
-            ret = self.sf != self.of
+            ret = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf != self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of
         elif (index == 0x7): # LE
-            ret = self.zf or self.sf != self.of
+            ret = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf or self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf != self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of
         #else:
         #    self.main.exitError("getCond: index {0:#04x} is invalid.", index)
         if (negateCheck):
@@ -811,7 +809,7 @@ cdef class Registers:
         carried = False
         bitMaskHalf = BITMASKS_80[regSize]
         if (method in (OPCODE_ADD, OPCODE_ADC)):
-            if (method == OPCODE_ADC and self.cf):
+            if (method == OPCODE_ADC and self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf):
                 carried = True
             if (regSize == OP_SIZE_BYTE):
                 reg0 = <unsigned char>reg0
@@ -834,19 +832,19 @@ cdef class Registers:
                 regSumu = (reg0+reg1)
                 unsignedOverflow = regSumu!=(<unsigned int>regSumu)
                 regSumu = <unsigned int>regSumu
-            self.pf = PARITY_TABLE[<unsigned char>regSumu]
-            self.zf = not regSumu
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<unsigned char>regSumu]
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not regSumu
             reg0Nibble = reg0&0xf
             regSumuNibble = regSumu&0xf
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
             regSumu &= bitMaskHalf
-            self.af = (regSumuNibble<(reg0Nibble+carried))
-            self.cf = unsignedOverflow
-            self.of = (reg0==reg1 and reg0!=regSumu)
-            self.sf = regSumu!=0
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = (regSumuNibble<(reg0Nibble+carried))
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = unsignedOverflow
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (reg0==reg1 and reg0!=regSumu)
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = regSumu!=0
         elif (method in (OPCODE_SUB, OPCODE_SBB)):
-            if (method == OPCODE_SBB and self.cf):
+            if (method == OPCODE_SBB and self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf):
                 carried = True
                 reg1 += 1
             regSumu = <unsigned int>(reg0-reg1)
@@ -855,17 +853,17 @@ cdef class Registers:
             elif (regSize == OP_SIZE_WORD):
                 regSumu = <unsigned short>regSumu
             unsignedOverflow = ((regSumu+carried) > reg0)
-            self.pf = PARITY_TABLE[<unsigned char>regSumu]
-            self.zf = not regSumu
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<unsigned char>regSumu]
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not regSumu
             reg0Nibble = reg0&0xf
             regSumuNibble = regSumu&0xf
             reg0 &= bitMaskHalf
             reg1 &= bitMaskHalf
             regSumu &= bitMaskHalf
-            self.af = ((regSumuNibble+carried)>reg0Nibble)
-            self.cf = unsignedOverflow
-            self.of = (reg0!=reg1 and reg1==regSumu)
-            self.sf = regSumu!=0
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = ((regSumuNibble+carried)>reg0Nibble)
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = unsignedOverflow
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (reg0!=reg1 and reg1==regSumu)
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = regSumu!=0
         elif (method in (OPCODE_MUL, OPCODE_IMUL)):
             if (regSize == OP_SIZE_BYTE):
                 reg1 = <unsigned char>reg1
@@ -900,11 +898,11 @@ cdef class Registers:
                     regSumu = regSum = (reg0*reg1)
                     unsignedOverflow = (<signed long int>regSum)!=(<signed int>regSum)
                 regSumu = <unsigned int>regSumu
-            self.af = False
-            self.cf = self.of = unsignedOverflow
-            self.pf = PARITY_TABLE[<unsigned char>regSumu]
-            self.zf = not regSumu
-            self.sf = (regSumu & bitMaskHalf) != 0
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = unsignedOverflow
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<unsigned char>regSumu]
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not regSumu
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (regSumu & bitMaskHalf) != 0
     cdef inline unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char addrInLimit
         cdef unsigned short segId, segVal
@@ -1107,7 +1105,7 @@ cdef class Registers:
                 if (valueOp == OPCODE_ADD):
                     data = (oldData+data)
                 elif (valueOp in (OPCODE_ADC, OPCODE_SBB)):
-                    data += self.cf
+                    data += self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
                     if (valueOp == OPCODE_ADC):
                         data = (oldData+data)
                     else:
@@ -1150,7 +1148,7 @@ cdef class Registers:
         self.regWriteWord(CPU_REGISTER_IP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_IP))
         self.segWriteSegment((<Segment>self.segments.ss), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SS))
         self.regWriteWord(CPU_REGISTER_SP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SP))
-        if (self.regWriteWordFlags(self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_FLAGS))):
+        if (self.regWriteWord(CPU_REGISTER_FLAGS, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_FLAGS))):
             self.main.cpu.asyncEvent = True
         self.segWriteSegment((<Segment>self.segments.ds), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DS))
         self.segWriteSegment((<Segment>self.segments.es), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_ES))
@@ -1218,7 +1216,7 @@ cdef class Registers:
         self.regWriteDword(CPU_REGISTER_EIP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EIP))
         self.segWriteSegment((<Segment>self.segments.ss), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_SS))
         self.regWriteDword(CPU_REGISTER_ESP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESP))
-        if (self.regWriteDwordEflags(self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EFLAGS))):
+        if (self.regWriteDword(CPU_REGISTER_EFLAGS, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EFLAGS))):
             self.main.cpu.asyncEvent = True
         self.segWriteSegment((<Segment>self.segments.ds), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_DS))
         self.segWriteSegment((<Segment>self.segments.es), self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_ES))

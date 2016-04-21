@@ -1,13 +1,20 @@
 #!/usr/bin/env python3.4
 #cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
 
+import os
 from sys import exit
 from pyximport import install
 from traceback import print_exc
 #install(pyimport = True)
 install()
-from hirnwichse_test import HirnwichseTest
 
+getcwd_include = "-I"+os.getcwd()
+if ("CFLAGS" in os.environ):
+    os.environ["CFLAGS"] += " "+getcwd_include
+else:
+    os.environ["CFLAGS"] = getcwd_include
+
+from hirnwichse_test import HirnwichseTest
 
 
 if (__name__ == '__main__'):

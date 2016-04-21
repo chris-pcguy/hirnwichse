@@ -8,6 +8,7 @@ cdef class HirnwichseTest:
     cdef void func2(self, unsigned char var1)
     cdef void func3(self)
     cdef void func4(self, unsigned int flags)
+    cdef void func5(self)
     cpdef run(self)
 
 

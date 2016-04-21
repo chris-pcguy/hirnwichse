@@ -7,6 +7,39 @@ from mm cimport Mm
 from segments cimport Segment, GdtEntry, Gdt, Idt, Paging, Segments
 from cpython.ref cimport PyObject
 
+cdef extern from "hirnwichse_eflags.h":
+    struct eflagsStruct:
+        unsigned int cf
+        unsigned int reserved_1
+        unsigned int pf
+        unsigned int reserved_3
+        unsigned int af
+        unsigned int reserved_5
+        unsigned int zf
+        unsigned int sf
+        unsigned int tf
+        unsigned int if_flag
+        unsigned int df
+        unsigned int of
+        unsigned int iopl
+        unsigned int nt
+        unsigned int reserved_15
+        unsigned int rf
+        unsigned int vm
+        unsigned int ac
+        unsigned int vif
+        unsigned int vip
+        unsigned int id
+        unsigned int reserved_22
+        unsigned int reserved_23
+        unsigned int reserved_24
+        unsigned int reserved_25
+        unsigned int reserved_26
+        unsigned int reserved_27
+        unsigned int reserved_28
+        unsigned int reserved_29
+        unsigned int reserved_30
+        unsigned int reserved_31
 
 cdef:
     struct byteStruct:
@@ -30,6 +63,7 @@ cdef:
         unsigned long int rrx
         dwordStruct dword
         wordStruct word
+        eflagsStruct eflags_struct
 
     struct RegStruct:
         qwordUnion _union
@@ -81,9 +115,7 @@ cdef class Registers:
     cdef Segments segments
     cdef Fpu fpu
     cdef RegStruct regs[CPU_REGISTERS]
-    cdef unsigned char cf, pf, af, zf, sf, tf, if_flag, df, of, iopl, \
-                        nt, rf, vm, ac, vif, vip, id, cpl, A20Active, protectedModeOn, pagingOn, writeProtectionOn, ssInhibit, \
-                        cacheDisabled
+    cdef unsigned char cpl, A20Active, protectedModeOn, pagingOn, writeProtectionOn, ssInhibit, cacheDisabled
     cdef unsigned int cpuCacheBase, cpuCacheIndex
     cdef bytes cpuCache
     cdef void reset(self) nogil
@@ -99,37 +131,14 @@ cdef class Registers:
     cdef unsigned long int readFromCacheAddUnsigned(self, unsigned char numBytes)
     cdef unsigned long int readFromCacheUnsigned(self, unsigned char numBytes)
     cdef inline unsigned int readFlags(self) nogil:
-        return (FLAG_REQUIRED | self.cf | (self.pf<<2) | (self.af<<4) | (self.zf<<6) | (self.sf<<7) | (self.tf<<8) | (self.if_flag<<9) | (self.df<<10) | \
-          (self.of<<11) | (self.iopl<<12) | (self.nt<<14) | (self.rf<<16) | (self.vm<<17) | (self.ac<<18) | (self.vif<<19) | (self.vip<<20) | (self.id<<21))
-    cdef inline unsigned char setFlags(self, unsigned int flags) nogil:
-        cdef unsigned char ifEnabled
-        self.cf = flags&1
-        self.pf = (flags>>2)&1
-        self.af = (flags>>4)&1
-        self.zf = (flags>>6)&1
-        self.sf = (flags>>7)&1
-        self.tf = (flags>>8)&1
-        ifEnabled = ((not self.if_flag) and ((flags>>9)&1))
-        self.if_flag = (flags>>9)&1
-        self.df = (flags>>10)&1
-        self.of = (flags>>11)&1
-        self.iopl = (flags>>12)&3
-        self.nt = (flags>>14)&1
-        self.rf = (flags>>16)&1
-        self.vm = (flags>>17)&1
-        self.ac = (flags>>18)&1
-        self.vif = (flags>>19)&1
-        self.vip = (flags>>20)&1
-        self.id = (flags>>21)&1
-        return ifEnabled
+        return ((self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx & (~RESERVED_FLAGS_BITMASK)) | FLAG_REQUIRED)
+    cdef inline unsigned char setFlags(self, unsigned int flags) nogil
     cdef inline unsigned char getCPL(self) nogil:
         if (not self.protectedModeOn):
             return 0
-        elif (self.vm):
+        elif (self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
             return 3
         return self.cpl
-    cdef inline unsigned char getIOPL(self) nogil:
-        return self.iopl
     cdef inline void syncCR0State(self) nogil:
         self.protectedModeOn = self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE) != 0
     cdef unsigned char getCurrentOpcodeUnsignedByte(self) nogil except? BITMASK_BYTE_CONST
@@ -178,24 +187,17 @@ cdef class Registers:
         self.regs[regId]._union.word._union.byte.rh = value
         return value # returned value is unsigned!!
     cdef inline unsigned short regWriteWord(self, unsigned short regId, unsigned short value) nogil:
+        if (regId == CPU_REGISTER_EFLAGS):
+            value &= ~RESERVED_FLAGS_BITMASK
+            value |= FLAG_REQUIRED
+            self.setFlags(value)
         self.regs[regId]._union.word._union.rx = value
         return value # returned value is unsigned!!
     cdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value) nogil except? BITMASK_BYTE_CONST
-    cdef inline unsigned short regWriteWordFlags(self, unsigned short value) nogil:
-        value &= ~RESERVED_FLAGS_BITMASK
-        value |= FLAG_REQUIRED
-        self.regs[CPU_REGISTER_FLAGS]._union.word._union.rx = value
-        return self.setFlags(self.regs[CPU_REGISTER_FLAGS]._union.dword.erx)
-    cdef inline unsigned char regWriteDwordEflags(self, unsigned int value) nogil:
-        value &= ~RESERVED_FLAGS_BITMASK
-        value |= FLAG_REQUIRED
-        self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx = value
-        return self.setFlags(value)
     cdef inline unsigned long int regWriteQword(self, unsigned short regId, unsigned long int value) nogil:
         IF 0:
         #if (regId == CPU_REGISTER_RFLAGS):
-            if (self.setFlags(<unsigned int>value)):
-                self.main.cpu.asyncEvent = True
+            self.setFlags(<unsigned int>value)
         #else:
         #ELSE:
         self.regs[regId]._union.rrx = value
@@ -220,19 +222,19 @@ cdef class Registers:
         return self.regs[regId]._union.rrx
     cdef inline unsigned long int regAdd(self, unsigned short regId, unsigned long int value, unsigned char regSize) nogil
     cdef inline unsigned char regAdcLowByte(self, unsigned short regId, unsigned char value) nogil:
-        self.regs[regId]._union.word._union.byte.rl += value+self.cf
+        self.regs[regId]._union.word._union.byte.rl += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regAdcHighByte(self, unsigned short regId, unsigned char value) nogil:
-        self.regs[regId]._union.word._union.byte.rh += value+self.cf
+        self.regs[regId]._union.word._union.byte.rh += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regAdcWord(self, unsigned short regId, unsigned short value) nogil:
-        self.regs[regId]._union.word._union.rx += value+self.cf
+        self.regs[regId]._union.word._union.rx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regAdcDword(self, unsigned short regId, unsigned int value) nogil:
-        self.regs[regId]._union.dword.erx += value+self.cf
+        self.regs[regId]._union.dword.erx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regAdcQword(self, unsigned short regId, unsigned long int value) nogil:
-        self.regs[regId]._union.rrx += value+self.cf
+        self.regs[regId]._union.rrx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.rrx
     cdef inline unsigned char regSubLowByte(self, unsigned short regId, unsigned char value) nogil:
         self.regs[regId]._union.word._union.byte.rl -= value
@@ -251,19 +253,19 @@ cdef class Registers:
         return self.regs[regId]._union.rrx
     cdef inline unsigned long int regSub(self, unsigned short regId, unsigned long int value, unsigned char regSize) nogil
     cdef inline unsigned char regSbbLowByte(self, unsigned short regId, unsigned char value) nogil:
-        self.regs[regId]._union.word._union.byte.rl -= value+self.cf
+        self.regs[regId]._union.word._union.byte.rl -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.word._union.byte.rl
     cdef inline unsigned char regSbbHighByte(self, unsigned short regId, unsigned char value) nogil:
-        self.regs[regId]._union.word._union.byte.rh -= value+self.cf
+        self.regs[regId]._union.word._union.byte.rh -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.word._union.byte.rh
     cdef inline unsigned short regSbbWord(self, unsigned short regId, unsigned short value) nogil:
-        self.regs[regId]._union.word._union.rx -= value+self.cf
+        self.regs[regId]._union.word._union.rx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.word._union.rx
     cdef inline unsigned int regSbbDword(self, unsigned short regId, unsigned int value) nogil:
-        self.regs[regId]._union.dword.erx -= value+self.cf
+        self.regs[regId]._union.dword.erx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.dword.erx
     cdef inline unsigned long int regSbbQword(self, unsigned short regId, unsigned long int value) nogil:
-        self.regs[regId]._union.rrx -= value+self.cf
+        self.regs[regId]._union.rrx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         return self.regs[regId]._union.rrx
     cdef inline unsigned char regXorLowByte(self, unsigned short regId, unsigned char value) nogil:
         self.regs[regId]._union.word._union.byte.rl ^= value
@@ -346,7 +348,7 @@ cdef class Registers:
     cdef inline unsigned int regWriteWithOpDword(self, unsigned short regId, unsigned int value, unsigned char valueOp) nogil
     cdef inline unsigned long int regWriteWithOpQword(self, unsigned short regId, unsigned long int value, unsigned char valueOp) nogil
     cdef inline void clearEFLAG(self, unsigned int flags) nogil:
-        self.regWriteDwordEflags(self.readFlags() & (~flags))
+        self.regAndDword(CPU_REGISTER_EFLAGS, ~flags)
     cdef inline unsigned int getFlagDword(self, unsigned short regId, unsigned int flags) nogil:
         return (self.regReadUnsignedDword(regId)&flags)
     cdef inline void setSZP(self, unsigned int value, unsigned char regSize) nogil

@@ -16,7 +16,7 @@ cdef class Segment:
         cdef GdtEntry gdtEntry
         cdef unsigned char protectedModeOn
         with nogil:
-            protectedModeOn = (self.segments.registers.protectedModeOn and not self.segments.registers.vm)
+            protectedModeOn = (self.segments.registers.protectedModeOn and not self.segments.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
             self.segmentIndex = segmentIndex
             self.readChecked = self.writeChecked = False
             if (not protectedModeOn):
@@ -24,9 +24,9 @@ cdef class Segment:
                 self.isValid = self.segPresent = self.segIsNormal = True
                 self.useGDT = self.anotherLimit = self.segIsGDTandNormal = False
                 self.segSize = OP_SIZE_WORD
-                if (doInit or (self.segments.registers.protectedModeOn and self.segments.registers.vm)):
+                if (doInit or (self.segments.registers.protectedModeOn and self.segments.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)):
                     self.accessByte = 0x92
-                    if (self.segments.registers.protectedModeOn and self.segments.registers.vm):
+                    if (self.segments.registers.protectedModeOn and self.segments.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
                         self.segmentIndex |= 0x3
                         self.segDPL = 0x3
                         self.accessByte |= 0x60
@@ -462,6 +462,7 @@ cdef class Paging: # TODO
                 self.segments.main.notice("Paging::readAddresses: EIP: {0:#010x}, CS: {1:#06x}", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
                 self.segments.main.notice("Paging::readAddresses: PDE & PAGE_SIZE. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
                 self.segments.main.notice("Paging::readAddresses: 4MB pages are NOT FULLY SUPPORTED yet.")
+                self.segments.main.exitError("Paging::readAddresses: TODO... exiting.")
         else:
             self.pageTableEntry = self.tlbTables.csReadValueUnsigned((self.pageDirectoryOffset<<10)|self.pageTableOffset, OP_SIZE_DWORD) # page table
             if (not self.pageTableEntry):

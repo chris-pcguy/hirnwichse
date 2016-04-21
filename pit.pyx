@@ -83,10 +83,10 @@ cdef class PitChannel:
                         #if (not (self.counterValue&0x1fff)):
                         #if (not (self.counterValue&0xfff)):
                         #if (not (self.counterValue&0xff)):
-                        #if (not (self.counterValue&0x7f)):
+                        if (not (self.counterValue&0x7f)):
                         #if (not (self.counterValue&0x3f)):
                         #if (not (self.counterValue&0x1f)):
-                        if (not (self.counterValue&0xf)):
+                        #if (not (self.counterValue&0xf)):
                         #if (not (self.counterValue&0x7)):
                         #if (not (self.counterValue&0x3)):
                         #if (not (self.counterValue&0x1)):
@@ -162,11 +162,11 @@ cdef class PitChannel:
                     return
             self.counterValue = self.counterStartValue
             self.tempTimerValue = round(1.0e6/(1193182.0/self.counterValue))
-            if (self.counterMode == 0):
-                self.tempTimerValue <<= 4 # TODO: HACK!
-                #self.tempTimerValue <<= 6 # TODO: HACK!
-            if (self.counterMode == 3):
-                self.tempTimerValue >>= 1
+            #if (self.counterMode == 0):
+            #    self.tempTimerValue <<= 4 # TODO: HACK!
+            #    #self.tempTimerValue <<= 6 # TODO: HACK!
+            #if (self.counterMode == 3):
+            #    self.tempTimerValue >>= 1
             if (self.counterMode not in (0, 2, 3)):
                 self.pit.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})", self.counterMode, self.channelId)
                 return
