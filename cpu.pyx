@@ -89,7 +89,7 @@ cdef class Cpu:
         #if (self.savedCs == 0xfcb2 and self.savedEip == 0x2ff7 and self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx == 0xc10f30bc):
         #if (self.savedCs == 0x70 and self.savedEip == 0x0382):
         #if (self.savedCs == 0xc000 and self.savedEip == 0x152):
-        #    self.main.debugEnabled = self.main.debugEnabledTest = True
+        #    self.main.debugEnabledTest = self.main.debugEnabled = True
         #if (self.savedCs == 0x8 and self.savedEip == 0x808b5d6b):
         #    self.main.debugEnabledTest = self.main.debugEnabled = True
         #if (self.savedCs == 0x137 and self.savedEip == 0x7fcf1025):
@@ -270,10 +270,23 @@ cdef class Cpu:
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x28 and self.savedEip == 0xc0001e7a):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            if (self.main.debugEnabled or self.main.debugEnabledTest):
+            #if (self.savedCs == 0x2b and self.savedEip == 0x1c000193 and self.opcode == 0x57):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x2b and self.main.debugEnabledTest):
+            #    self.main.debugEnabled = True
+            #else:
+            #    self.main.debugEnabled = False
+            if (self.main.debugEnabled):
+            #if (self.main.debugEnabled or self.main.debugEnabledTest):
+            #if ((self.main.debugEnabled or self.main.debugEnabledTest) and self.savedCs != 0x50):
+            #if (self.savedCs == 0x2b):
             #IF 1:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
                 self.cpuDump()
+                #if (self.savedEip == 0x1c000178):
+                #    self.main.notice("ds:[ds:[edx]-1]=={0:#010x}", self.registers.mmReadValueUnsignedDword(self.registers.mmReadValueUnsignedDword(self.registers.regReadUnsignedDword(CPU_REGISTER_EDX), (<Segment>self.registers.segments.ds), False)-1, (<Segment>self.registers.segments.ds), False))
+                #if (self.savedEip == 0xd02006d1):
+                #    self.main.notice("ds:[esi-1]=={0:#010x}", self.registers.mmReadValueUnsignedDword(self.registers.regReadUnsignedDword(CPU_REGISTER_ESI)-1, (<Segment>self.registers.segments.ds), False))
                 #self.main.notice("EAX: {0:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EAX))
                 #self.main.notice("ESP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESP), self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS))
             if (not self.opcodes.executeOpcode(self.opcode)):

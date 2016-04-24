@@ -455,10 +455,11 @@ cdef class Vga:
         cdef unsigned char selectedPlanes = 0, data, color
         cdef unsigned short x, y, rows
         cdef unsigned int tempOffset, i, j, k, pixelData
-        #if (self.main.debugEnabled):
-        IF 0:
-            self.main.notice("VGA::vgaAreaWrite: offset=={0:#07x}; dataSize=={1:d}; data=={2:s}", offset, dataSize, repr(self.main.mm.data[offset:offset+dataSize]))
         with gil:
+            #if (self.main.debugEnabled):
+            IF 0:
+            #IF 1:
+                self.main.notice("VGA::vgaAreaWrite: offset=={0:#07x}; dataSize=={1:d}; data=={2:s}", offset, dataSize, repr(self.main.mm.data[offset:offset+dataSize]))
             if (not self.ui):
                 return
         if (not self.processVideoMem or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):

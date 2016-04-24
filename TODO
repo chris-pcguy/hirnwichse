@@ -15,5 +15,5 @@ PS2
 RS232
 
 
-FPU! (exitError while "df" on OpenBSD 5.5 floppy)
+PCI: Save busmaster base address instead of fetchingit each time
 

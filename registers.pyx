@@ -315,7 +315,7 @@ cdef class Fpu:
                 self.setExc(FPU_EXCEPTION_PE, True)
             self.setC(1, data.rc > 0)
     cdef inline object getVal(self, unsigned char tempIndex): # store
-        cdef unsigned char negative
+        cdef unsigned char negative, info_byte
         cdef unsigned int exp
         tempIndex = self.getIndex(tempIndex)
         self.main.notice("Fpu::getVal: tempIndex=={0:d}, len(st[ti])=={1:d}, repr(st[ti]=={2:s})", tempIndex, len(self.st[tempIndex]), repr(self.st[tempIndex]))
@@ -325,7 +325,14 @@ cdef class Fpu:
         negative = (exp & 0x8000) != 0
         exp &= <unsigned short>(~(<unsigned short>0x8000))
         exp = <unsigned short>((exp-16383)+1)
-        return gmpy2.from_binary(b"\x04"+bytes([ 0x43 if (negative) else 0x41 ])+b"\x00\x00"+bytes([self.getPrecision()])+b"\x00\x00\x00"+struct.pack("<I", exp)+self.st[tempIndex][9:1:-1])
+        if (negative):
+            info_byte = 0x43
+        else:
+            info_byte = 0x41
+        if (exp >= 0x8000):
+            exp = 0x10000 - exp
+            info_byte |= 0x20
+        return gmpy2.from_binary(b"\x04"+bytes([ info_byte ])+b"\x00\x00"+bytes([self.getPrecision()])+b"\x00\x00\x00"+struct.pack("<I", exp)+self.st[tempIndex][9:1:-1])
     cdef inline void push(self, object data, unsigned char setFlags): # load
         self.addTop(-1)
         self.setVal(0, data, setFlags)

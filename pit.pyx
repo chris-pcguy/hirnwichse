@@ -83,12 +83,12 @@ cdef class PitChannel:
                         #if (not (self.counterValue&0x1fff)):
                         #if (not (self.counterValue&0xfff)):
                         #if (not (self.counterValue&0xff)):
-                        if (not (self.counterValue&0x7f)):
+                        #if (not (self.counterValue&0x7f)):
                         #if (not (self.counterValue&0x3f)):
                         #if (not (self.counterValue&0x1f)):
                         #if (not (self.counterValue&0xf)):
                         #if (not (self.counterValue&0x7)):
-                        #if (not (self.counterValue&0x3)):
+                        if (not (self.counterValue&0x3)):
                         #if (not (self.counterValue&0x1)):
                         #IF 1:
                         #IF 0:
@@ -196,7 +196,8 @@ cdef class Pit:
         cdef unsigned int temp
         IF COMP_DEBUG:
         #IF 1:
-            self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
+            if (self.main.debugEnabled):
+                self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
@@ -225,7 +226,8 @@ cdef class Pit:
                     self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", channel.counterWriteMode)
                 IF COMP_DEBUG:
                 #IF 1:
-                    self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
+                    if (self.main.debugEnabled):
+                        self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
                 return retVal
             elif (ioPortAddr == 0x43):
                 self.main.notice("inPort: read from PIT command port 0x43 is ignored.")
@@ -240,7 +242,8 @@ cdef class Pit:
         cdef unsigned char channelId, bcd, modeNumber, counterWriteMode, i
         IF COMP_DEBUG:
         #IF 1:
-            self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
+            if (self.main.debugEnabled):
+                self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3

@@ -70,6 +70,7 @@ cdef class Hirnwichse:
         exit(1)
     def debug(self, str msg, *msgArgs): # this needs to be 'def'
         if (self.debugEnabled):
+        #if (self.debugEnabled and self.cpu.savedCs != 0x50):
             print("DEBUG: " + msg.format(*msgArgs))
     def notice(self, str msg, *msgArgs): # this needs to be 'def'
         print("NOTICE: " + msg.format(*msgArgs))
