@@ -272,14 +272,21 @@ cdef class Cpu:
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x2b and self.savedEip == 0x1c000193 and self.opcode == 0x57):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x8 and self.savedEip == 0x00320ba7):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x0 and self.savedEip == 0x7c00):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x2b and self.main.debugEnabledTest):
             #    self.main.debugEnabled = True
+            #if (self.savedCs == 0x2000 and self.savedEip == 0x1c8):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #else:
             #    self.main.debugEnabled = False
             if (self.main.debugEnabled):
             #if (self.main.debugEnabled or self.main.debugEnabledTest):
             #if ((self.main.debugEnabled or self.main.debugEnabledTest) and self.savedCs != 0x50):
             #if (self.savedCs == 0x2b):
+            #if (self.savedCs == 0x8 and self.savedEip == 0x312296):
             #IF 1:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
                 self.cpuDump()

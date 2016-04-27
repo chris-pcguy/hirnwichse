@@ -102,7 +102,7 @@ cdef class Opcodes:
     cdef int popSeg(self, unsigned char opcode) except BITMASK_BYTE_CONST
     cdef int popRM16_32(self) except BITMASK_BYTE_CONST
     cdef int lea(self) except BITMASK_BYTE_CONST
-    cdef int retNear(self, unsigned short imm) except BITMASK_BYTE_CONST
+    cdef int retNear(self, signed short imm) except BITMASK_BYTE_CONST
     cdef int retNearImm(self) except BITMASK_BYTE_CONST
     cdef int retFar(self, unsigned short imm) except BITMASK_BYTE_CONST
     cdef int retFarImm(self) except BITMASK_BYTE_CONST

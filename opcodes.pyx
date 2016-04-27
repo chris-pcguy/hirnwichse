@@ -1283,30 +1283,34 @@ cdef class Opcodes:
     cdef int popfWD(self) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char cpl, iopl
         cdef unsigned int flagValue, oldFlagValue, keepFlags
-        keepFlags = FLAG_RF | FLAG_VM
+        keepFlags = FLAG_VM | FLAG_VIP | FLAG_VIF
         iopl = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.iopl
-        if (self.registers.protectedModeOn and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm and iopl < 3):
+        if (self.registers.protectedModeOn and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm and (iopl < 3 or self.cpu.operSize == OP_SIZE_DWORD)):
             with gil:
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         cpl = self.registers.getCPL()
-        oldFlagValue = self.registers.regReadUnsigned(CPU_REGISTER_FLAGS, self.cpu.operSize)
+        oldFlagValue = self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS)
         flagValue = self.stackPopValue(True)
-        if (cpl != 0):
-            keepFlags |= FLAG_IOPL
-            if (cpl > iopl):
-                keepFlags |= FLAG_IF
-        if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
-            keepFlags |= FLAG_VIP | FLAG_VIF | FLAG_IOPL
-        flagValue &= ~(keepFlags | RESERVED_FLAGS_BITMASK)
-        flagValue |= oldFlagValue & keepFlags
-        if (self.cpu.operSize == OP_SIZE_WORD):
-            flagValue = <unsigned short>flagValue
-        elif (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
-            flagValue &= ~(FLAG_VIP | FLAG_VIF)
-        if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm and iopl < 3):
+        if (self.registers.protectedModeOn and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm and iopl < 3 and self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_VME) != 0 and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vip and (flagValue & FLAG_IF) != 0):
             with gil:
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
-        self.registers.regWrite(CPU_REGISTER_FLAGS, flagValue, self.cpu.operSize)
+        if (not (not cpl and (not self.registers.protectedModeOn or not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm))):
+            keepFlags |= FLAG_IOPL
+        if (self.registers.protectedModeOn):
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
+                if (cpl > 0 and cpl > iopl):
+                    keepFlags |= FLAG_IF
+            elif (iopl != 3):
+                keepFlags |= FLAG_IF
+                if (self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_VME) != 0):
+                    flagValue &= ~(FLAG_VIF)
+                    if ((flagValue & FLAG_IF) != 0):
+                        flagValue |= FLAG_VIF
+                else:
+                    keepFlags |= FLAG_VIF
+        flagValue &= ~(keepFlags | RESERVED_FLAGS_BITMASK | FLAG_RF)
+        flagValue |= oldFlagValue & keepFlags
+        self.registers.regWriteDword(CPU_REGISTER_EFLAGS, flagValue)
         return True
     cdef inline int stackPopSegment(self, Segment segment) nogil except BITMASK_BYTE_CONST:
         self.registers.segWriteSegment(segment, <unsigned short>self.stackPopValue(True))
@@ -2309,19 +2313,15 @@ cdef class Opcodes:
         mmAddr = self.modRMInstance.getRMValueFull(self.cpu.operSize)
         self.modRMInstance.modRSave(self.cpu.operSize, mmAddr, OPCODE_SAVE)
         return True
-    cdef int retNear(self, unsigned short imm) except BITMASK_BYTE_CONST:
-        cdef unsigned char stackAddrSize
-        cdef unsigned int tempEIP
+    cdef int retNear(self, signed short imm) except BITMASK_BYTE_CONST:
         self.registers.syncCR0State()
-        tempEIP = self.stackPopValue(True)
+        self.registers.regWriteDword(CPU_REGISTER_EIP, self.stackPopValue(True))
         if (imm):
-            stackAddrSize = (<Segment>self.registers.segments.ss).segSize
-            self.registers.regAdd(CPU_REGISTER_SP, imm, stackAddrSize)
-        self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
+            self.registers.regAdd(CPU_REGISTER_SP, imm, (<Segment>self.registers.segments.ss).segSize)
         return True
     cdef int retNearImm(self) except BITMASK_BYTE_CONST:
         cdef unsigned short imm
-        imm = self.registers.getCurrentOpcodeAddUnsignedWord() # imm16
+        imm = self.registers.getCurrentOpcodeAddSignedWord() # imm16
         return self.retNear(imm)
     cdef int retFar(self, unsigned short imm) except BITMASK_BYTE_CONST:
         cdef GdtEntry gdtEntrySS
@@ -2763,7 +2763,7 @@ cdef class Opcodes:
         tempEIP = self.stackPopValue(False) # this is here because esp should stay on
                                             # it's original value in case of an exception.
         if (not self.registers.protectedModeOn and self.cpu.operSize == OP_SIZE_DWORD and (tempEIP>>16)):
-            self.main.notice("Opcodes::iret: test1: opl: test1.9")
+            self.main.notice("Opcodes::iret: test1: opl: test1.9 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
             raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         oldESP = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
         if ((oldESP - (12 if (self.cpu.operSize == OP_SIZE_DWORD) else 6)) >= oldESP):
@@ -2780,14 +2780,14 @@ cdef class Opcodes:
                     self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return from VM86-Mode)")
                     self.cpu.cpuDump()
                 if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.iopl < 3):
-                    self.main.notice("Opcodes::iret: test1: opl: vm: test1.10")
+                    self.main.notice("Opcodes::iret: test1: opl: vm: test1.10 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 #if (not (<Segment>self.registers.segments.cs).isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
                 #    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 eflagsMask = FLAG_VM | FLAG_IOPL | FLAG_VIP | FLAG_VIF
                 tempEFLAGS &= ~eflagsMask
                 tempEFLAGS |= currentEFLAGS & eflagsMask
-                self.registers.regWrite(CPU_REGISTER_FLAGS, tempEFLAGS, self.cpu.operSize)
+                self.registers.regWriteDword(CPU_REGISTER_EFLAGS, tempEFLAGS)
                 self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
                 self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
                 #self.registers.ssInhibit = True
@@ -2804,7 +2804,7 @@ cdef class Opcodes:
                     raise HirnwichseException(CPU_EXCEPTION_TS, TSSsel)
                 gdtEntryTSS = <GdtEntry>self.registers.segments.getEntry(linkSel)
                 if (gdtEntryTSS is None):
-                    self.main.notice("Opcodes::iret: test1: opl: nt: test1.11")
+                    self.main.notice("Opcodes::iret: test1: opl: nt: test1.11 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                     raise HirnwichseException(CPU_EXCEPTION_GP, TSSsel)
                 segType = (gdtEntryTSS.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
                 if (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
@@ -2825,7 +2825,7 @@ cdef class Opcodes:
                 else:
                     self.registers.switchTSS16()
                 if (not (<Segment>self.registers.segments.cs).isAddressInLimit(self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), OP_SIZE_BYTE)):
-                    self.main.notice("Opcodes::iret: test1: opl: nt: test1.12")
+                    self.main.notice("Opcodes::iret: test1: opl: nt: test1.12 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 #self.registers.ssInhibit = True
                 self.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
@@ -2859,7 +2859,7 @@ cdef class Opcodes:
                     self.cpu.asyncEvent = True # set asyncEvent to True when set IF/TF to True
                     return True
                 else:
-                    self.main.exitError("Opcodes::iret: TODO; tempeflags & vm and cpl != 0! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+                    self.main.exitError("Opcodes::iret: TODO; tempEFLAGS & vm and cpl != 0! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                     return True
             elif ((tempCS&3) > cpl): # outer privilege level; rpl > cpl
                 if (self.main.debugEnabled):
@@ -2871,21 +2871,21 @@ cdef class Opcodes:
                 tempESP = self.stackPopValue(True)
                 tempSS = self.stackPopValue(True)
                 if (not (tempSS&0xfff8)):
-                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.4")
+                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.4 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 if (not self.registers.segments.inLimit(tempSS)):
-                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.1")
+                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.1 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempSS)
                 gdtEntrySS = <GdtEntry>self.registers.segments.getEntry(tempSS)
                 if (gdtEntrySS is None):
                     self.main.exitError("Opcodes::iret: not gdtEntrySS")
                     return True
                 if ((tempSS&3 != tempCS&3) or (not gdtEntrySS.segIsRW) or (gdtEntrySS.segDPL != tempCS&3)):
-                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.2")
+                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.2 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                     self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.3; {0:d}; {1:d}; {2:d}", (tempSS&3 != tempCS&3), (not gdtEntrySS.segIsRW), (gdtEntrySS.segDPL != tempCS&3))
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempSS)
                 if (not gdtEntrySS.segPresent):
-                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.5")
+                    self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.5 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                     raise HirnwichseException(CPU_EXCEPTION_SS, tempSS)
                 if (self.cpu.operSize == OP_SIZE_DWORD and not cpl):
                     eflagsMask |= FLAG_VM
@@ -2903,20 +2903,20 @@ cdef class Opcodes:
                 else:
                     self.registers.regWriteWord(CPU_REGISTER_SP, <unsigned short>tempESP)
             if (not (tempCS&0xfff8)):
-                self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.6")
+                self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.6 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             if (not self.registers.segments.inLimit(tempCS)):
-                self.main.notice("Opcodes::iret: test2: not inLimit: tempCS")
+                self.main.notice("Opcodes::iret: test2: not inLimit: tempCS: {0:#06x}; currentEFLAGS: {1:#06x}; tempEFLAGS: {2:#06x} (savedEip: {3:#010x}, savedCs: {4:#06x})", tempCS, currentEFLAGS, tempEFLAGS, self.cpu.savedEip, self.cpu.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_GP, tempCS)
             gdtEntryCS = <GdtEntry>self.registers.segments.getEntry(tempCS)
             if (gdtEntryCS is None):
-                self.main.exitError("Opcodes::iret: not gdtEntryCS")
+                self.main.exitError("Opcodes::iret: not gdtEntryCS (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                 return True
             if (not gdtEntryCS.segIsCodeSeg or ((tempCS&3) < cpl) or (gdtEntryCS.segIsConforming and (gdtEntryCS.segDPL > (tempCS&3))) or (not gdtEntryCS.segIsConforming and (gdtEntryCS.segDPL != (tempCS&3)))):
-                self.main.notice("Opcodes::iret: test3")
+                self.main.notice("Opcodes::iret: test3 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_GP, tempCS & 0xfffc)
             if (not gdtEntryCS.segPresent):
-                self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.7")
+                self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.7 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_NP, tempCS & 0xfffc)
             eflagsMask |= FLAG_CF | FLAG_PF | FLAG_AF | FLAG_ZF | FLAG_SF | FLAG_TF | FLAG_DF | FLAG_OF | FLAG_NT
             if (self.cpu.operSize in (OP_SIZE_DWORD, OP_SIZE_QWORD)):
@@ -2937,7 +2937,7 @@ cdef class Opcodes:
             self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
             self.cpu.saveCurrentInstPointer() # TODO
             if (not gdtEntryCS.isAddressInLimit(tempEIP, OP_SIZE_BYTE)):
-                self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.8")
+                self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.8 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         else:
             if (self.cpu.operSize == OP_SIZE_DWORD):
@@ -3272,11 +3272,11 @@ cdef class Opcodes:
         return True
     cdef int enter(self) except BITMASK_BYTE_CONST:
         cdef unsigned char stackAddrSize, nestingLevel, i
-        cdef unsigned short sizeOp
+        cdef signed short sizeOp
         cdef unsigned int frameTemp, temp
         #self.main.debugEnabled = True
         stackAddrSize = (<Segment>self.registers.segments.ss).segSize
-        sizeOp = self.registers.getCurrentOpcodeAddUnsignedWord()
+        sizeOp = self.registers.getCurrentOpcodeAddSignedWord()
         nestingLevel = self.registers.getCurrentOpcodeAddUnsignedByte()
         nestingLevel &= 0x1f
         if (nestingLevel and self.main.debugEnabled):
