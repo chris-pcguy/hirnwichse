@@ -18,5 +18,4 @@ RS232
 PCI: Save busmaster base address instead of fetching it each time
 ACPI (win2k, ...)
 
-Win95 doesn't boot anymore
 

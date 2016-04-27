@@ -1289,7 +1289,7 @@ cdef class Opcodes:
             with gil:
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         cpl = self.registers.getCPL()
-        oldFlagValue = self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS)
+        oldFlagValue = self.registers.regReadUnsigned(CPU_REGISTER_FLAGS, self.cpu.operSize)
         flagValue = self.stackPopValue(True)
         if (self.registers.protectedModeOn and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm and iopl < 3 and self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_VME) != 0 and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vip and (flagValue & FLAG_IF) != 0):
             with gil:
@@ -1310,7 +1310,7 @@ cdef class Opcodes:
                     keepFlags |= FLAG_VIF
         flagValue &= ~(keepFlags | RESERVED_FLAGS_BITMASK | FLAG_RF)
         flagValue |= oldFlagValue & keepFlags
-        self.registers.regWriteDword(CPU_REGISTER_EFLAGS, flagValue)
+        self.registers.regWrite(CPU_REGISTER_FLAGS, flagValue, self.cpu.operSize)
         return True
     cdef inline int stackPopSegment(self, Segment segment) nogil except BITMASK_BYTE_CONST:
         self.registers.segWriteSegment(segment, <unsigned short>self.stackPopValue(True))
@@ -2787,7 +2787,7 @@ cdef class Opcodes:
                 eflagsMask = FLAG_VM | FLAG_IOPL | FLAG_VIP | FLAG_VIF
                 tempEFLAGS &= ~eflagsMask
                 tempEFLAGS |= currentEFLAGS & eflagsMask
-                self.registers.regWriteDword(CPU_REGISTER_EFLAGS, tempEFLAGS)
+                self.registers.regWrite(CPU_REGISTER_FLAGS, tempEFLAGS, self.cpu.operSize)
                 self.registers.segWriteSegment((<Segment>self.registers.segments.cs), tempCS)
                 self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
                 #self.registers.ssInhibit = True

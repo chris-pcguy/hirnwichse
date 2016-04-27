@@ -401,7 +401,6 @@ cdef class Registers:
     cdef inline unsigned char setFlags(self, unsigned int flags) nogil:
         cdef unsigned char ifEnabled
         ifEnabled = ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((flags>>9)&1))
-        self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx = flags
         if (ifEnabled):
             with gil:
                 self.main.cpu.asyncEvent = True
