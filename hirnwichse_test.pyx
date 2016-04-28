@@ -22,6 +22,9 @@ cdef extern from "hirnwichse_test.h":
         test_struct_1 ts1s
         unsigned char ts1v
 
+cdef class IdtEntry:
+    def __init__(self):
+        pass
 
 
 cdef class HirnwichseTest:
@@ -143,6 +146,9 @@ cdef class HirnwichseTest:
         #print(bin(ts1.ts1v))
         ts1.ts1v = 0x80
         print(ts1.ts1s.a, ts1.ts1s.b, ts1.ts1s.c, ts1.ts1s.d, ts1.ts1s.e, ts1.ts1s.f, ts1.ts1s.g, ts1.ts1s.h)
+    cdef int func6(self) nogil:
+        cdef PyObject *idtEntry
+        pass
     cpdef run(self):
         #cdef unsigned int i
         #cdef double time1, time2
@@ -156,7 +162,8 @@ cdef class HirnwichseTest:
         #time2 = time()-time1
         #print("test3: {0:f}".format(time2))
         #print("test2")
-        self.func5()
+        #self.func5()
+        self.func6()
 
 
 

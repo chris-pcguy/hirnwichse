@@ -409,7 +409,7 @@ cdef class Registers:
         IF (CPU_CACHE_SIZE):
             return <unsigned char>self.readFromCacheUnsigned(OP_SIZE_BYTE)
         ELSE:
-            (<Paging>(<Segments>self.segments).paging).setInstrFetch()
+            (<Paging>(<Segments>self.segments).paging).instrFetch = True
             return self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, (<Segment>self.segments.cs), False)
     cdef signed long int getCurrentOpcodeAddSigned(self, unsigned char numBytes) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
@@ -419,7 +419,7 @@ cdef class Registers:
             cdef unsigned int opcodeAddr
             opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
-            (<Paging>(<Segments>self.segments).paging).setInstrFetch()
+            (<Paging>(<Segments>self.segments).paging).instrFetch = True
             return self.mmReadValueSigned(opcodeAddr, numBytes, (<Segment>self.segments.cs), False)
     cdef unsigned char getCurrentOpcodeAddUnsignedByte(self) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
@@ -429,7 +429,7 @@ cdef class Registers:
             cdef unsigned int opcodeAddr
             opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
-            (<Paging>(<Segments>self.segments).paging).setInstrFetch()
+            (<Paging>(<Segments>self.segments).paging).instrFetch = True
             return self.mmReadValueUnsignedByte(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef unsigned short getCurrentOpcodeAddUnsignedWord(self) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
@@ -439,7 +439,7 @@ cdef class Registers:
             cdef unsigned int opcodeAddr
             opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
-            (<Paging>(<Segments>self.segments).paging).setInstrFetch()
+            (<Paging>(<Segments>self.segments).paging).instrFetch = True
             return self.mmReadValueUnsignedWord(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef unsigned int getCurrentOpcodeAddUnsignedDword(self) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
@@ -449,7 +449,7 @@ cdef class Registers:
             cdef unsigned int opcodeAddr
             opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
-            (<Paging>(<Segments>self.segments).paging).setInstrFetch()
+            (<Paging>(<Segments>self.segments).paging).instrFetch = True
             return self.mmReadValueUnsignedDword(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef unsigned long int getCurrentOpcodeAddUnsignedQword(self) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
@@ -459,7 +459,7 @@ cdef class Registers:
             cdef unsigned int opcodeAddr
             opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
-            (<Paging>(<Segments>self.segments).paging).setInstrFetch()
+            (<Paging>(<Segments>self.segments).paging).instrFetch = True
             return self.mmReadValueUnsignedQword(opcodeAddr, (<Segment>self.segments.cs), False)
     cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes) nogil except? BITMASK_BYTE_CONST:
         IF (CPU_CACHE_SIZE):
@@ -469,55 +469,67 @@ cdef class Registers:
             cdef unsigned int opcodeAddr
             opcodeAddr = self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
-            (<Paging>(<Segments>self.segments).paging).setInstrFetch()
+            (<Paging>(<Segments>self.segments).paging).instrFetch = True
             return self.mmReadValueUnsigned(opcodeAddr, numBytes, (<Segment>self.segments.cs), False)
-    cdef unsigned char segWrite(self, unsigned short segId, unsigned short segValue) except BITMASK_BYTE_CONST:
-        cdef Segment segment
+    cdef unsigned char segWrite(self, unsigned short segId, unsigned short segValue) nogil except BITMASK_BYTE_CONST:
+        cdef PyObject *segment
         cdef unsigned char protectedModeOn, segType
-        with nogil:
-            protectedModeOn = (self.protectedModeOn and not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
-            if (protectedModeOn and segValue > 3):
-                with gil:
-                    segType = self.segments.getSegType(segValue)
-                if (segType & GDT_ACCESS_NORMAL_SEGMENT and not (segType & GDT_ACCESS_ACCESSED)):
-                    segType |= GDT_ACCESS_ACCESSED
-                    with gil:
-                        self.segments.setSegType(segValue, segType)
-        segment = self.segments.getSegment(segId, False)
-        segment.loadSegment(segValue, False)
+        protectedModeOn = (self.protectedModeOn and not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
+        if (protectedModeOn and segValue > 3):
+            segType = self.segments.getSegType(segValue)
+            if (segType & GDT_ACCESS_NORMAL_SEGMENT and not (segType & GDT_ACCESS_ACCESSED)):
+                segType |= GDT_ACCESS_ACCESSED
+                self.segments.setSegType(segValue, segType)
+        if (segId == CPU_SEGMENT_CS):
+            segment = (<PyObject*>(<Segments>self.segments).cs)
+        elif (segId == CPU_SEGMENT_SS):
+            segment = (<PyObject*>(<Segments>self.segments).ss)
+        elif (segId == CPU_SEGMENT_DS):
+            segment = (<PyObject*>(<Segments>self.segments).ds)
+        elif (segId == CPU_SEGMENT_ES):
+            segment = (<PyObject*>(<Segments>self.segments).es)
+        elif (segId == CPU_SEGMENT_FS):
+            segment = (<PyObject*>(<Segments>self.segments).fs)
+        elif (segId == CPU_SEGMENT_GS):
+            segment = (<PyObject*>(<Segments>self.segments).gs)
+        elif (segId == CPU_SEGMENT_TSS):
+            segment = (<PyObject*>(<Segments>self.segments).tss)
+        else:
+            with gil:
+                self.main.exitError("Segments::getSegment_1: segId {0:d} doesn't exist.", segId)
+            return False
+        with gil:
+            (<Segment>segment).loadSegment(segValue, False)
         if (protectedModeOn):
-            if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):
-                with nogil:
-                    segment.isValid = False
-        with nogil:
-            if (segId == CPU_SEGMENT_CS):
-                self.main.cpu.codeSegSize = segment.segSize
-                if (self.protectedModeOn):
-                    if (self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
-                        self.cpl = 3
-                    elif (segment.isValid and segment.useGDT):
-                        self.cpl = segValue & 0x3
-                    else:
-                        with gil:
-                            self.main.exitError("Registers::segWrite: segment seems to be invalid!")
-                        return False
+            with gil:
+                if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):
+                    (<Segment>segment).isValid = False
+        if (segId == CPU_SEGMENT_CS):
+            self.main.cpu.codeSegSize = (<Segment>segment).segSize
+            if (self.protectedModeOn):
+                if (self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
+                    self.cpl = 3
+                elif ((<Segment>segment).isValid and (<Segment>segment).useGDT):
+                    self.cpl = segValue & 0x3
                 else:
-                    self.cpl = 0
-            elif (segId == CPU_SEGMENT_SS):
-                self.ssInhibit = True
-            self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
-            return True
+                    with gil:
+                        self.main.exitError("Registers::segWrite: segment seems to be invalid!")
+                    return False
+            else:
+                self.cpl = 0
+        elif (segId == CPU_SEGMENT_SS):
+            self.ssInhibit = True
+        self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
+        return True
     cdef unsigned char segWriteSegment(self, Segment segment, unsigned short segValue) nogil except BITMASK_BYTE_CONST:
         cdef unsigned short segId
         cdef unsigned char protectedModeOn, segType
         protectedModeOn = (self.protectedModeOn and not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
         if (protectedModeOn and segValue > 3):
-            with gil:
-                segType = self.segments.getSegType(segValue)
+            segType = self.segments.getSegType(segValue)
             if (segType & GDT_ACCESS_NORMAL_SEGMENT and not (segType & GDT_ACCESS_ACCESSED)):
                 segType |= GDT_ACCESS_ACCESSED
-                with gil:
-                    self.segments.setSegType(segValue, segType)
+                self.segments.setSegType(segValue, segType)
         segId = segment.segId
         with gil:
             segment.loadSegment(segValue, False)
@@ -909,59 +921,9 @@ cdef class Registers:
             self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<unsigned char>regSumu]
             self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not regSumu
             self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (regSumu & bitMaskHalf) != 0
-    cdef inline unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) nogil except BITMASK_BYTE_CONST:
+    cdef inline unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, PyObject *segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned char addrInLimit
         cdef unsigned short segId, segVal
-        segId = segment.segId
-        segVal = segment.segmentIndex
-        addrInLimit = segment.isAddressInLimit(mmAddr, dataSize)
-        if (not addrInLimit):
-            if (segId == CPU_SEGMENT_SS):
-                with gil:
-                    raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
-            else:
-                with gil:
-                    raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
-        if ((written and segment.writeChecked) or (not written and segment.readChecked)):
-            return True
-        if (segment.useGDT):
-            if (not (segVal&0xfff8) or not segment.segPresent):
-                if (segId == CPU_SEGMENT_SS):
-                    with gil:
-                        #self.main.notice("Registers::checkMemAccessRights: test1.1.1")
-                        raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
-                elif (not segment.segPresent):
-                    with gil:
-                        #self.main.notice("Registers::checkMemAccessRights: test1.1.2")
-                        raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
-                else:
-                    with gil:
-                        #self.main.notice("Registers::checkMemAccessRights: test1.1.3")
-                        raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
-        if (written):
-            if (segment.segIsGDTandNormal and (segment.segIsCodeSeg or not segment.segIsRW)):
-                #self.main.notice("Registers::checkMemAccessRights: test1.3")
-                #self.main.notice("Registers::checkMemAccessRights: test1.3.1; c0=={0:d}; c1=={1:d}; c2=={2:d}", segment.segIsNormal, (segment.segIsCodeSeg or not segment.segIsRW), not addrInLimit)
-                #self.main.notice("Registers::checkMemAccessRights: test1.3.2; mmAddr=={0:#010x}; dataSize=={1:d}; base=={2:#010x}; limit=={3:#010x}", mmAddr, dataSize, segment.base, segment.limit)
-                if (segId == CPU_SEGMENT_SS):
-                    with gil:
-                        raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
-                else:
-                    with gil:
-                        raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
-            segment.writeChecked = True
-        else:
-            if (segment.segIsGDTandNormal and segment.segIsCodeSeg and not segment.segIsRW):
-                #self.main.notice("Registers::checkMemAccessRights: test1.4")
-                if (segId == CPU_SEGMENT_SS):
-                    with gil:
-                        raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
-                else:
-                    with gil:
-                        raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
-            segment.readChecked = True
-        return True
-    cdef inline unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, PyObject *segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST:
         cdef unsigned int origMmAddr
         origMmAddr = mmAddr
         if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
@@ -973,8 +935,48 @@ cdef class Registers:
         if (<Segment>segment is not None):
             if (self.protectedModeOn and <Segment>segment is (<Segment>self.segments.tss)):
                 (<Paging>(<Segments>self.segments).paging).implicitSV = True
-            #if (segment.useGDT):
-            self.checkMemAccessRights(mmAddr, dataSize, <Segment>segment, written)
+            segId = (<Segment>segment).segId
+            segVal = (<Segment>segment).segmentIndex
+            addrInLimit = (<Segment>segment).isAddressInLimit(mmAddr, dataSize)
+            if (not addrInLimit):
+                with gil:
+                    if (segId == CPU_SEGMENT_SS):
+                        raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                    else:
+                        raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+            if ((written and not (<Segment>segment).writeChecked) or (not written and not (<Segment>segment).readChecked)):
+                if ((<Segment>segment).useGDT):
+                    if (not (segVal&0xfff8) or not (<Segment>segment).segPresent):
+                        with gil:
+                            if (segId == CPU_SEGMENT_SS):
+                                #self.main.notice("Registers::checkMemAccessRights: test1.1.1")
+                                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                            elif (not (<Segment>segment).segPresent):
+                                #self.main.notice("Registers::checkMemAccessRights: test1.1.2")
+                                raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
+                            else:
+                                #self.main.notice("Registers::checkMemAccessRights: test1.1.3")
+                                raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+                if (written):
+                    if ((<Segment>segment).segIsGDTandNormal and ((<Segment>segment).segIsCodeSeg or not (<Segment>segment).segIsRW)):
+                        #self.main.notice("Registers::checkMemAccessRights: test1.3")
+                        #self.main.notice("Registers::checkMemAccessRights: test1.3.1; c0=={0:d}; c1=={1:d}; c2=={2:d}", (<Segment>segment).segIsNormal, ((<Segment>segment).segIsCodeSeg or not (<Segment>segment).segIsRW), not addrInLimit)
+                        #self.main.notice("Registers::checkMemAccessRights: test1.3.2; mmAddr=={0:#010x}; dataSize=={1:d}; base=={2:#010x}; limit=={3:#010x}", mmAddr, dataSize, (<Segment>segment).base, (<Segment>segment).limit)
+                        with gil:
+                            if (segId == CPU_SEGMENT_SS):
+                                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                            else:
+                                raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+                    (<Segment>segment).writeChecked = True
+                else:
+                    if ((<Segment>segment).segIsGDTandNormal and (<Segment>segment).segIsCodeSeg and not (<Segment>segment).segIsRW):
+                        #self.main.notice("Registers::checkMemAccessRights: test1.4")
+                        with gil:
+                            if (segId == CPU_SEGMENT_SS):
+                                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                            else:
+                                raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+                    (<Segment>segment).readChecked = True
             mmAddr += (<Segment>segment).base
         # TODO: check for limit asf...
         if (self.protectedModeOn and self.pagingOn): # TODO: is a20 even being applied after paging is enabled? (on the physical address... or even the virtual one?)
@@ -1168,12 +1170,14 @@ cdef class Registers:
 
         self.regOrDword(CPU_REGISTER_CR0, CR0_FLAG_TS)
         return True
-    cdef unsigned char saveTSS16(self) except BITMASK_BYTE_CONST:
+    cdef unsigned char saveTSS16(self) nogil except BITMASK_BYTE_CONST:
         cdef unsigned int baseAddress
-        self.main.notice("Registers::saveTSS16: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        with gil:
+            self.main.notice("Registers::saveTSS16: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
         baseAddress = self.mmGetRealAddr(0, 1, (<PyObject*>self.segments.tss), False, True)
         if (((baseAddress&0xfff)+TSS_MIN_16BIT_HARD_LIMIT) > 0xfff):
-            self.main.exitError("Registers::saveTSS16: TSS is over page boundary!")
+            with gil:
+                self.main.exitError("Registers::saveTSS16: TSS is over page boundary!")
             return False
         self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_AX, self.regReadUnsignedWord(CPU_REGISTER_AX), OP_SIZE_WORD)
         self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_CX, self.regReadUnsignedWord(CPU_REGISTER_CX), OP_SIZE_WORD)
@@ -1243,14 +1247,16 @@ cdef class Registers:
             self.main.notice("Registers::switchTSS32: Debug")
             raise HirnwichseException(CPU_EXCEPTION_DB)
         return True
-    cdef unsigned char saveTSS32(self) except BITMASK_BYTE_CONST:
+    cdef unsigned char saveTSS32(self) nogil except BITMASK_BYTE_CONST:
         cdef unsigned int baseAddress
-        self.main.notice("Registers::saveTSS32: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-        self.main.cpu.cpuDump()
-        self.main.notice("Registers::saveTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", self.getCPL(), self.cpl)
+        with gil:
+            self.main.notice("Registers::saveTSS32: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+            self.main.cpu.cpuDump()
+            self.main.notice("Registers::saveTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", self.getCPL(), self.cpl)
         baseAddress = self.mmGetRealAddr(0, 1, (<PyObject*>self.segments.tss), False, True)
         if (((baseAddress&0xfff)+TSS_MIN_32BIT_HARD_LIMIT) > 0xfff):
-            self.main.exitError("Registers::saveTSS32: TSS is over page boundary!")
+            with gil:
+                self.main.exitError("Registers::saveTSS32: TSS is over page boundary!")
             return False
         #self.main.debugEnabled = True
         self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EAX, self.regReadUnsignedDword(CPU_REGISTER_EAX), OP_SIZE_DWORD)

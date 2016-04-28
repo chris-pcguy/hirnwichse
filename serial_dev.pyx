@@ -28,7 +28,7 @@ cdef class SerialPort:
         self.stopBits = 0
         self.parity = 0
         self.divisor = 1 # 12
-        self.interruptEnableRegister = self.modemControlRegister = self.modemStatusRegister = self.scratchRegister = 0
+        self.interruptEnableRegister = self.modemControlRegister = self.oldModemStatusRegister = self.scratchRegister = 0
         self.lineStatusRegister = 0x60
         self.interruptIdentificationFifoControl = 0x2
         self.data = bytes()
@@ -47,6 +47,9 @@ cdef class SerialPort:
                 if (exists(self.serialFilename)):
                     self.fp = seriallib.Serial(port=self.serialFilename.decode())
                     self.setBits()
+                    self.main.notice("SerialPort::__init__: \"serial:serialFilename\" does exist. (self.serialFilename: {0:s})", self.serialFilename.decode())
+                else:
+                    self.main.exitError("SerialPort::__init__: \"serial:serialFilename\" doesn't exist. (self.serialFilename: {0:s})", self.serialFilename.decode())
             else:
                 self.fp = open(self.serialFilename, "w+b")
     cdef void reset(self):
@@ -138,7 +141,7 @@ cdef class SerialPort:
         if (self.fp is not None):
             if (len(data) > 0):
                 self.lineStatusRegister &= ~0x60
-                self.main.notice("SerialPort{0:d}::writeData: write string: {1:s}", self.serialIndex, data.decode())
+                self.main.notice("SerialPort{0:d}::writeData: write string: {1:s}", self.serialIndex, repr(data.decode()))
                 if (self.modemControlRegister & 0x10):
                     self.data += data
                 else:
@@ -173,13 +176,15 @@ cdef class SerialPort:
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0):
                 if (self.dlab): # low byte divisor
+                    self.main.notice("SerialPort::inPort_5: get divisor low")
                     return (self.divisor & BITMASK_BYTE)
                 else:
+                    self.main.notice("SerialPort::inPort_8: read character")
                     if (not len(self.data)):
                         self.readData()
                     if (len(self.data) > 0):
                         ret = self.data[0]
-                        self.main.notice("SerialPort{0:d}::inPort_3: read character: {1:s}", self.serialIndex, chr(ret))
+                        self.main.notice("SerialPort{0:d}::inPort_3: read character: {1:s}, {2:#04x}", self.serialIndex, repr(chr(ret)), ret)
                         if (len(self.data) > 1):
                             self.data = self.data[1:]
                         else:
@@ -188,8 +193,10 @@ cdef class SerialPort:
                     #    ret = 0
             elif (ioPortAddr == 1):
                 if (self.dlab): # high byte divisor
+                    self.main.notice("SerialPort::inPort_6: get divisor high")
                     return (self.divisor >> 8)
                 else:
+                    self.main.notice("SerialPort::inPort_7: get interruptEnableRegister")
                     return self.interruptEnableRegister
             elif (ioPortAddr == 2):
                 (<Pic>self.main.platform.pic).lowerIrq(self.irq)
@@ -204,7 +211,22 @@ cdef class SerialPort:
                 self.setFlags()
                 return self.lineStatusRegister
             elif (ioPortAddr == 6):
-                return self.modemStatusRegister
+                ret = 0
+                if (self.isDev):
+                    ret |= (self.fp.getCD() != 0) << 7
+                    ret |= (self.fp.getRI() != 0) << 6
+                    ret |= (self.fp.getDSR() != 0) << 5
+                    ret |= (self.fp.getCTS() != 0) << 4
+                    if (not ((self.oldModemStatusRegister >> 7) & 1) and ((ret >> 7) & 1)):
+                        ret |= 1 << 3
+                    if (((self.oldModemStatusRegister >> 6) & 1) and not ((ret >> 6) & 1)): # RI is reversed
+                        ret |= 1 << 2
+                    if (not ((self.oldModemStatusRegister >> 5) & 1) and ((ret >> 5) & 1)):
+                        ret |= 1 << 1
+                    if (not ((self.oldModemStatusRegister >> 4) & 1) and ((ret >> 4) & 1)):
+                        ret |= 1
+                self.oldModemStatusRegister = ret
+                return ret
             elif (ioPortAddr == 7):
                 return self.scratchRegister
             else:
@@ -224,16 +246,16 @@ cdef class SerialPort:
                     self.divisor |= data
                     self.setBits()
                 else:
-                    self.main.notice("SerialPort{0:d}::outPort: write character: {1:s}", self.serialIndex, chr(data))
+                    self.main.notice("SerialPort{0:d}::outPort: write character: {1:s}, {2:#04x}", self.serialIndex, repr(chr(data)), data)
                     self.writeData(bytes([data]))
             elif (ioPortAddr == 1):
                 if (self.dlab): # high byte divisor
-                    self.main.notice("SerialPort::outPort_3: set divisor high")
+                    self.main.notice("SerialPort::outPort_4: set divisor high")
                     self.divisor &= 0x00ff
                     self.divisor |= (data<<8)
                     self.setBits()
                 else:
-                    self.main.notice("SerialPort::outPort_3: set interruptEnableRegister")
+                    self.main.notice("SerialPort::outPort_5: set interruptEnableRegister")
                     self.interruptEnableRegister = data
             elif (ioPortAddr == 2):
                 if (data & 1):
@@ -248,8 +270,13 @@ cdef class SerialPort:
                 self.parity = ((data >> 3) & 7)
                 self.dlab = ((data >> 7) & 1)
                 self.setBits()
+                if (self.isDev):
+                    self.fp.setBreak((data >> 6) & 1)
             elif (ioPortAddr == 4):
                 self.modemControlRegister = data
+                if (self.isDev):
+                    self.fp.setRTS((self.modemControlRegister >> 1) & 1)
+                    self.fp.setDTR(self.modemControlRegister & 1)
             elif (ioPortAddr == 7):
                 self.scratchRegister = data
             else:

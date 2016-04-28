@@ -158,7 +158,7 @@ cdef class Registers:
     cdef unsigned long int getCurrentOpcodeAddUnsigned(self, unsigned char numBytes) nogil except? BITMASK_BYTE_CONST
     cdef inline unsigned short segRead(self, unsigned short segId) nogil:
         return self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx
-    cdef unsigned char segWrite(self, unsigned short segId, unsigned short segValue) except BITMASK_BYTE_CONST
+    cdef unsigned char segWrite(self, unsigned short segId, unsigned short segValue) nogil except BITMASK_BYTE_CONST
     cdef unsigned char segWriteSegment(self, Segment segment, unsigned short segValue) nogil except BITMASK_BYTE_CONST
     cdef inline signed char regReadSignedLowByte(self, unsigned short regId) nogil:
         return <signed char>self.regs[regId]._union.word._union.byte.rl
@@ -358,7 +358,6 @@ cdef class Registers:
     cdef inline unsigned char getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef inline unsigned char getCond(self, unsigned char index) nogil
     cdef inline void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method) nogil
-    cdef inline unsigned char checkMemAccessRights(self, unsigned int mmAddr, unsigned int dataSize, Segment segment, unsigned char written) nogil except BITMASK_BYTE_CONST
     cdef inline unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, PyObject *segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST
     cdef inline signed short mmReadValueSignedByte(self, unsigned int mmAddr, Segment segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         return <signed char>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
@@ -377,9 +376,9 @@ cdef class Registers:
     cdef unsigned char mmWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride) nogil except BITMASK_BYTE_CONST
     cdef unsigned long int mmWriteValueWithOp(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize, Segment segment, unsigned char allowOverride, unsigned char valueOp) nogil except? BITMASK_BYTE_CONST
     cdef unsigned char switchTSS16(self) except BITMASK_BYTE_CONST
-    cdef unsigned char saveTSS16(self) except BITMASK_BYTE_CONST
+    cdef unsigned char saveTSS16(self) nogil except BITMASK_BYTE_CONST
     cdef unsigned char switchTSS32(self) except BITMASK_BYTE_CONST
-    cdef unsigned char saveTSS32(self) except BITMASK_BYTE_CONST
+    cdef unsigned char saveTSS32(self) nogil except BITMASK_BYTE_CONST
     cdef void run(self)
 
 

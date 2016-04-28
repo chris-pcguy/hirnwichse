@@ -81,8 +81,8 @@ cdef class Segment:
 
 
 cdef class GdtEntry:
-    def __init__(self, Gdt gdt, unsigned long int entryData):
-        self.gdt = gdt
+    def __init__(self, Segments segments, unsigned long int entryData):
+        self.segments = segments
         self.parseEntryData(entryData)
     cdef void parseEntryData(self, unsigned long int entryData) nogil:
         self.accessByte = <unsigned char>(entryData>>40)
@@ -104,10 +104,10 @@ cdef class GdtEntry:
         if (self.segUse4K):
             self.limit <<= 12
             self.limit |= 0xfff
-        #if (not self.segIsCodeSeg and self.segIsConforming and self.gdt.segments.main.debugEnabled):
-        #    self.gdt.segments.main.notice("GdtEntry::parseEntryData: TODO: expand-down data segment may not supported yet!")
+        #if (not self.segIsCodeSeg and self.segIsConforming and self.segments.main.debugEnabled):
+        #    self.segments.main.notice("GdtEntry::parseEntryData: TODO: expand-down data segment may not supported yet!")
         #if (self.flags & GDT_FLAG_LONGMODE): # TODO: int-mode isn't implemented yet...
-        #    self.gdt.segments.main.notice("GdtEntry::parseEntryData: WTF: Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades... (long-mode; AMD64)")
+        #    self.segments.main.notice("GdtEntry::parseEntryData: WTF: Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades... (long-mode; AMD64)")
     cdef inline unsigned char isAddressInLimit(self, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST:
         ## address is an offset.
         address += size-1
@@ -115,32 +115,15 @@ cdef class GdtEntry:
             if ((address+1)<self.limit or (not self.segSize and (address>BITMASK_WORD))):
                 IF COMP_DEBUG:
                     with gil:
-                        self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, self.limit)
+                        self.segments.main.notice("GdtEntry::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, self.limit)
                 return False
         else:
             if (address>self.limit):
                 IF COMP_DEBUG:
                     with gil:
-                        self.gdt.segments.main.notice("GdtEntry::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, self.limit)
+                        self.segments.main.notice("GdtEntry::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, self.limit)
                 return False
         return True
-
-
-cdef class IdtEntry:
-    def __init__(self, unsigned long int entryData):
-        self.parseEntryData(entryData)
-    cdef void parseEntryData(self, unsigned long int entryData) nogil:
-        self.entryEip = entryData&0xffff # interrupt eip: lower word
-        self.entryEip |= ((entryData>>48)&0xffff)<<16 # interrupt eip: upper word
-        self.entrySegment = (entryData>>16)&0xffff # interrupt segment
-        self.entryType = (entryData>>40)&0xf # interrupt type
-        self.entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
-        self.entryPresent = (entryData>>47)&1 # is interrupt present
-        self.entrySize = OP_SIZE_DWORD if (self.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, \
-          TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, \
-          TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE, \
-          TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)) else OP_SIZE_WORD
-
 
 cdef class Gdt:
     def __init__(self, Segments segments):
@@ -164,12 +147,12 @@ cdef class Gdt:
         #self.segments.main.debug("Gdt::getEntry: tableBase=={0:#010x}; tableLimit=={1:#06x}; num=={2:#06x}", self.tableBase, self.tableLimit, num)
         entryData = self.tableBase+num
         entryData = self.segments.registers.mmReadValueUnsignedQword(entryData, None, False)
-        return GdtEntry(self, entryData)
-    cdef unsigned char getSegType(self, unsigned short num) except? BITMASK_BYTE_CONST: # access byte
+        return GdtEntry(self.segments, entryData)
+    cdef unsigned char getSegType(self, unsigned short num) nogil except? BITMASK_BYTE_CONST: # access byte
         self.segments.paging.implicitSV = True
         num &= 0xfff8
         return (self.segments.registers.mmReadValueUnsignedByte(self.tableBase+num+5, None, False) & TABLE_ENTRY_SYSTEM_TYPE_MASK)
-    cdef unsigned char setSegType(self, unsigned short num, unsigned char segmentType) except BITMASK_BYTE_CONST: # access byte
+    cdef unsigned char setSegType(self, unsigned short num, unsigned char segmentType) nogil except BITMASK_BYTE_CONST: # access byte
         self.segments.paging.implicitSV = True
         num &= 0xfff8
         self.segments.registers.mmWriteValue(self.tableBase+num+5, <unsigned char>((self.segments.registers.\
@@ -199,7 +182,7 @@ cdef class Gdt:
             else:
                 raise HirnwichseException(CPU_EXCEPTION_NP, num)
         return True
-    cdef unsigned char checkReadAllowed(self, unsigned short num): # for VERR
+    cdef unsigned char checkReadAllowed(self, unsigned short num) except BITMASK_BYTE_CONST: # for VERR
         cdef unsigned char rpl
         cdef GdtEntry gdtEntry
         rpl = num&3
@@ -215,7 +198,7 @@ cdef class Gdt:
         if (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW):
             return False
         return True
-    cdef unsigned char checkWriteAllowed(self, unsigned short num): # for VERW
+    cdef unsigned char checkWriteAllowed(self, unsigned short num) except BITMASK_BYTE_CONST: # for VERW
         cdef unsigned char rpl
         cdef GdtEntry gdtEntry
         rpl = num&3
@@ -276,35 +259,47 @@ cdef class Idt:
                   tableLimit, IDT_HARD_LIMIT)
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
-    cdef IdtEntry getEntry(self, unsigned char num):
+    cdef void parseIdtEntryData(self, IdtEntry *idtEntry, unsigned long int entryData) nogil:
+        idtEntry[0].entryEip = entryData&0xffff # interrupt eip: lower word
+        idtEntry[0].entryEip |= ((entryData>>48)&0xffff)<<16 # interrupt eip: upper word
+        idtEntry[0].entrySegment = (entryData>>16)&0xffff # interrupt segment
+        idtEntry[0].entryType = (entryData>>40)&0xf # interrupt type
+        idtEntry[0].entryNeededDPL = (entryData>>45)&0x3 # interrupt: Need this DPL
+        idtEntry[0].entryPresent = (entryData>>47)&1 # is interrupt present
+        idtEntry[0].entrySize = OP_SIZE_DWORD if (idtEntry[0].entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, \
+          TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, \
+          TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE, \
+          TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)) else OP_SIZE_WORD
+    cdef IdtEntry *getEntry(self, unsigned char num) nogil:
         cdef unsigned long int address
         cdef IdtEntry idtEntry
         self.segments.paging.implicitSV = True
         if (not self.tableLimit):
             #self.segments.main.notice("Idt::getEntry: tableLimit is zero.")
-            return None
+            return NULL
         address = (num<<3)
         if (address >= self.tableLimit):
             #self.segments.main.notice("Idt::getEntry: tableLimit is too small.")
-            return None
+            return NULL
         address += self.tableBase
         address = self.segments.registers.mmReadValueUnsignedQword(address, None, False)
-        idtEntry = IdtEntry(address)
+        with gil:
+            self.parseIdtEntryData(&idtEntry, address)
         if (idtEntry.entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
             #self.segments.main.notice("Idt::getEntry: entryType is LDT or TSS. (is this allowed?)")
-            return None
+            return NULL
         if (not idtEntry.entryPresent):
             #self.segments.main.notice("Idt::getEntry: idtEntry is not present.")
-            return None
-        return idtEntry
+            return NULL
+        return &idtEntry
     cdef unsigned char isEntryPresent(self, unsigned char num):
-        return self.getEntry(num).entryPresent
+        return (self.getEntry(num)[0]).entryPresent
     cdef unsigned char getEntryNeededDPL(self, unsigned char num):
-        return self.getEntry(num).entryNeededDPL
+        return (self.getEntry(num)[0]).entryNeededDPL
     cdef unsigned char getEntrySize(self, unsigned char num):
         # interrupt size: 1==32bit==return 4; 0==16bit==return 2
-        return self.getEntry(num).entrySize
-    cdef void getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip):
+        return (self.getEntry(num)[0]).entrySize
+    cdef void getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip) nogil:
         cdef unsigned short offset
         offset = num<<2 # Don't use ConfigSpace here.
         entryEip[0] = self.segments.main.mm.mmPhyReadValueUnsignedWord(offset)
@@ -557,7 +552,8 @@ cdef class Paging: # TODO
                 dataSize -= PAGE_DIRECTORY_LENGTH
         return True
     cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) nogil except? BITMASK_BYTE_CONST:
-        IF 0:
+        #IF 0:
+        IF COMP_DEBUG:
             cdef unsigned int pageDirectoryEntryMem, pageTableEntryMem
         self.readAddresses(virtualAddress, written)
         self.accessAllowed(virtualAddress, written, False)
@@ -602,40 +598,17 @@ cdef class Segments:
     def __init__(self, Registers registers, Hirnwichse main):
         self.registers = registers
         self.main = main
-    cdef void reset(self):
+    cdef void reset(self) nogil:
         self.ldtr = 0
-    cdef Segment getSegment(self, unsigned short segmentId, unsigned char checkForValidness):
-        cdef Segment segment
-        if (segmentId == CPU_SEGMENT_CS):
-            segment = self.cs
-        elif (segmentId == CPU_SEGMENT_SS):
-            segment = self.ss
-        elif (segmentId == CPU_SEGMENT_DS):
-            segment = self.ds
-        elif (segmentId == CPU_SEGMENT_ES):
-            segment = self.es
-        elif (segmentId == CPU_SEGMENT_FS):
-            segment = self.fs
-        elif (segmentId == CPU_SEGMENT_GS):
-            segment = self.gs
-        elif (segmentId == CPU_SEGMENT_TSS):
-            segment = self.tss
-        else:
-            self.main.exitError("Segments::getSegment_1: segmentId {0:d} doesn't exist.", segmentId)
-            return None
-        if (checkForValidness and not segment.isValid):
-            self.main.notice("Segments::getSegment_2: segmentId {0:d} isn't valid.", segmentId)
-            raise HirnwichseException(CPU_EXCEPTION_GP, segment.segmentIndex)
-        return segment
     cdef inline GdtEntry getEntry(self, unsigned short num):
         if (num & SELECTOR_USE_LDT):
             return <GdtEntry>self.ldt.getEntry(num)
         return <GdtEntry>self.gdt.getEntry(num)
-    cdef inline unsigned char getSegType(self, unsigned short num) except? BITMASK_BYTE_CONST:
+    cdef inline unsigned char getSegType(self, unsigned short num) nogil except? BITMASK_BYTE_CONST:
         if (num & SELECTOR_USE_LDT):
             return self.ldt.getSegType(num)
         return self.gdt.getSegType(num)
-    cdef inline unsigned char setSegType(self, unsigned short num, unsigned char segmentType) except BITMASK_BYTE_CONST:
+    cdef inline unsigned char setSegType(self, unsigned short num, unsigned char segmentType) nogil except BITMASK_BYTE_CONST:
         if (num & SELECTOR_USE_LDT):
             self.ldt.setSegType(num, segmentType)
             return True
