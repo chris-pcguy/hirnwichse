@@ -9,7 +9,6 @@ from registers cimport ModRMClass, Registers
 from cpu cimport Cpu
 from mm cimport Mm
 from pic cimport Pic
-from cpython.ref cimport PyObject
 
 
 cdef class Opcodes:
@@ -31,7 +30,7 @@ cdef class Opcodes:
     cdef int checkIOPL(self, unsigned short ioPortAddr, unsigned char dataSize) nogil except BITMASK_BYTE_CONST
     cdef long int inPort(self, unsigned short ioPortAddr, unsigned char dataSize) except? BITMASK_BYTE_CONST
     cdef int outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize) except BITMASK_BYTE_CONST
-    cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal) except BITMASK_BYTE_CONST
+    cdef int jumpFarDirect(self, unsigned char method, unsigned short segVal, unsigned int eipVal) nogil except BITMASK_BYTE_CONST
     cdef inline int jumpFarAbsolutePtr(self) nogil except BITMASK_BYTE_CONST
     cdef inline int loopFunc(self, unsigned char loopType) nogil except BITMASK_BYTE_CONST
     cdef int opcodeR_RM(self, unsigned char opcode, unsigned char operSize) nogil except BITMASK_BYTE_CONST
@@ -77,11 +76,11 @@ cdef class Opcodes:
     cdef int popaWD(self) nogil except BITMASK_BYTE_CONST
     cdef int pushfWD(self) nogil except BITMASK_BYTE_CONST
     cdef int popfWD(self) nogil except BITMASK_BYTE_CONST
-    cdef inline int stackPopSegment(self, Segment segment) nogil except BITMASK_BYTE_CONST
+    cdef inline int stackPopSegment(self, Segment *segment) nogil except BITMASK_BYTE_CONST
     cdef inline int stackPopRegId(self, unsigned short regId, unsigned char regSize) nogil except BITMASK_BYTE_CONST
     cdef unsigned int stackPopValue(self, unsigned char increaseStackAddr) nogil except? BITMASK_BYTE_CONST
     cdef int stackPushValue(self, unsigned int value, unsigned char operSize, unsigned char onlyWord) nogil except BITMASK_BYTE_CONST
-    cdef inline int stackPushSegment(self, Segment segment, unsigned char operSize, unsigned char onlyWord) nogil except BITMASK_BYTE_CONST
+    cdef inline int stackPushSegment(self, Segment *segment, unsigned char operSize, unsigned char onlyWord) nogil except BITMASK_BYTE_CONST
     cdef int stackPushRegId(self, unsigned short regId, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int pushIMM(self, unsigned char immIsByte) nogil except BITMASK_BYTE_CONST
     cdef int imulR_RM_ImmFunc(self, unsigned char immIsByte) nogil except BITMASK_BYTE_CONST
@@ -104,14 +103,14 @@ cdef class Opcodes:
     cdef int lea(self) nogil except BITMASK_BYTE_CONST
     cdef int retNear(self, signed short imm) nogil except BITMASK_BYTE_CONST
     cdef int retNearImm(self) nogil except BITMASK_BYTE_CONST
-    cdef int retFar(self, unsigned short imm) except BITMASK_BYTE_CONST
+    cdef int retFar(self, unsigned short imm) nogil except BITMASK_BYTE_CONST
     cdef int retFarImm(self) nogil except BITMASK_BYTE_CONST
     cdef int lfpFunc(self, unsigned short segId) nogil except BITMASK_BYTE_CONST # 'load far pointer' function
     cdef int xlatb(self) nogil except BITMASK_BYTE_CONST
     cdef int opcodeGroup2_RM(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef int interrupt(self, signed short intNum=?, signed int errorCode=?) except BITMASK_BYTE_CONST # TODO: complete this!
     cdef int into(self) nogil except BITMASK_BYTE_CONST
-    cdef int iret(self) except BITMASK_BYTE_CONST
+    cdef int iret(self) nogil except BITMASK_BYTE_CONST
     cdef int aad(self) nogil except BITMASK_BYTE_CONST
     cdef int aam(self) nogil except BITMASK_BYTE_CONST
     cdef int aaa(self) nogil except BITMASK_BYTE_CONST

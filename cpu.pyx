@@ -43,9 +43,9 @@ cdef class Cpu:
     cdef int exception(self, unsigned char exceptionId, signed int errorCode=-1) except BITMASK_BYTE_CONST:
         #self.main.debugEnabled = True
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
-            self.registers.segWriteSegment((<Segment>self.registers.segments.cs), self.savedCs)
+            self.registers.segWriteSegment(&self.registers.segments.cs, self.savedCs)
             self.registers.regWriteDword(CPU_REGISTER_EIP, self.savedEip)
-        self.registers.segWriteSegment((<Segment>self.registers.segments.ss), self.savedSs)
+        self.registers.segWriteSegment(&self.registers.segments.ss, self.savedSs)
         self.registers.regWriteDword(CPU_REGISTER_ESP, self.savedEsp)
         #elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
         #    self.savedEip = <unsigned int>(self.savedEip+1)
@@ -127,17 +127,17 @@ cdef class Cpu:
                 self.repPrefix = opcode
             else:
                 if (opcode == OPCODE_PREFIX_CS):
-                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.cs)
+                    self.segmentOverridePrefix = &self.registers.segments.cs
                 elif (opcode == OPCODE_PREFIX_SS):
-                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.ss)
+                    self.segmentOverridePrefix = &self.registers.segments.ss
                 elif (opcode == OPCODE_PREFIX_DS):
-                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.ds)
+                    self.segmentOverridePrefix = &self.registers.segments.ds
                 elif (opcode == OPCODE_PREFIX_ES):
-                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.es)
+                    self.segmentOverridePrefix = &self.registers.segments.es
                 elif (opcode == OPCODE_PREFIX_FS):
-                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.fs)
+                    self.segmentOverridePrefix = &self.registers.segments.fs
                 elif (opcode == OPCODE_PREFIX_GS):
-                    self.segmentOverridePrefix = (<PyObject*>self.registers.segments.gs)
+                    self.segmentOverridePrefix = &self.registers.segments.gs
             ### TODO: I don't think, that we ever need lockPrefix.
             #elif (opcode == OPCODE_PREFIX_LOCK):
             #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
@@ -160,7 +160,7 @@ cdef class Cpu:
           self.registers.segRead(CPU_SEGMENT_ES))
         self.main.notice("FS: {0:#06x}, GS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_FS), \
           self.registers.segRead(CPU_SEGMENT_GS))
-        self.main.notice("LDTR: {0:#06x}, LTR: {1:#06x}", (<Segments>self.registers.segments).ldtr, \
+        self.main.notice("LDTR: {0:#06x}, LTR: {1:#06x}", self.registers.ldtr, \
           (<Segment>self.registers.segments.tss).segmentIndex)
         self.main.notice("CR0: {0:#010x}, CR2: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_CR0), \
           self.registers.regReadUnsignedDword(CPU_REGISTER_CR2))
@@ -175,12 +175,12 @@ cdef class Cpu:
         self.main.notice("savedCS: {0:#06x}, savedSS: {1:#06x}", self.savedCs, \
           self.savedSs)
         self.main.notice("savedEIP: {0:#010x}, savedESP: {1:#010x}", self.savedEip, self.savedEsp)
-        #self.main.notice("CS.limit: {0:#06x}, SS.limit: {1:#06x}", (<Segment>self.registers.segments.cs).limit, \
-        #  (<Segment>self.registers.segments.ss).limit)
-        #self.main.notice("DS.limit: {0:#06x}, ES.limit: {1:#06x}", (<Segment>self.registers.segments.ds).limit, \
-        #  (<Segment>self.registers.segments.es).limit)
-        #self.main.notice("FS.limit: {0:#06x}, GS.limit: {1:#06x}", (<Segment>self.registers.segments.fs).limit, \
-        #  (<Segment>self.registers.segments.gs).limit)
+        #self.main.notice("CS.limit: {0:#06x}, SS.limit: {1:#06x}", (<Segment>self.registers.segments.cs).gdtEntry.limit, \
+        #  (<Segment>self.registers.segments.ss).gdtEntry.limit)
+        #self.main.notice("DS.limit: {0:#06x}, ES.limit: {1:#06x}", (<Segment>self.registers.segments.ds).gdtEntry.limit, \
+        #  (<Segment>self.registers.segments.es).gdtEntry.limit)
+        #self.main.notice("FS.limit: {0:#06x}, GS.limit: {1:#06x}", (<Segment>self.registers.segments.fs).gdtEntry.limit, \
+        #  (<Segment>self.registers.segments.gs).gdtEntry.limit)
         self.main.notice("Opcode: {0:#04x}\n\n", self.opcode)
     cdef void doInfiniteCycles(self):
         try:
@@ -282,6 +282,8 @@ cdef class Cpu:
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #else:
             #    self.main.debugEnabled = False
+            #if (self.savedCs == 0xffff and self.savedEip == 0xb09):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
             if (self.main.debugEnabled):
             #if (self.main.debugEnabled or self.main.debugEnabledTest):
             #if ((self.main.debugEnabled or self.main.debugEnabledTest) and self.savedCs != 0x50):

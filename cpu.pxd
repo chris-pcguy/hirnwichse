@@ -9,14 +9,13 @@ from isadma cimport IsaDma
 from segments cimport Segments, Segment
 from registers cimport Registers
 from opcodes cimport Opcodes
-from cpython.ref cimport PyObject
 
 
 cdef class Cpu:
     cdef Hirnwichse main
     cdef Registers registers
     cdef Opcodes opcodes
-    cdef PyObject *segmentOverridePrefix
+    cdef Segment *segmentOverridePrefix
     cdef unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ, repPrefix, operandSizePrefix, addressSizePrefix, codeSegSize, operSize, addrSize
     cdef unsigned short savedCs, savedSs
     cdef unsigned int savedEip, savedEsp
