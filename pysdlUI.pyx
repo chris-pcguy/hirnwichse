@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "globals.pxi"
 
@@ -28,10 +28,10 @@ cdef class PysdlUI:
         self.charSize = (9, 16)
         self.fontDataA = bytes(VGA_FONTAREA_SIZE)
         self.fontDataB = bytes(VGA_FONTAREA_SIZE)
-        #self.points = {}
-        #for i in range(256):
-        #    self.points[i] = []
-        self.points = []
+        self.points = {}
+        for i in range(256):
+            self.points[i] = []
+        #self.points = []
     cpdef initPysdl(self):
         cdef unsigned short event
         sdl2.SDL_Init(sdl2.SDL_INIT_TIMER | sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
@@ -53,19 +53,22 @@ cdef class PysdlUI:
     cpdef clearScreen(self):
         pass
         #self.screen.fill((0, 0, 0))
-    cpdef object putPixel(self, unsigned short x, unsigned short y, unsigned char colors): # returns rect
+    cdef void putPixel(self, unsigned short x, unsigned short y, unsigned char colors) nogil: # returns rect
         #cpdef object newRect, colorObject
         #cpdef object colorObject
         cdef unsigned int bgColor
-        try:
+        #try:
+        IF 1:
             #newRect = sdl2.rect.SDL_Rect(x, y, 1, 1)
             #newRect = sdl2.rect.SDL_Rect(x<<1, y<<1, 2, 2)
             # bgColor == RGBA; colors == (A?)RGB
             if (self.msbBlink):
                 colors &= 0x7
-            #self.points[colors].extend((x, y))
-            bgColor = self.vga.getColor(colors)
-            self.points.extend((x, y, bgColor))
+            with gil:
+                self.points[colors].extend((x, y))
+            #bgColor = self.vga.getColor(colors)
+            #with gil:
+            #    self.points.extend((x, y, bgColor))
             #colorObject = sdl2.ext.RGBA(bgColor)
             ##sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
             #if (self.renderer):
@@ -73,12 +76,13 @@ cdef class PysdlUI:
             #    self.renderer.draw_point((x, y), colorObject)
             #    #self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
             ##return newRect
-        except:
+        #except:
+        IF 0:
             print_exc()
             self.vga.main.exitError('putPixel: exception, exiting...')
         #return None
-    cpdef object putChar(self, unsigned short x, unsigned short y, unsigned char character, unsigned char colors): # returns rect
-        cpdef object newRect, newChar #, charArray
+    cdef void putChar(self, unsigned short x, unsigned short y, unsigned char character, unsigned char colors): # returns rect
+        cdef object newRect, newChar #, charArray
         cdef bytes charData, pixelData
         cdef unsigned int i, j, k, fgColor, bgColor
         try:
@@ -371,45 +375,57 @@ cdef class PysdlUI:
                 self.vga.refreshScreenFunction()
                 self.updateScreen()
                 return
+            elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_RCTRL):
+                #self.vga.main.notice("PysdlUI::ShowCursor_test1: {0:d}", sdl2.SDL_ShowCursor(sdl2.SDL_QUERY))
+                if (sdl2.SDL_ShowCursor(sdl2.SDL_QUERY) == sdl2.SDL_ENABLE):
+                    sdl2.SDL_ShowCursor(sdl2.SDL_DISABLE)
+                    sdl2.SDL_SetHintWithPriority(sdl2.SDL_HINT_GRAB_KEYBOARD, b"1", sdl2.SDL_HINT_OVERRIDE)
+                    sdl2.SDL_SetWindowGrab(self.window.window, sdl2.SDL_TRUE)
+                    sdl2.SDL_SetRelativeMouseMode(sdl2.SDL_TRUE)
+                else:
+                    sdl2.SDL_ShowCursor(sdl2.SDL_ENABLE)
+                    sdl2.SDL_SetHintWithPriority(sdl2.SDL_HINT_GRAB_KEYBOARD, b"0", sdl2.SDL_HINT_OVERRIDE)
+                    sdl2.SDL_SetWindowGrab(self.window.window, sdl2.SDL_FALSE)
+                    sdl2.SDL_SetRelativeMouseMode(sdl2.SDL_FALSE)
+                return
             (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.scancode), False)
         elif (event.type == sdl2.SDL_KEYUP):
             if (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_MINUS):
                 return
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_PLUS):
                 return
+            elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_RCTRL):
+                return
             (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.scancode), True)
         else:
             self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == {0:d}", event.type)
     cpdef updateScreen(self):
         cpdef object colorObject
-        #cdef list pointList
-        #cdef tuple singlePoint
+        cdef list pointList
         #cdef unsigned char doRefresh
         cdef unsigned short x, y
         cdef unsigned int i, bgColor
         if (self.vga.graphicalMode):
             #doRefresh = False
             if (self.renderer):
-                #for i in range(256):
-                #    pointList = self.points[i]
-                #    if (len(pointList) >= 2):
-                #        doRefresh = True
-                #        bgColor = self.vga.getColor(i)
-                #        colorObject = sdl2.ext.RGBA(bgColor)
-                #        #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
-                #        #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
-                #        self.renderer.draw_point(pointList, colorObject)
-                #        self.points[i] = []
-                #        #self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
-                #        #return newRect
-                if (len(self.points) >= 3):
-                    #doRefresh = True
-                    for i in range(0, len(self.points), 3):
-                        #colorObject = sdl2.ext.RGBA(singlePoint[2])
-                        #self.renderer.draw_point((singlePoint[0], singlePoint[1]), colorObject)
-                        colorObject = sdl2.ext.ARGB(0xff000000|self.points[i+2])
-                        self.renderer.draw_point((self.points[i], self.points[i+1]), colorObject)
-                    self.points = []
+                for i in range(256):
+                    pointList = self.points[i]
+                    if (len(pointList) >= 2):
+                        #doRefresh = True
+                        bgColor = self.vga.getColor(i)
+                        colorObject = sdl2.ext.ARGB(0xff000000|bgColor)
+                        #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
+                        #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
+                        self.renderer.draw_point(pointList, colorObject)
+                        self.points[i] = []
+                        #self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
+                        #return newRect
+                #if (len(self.points) >= 3):
+                #    #doRefresh = True
+                #    for i in range(0, len(self.points), 3):
+                #        colorObject = sdl2.ext.ARGB(0xff000000|self.points[i+2])
+                #        self.renderer.draw_point((self.points[i], self.points[i+1]), colorObject)
+                #    self.points = []
         #else:
         #    doRefresh = True
         #if (doRefresh and self.window and self.screen):

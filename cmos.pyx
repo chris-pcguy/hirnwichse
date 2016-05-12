@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "globals.pxi"
 
@@ -17,12 +17,14 @@ cdef class Cmos:
         cdef unsigned int value
         value = self.configSpace.csReadValueUnsigned(index, size)
         #IF 1:
-        if (self.main.debugEnabled):
+        IF COMP_DEBUG:
+        #if (self.main.debugEnabled):
             self.main.debug("Cmos::readValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
         return value
     cdef inline void writeValue(self, unsigned char index, unsigned int value, unsigned char size):
         #IF 1:
-        if (self.main.debugEnabled):
+        IF COMP_DEBUG:
+        #if (self.main.debugEnabled):
             self.main.debug("Cmos::writeValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
         self.configSpace.csWriteValue(index, value, size)
     cdef void reset(self):
@@ -157,12 +159,14 @@ cdef class Cmos:
         else:
             self.main.exitError("CMOS::inPort: dataSize {0:d} not supported. (port: {0:#06x})", dataSize, ioPortAddr)
             return ret
-        self.main.notice("CMOS::inPort: port {0:#06x}; ret: {1:#04x}, dataSize byte", ioPortAddr, ret)
+        IF COMP_DEBUG:
+            self.main.notice("CMOS::inPort: port {0:#06x}; ret: {1:#04x}, dataSize byte", ioPortAddr, ret)
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef unsigned char tempIndex, timeBase, selectionBits
         if (dataSize == OP_SIZE_BYTE):
-            self.main.notice("CMOS::outPort: port {0:#06x}; data: {1:#04x}, dataSize byte", ioPortAddr, data)
+            IF COMP_DEBUG:
+                self.main.notice("CMOS::outPort: port {0:#06x}; data: {1:#04x}, dataSize byte", ioPortAddr, data)
             data = <unsigned char>data
             if (ioPortAddr == 0x70):
                 self.cmosIndex = data

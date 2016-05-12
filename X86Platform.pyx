@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "cpu_globals.pxi"
 include "globals.pxi"
@@ -219,7 +219,8 @@ cdef class Platform:
                 mmAddr = SIZE_4GB-romMemSize
         self.loadRomToMem(romFileName, mmAddr, romSize)
         if (not isRomOptional):
-            memcpy(self.main.mm.mmGetDataPointer(mmAddr&SIZE_1MB_MASK), self.main.mm.mmGetRomDataPointer(mmAddr&SIZE_1MB_MASK), romSize)
+            with nogil:
+                memcpy(self.main.mm.mmGetDataPointer(mmAddr&SIZE_1MB_MASK), self.main.mm.mmGetRomDataPointer(mmAddr&SIZE_1MB_MASK), romSize)
     cdef void initMemory(self):
         cdef unsigned short i
         if (not self.main or not self.main.mm or not self.main.memSize):

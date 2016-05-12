@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 from threading import Thread
 

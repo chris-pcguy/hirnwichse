@@ -117,7 +117,7 @@ cdef unsigned int CR4_FLAG_OSXMMEXCPT = 0x400
 cdef unsigned char MODRM_FLAGS_NONE = 0
 cdef unsigned char MODRM_FLAGS_SREG = 1
 cdef unsigned char MODRM_FLAGS_CREG = 2
-cdef unsigned char MODRM_FLAGS_DREG = 4
+cdef unsigned char MODRM_FLAGS_DREG = 3
 
 
 cdef unsigned char REG_TYPE_LOW_BYTE = 1
@@ -323,6 +323,7 @@ cdef unsigned short TSS_32BIT_IOMAP_BASE_ADDR = 0x66
 
 
 #DEF CPU_CACHE_SIZE = 16*1024 # in bytes
+#DEF CPU_CACHE_SIZE = 4096*2 # in bytes
 DEF CPU_CACHE_SIZE = 0 # in bytes
 
 

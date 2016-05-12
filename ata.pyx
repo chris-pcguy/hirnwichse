@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "globals.pxi"
 
@@ -73,6 +73,8 @@ DEF COMMAND_MEDIA_LOCK = 0xde
 DEF COMMAND_MEDIA_UNLOCK = 0xdf
 
 DEF COMMAND_CHECK_POWER_MODE = 0xe5
+
+DEF COMMAND_SECURITY_FREEZE_LOCK = 0xf5
 
 DEF PACKET_COMMAND_TEST_UNIT_READY = 0x00
 DEF PACKET_COMMAND_REQUEST_SENSE = 0x03
@@ -207,7 +209,14 @@ cdef class AtaDrive:
         self.writeValue(49, ((1 << 9) | (1 << 8))) # supports lba
         self.writeValue(50, 0x4000)
         self.writeValue(62, 0x480)
-        self.writeValue(63, 1)
+        self.writeValue(63, 0x7 | (self.ataController.mdmaMode << 8))
+        self.writeValue(88, 0x3f | (self.ataController.udmaMode << 8))
+        self.writeValue(64, 1)
+        self.writeValue(65, 0xb4)
+        self.writeValue(66, 0xb4)
+        self.writeValue(67, 0x12c)
+        self.writeValue(68, 0xb4)
+        self.writeValue(53, 6)
         #if (cylinders <= 1024): # hardcoded
         if (cylinders <= 2048): # hardcoded
             translateValueTemp = ATA_TRANSLATE_NONE
@@ -306,7 +315,7 @@ cdef class AtaController:
         cdef AtaDrive drive
         self.drq = self.err = self.useLBA = self.useLBA48 = self.HOB = False
         self.seekComplete = self.irqEnabled = True
-        self.cmd = self.features = 0
+        self.cmd = self.features = self.mdmaMode = self.udmaMode = 0
         self.errorRegister = 1
         self.sectorCountFlipFlop = self.sectorHighFlipFlop = self.sectorMiddleFlipFlop = self.sectorLowFlipFlop = False
         if (self.irq):
@@ -920,9 +929,20 @@ cdef class AtaController:
                     self.driveReady = True
                 elif (data == COMMAND_SET_FEATURES):
                     if (self.features == 3):
-                        if ((self.sectorCount >> 3) not in (0, 1)):
+                        if ((self.sectorCount >> 3) in (0, 1)):
+                            self.mdmaMode = 0
+                            self.udmaMode = 0
+                        elif ((self.sectorCount >> 3) == 4):
+                            self.mdmaMode = 1<<(self.sectorCount&0x7)
+                            self.udmaMode = 0
+                        elif ((self.sectorCount >> 3) == 8):
+                            self.mdmaMode = 0
+                            self.udmaMode = 1<<(self.sectorCount&0x7)
+                        else:
                             self.abortCommand()
                             return
+                        drive.writeValue(63, 0x7 | (self.mdmaMode << 8))
+                        drive.writeValue(88, 0x3f | (self.udmaMode << 8))
                     elif (self.features not in (0x02, 0x82, 0xAA, 0x55, 0xCC, 0x66)):
                         self.abortCommand()
                         return
@@ -986,6 +1006,9 @@ cdef class AtaController:
                     IF 1:
                         self.abortCommand()
                         return
+                elif (data == COMMAND_SECURITY_FREEZE_LOCK):
+                    self.abortCommand()
+                    return
                 else:
                     self.ata.main.exitError("AtaController::outPort: unknown command 2: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
@@ -1031,7 +1054,8 @@ cdef class Ata:
         self.pciDevice.setBarSize(4, 4) # TODO?
         self.pciDevice.setData(PCI_COMMAND, 0x1, OP_SIZE_BYTE)
         self.pciDevice.setData(PCI_STATUS, 0x280, OP_SIZE_WORD)
-        self.pciDevice.setData(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
+        #self.pciDevice.setData(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_PROG_IF, 0x8a, OP_SIZE_BYTE)
         self.pciDevice.setData(PCI_INTERRUPT_LINE, 14, OP_SIZE_BYTE)
         self.pciDevice.setData(PCI_INTERRUPT_PIN, 1, OP_SIZE_BYTE)
         #self.pciDevice.setData(PCI_BASE_ADDRESS_0, 0x1f1, OP_SIZE_DWORD)
@@ -1040,13 +1064,15 @@ cdef class Ata:
         #self.pciDevice.setData(PCI_BASE_ADDRESS_3, 0x375, OP_SIZE_DWORD)
         #self.pciDevice.setData(PCI_BASE_ADDRESS_4, 0xc001, OP_SIZE_DWORD)
         self.pciDevice.setData(PCI_BASE_ADDRESS_4, 0x1, OP_SIZE_DWORD)
+        self.base4Addr = 0x1
     cdef void reset(self):
         cdef AtaController controller
         for controller in self.controller:
             controller.reset(False)
     cdef unsigned char isBusmaster(self, unsigned short ioPortAddr):
         cdef unsigned int temp
-        temp = self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
+        #temp = self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
+        temp = self.base4Addr
         if (temp == BITMASK_DWORD or not (temp&1)):
             return False
         temp = temp&0xfffc

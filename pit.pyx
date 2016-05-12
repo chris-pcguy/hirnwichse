@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "globals.pxi"
 
@@ -83,8 +83,8 @@ cdef class PitChannel:
                         #if (not (self.counterValue&0x1fff)):
                         #if (not (self.counterValue&0xfff)):
                         #if (not (self.counterValue&0xff)):
-                        if (not (self.counterValue&0x7f)):
-                        #if (not (self.counterValue&0x3f)):
+                        #if (not (self.counterValue&0x7f)):
+                        if (not (self.counterValue&0x3f)):
                         #if (not (self.counterValue&0x1f)):
                         #if (not (self.counterValue&0xf)):
                         #if (not (self.counterValue&0x7)):

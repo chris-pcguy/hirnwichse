@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 # This file contains code from The Bochs Project. Thanks to them!
 
@@ -112,7 +112,8 @@ cdef class PS2:
         retByte = 0
         if (dataSize == OP_SIZE_BYTE):
             #if (ioPortAddr != 0x64):
-            self.main.notice("PS2: inPort_1: port {0:#04x}; savedCs=={1:#06x}; savedEip=={2:#06x}", ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
+            IF COMP_DEBUG:
+                self.main.notice("PS2: inPort_1: port {0:#04x}; savedCs=={1:#06x}; savedEip=={2:#06x}", ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x64):
                 #if (len(self.mouseBuffer)):
                 #    self.auxb = True # TODO: HACK
@@ -134,7 +135,8 @@ cdef class PS2:
                 self.timeout = False
                 #if (self.main.debugEnabled):
                 #    self.main.debug("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
-                self.main.notice("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                IF COMP_DEBUG:
+                    self.main.notice("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x60):
                 #self.outb = False
@@ -172,14 +174,16 @@ cdef class PS2:
                 #    self.activateTimer()
                 #if (self.main.debugEnabled):
                 #    self.main.debug("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
-                self.main.notice("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                IF COMP_DEBUG:
+                    self.main.notice("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x61):
                 retByte = ((((int(time()*1e7) & 0xf) == 0) << 4) | \
                         (self.ppcbT2Gate and PPCB_T2_GATE) | \
                         (self.ppcbT2Spkr and PPCB_T2_SPKR) | \
                         (self.ppcbT2Out  and PPCB_T2_OUT))
-                self.main.notice("PS2: inPort_4: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
+                IF COMP_DEBUG:
+                    self.main.notice("PS2: inPort_4: port {0:#04x}; retByte {1:#04x}", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x92):
                 return ((<Registers>(<Cpu>self.main.cpu).registers).A20Active << 1)
@@ -190,7 +194,8 @@ cdef class PS2:
         return 0
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         if (dataSize == OP_SIZE_BYTE):
-            self.main.notice("PS2: outPort: port {0:#04x} ; data {1:#04x}; savedCs=={2:#06x}; savedEip=={3:#06x}", ioPortAddr, data, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
+            IF COMP_DEBUG:
+                self.main.notice("PS2: outPort: port {0:#04x} ; data {1:#04x}; savedCs=={2:#06x}; savedEip=={3:#06x}", ioPortAddr, data, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x60):
                 self.lastUsedController = False
                 if (not self.needWriteBytes):
@@ -258,7 +263,7 @@ cdef class PS2:
                             self.appendToOutBytesMouse(bytes([data]))
                         elif (self.lastUsedCmd == 0xd4): # port 0x64
                             #if (self.main.debugEnabled):
-                            IF 1:
+                            IF 0:
                                 self.main.notice("outPort: self.lastUsedPort == 0x64; self.lastUsedCmd == 0xd4. (port {0:#04x}; data {1:#04x}; self.needWriteBytesMouse {2:d})", ioPortAddr, data, self.needWriteBytesMouse)
                             IF 0:
                             #IF 1: # mouse present

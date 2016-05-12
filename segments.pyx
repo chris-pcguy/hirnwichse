@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "globals.pxi"
 include "cpu_globals.pxi"
@@ -282,8 +282,8 @@ cdef class Paging: # TODO
         #if (self.segments.main.cpu.savedCs == 0x167 and self.segments.main.cpu.savedEip == <unsigned int>0xbff77db0):
         #    self.segments.main.debugEnabled = True
         #    self.segments.main.debugEnabledTest = True
-        #IF COMP_DEBUG:
-        IF 1:
+        IF COMP_DEBUG:
+        #IF 1:
             pageDirectoryEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
             pageTableEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntryMem&<unsigned int>0xfffff000)|self.pageTableOffset) # page table
             with gil:
@@ -331,8 +331,8 @@ cdef class Paging: # TODO
             self.invalidatePage(virtualAddress)
             self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
             if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
-                #IF COMP_DEBUG:
-                IF 1:
+                IF COMP_DEBUG:
+                #IF 1:
                     with gil:
                         self.segments.main.notice("Paging::readAddresses: PDE-Entry is not present 2. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
                 self.doPF(virtualAddress, written)
@@ -377,8 +377,8 @@ cdef class Paging: # TODO
                 self.invalidatePage(virtualAddress)
                 self.pageTableEntry = self.tlbTables.csReadValueUnsigned((self.pageDirectoryOffset<<10)|self.pageTableOffset, OP_SIZE_DWORD) # page table
                 if (not (self.pageTableEntry & PAGE_PRESENT)):
-                    #IF COMP_DEBUG:
-                    IF 1:
+                    IF COMP_DEBUG:
+                    #IF 1:
                         with gil:
                             self.segments.main.notice("Paging::readAddresses: PTE-Entry is not present 2. (entry: {0:#010x}; addr: {1:#010x}; vaddr: {2:#010x})", self.pageTableEntry, (self.pageDirectoryEntry&<unsigned int>0xfffff000)|self.pageTableOffset, virtualAddress)
                     self.doPF(virtualAddress, written)
@@ -392,8 +392,8 @@ cdef class Paging: # TODO
         if (self.pageDirectoryEntry & PAGE_SIZE):
             if (not self.implicitSV and ((cpl == 3 and (not (self.pageDirectoryEntry&PAGE_EVERY_RING))) or \
             (written and ((cpl == 3 or self.segments.registers.writeProtectionOn) and not (self.pageDirectoryEntry&PAGE_WRITABLE))))):
-                #IF COMP_DEBUG:
-                IF 1:
+                IF COMP_DEBUG:
+                #IF 1:
                     with gil:
                         self.segments.main.notice("Paging::accessAllowed: doPF_1")
                 self.doPF(virtualAddress, written)
@@ -401,8 +401,8 @@ cdef class Paging: # TODO
         else:
             if (not self.implicitSV and ((cpl == 3 and (not (self.pageDirectoryEntry&PAGE_EVERY_RING and self.pageTableEntry&PAGE_EVERY_RING))) or \
             (written and ((cpl == 3 or self.segments.registers.writeProtectionOn) and not (self.pageDirectoryEntry&PAGE_WRITABLE and self.pageTableEntry&PAGE_WRITABLE))))):
-                #IF COMP_DEBUG:
-                IF 1:
+                IF COMP_DEBUG:
+                #IF 1:
                     with gil:
                         self.segments.main.notice("Paging::accessAllowed: doPF_2")
                 self.doPF(virtualAddress, written)
@@ -497,17 +497,17 @@ cdef class Segments:
     cdef inline unsigned char isAddressInLimit(self, GdtEntry *gdtEntry, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST:
         ## address is an offset.
         address += size-1
-        if (gdtEntry[0].anotherLimit):
-            if ((address+1)<gdtEntry[0].limit or (not gdtEntry[0].segSize and (address>BITMASK_WORD))):
-                IF COMP_DEBUG:
-                    with gil:
-                        self.main.notice("Segments::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, gdtEntry[0].limit)
-                return False
-        else:
+        if (not gdtEntry[0].anotherLimit):
             if (address>gdtEntry[0].limit):
                 IF COMP_DEBUG:
                     with gil:
                         self.main.notice("Segments::isAddressInLimit: test2: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, gdtEntry[0].limit)
+                return False
+        else:
+            if ((address+1)<gdtEntry[0].limit or (not gdtEntry[0].segSize and (address>BITMASK_WORD))):
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Segments::isAddressInLimit: test1: not in limit; (addr=={0:#010x}; size=={1:#010x}; limit=={2:#010x})", address+1, size, gdtEntry[0].limit)
                 return False
         return True
     cdef void parseGdtEntryData(self, GdtEntry *gdtEntry, unsigned long int entryData) nogil:

@@ -86,7 +86,7 @@ cdef class Opcodes:
     cdef int imulR_RM_ImmFunc(self, unsigned char immIsByte) nogil except BITMASK_BYTE_CONST
     cdef int opcodeGroup1_RM_ImmFunc(self, unsigned char operSize, unsigned char immIsByte) nogil except BITMASK_BYTE_CONST
     cdef int opcodeGroup3_RM_ImmFunc(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST
-    cdef int opcodeGroup0F(self) except BITMASK_BYTE_CONST
+    cdef int opcodeGroup0F(self) nogil except BITMASK_BYTE_CONST
     cdef int opcodeGroupFE(self) nogil except BITMASK_BYTE_CONST
     cdef int opcodeGroupFF(self) nogil except BITMASK_BYTE_CONST
     cdef int incFuncReg(self, unsigned short regId, unsigned char regSize) nogil except BITMASK_BYTE_CONST

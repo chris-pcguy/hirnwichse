@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "globals.pxi"
 
@@ -130,7 +130,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
         if (self.writeCycle >= 3):
             self.writeCycle = 0
             self.writeIndex += 1
-            #self.vga.refreshScreen = True
+            self.vga.refreshScreen = True
     cdef unsigned char getMask(self):
         return self.mask
     cdef unsigned char getState(self):
@@ -254,6 +254,7 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
             self.vga.colorPlaneEnable = data&0xf
         elif (index == VGA_ATTRCTRLREG_COLOR_SELECT_REG_INDEX):
             self.vga.colorSelect = data&0xf
+        self.vga.refreshScreen = True
 
 
 cdef class Vga:
@@ -349,29 +350,61 @@ cdef class Vga:
             self.ui.fontDataA = self.plane2.csRead(fontDataAddressA, VGA_FONTAREA_SIZE)
             self.ui.fontDataB = self.plane2.csRead(fontDataAddressB, VGA_FONTAREA_SIZE)
         self.needLoadFont = False
-    cdef unsigned char translateByte(self, unsigned char data, unsigned char plane) nogil: # this function is 'inspired'/stolen from the ReactOS project. Thanks! :-)
-        cdef unsigned char bitMask
-        bitMask = self.bitMask
+    cdef unsigned int translateBytes(self, unsigned int data) nogil: # this function is 'inspired'/stolen from the ReactOS project. Thanks! :-)
+        cdef unsigned int bitMask, temp
+        bitMask = (self.bitMask<<24)|(self.bitMask<<16)|(self.bitMask<<8)|self.bitMask
         if (self.writeMode == 1):
-            return self.latchReg[plane]
+            data = self.latchReg[0]<<24
+            data |= self.latchReg[1]<<16
+            data |= self.latchReg[2]<<8
+            data |= self.latchReg[3]
+            return data
         elif (self.writeMode != 2):
-            data = (data >> self.rotateCount) | (data << (8 - self.rotateCount))
+            data = ((data >> self.rotateCount) | (data << (8 - self.rotateCount)))&BITMASK_BYTE
+            data = (data<<24)|(data<<16)|(data<<8)|data
         else:
-            data = 0xff if (data & (1 << plane)) else 0x00
+            temp = data
+            data = (0xff if (temp & 1) else 0x00) << 24
+            data |= (0xff if (temp & 2) else 0x00) << 16
+            data |= (0xff if (temp & 4) else 0x00) << 8
+            data |= (0xff if (temp & 8) else 0x00)
         if (not self.writeMode):
-            if (self.enableResetReg & (1 << plane)):
-                data = 0xff if (self.resetReg & (1 << plane)) else 0x00
+            if (self.enableResetReg & 1):
+                data &= 0x00ffffffUL
+                data |= (0xff if (self.resetReg & 1) else 0x00) << 24
+            if (self.enableResetReg & 2):
+                data &= 0xff00ffffUL
+                data |= (0xff if (self.resetReg & 2) else 0x00) << 16
+            if (self.enableResetReg & 4):
+                data &= 0xffff00ffUL
+                data |= (0xff if (self.resetReg & 4) else 0x00) << 8
+            if (self.enableResetReg & 8):
+                data &= 0xffffff00UL
+                data |= 0xff if (self.resetReg & 8) else 0x00
         if (self.writeMode != 3):
             if (self.logicOp == 1):
-                data &= self.latchReg[plane]
+                data &= (self.latchReg[0]<<24)|0x00ffffffUL
+                data &= (self.latchReg[1]<<16)|0xff00ffffUL
+                data &= (self.latchReg[2]<<8)|0xffff00ffUL
+                data &= self.latchReg[3]|0xffffff00UL
             elif (self.logicOp == 2):
-                data |= self.latchReg[plane]
+                data |= self.latchReg[0]<<24
+                data |= self.latchReg[1]<<16
+                data |= self.latchReg[2]<<8
+                data |= self.latchReg[3]
             elif (self.logicOp == 3):
-                data ^= self.latchReg[plane]
+                data ^= self.latchReg[0]<<24
+                data ^= self.latchReg[1]<<16
+                data ^= self.latchReg[2]<<8
+                data ^= self.latchReg[3]
         else:
             bitMask &= data
-            data = 0xff if (self.resetReg & (1 << plane)) else 0x00
-        data = ((data & bitMask) | (self.latchReg[plane] & (~bitMask)))
+            data = (0xff if (self.resetReg & 1) else 0x00) << 24
+            data |= (0xff if (self.resetReg & 2) else 0x00) << 16
+            data |= (0xff if (self.resetReg & 4) else 0x00) << 8
+            data |= 0xff if (self.resetReg & 8) else 0x00
+        temp = (self.latchReg[0]<<24)|(self.latchReg[1]<<16)|(self.latchReg[2]<<8)|self.latchReg[3]
+        data = ((data & bitMask) | (temp & (~bitMask)))
         return data
     cdef void refreshScreenFunction(self) nogil:
         cdef unsigned char temp
@@ -452,15 +485,18 @@ cdef class Vga:
         return self.main.mm.data[offset:offset+dataSize]
     cdef void vgaAreaWrite(self, unsigned int offset, unsigned int dataSize) nogil:
         #cdef list rectList
-        cdef unsigned char selectedPlanes = 0, data, color
+        cdef unsigned char selectedPlanes, color
         cdef unsigned short x, y, rows
-        cdef unsigned int tempOffset, i, j, k, pixelData
-        with gil:
+        cdef unsigned int tempOffset, i, j, k, pixelData, data
+        #with gil:
+        #IF 1:
+        IF 0:
             #if (self.main.debugEnabled):
             IF 0:
             #IF 1:
-                self.main.notice("VGA::vgaAreaWrite: offset=={0:#07x}; dataSize=={1:d}; data=={2:s}", offset, dataSize, repr(self.main.mm.data[offset:offset+dataSize]))
-            if (not self.ui):
+                with gil:
+                    self.main.notice("VGA::vgaAreaWrite: offset=={0:#07x}; dataSize=={1:d}; data=={2:s}", offset, dataSize, repr(self.main.mm.data[offset:offset+dataSize]))
+            if (self.ui is None):
                 return
         if (not self.processVideoMem or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
             return
@@ -492,16 +528,19 @@ cdef class Vga:
                 #if (self.main.debugEnabled):
                 IF 0:
                     self.main.notice("VGA::vgaAreaWrite: writeMap=={0:x}; selectedPlanes=={1:x}", self.writeMap, selectedPlanes)
+                data = self.translateBytes(data)
                 if (selectedPlanes & 1):
-                    self.plane0.csWriteValue(tempOffset, self.translateByte(data, 0), OP_SIZE_BYTE)
+                    self.plane0.csWriteValue(tempOffset, (data>>24)&BITMASK_BYTE, OP_SIZE_BYTE)
                 if (selectedPlanes & 2):
-                    self.plane1.csWriteValue(tempOffset, self.translateByte(data, 1), OP_SIZE_BYTE)
+                    self.plane1.csWriteValue(tempOffset, (data>>16)&BITMASK_BYTE, OP_SIZE_BYTE)
                 if (selectedPlanes & 4):
-                    self.plane2.csWriteValue(tempOffset, self.translateByte(data, 2), OP_SIZE_BYTE)
+                    self.plane2.csWriteValue(tempOffset, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
                 if (selectedPlanes & 8):
-                    self.plane3.csWriteValue(tempOffset, self.translateByte(data, 3), OP_SIZE_BYTE)
+                    self.plane3.csWriteValue(tempOffset, data&BITMASK_BYTE, OP_SIZE_BYTE)
         elif (not self.writeMap):
             selectedPlanes = 0xf
+        else:
+            selectedPlanes = 0
         rows = (self.vde+1)
         tempOffset = (offset-self.videoMemBase)
         if (self.graphicalMode):
@@ -554,8 +593,8 @@ cdef class Vga:
                         #self.main.notice("Vga::vgaAreaWrite: putPixel: test2: EIP: {0:#06x}, CS: {1:#06x}", self.main.cpu.savedEip, self.main.cpu.savedCs)
                         #for k in range(self.charHeight):
                         #    self.ui.putPixel((x<<3)+i, y+k, color)
-                        with gil:
-                            self.ui.putPixel((x<<3)+i, y, color)
+                        #with gil:
+                        self.ui.putPixel((x<<3)+i, y, color)
                 else:
                     y = ((tempOffset-self.startAddress)%self.videoMemSize)//(self.offset<<2)
                     x = ((tempOffset-self.startAddress)%self.videoMemSize)%(self.offset<<2)
@@ -570,9 +609,9 @@ cdef class Vga:
                             self.main.exitError("Vga::vgaAreaWrite: TODO: not enable8Bit")
                         return
                     for k in range(self.charHeight):
-                        with gil:
-                            self.ui.putPixel(x, y+k, color)
-                            self.ui.putPixel(x+1, y+k, color)
+                        #with gil:
+                        self.ui.putPixel(x, y+k, color)
+                        self.ui.putPixel(x+1, y+k, color)
                     #self.ui.putPixel(x, y, color)
             with gil:
                 self.newTimer = time()

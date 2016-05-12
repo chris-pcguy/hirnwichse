@@ -1,11 +1,11 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "globals.pxi"
 include "cpu_globals.pxi"
 
 from sys import exit #, stdout, stderr
-from time import sleep
+from time import sleep, time
 from traceback import print_exc
 from misc import HirnwichseException
 
@@ -18,7 +18,7 @@ cdef class Cpu:
         self.savedEip = 0xfff0
         self.cpuHalted = self.debugHalt = self.debugSingleStep = self.INTR = self.HRQ = False
         self.debugHalt = self.main.debugHalt
-        self.savedSs = self.savedEsp = self.cycles = 0
+        self.savedSs = self.savedEsp = self.cycles = self.lasttime = 0
         self.operSize = self.addrSize = 0
         self.resetPrefixes()
         self.registers.reset()
@@ -49,18 +49,21 @@ cdef class Cpu:
         self.registers.regWriteDword(CPU_REGISTER_ESP, self.savedEsp)
         #elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
         #    self.savedEip = <unsigned int>(self.savedEip+1)
-        if (exceptionId == CPU_EXCEPTION_UD):
-            self.main.notice("CPU::exception: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
-        else:
-            self.main.notice("CPU::exception: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
-        self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
-        self.cpuDump()
+        IF COMP_DEBUG:
+            if (exceptionId == CPU_EXCEPTION_UD):
+                self.main.notice("CPU::exception: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
+            else:
+                self.main.notice("CPU::exception: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
+        IF COMP_DEBUG:
+            self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
+            self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP and exceptionId != CPU_EXCEPTION_DB):
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = True
         elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP and self.repPrefix):
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = True
-        self.main.notice("Running exception_1.1: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
-        self.cpuDump()
+        IF COMP_DEBUG:
+            self.main.notice("Running exception_1.1: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
+            self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
             if (errorCode == -1):
                 self.main.exitError("CPU exception: errorCode should be set, is -1.")
@@ -68,8 +71,11 @@ cdef class Cpu:
             self.opcodes.interrupt(exceptionId, errorCode)
         else:
             self.opcodes.interrupt(exceptionId)
-        self.main.notice("Running exception_2: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
-        self.cpuDump()
+        IF COMP_DEBUG:
+            self.main.notice("Running exception_2: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
+            self.cpuDump()
+        #if (exceptionId == CPU_EXCEPTION_GP and self.opcode == 0xcf and self.savedEip == 0x80139a2c and self.savedCs == 0x0008):
+        #    self.main.debugEnabledTest = self.main.debugEnabled = True
         #if (exceptionId == CPU_EXCEPTION_GP and self.opcode == 0x8a and self.savedEip == 0x310a and self.savedCs == 0x17ff):
         #    self.main.debugEnabledTest = self.main.debugEnabled = True
         #if (exceptionId == CPU_EXCEPTION_GP and self.opcode == 0xae):
@@ -125,19 +131,18 @@ cdef class Cpu:
                 self.addressSizePrefix = True
             elif (opcode in OPCODE_PREFIX_REPS):
                 self.repPrefix = opcode
-            else:
-                if (opcode == OPCODE_PREFIX_CS):
-                    self.segmentOverridePrefix = &self.registers.segments.cs
-                elif (opcode == OPCODE_PREFIX_SS):
-                    self.segmentOverridePrefix = &self.registers.segments.ss
-                elif (opcode == OPCODE_PREFIX_DS):
-                    self.segmentOverridePrefix = &self.registers.segments.ds
-                elif (opcode == OPCODE_PREFIX_ES):
-                    self.segmentOverridePrefix = &self.registers.segments.es
-                elif (opcode == OPCODE_PREFIX_FS):
-                    self.segmentOverridePrefix = &self.registers.segments.fs
-                elif (opcode == OPCODE_PREFIX_GS):
-                    self.segmentOverridePrefix = &self.registers.segments.gs
+            elif (opcode == OPCODE_PREFIX_CS):
+                self.segmentOverridePrefix = &self.registers.segments.cs
+            elif (opcode == OPCODE_PREFIX_SS):
+                self.segmentOverridePrefix = &self.registers.segments.ss
+            elif (opcode == OPCODE_PREFIX_DS):
+                self.segmentOverridePrefix = &self.registers.segments.ds
+            elif (opcode == OPCODE_PREFIX_ES):
+                self.segmentOverridePrefix = &self.registers.segments.es
+            elif (opcode == OPCODE_PREFIX_FS):
+                self.segmentOverridePrefix = &self.registers.segments.fs
+            elif (opcode == OPCODE_PREFIX_GS):
+                self.segmentOverridePrefix = &self.registers.segments.gs
             ### TODO: I don't think, that we ever need lockPrefix.
             #elif (opcode == OPCODE_PREFIX_LOCK):
             #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
@@ -206,23 +211,28 @@ cdef class Cpu:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
     cdef void doCycle(self):
+        cdef unsigned long int temptime
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
         #self.registers.reloadCpuCache()
         self.cycles += CPU_CLOCK_TICK
         self.resetPrefixes()
         self.saveCurrentInstPointer()
-        if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>4))):
+        #if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>4))):
         #if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>6))):
         #if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>8))):
         #if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>16))):
+        temptime = time()*100
+        if (temptime - self.lasttime >= 20):
             if (self.main.platform.vga and self.main.platform.vga.ui):
                 self.main.platform.vga.ui.handleEventsWithoutWaiting()
+            self.lasttime = temptime
         try:
             #if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
             #    self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
             if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
-                self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet!")
+                self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet! Opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
+                self.cpuDump()
             if (not self.registers.ssInhibit):
                 self.readCodeSegSize()
                 if (self.asyncEvent):
@@ -284,6 +294,8 @@ cdef class Cpu:
             #    self.main.debugEnabled = False
             #if (self.savedCs == 0xffff and self.savedEip == 0xb09):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            #if (self.savedCs == 0x835 and self.savedEip == 0x20a5):
+            #    self.main.debugEnabledTest = self.main.debugEnabled = True
             if (self.main.debugEnabled):
             #if (self.main.debugEnabled or self.main.debugEnabledTest):
             #if ((self.main.debugEnabled or self.main.debugEnabledTest) and self.savedCs != 0x50):
@@ -302,19 +314,22 @@ cdef class Cpu:
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         except HirnwichseException as exception: # exception
-            self.main.notice("Cpu::doCycle: testexc1")
+            IF COMP_DEBUG:
+                self.main.notice("Cpu::doCycle: testexc1")
             #stdout.flush()
             #print_exc()
             #stderr.flush()
             try:
                 self.handleException(exception) # execute exception handler
             except HirnwichseException as exception: # exception
-                self.main.notice("Cpu::doCycle: testexc2")
-                self.main.notice("Cpu::doCycle: testexc2.1; repr=={0:s}", repr(exception.args))
+                IF COMP_DEBUG:
+                    self.main.notice("Cpu::doCycle: testexc2")
+                    self.main.notice("Cpu::doCycle: testexc2.1; repr=={0:s}", repr(exception.args))
                 try:
                     self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
                 except HirnwichseException as exception: # exception
-                    self.main.notice("Cpu::doCycle: testexc3")
+                    IF COMP_DEBUG:
+                        self.main.notice("Cpu::doCycle: testexc3")
                     if (self.main.exitOnTripleFault):
                         self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.")
                     else:

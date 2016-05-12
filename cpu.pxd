@@ -19,7 +19,7 @@ cdef class Cpu:
     cdef unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ, repPrefix, operandSizePrefix, addressSizePrefix, codeSegSize, operSize, addrSize
     cdef unsigned short savedCs, savedSs
     cdef unsigned int savedEip, savedEsp
-    cdef unsigned long int cycles
+    cdef unsigned long int cycles, lasttime
     cdef inline void reset(self)
     cdef inline void resetPrefixes(self) nogil:
         self.operandSizePrefix = self.addressSizePrefix = self.repPrefix = 0

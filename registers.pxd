@@ -2,9 +2,14 @@
 include "globals.pxi"
 include "cpu_globals.pxi"
 
+from libc.stdlib cimport malloc, free
+from libc.string cimport memcpy, memset
+
 from hirnwichse_main cimport Hirnwichse
 from mm cimport Mm
 from segments cimport Segment, GdtEntry, Gdt, Idt, Paging, Segments
+
+from misc import HirnwichseException
 
 cdef extern from "hirnwichse_eflags.h":
     struct eflagsStruct:
@@ -114,22 +119,26 @@ cdef class Registers:
     cdef Segments segments
     cdef Fpu fpu
     cdef RegStruct regs[CPU_REGISTERS]
-    cdef unsigned char cpl, A20Active, protectedModeOn, pagingOn, writeProtectionOn, ssInhibit, cacheDisabled
+    cdef unsigned char cpl, A20Active, protectedModeOn, pagingOn, writeProtectionOn, ssInhibit, cacheDisabled, cpuCacheCodeSegChange
     cdef unsigned short ldtr
     cdef unsigned int cpuCacheBase, cpuCacheIndex
-    cdef bytes cpuCache
+    cdef char *cpuCache
+    cpdef quitFunc(self)
     cdef void reset(self) nogil
-    cdef void reloadCpuCache(self)
-    cdef inline void checkCache(self, unsigned int mmAddr, unsigned char dataSize): # called on a memory write; reload cache for self-modifying-code
-        if (mmAddr >= self.cpuCacheBase and mmAddr+dataSize <= self.cpuCacheBase+CPU_CACHE_SIZE):
-            self.reloadCpuCache()
-    cdef inline void setA20Active(self, unsigned char A20Active) nogil:
+    cdef inline unsigned char checkCache(self, unsigned int mmAddr, unsigned char dataSize) nogil except BITMASK_BYTE_CONST: # called on a memory write; reload cache for self-modifying-code
+        IF CPU_CACHE_SIZE:
+            if (mmAddr >= self.cpuCacheBase and mmAddr+dataSize <= self.cpuCacheBase+CPU_CACHE_SIZE):
+                self.reloadCpuCache()
+        return True
+    cdef inline unsigned char setA20Active(self, unsigned char A20Active) nogil except BITMASK_BYTE_CONST:
         self.A20Active = A20Active
         IF CPU_CACHE_SIZE:
             self.reloadCpuCache()
-    cdef signed long int readFromCacheAddSigned(self, unsigned char numBytes)
-    cdef unsigned long int readFromCacheAddUnsigned(self, unsigned char numBytes)
-    cdef unsigned long int readFromCacheUnsigned(self, unsigned char numBytes)
+        return True
+    cdef unsigned char reloadCpuCache(self) nogil except BITMASK_BYTE_CONST
+    cdef signed long int readFromCacheAddSigned(self, unsigned char numBytes) nogil except? BITMASK_BYTE_CONST
+    cdef unsigned long int readFromCacheAddUnsigned(self, unsigned char numBytes) nogil except? BITMASK_BYTE_CONST
+    cdef unsigned long int readFromCacheUnsigned(self, unsigned char numBytes) nogil except? BITMASK_BYTE_CONST
     cdef inline unsigned int readFlags(self) nogil:
         return ((self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx & (~RESERVED_FLAGS_BITMASK)) | FLAG_REQUIRED)
     cdef inline unsigned char setFlags(self, unsigned int flags) nogil
@@ -186,13 +195,7 @@ cdef class Registers:
     cdef inline unsigned char regWriteHighByte(self, unsigned short regId, unsigned char value) nogil:
         self.regs[regId]._union.word._union.byte.rh = value
         return value # returned value is unsigned!!
-    cdef inline unsigned short regWriteWord(self, unsigned short regId, unsigned short value) nogil:
-        if (regId == CPU_REGISTER_EFLAGS):
-            value &= ~RESERVED_FLAGS_BITMASK
-            value |= FLAG_REQUIRED
-            self.setFlags(value)
-        self.regs[regId]._union.word._union.rx = value
-        return value # returned value is unsigned!!
+    cdef unsigned short regWriteWord(self, unsigned short regId, unsigned short value) nogil except? BITMASK_BYTE_CONST
     cdef unsigned int regWriteDword(self, unsigned short regId, unsigned int value) nogil except? BITMASK_BYTE_CONST
     cdef inline unsigned long int regWriteQword(self, unsigned short regId, unsigned long int value) nogil:
         IF 0:

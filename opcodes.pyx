@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "globals.pxi"
 include "cpu_globals.pxi"
@@ -650,10 +650,10 @@ cdef class Opcodes:
         cdef unsigned int eip
         eip = self.registers.getCurrentOpcodeAddUnsigned(self.cpu.operSize)
         cs = self.registers.getCurrentOpcodeAddUnsignedWord()
-        #if (self.main.debugEnabled):
-        #    self.main.debug("Opcodes::jumpFarAbsolutePtr: cs=={0:#06x}; eip=={1:#010x}", cs, eip)
-        with gil:
-            return self.jumpFarDirect(OPCODE_JUMP, cs, eip)
+        if (self.main.debugEnabled):
+            with gil:
+                self.main.notice("Opcodes::jumpFarAbsolutePtr: cs=={0:#06x}; eip=={1:#010x}", cs, eip)
+        return self.jumpFarDirect(OPCODE_JUMP, cs, eip)
     cdef inline int loopFunc(self, unsigned char loopType) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char oldZF
         cdef signed char rel8
@@ -666,9 +666,9 @@ cdef class Opcodes:
         elif (loopType == OPCODE_LOOPNE and oldZF):
             return True
         if (self.cpu.operSize == OP_SIZE_WORD):
-            self.registers.regAddWord(CPU_REGISTER_EIP, rel8)
+            self.registers.regWriteWord(CPU_REGISTER_EIP, self.registers.regReadUnsignedWord(CPU_REGISTER_EIP)+rel8)
         else:
-            self.registers.regAddDword(CPU_REGISTER_EIP, rel8)
+            self.registers.regWriteDword(CPU_REGISTER_EIP, self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)+rel8)
         return True
     cdef int opcodeR_RM(self, unsigned char opcode, unsigned char operSize) nogil except BITMASK_BYTE_CONST:
         cdef unsigned int op1, op2
@@ -749,10 +749,11 @@ cdef class Opcodes:
         cdef unsigned int src
         rReg = self.cpu.opcode&0x7
         src = self.registers.getCurrentOpcodeAddUnsigned(operSize)
-        if (operSize == OP_SIZE_BYTE and rReg <= 0x3):
-            self.registers.regWriteLowByte(rReg, src)
-        elif (operSize == OP_SIZE_BYTE and rReg >= 0x4):
-            self.registers.regWriteHighByte(rReg&3, src)
+        if (operSize == OP_SIZE_BYTE):
+            if (rReg & 0x4):
+                self.registers.regWriteHighByte(rReg&3, src)
+            else:
+                self.registers.regWriteLowByte(rReg, src)
         elif (operSize == OP_SIZE_WORD):
             self.registers.regWriteWord(rReg, src)
         elif (operSize == OP_SIZE_DWORD):
@@ -783,8 +784,7 @@ cdef class Opcodes:
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         if (self.modRMInstance.regName == CPU_SEGMENT_SS):
             self.registers.ssInhibit = True
-        with gil:
-            self.registers.segWrite(self.modRMInstance.regName, self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD))
+        self.registers.segWrite(self.modRMInstance.regName, self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD))
         return True
     cdef inline int movAxMoffs(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST:
         self.registers.regWrite(CPU_REGISTER_AX, \
@@ -804,11 +804,12 @@ cdef class Opcodes:
         cdef unsigned char dfFlag
         cdef unsigned short countVal, ediVal
         cdef unsigned int data
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedWord(CPU_REGISTER_CX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         data = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
         ediVal = self.registers.regReadUnsignedWord(CPU_REGISTER_DI)
@@ -825,11 +826,12 @@ cdef class Opcodes:
     cdef int stosFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char dfFlag
         cdef unsigned int data, countVal, ediVal
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         data = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
         ediVal = self.registers.regReadUnsignedDword(CPU_REGISTER_EDI)
@@ -852,11 +854,12 @@ cdef class Opcodes:
     cdef int movsFuncWord(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char dfFlag
         cdef unsigned short countVal, esiVal, ediVal, i
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedWord(CPU_REGISTER_CX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         esiVal = self.registers.regReadUnsignedWord(CPU_REGISTER_SI)
         ediVal = self.registers.regReadUnsignedWord(CPU_REGISTER_DI)
@@ -875,11 +878,12 @@ cdef class Opcodes:
     cdef int movsFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char dfFlag
         cdef unsigned int countVal, esiVal, ediVal, i
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         esiVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ESI)
         ediVal = self.registers.regReadUnsignedDword(CPU_REGISTER_EDI)
@@ -905,11 +909,12 @@ cdef class Opcodes:
         cdef unsigned char dfFlag
         cdef unsigned short countVal, esiVal
         cdef unsigned int data
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedWord(CPU_REGISTER_CX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         esiVal = self.registers.regReadUnsignedWord(CPU_REGISTER_SI)
         for i in range(countVal):
@@ -926,11 +931,12 @@ cdef class Opcodes:
     cdef int lodsFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char dfFlag
         cdef unsigned int data, countVal, esiVal
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         esiVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ESI)
         for i in range(countVal):
@@ -954,11 +960,12 @@ cdef class Opcodes:
         cdef unsigned char zfFlag, dfFlag
         cdef unsigned short esiVal, ediVal, countVal, i
         cdef unsigned int src1, src2
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedWord(CPU_REGISTER_CX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         esiVal = self.registers.regReadUnsignedWord(CPU_REGISTER_SI)
         ediVal = self.registers.regReadUnsignedWord(CPU_REGISTER_DI)
@@ -982,11 +989,12 @@ cdef class Opcodes:
     cdef int cmpsFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char zfFlag, dfFlag
         cdef unsigned int esiVal, ediVal, countVal, src1, src2, i
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         esiVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ESI)
         ediVal = self.registers.regReadUnsignedDword(CPU_REGISTER_EDI)
@@ -1017,11 +1025,12 @@ cdef class Opcodes:
         cdef unsigned char zfFlag, dfFlag
         cdef unsigned short ediVal, countVal, i
         cdef unsigned int src1, src2
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedWord(CPU_REGISTER_CX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         ediVal = self.registers.regReadUnsignedWord(CPU_REGISTER_DI)
         src1 = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
@@ -1042,11 +1051,12 @@ cdef class Opcodes:
     cdef int scasFuncDword(self, unsigned char operSize) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char zfFlag, dfFlag
         cdef unsigned int src1, src2, ediVal, countVal, i
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         ediVal = self.registers.regReadUnsignedDword(CPU_REGISTER_EDI)
         src1 = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
@@ -1114,11 +1124,12 @@ cdef class Opcodes:
         cdef unsigned char dfFlag
         cdef unsigned short ioPort, esiVal, countVal, i
         cdef unsigned int value
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedWord(CPU_REGISTER_CX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         esiVal = self.registers.regReadUnsignedWord(CPU_REGISTER_SI)
         ioPort = self.registers.regReadUnsignedWord(CPU_REGISTER_DX)
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
@@ -1137,11 +1148,12 @@ cdef class Opcodes:
         cdef unsigned char dfFlag
         cdef unsigned short ioPort
         cdef unsigned int value, esiVal, countVal, i
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         esiVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ESI)
         ioPort = self.registers.regReadUnsignedWord(CPU_REGISTER_DX)
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
@@ -1166,11 +1178,12 @@ cdef class Opcodes:
         cdef unsigned char dfFlag
         cdef unsigned short ioPort, ediVal, countVal, i
         cdef unsigned int value
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedWord(CPU_REGISTER_CX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         ediVal = self.registers.regReadUnsignedWord(CPU_REGISTER_DI)
         ioPort = self.registers.regReadUnsignedWord(CPU_REGISTER_DX)
@@ -1189,11 +1202,12 @@ cdef class Opcodes:
         cdef unsigned char dfFlag
         cdef unsigned short ioPort
         cdef unsigned int value, ediVal, countVal, i
-        countVal = 1
         if (self.cpu.repPrefix):
             countVal = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
             if (not countVal):
                 return True
+        else:
+            countVal = 1
         dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         ediVal = self.registers.regReadUnsignedDword(CPU_REGISTER_EDI)
         ioPort = self.registers.regReadUnsignedWord(CPU_REGISTER_DX)
@@ -1226,9 +1240,9 @@ cdef class Opcodes:
             offset = self.registers.getCurrentOpcodeAddSigned(offsetSize)
         self.registers.syncCR0State()
         if (self.cpu.operSize == OP_SIZE_WORD):
-            self.registers.regAddWord(CPU_REGISTER_EIP, offset)
+            self.registers.regWriteWord(CPU_REGISTER_EIP, self.registers.regReadUnsignedWord(CPU_REGISTER_EIP)+offset)
         else:
-            self.registers.regAddDword(CPU_REGISTER_EIP, offset)
+            self.registers.regWriteDword(CPU_REGISTER_EIP, self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)+offset)
         return True
     cdef inline int callNearRel16_32(self) nogil except BITMASK_BYTE_CONST:
         cdef signed int offset
@@ -1249,8 +1263,7 @@ cdef class Opcodes:
         cdef unsigned int eipAddr
         eipAddr = self.registers.getCurrentOpcodeAddUnsigned(self.cpu.operSize)
         segVal = self.registers.getCurrentOpcodeAddUnsignedWord()
-        with gil:
-            self.jumpFarDirect(OPCODE_CALL, segVal, eipAddr)
+        self.jumpFarDirect(OPCODE_CALL, segVal, eipAddr)
         return True
     cdef int pushaWD(self) nogil except BITMASK_BYTE_CONST:
         cdef unsigned int temp
@@ -1399,9 +1412,10 @@ cdef class Opcodes:
         cdef unsigned int operOp1, operOp2
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         operOpcodeId = self.modRMInstance.reg
-        if (self.main.debugEnabled):
-            with gil:
-                self.main.debug("Group1_RM_ImmFunc: operOpcodeId=={0:d}", operOpcodeId)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Group1_RM_ImmFunc: operOpcodeId=={0:d}", operOpcodeId)
         operOp1 = self.modRMInstance.modRMLoadUnsigned(operSize)
         if (operSize != OP_SIZE_BYTE and immIsByte):
             operOp2 = <unsigned int>self.registers.getCurrentOpcodeAddSignedByte() # operImm8 sign-extended to destsize
@@ -1441,9 +1455,10 @@ cdef class Opcodes:
         cdef unsigned int operOp2
         self.modRMInstance.modRMOperands(operSize, MODRM_FLAGS_NONE)
         operOpcodeId = self.modRMInstance.reg
-        if (self.main.debugEnabled):
-            with gil:
-                self.main.debug("Group3_RM_ImmFunc: operOpcodeId=={0:d}", operOpcodeId)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Group3_RM_ImmFunc: operOpcodeId=={0:d}", operOpcodeId)
         operOp2 = self.registers.getCurrentOpcodeAddUnsigned(operSize) # operImm
         if (operOpcodeId == 0): # GROUP3_OP_MOV
             self.modRMInstance.modRMSave(operSize, operOp2, OPCODE_SAVE)
@@ -1452,7 +1467,7 @@ cdef class Opcodes:
                 self.main.notice("opcodeGroup3_RM16_32_IMM16_32: invalid operOpcodeId. {0:d}", operOpcodeId)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         return True
-    cdef int opcodeGroup0F(self) except BITMASK_BYTE_CONST:
+    cdef int opcodeGroup0F(self) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char operOpcode, bitSize, byteSize, operOpcodeMod, operOpcodeModId, newCF, oldOF, oldOFcheck, count, eaxIsInvalid, cpl, segType, protectedModeOn
         cdef unsigned short limit
         cdef unsigned int eaxId, bitMask, bitMaskHalf, base, mmAddr, op1, op2
@@ -1463,15 +1478,20 @@ cdef class Opcodes:
         protectedModeOn = self.registers.protectedModeOn and not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm
         cpl = self.registers.getCPL()
         operOpcode = self.registers.getCurrentOpcodeAddUnsignedByte()
-        if (self.main.debugEnabled):
-            self.main.notice("Group0F: Opcode=={0:#04x}", operOpcode)
+        IF COMP_DEBUG:
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Group0F: Opcode=={0:#04x}", operOpcode)
         if (operOpcode == 0x00): # LLDT/SLDT LTR/STR VERR/VERW
             if (not protectedModeOn):
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
             operOpcodeModId = self.modRMInstance.reg
-            if (self.main.debugEnabled):
-                self.main.debug("Group0F_00: operOpcodeModId=={0:d}", operOpcodeModId)
+            IF COMP_DEBUG:
+                if (self.main.debugEnabled):
+                    with gil:
+                        self.main.notice("Group0F_00: operOpcodeModId=={0:d}", operOpcodeModId)
             if (operOpcodeModId in (0, 1)): # SLDT/STR
                 byteSize = OP_SIZE_WORD
                 if (self.modRMInstance.mod == 3):
@@ -1480,80 +1500,101 @@ cdef class Opcodes:
                     self.modRMInstance.modRMSave(byteSize, self.registers.ldtr, OPCODE_SAVE)
                 elif (operOpcodeModId == 1): # STR
                     self.modRMInstance.modRMSave(byteSize, (<Segment>self.registers.segments.tss).segmentIndex, OPCODE_SAVE)
-                    self.main.notice("opcodeGroup0F_00_STR: TR isn't fully supported yet.")
+                    IF COMP_DEBUG:
+                        with gil:
+                            self.main.notice("opcodeGroup0F_00_STR: TR isn't fully supported yet.")
             elif (operOpcodeModId in (2, 3)): # LLDT/LTR
                 if (cpl != 0):
-                    self.main.notice("Group0F_00_2_3: cpl=={0:d}", cpl)
-                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                    with gil:
+                        IF COMP_DEBUG:
+                            self.main.notice("Group0F_00_2_3: cpl=={0:d}", cpl)
+                        raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD)
                 if (operOpcodeModId == 2): # LLDT
                     IF COMP_DEBUG:
-                        self.main.notice("Opcode0F_01::LLDT: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+                        with gil:
+                            self.main.notice("Opcode0F_01::LLDT: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                     if (not (op1>>2)):
                         IF COMP_DEBUG:
                             if (self.main.debugEnabled):
-                                self.main.debug("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid. (LDTR: {0:#06x})", op1)
+                                with gil:
+                                    self.main.notice("Opcode0F_01::LLDT: (op1>>2) == 0, mark LDTR as invalid. (LDTR: {0:#06x})", op1)
                         op1 = 0
                     else:
                         if ((op1 & SELECTOR_USE_LDT) or not self.registers.segments.inLimit(op1)):
-                            raise HirnwichseException(CPU_EXCEPTION_GP, op1)
+                            with gil:
+                                raise HirnwichseException(CPU_EXCEPTION_GP, op1)
                         segType = self.registers.segments.getSegType(op1)
                         if (segType != TABLE_ENTRY_SYSTEM_TYPE_LDT):
-                            raise HirnwichseException(CPU_EXCEPTION_GP, op1)
+                            with gil:
+                                raise HirnwichseException(CPU_EXCEPTION_GP, op1)
                         op1 &= 0xfff8
                         if (not self.registers.segments.getEntry(&gdtEntry, op1)):
                             IF COMP_DEBUG:
-                                self.main.notice("Opcode0F_01::LLDT: gdtEntry is invalid, mark LDTR as invalid.")
+                                with gil:
+                                    self.main.notice("Opcode0F_01::LLDT: gdtEntry is invalid, mark LDTR as invalid.")
                             op1 = 0
-                        else:
-                            if (not gdtEntry.segPresent):
+                        elif (not gdtEntry.segPresent):
+                            with gil:
                                 raise HirnwichseException(CPU_EXCEPTION_NP, op1)
                     IF COMP_DEBUG:
-                        self.main.notice("Opcode0F_01::LLDT: TODO! op1=={0:#06x}", op1)
+                        with gil:
+                            self.main.notice("Opcode0F_01::LLDT: TODO! op1=={0:#06x}", op1)
                     self.registers.ldtr = op1
                     if (op1 != 0):
                         (<Gdt>self.registers.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
                     else:
                         #self.main.debugEnabled = True
                         IF COMP_DEBUG:
-                            self.main.notice("Opcode0F_01::LLDT: gdtEntry is invalid, mark LDTR as invalid; load tableposition 0, 0.")
+                            with gil:
+                                self.main.notice("Opcode0F_01::LLDT: gdtEntry is invalid, mark LDTR as invalid; load tableposition 0, 0.")
                         (<Gdt>self.registers.segments.ldt).loadTablePosition(0, 0)
                 elif (operOpcodeModId == 3): # LTR
                     if (not (op1&0xfff8)):
-                        IF COMP_DEBUG:
-                            self.main.notice("opcodeGroup0F_00_LTR: exception_test_1 (op1: {0:#06x})", op1)
-                        raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                        with gil:
+                            IF COMP_DEBUG:
+                                self.main.notice("opcodeGroup0F_00_LTR: exception_test_1 (op1: {0:#06x})", op1)
+                            raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                     elif ((op1 & SELECTOR_USE_LDT) or not self.registers.segments.inLimit(op1)):
-                        IF COMP_DEBUG:
-                            self.main.notice("opcodeGroup0F_00_LTR: exception_test_2 (op1: {0:#06x}; c1: {1:d}; c2: {2:d})", op1, (op1 & SELECTOR_USE_LDT)!=0, not self.registers.segments.inLimit(op1))
-                        raise HirnwichseException(CPU_EXCEPTION_GP, op1)
+                        with gil:
+                            IF COMP_DEBUG:
+                                self.main.notice("opcodeGroup0F_00_LTR: exception_test_2 (op1: {0:#06x}; c1: {1:d}; c2: {2:d})", op1, (op1 & SELECTOR_USE_LDT)!=0, not self.registers.segments.inLimit(op1))
+                            raise HirnwichseException(CPU_EXCEPTION_GP, op1)
                     if (not self.registers.segments.getEntry(&gdtEntry, op1)):
-                        IF COMP_DEBUG:
-                            self.main.notice("opcodeGroup0F_00_LTR: test3")
-                        raise HirnwichseException(CPU_EXCEPTION_GP, op1)
+                        with gil:
+                            IF COMP_DEBUG:
+                                self.main.notice("opcodeGroup0F_00_LTR: test3")
+                            raise HirnwichseException(CPU_EXCEPTION_GP, op1)
                     if (not gdtEntry.segPresent):
-                        raise HirnwichseException(CPU_EXCEPTION_NP, op1)
+                        with gil:
+                            raise HirnwichseException(CPU_EXCEPTION_NP, op1)
                     segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
                     if (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
-                        IF COMP_DEBUG:
-                            self.main.notice("opcodeGroup0F_00_LTR: segType {0:d} not a TSS or is busy.)", segType)
-                        raise HirnwichseException(CPU_EXCEPTION_GP, op1)
+                        with gil:
+                            IF COMP_DEBUG:
+                                self.main.notice("opcodeGroup0F_00_LTR: segType {0:d} not a TSS or is busy.)", segType)
+                            raise HirnwichseException(CPU_EXCEPTION_GP, op1)
                     self.registers.segments.setSegType(op1, segType | 0x2)
                     if (segType == TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS):
                         if (gdtEntry.limit != TSS_MIN_16BIT_HARD_LIMIT):
                             IF COMP_DEBUG:
-                                self.main.notice("opcodeGroup0F_00_LTR: tssLimit {0:#06x} != TSS_MIN_16BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, TSS_MIN_16BIT_HARD_LIMIT)
+                                with gil:
+                                    self.main.notice("opcodeGroup0F_00_LTR: tssLimit {0:#06x} != TSS_MIN_16BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, TSS_MIN_16BIT_HARD_LIMIT)
                             op1 = 0
                     elif (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS):
                         if (gdtEntry.limit < TSS_MIN_32BIT_HARD_LIMIT):
                             IF COMP_DEBUG:
-                                self.main.notice("opcodeGroup0F_00_LTR: tssLimit {0:#06x} < TSS_MIN_32BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, TSS_MIN_32BIT_HARD_LIMIT)
+                                with gil:
+                                    self.main.notice("opcodeGroup0F_00_LTR: tssLimit {0:#06x} < TSS_MIN_32BIT_HARD_LIMIT {1:#06x}.", gdtEntry.limit, TSS_MIN_32BIT_HARD_LIMIT)
                             op1 = 0
                     else:
-                        self.main.exitError("opcodeGroup0F_00_LTR: segType {0:d} might be busy.)", segType)
+                        with gil:
+                            self.main.exitError("opcodeGroup0F_00_LTR: segType {0:d} might be busy.)", segType)
                         return True
                     self.registers.segWriteSegment(&self.registers.segments.tss, op1)
-                    self.main.notice("opcodeGroup0F_00_LTR: TR isn't fully supported yet.")
+                    IF COMP_DEBUG:
+                        with gil:
+                            self.main.notice("opcodeGroup0F_00_LTR: TR isn't fully supported yet.")
             elif (operOpcodeModId == 4): # VERR
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD)
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = (<Segments>self.registers.segments).checkReadAllowed(op1)
@@ -1561,80 +1602,106 @@ cdef class Opcodes:
                 op1 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD)
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = (<Segments>self.registers.segments).checkWriteAllowed(op1)
             else:
-                self.main.notice("opcodeGroup0F_00: invalid operOpcodeModId: {0:d}", operOpcodeModId)
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    IF COMP_DEBUG:
+                        self.main.notice("opcodeGroup0F_00: invalid operOpcodeModId: {0:d}", operOpcodeModId)
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x01): # LGDT/LIDT SGDT/SIDT SMSW/LMSW
             operOpcodeMod = self.registers.getCurrentOpcodeUnsignedByte()
-            if (self.main.debugEnabled):
-                self.main.debug("Group0F_01: operOpcodeMod=={0:#02x}", operOpcodeMod)
+            IF COMP_DEBUG:
+                if (self.main.debugEnabled):
+                    with gil:
+                        self.main.notice("Group0F_01: operOpcodeMod=={0:#02x}", operOpcodeMod)
             if (operOpcodeMod == 0xc1): # VMCALL
-                self.main.notice("opcodeGroup0F_01: VMCALL isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
-            elif (operOpcodeMod == 0xc2): # VMLAUNCH
-                self.main.notice("opcodeGroup0F_01: VMLAUNCH isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
-            elif (operOpcodeMod == 0xc3): # VMRESUME
-                self.main.notice("opcodeGroup0F_01: VMRESUME isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
-            elif (operOpcodeMod == 0xc4): # VMXOFF
-                self.main.notice("opcodeGroup0F_01: VMXOFF isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
-            elif (operOpcodeMod == 0xc8): # MONITOR
-                self.main.notice("opcodeGroup0F_01: MONITOR isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
-            elif (operOpcodeMod == 0xc9): # MWAIT
-                self.main.notice("opcodeGroup0F_01: MWAIT isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
-            elif (operOpcodeMod == 0xca): # CLAC
-                self.main.notice("opcodeGroup0F_01: CLAC isn't fully supported yet.")
-                if (cpl != 0):
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: VMCALL isn't supported yet.")
                     raise HirnwichseException(CPU_EXCEPTION_UD)
+            elif (operOpcodeMod == 0xc2): # VMLAUNCH
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: VMLAUNCH isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
+            elif (operOpcodeMod == 0xc3): # VMRESUME
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: VMRESUME isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
+            elif (operOpcodeMod == 0xc4): # VMXOFF
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: VMXOFF isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
+            elif (operOpcodeMod == 0xc8): # MONITOR
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: MONITOR isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
+            elif (operOpcodeMod == 0xc9): # MWAIT
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: MWAIT isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
+            elif (operOpcodeMod == 0xca): # CLAC
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: CLAC isn't fully supported yet.")
+                if (cpl != 0):
+                    with gil:
+                        raise HirnwichseException(CPU_EXCEPTION_UD)
                 self.clac()
             elif (operOpcodeMod == 0xcb): # STAC
-                self.main.notice("opcodeGroup0F_01: STAC isn't fully supported yet.")
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: STAC isn't fully supported yet.")
                 if (cpl != 0):
-                    raise HirnwichseException(CPU_EXCEPTION_UD)
+                    with gil:
+                        raise HirnwichseException(CPU_EXCEPTION_UD)
                 self.stac()
             elif (operOpcodeMod == 0xd0): # XGETBV
-                self.main.notice("opcodeGroup0F_01: XGETBV isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: XGETBV isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xd1): # XSETBV
-                self.main.notice("opcodeGroup0F_01: XSETBV isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: XSETBV isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xd4): # VMFUNC
-                self.main.notice("opcodeGroup0F_01: VMFUNC isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: VMFUNC isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xd5): # XEND
-                self.main.notice("opcodeGroup0F_01: XEND isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: XEND isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xd6): # XTEST
-                self.main.notice("opcodeGroup0F_01: XTEST isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: XTEST isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xee): # RDPKRU
-                self.main.notice("opcodeGroup0F_01: RDPKRU isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: RDPKRU isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xef): # WRPKRU
-                self.main.notice("opcodeGroup0F_01: WRPKRU isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: WRPKRU isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xf8): # SWAPGS
-                self.main.notice("opcodeGroup0F_01: SWAPGS isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: SWAPGS isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (operOpcodeMod == 0xf9): # RDTSCP
-                self.main.notice("opcodeGroup0F_01: RDTSCP isn't supported yet.")
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_01: RDTSCP isn't supported yet.")
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             else:
                 operOpcodeModId = (operOpcodeMod>>3)&7
                 if (operOpcodeModId in (0, 1, 2, 3, 7)): # SGDT/SIDT LGDT/LIDT INVLPG
                     self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
                     if (self.modRMInstance.mod == 3):
-                        raise HirnwichseException(CPU_EXCEPTION_UD)
+                        with gil:
+                            raise HirnwichseException(CPU_EXCEPTION_UD)
                 elif (operOpcodeModId in (4, 6)): # SMSW/LMSW
                     self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
                 else:
-                    self.main.notice("Group0F_01: operOpcodeModId not in (0, 1, 2, 3, 4, 6, 7)")
+                    with gil:
+                        self.main.notice("Group0F_01: operOpcodeModId not in (0, 1, 2, 3, 4, 6, 7)")
                 if (operOpcodeModId in (2, 3, 6, 7) and cpl != 0):
-                    self.main.notice("Group0F_01_2_3_6_7: cpl=={0:d}", cpl)
-                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                    with gil:
+                        self.main.notice("Group0F_01_2_3_6_7: cpl=={0:d}", cpl)
+                        raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 mmAddr = self.modRMInstance.getRMValueFull(self.cpu.addrSize)
                 if (operOpcodeModId in (0, 1)): # SGDT/SIDT
                     if (operOpcodeModId == 0): # SGDT
@@ -1654,7 +1721,8 @@ cdef class Opcodes:
                         (<Gdt>self.registers.segments.gdt).loadTablePosition(base, limit)
                     elif (operOpcodeModId == 3): # LIDT
                         if (protectedModeOn and base and not limit):
-                            self.main.exitError("Opcodes::LIDT: limit is zero.")
+                            with gil:
+                                self.main.exitError("Opcodes::LIDT: limit is zero.")
                             return True
                         (<Idt>self.registers.segments.idt).loadTable(base, limit)
                 elif (operOpcodeModId == 4): # SMSW
@@ -1663,13 +1731,18 @@ cdef class Opcodes:
                         byteSize = OP_SIZE_DWORD
                     op2 = self.registers.regReadUnsignedWord(CPU_REGISTER_CR0)
                     self.modRMInstance.modRMSave(byteSize, op2, OPCODE_SAVE)
-                    self.main.notice("opcodeGroup0F_01: SMSW isn't fully supported yet.")
+                    IF COMP_DEBUG:
+                        with gil:
+                            self.main.notice("opcodeGroup0F_01: SMSW isn't fully supported yet.")
                 elif (operOpcodeModId == 6): # LMSW
-                    self.main.notice("opcodeGroup0F_01: LMSW isn't fully supported yet.")
+                    IF COMP_DEBUG:
+                        with gil:
+                            self.main.notice("opcodeGroup0F_01: LMSW isn't fully supported yet.")
                     op1 = self.registers.regReadUnsignedDword(CPU_REGISTER_CR0)
                     op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD)
                     if ((op1&1) and not (op2&1)): # it's already in protected mode, but it tries to switch to real mode...
-                        self.main.exitError("opcodeGroup0F_01: LMSW: tried to switch to real mode from protected mode.")
+                        with gil:
+                            self.main.exitError("opcodeGroup0F_01: LMSW: tried to switch to real mode from protected mode.")
                         return True
                     op1 = ((op1&<unsigned long int>0xfffffff0)|(op2&0xf))
                     self.registers.regWriteDword(CPU_REGISTER_CR0, op1)
@@ -1678,23 +1751,32 @@ cdef class Opcodes:
                     if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
                         #(<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsignedDword(CPU_REGISTER_CR3), False)
                         (<Paging>self.registers.segments.paging).invalidatePage(self.modRMInstance.getRMValueFull(self.cpu.operSize))
-                    self.registers.reloadCpuCache()
+                    IF CPU_CACHE_SIZE:
+                        self.registers.reloadCpuCache()
                 else:
-                    self.main.notice("opcodeGroup0F_01: invalid operOpcodeModId: {0:d}", operOpcodeModId)
-                    raise HirnwichseException(CPU_EXCEPTION_UD)
+                    with gil:
+                        self.main.notice("opcodeGroup0F_01: invalid operOpcodeModId: {0:d}", operOpcodeModId)
+                        raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x02): # LAR
-            self.main.notice("Opcodes::opcodeGroup0F: LAR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: LAR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
             if (not protectedModeOn):
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD)
             if (not self.registers.segments.inLimit(op2)):
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
-                self.main.notice("Opcodes::opcodeGroup0F: LAR: test1!")
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: LAR: test1!")
                 return True
             if (not self.registers.segments.getEntry(&gdtEntry, op2)):
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
-                self.main.notice("Opcodes::LAR: not gdtEntry (op2=={0:#06x})", op2)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::LAR: not gdtEntry (op2=={0:#06x})", op2)
                 return True
             segType = self.registers.segments.getSegType(op2)
             if ((not gdtEntry.segIsConforming and ((cpl > gdtEntry.segDPL) or ((op2&3) > gdtEntry.segDPL))) or \
@@ -1702,8 +1784,10 @@ cdef class Opcodes:
               TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_16BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, \
               TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE))):
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
-                self.main.notice("Opcodes::opcodeGroup0F: LAR: test2!")
-                self.main.notice("Opcodes::opcodeGroup0F: LAR: test2.1! (c1=={0:d}; c2=={1:d}; c3=={2:d}; c4=={3:d}; c5=={4:#04x})", not gdtEntry.segIsConforming, (cpl > gdtEntry.segDPL), ((op2&3) > gdtEntry.segDPL), (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_16BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE)), segType)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: LAR: test2!")
+                        self.main.notice("Opcodes::opcodeGroup0F: LAR: test2.1! (c1=={0:d}; c2=={1:d}; c3=={2:d}; c4=={3:d}; c5=={4:#04x})", not gdtEntry.segIsConforming, (cpl > gdtEntry.segDPL), ((op2&3) > gdtEntry.segDPL), (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_16BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE)), segType)
                 return True
             op1 = gdtEntry.accessByte << 8
             if (self.cpu.operSize == OP_SIZE_DWORD):
@@ -1711,32 +1795,43 @@ cdef class Opcodes:
                 op1 |= ((gdtEntry.flags & GDT_FLAG_LONGMODE) != 0) << 21
                 op1 |= (gdtEntry.segSize == OP_SIZE_DWORD) << 22
                 op1 |= gdtEntry.segUse4K << 23
-            self.main.notice("Opcodes::opcodeGroup0F: LAR: test2.2! (op1=={0:#010x}; op2=={1:#06x})", op1, op2)
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: LAR: test2.2! (op1=={0:#010x}; op2=={1:#06x})", op1, op2)
             self.modRMInstance.modRSave(self.cpu.operSize, op1, OPCODE_SAVE)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = True
             #if (self.cpu.savedCs == 0x28 and self.cpu.savedEip == 0xc0002636 and op2 == 0x87):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
         elif (operOpcode == 0x03): # LSL
-            self.main.notice("Opcodes::opcodeGroup0F: LSL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: LSL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
             if (not protectedModeOn):
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD)
             if (not self.registers.segments.inLimit(op2)):
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
-                self.main.notice("Opcodes::opcodeGroup0F: LSL: test1!")
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: LSL: test1!")
                 return True
             if (not self.registers.segments.getEntry(&gdtEntry, op2)):
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
-                self.main.notice("Opcodes::LSL: not gdtEntry (op2=={0:#06x})", op2)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::LSL: not gdtEntry (op2=={0:#06x})", op2)
                 return True
             segType = self.registers.segments.getSegType(op2)
             if ((not gdtEntry.segIsConforming and ((cpl > gdtEntry.segDPL) or ((op2&3) > gdtEntry.segDPL))) or \
               (not (segType&0x10) and segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, \
               TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY))):
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
-                self.main.notice("Opcodes::opcodeGroup0F: LSL: test2!")
-                self.main.notice("Opcodes::opcodeGroup0F: LSL: test2.1! (c1=={0:d}; c2=={1:d}; c3=={2:d}; c4=={3:d}; c5=={4:#04x})", not gdtEntry.segIsConforming, (cpl > gdtEntry.segDPL), ((op2&3) > gdtEntry.segDPL), (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)), segType)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: LSL: test2!")
+                        self.main.notice("Opcodes::opcodeGroup0F: LSL: test2.1! (c1=={0:d}; c2=={1:d}; c3=={2:d}; c4=={3:d}; c5=={4:#04x})", not gdtEntry.segIsConforming, (cpl > gdtEntry.segDPL), ((op2&3) > gdtEntry.segDPL), (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)), segType)
                 return True  
             op1 = gdtEntry.limit
             if ((gdtEntry.flags & GDT_FLAG_USE_4K)):
@@ -1747,36 +1842,55 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(self.cpu.operSize, op1, OPCODE_SAVE)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = True
         elif (operOpcode == 0x05): # LOADALL (286, undocumented)
-            self.main.notice("opcodeGroup0F_05: LOADALL 286 opcode isn't supported yet.")
-            raise HirnwichseException(CPU_EXCEPTION_UD)
+            with gil:
+                self.main.notice("opcodeGroup0F_05: LOADALL 286 opcode isn't supported yet.")
+                raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x07): # LOADALL (386, undocumented)
-            self.main.notice("opcodeGroup0F_07: LOADALL 386 opcode isn't supported yet.")
-            raise HirnwichseException(CPU_EXCEPTION_UD)
+            with gil:
+                self.main.notice("opcodeGroup0F_07: LOADALL 386 opcode isn't supported yet.")
+                raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode in (0x06, 0x08, 0x09)): # 0x06: CLTS, 0x08: INVD, 0x09: WBINVD
             if (cpl != 0):
-                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             if (operOpcode == 0x06): # CLTS
                 self.registers.regAndDword(CPU_REGISTER_CR0, ~CR0_FLAG_TS)
             elif (operOpcode == 0x08): # INVD
-                self.main.notice("Opcodes::opcodeGroup0F: INVD/WBINVD: TODO!")
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: INVD: TODO!")
+                if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
+                    (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsignedDword(CPU_REGISTER_CR3), False)
+                IF CPU_CACHE_SIZE:
+                    self.registers.reloadCpuCache()
             elif (operOpcode == 0x09): # WBINVD
-                self.main.notice("Opcodes::opcodeGroup0F: WBINVD: TODO!")
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: WBINVD: TODO!")
+                if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
+                    (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsignedDword(CPU_REGISTER_CR3), False)
+                IF CPU_CACHE_SIZE:
+                    self.registers.reloadCpuCache()
         elif (operOpcode == 0x0b): # UD2
-            self.main.notice("Opcodes::opcodeGroup0F: UD2!")
-            raise HirnwichseException(CPU_EXCEPTION_UD)
+            with gil:
+                self.main.notice("Opcodes::opcodeGroup0F: UD2!")
+                raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0x1f): # Multibyte NOP
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
         elif (operOpcode == 0x20): # MOV R32, CRn
             if (cpl != 0):
-                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_CREG)
             if (self.modRMInstance.regName not in (CPU_REGISTER_CR0, CPU_REGISTER_CR2, CPU_REGISTER_CR3, CPU_REGISTER_CR4)):
-                raise HirnwichseException(CPU_EXCEPTION_UD)
-            elif (self.modRMInstance.regName == CPU_REGISTER_CR2):
-                self.main.notice("TODO: MOV R32, CR2")
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
+            IF COMP_DEBUG:
+                if (self.modRMInstance.regName == CPU_REGISTER_CR2):
+                    with gil:
+                        self.main.notice("TODO: MOV R32, CR2")
             # We need to 'ignore' mod to read the source/dest as a register. That's the way to do it.
             if (self.modRMInstance.mod != 3):
-                self.main.exitError("Opcodes::MOV_R32_CRn: mod != 3")
+                with gil:
+                    self.main.exitError("Opcodes::MOV_R32_CRn: mod != 3")
                 return True
             self.modRMInstance.modRMSave(OP_SIZE_DWORD, self.modRMInstance.modRLoadUnsigned(OP_SIZE_DWORD), OPCODE_SAVE)
         elif (operOpcode == 0x21): # MOV R32, DRn
@@ -1784,89 +1898,115 @@ cdef class Opcodes:
             self.modRMInstance.modRMSave(OP_SIZE_DWORD, self.modRMInstance.modRLoadUnsigned(OP_SIZE_DWORD), OPCODE_SAVE)
         elif (operOpcode == 0x22): # MOV CRn, R32
             if (cpl != 0):
-                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_CREG)
             if (self.modRMInstance.regName not in (CPU_REGISTER_CR0, CPU_REGISTER_CR2, CPU_REGISTER_CR3, CPU_REGISTER_CR4)):
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             # We need to 'ignore' mod to read the source/dest as a register. That's the way to do it.
             if (self.modRMInstance.mod != 3):
-                self.main.exitError("Opcodes::MOV_CRn_R32: mod != 3")
+                with gil:
+                    self.main.exitError("Opcodes::MOV_CRn_R32: mod != 3")
                 return True
             op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_DWORD)
             if (self.modRMInstance.regName == CPU_REGISTER_CR0):
                 op1 = self.registers.regReadUnsignedDword(CPU_REGISTER_CR0) # op1 == old CR0
                 if ((op2 & CR0_FLAG_PG) and not (op2 & CR0_FLAG_PE)):
-                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                    with gil:
+                        raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
             if (self.modRMInstance.regName == CPU_REGISTER_CR0):
                 self.registers.pagingOn = (op2 & CR0_FLAG_PG)!=0
                 self.registers.writeProtectionOn = (op2 & CR0_FLAG_WP)!=0
                 self.registers.cacheDisabled = (op2 & CR0_FLAG_CD)!=0
                 if (((op1 & (CR0_FLAG_PG | CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_WP)) != (op2 & (CR0_FLAG_PG | CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_WP))) and self.registers.pagingOn):
+                    #if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
                     (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsignedDword(CPU_REGISTER_CR3), False)
+                    IF (CPU_CACHE_SIZE):
+                        self.registers.reloadCpuCache()
                 #self.registers.syncCR0State()
-            elif (self.modRMInstance.regName == CPU_REGISTER_CR2):
-                self.main.notice("TODO: MOV CR2, R32")
             elif (self.modRMInstance.regName == CPU_REGISTER_CR4):
-                if (op2):
-                    self.main.notice("opcodeGroup0F_22: CR4 IS NOT FULLY SUPPORTED yet.")
-                elif (op2 & CR4_FLAG_VME):
-                    self.main.notice("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT FULLY SUPPORTED yet.")
-                elif (op2 & CR4_FLAG_PSE):
-                    self.main.exitError("opcodeGroup0F_22: PSE (page-size extension) IS NOT SUPPORTED yet.")
-                elif (op2 & CR4_FLAG_PAE):
-                    self.main.exitError("opcodeGroup0F_22: PAE (physical-address extension) IS NOT SUPPORTED yet.")
+                with gil:
+                    if (op2 & CR4_FLAG_VME):
+                        self.main.notice("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT FULLY SUPPORTED yet.")
+                    elif (op2 & CR4_FLAG_PSE):
+                        self.main.exitError("opcodeGroup0F_22: PSE (page-size extension) IS NOT SUPPORTED yet.")
+                    elif (op2 & CR4_FLAG_PAE):
+                        self.main.exitError("opcodeGroup0F_22: PAE (physical-address extension) IS NOT SUPPORTED yet.")
+                    elif (op2):
+                        self.main.notice("opcodeGroup0F_22: CR4 IS NOT FULLY SUPPORTED yet.")
+            IF COMP_DEBUG:
+                if (self.modRMInstance.regName == CPU_REGISTER_CR2):
+                    with gil:
+                        self.main.notice("TODO: MOV CR2, R32")
             if (self.modRMInstance.regName in (CPU_REGISTER_CR3, CPU_REGISTER_CR4)):
-                op2 = self.registers.regs[CPU_REGISTER_CR3]._union.dword.erx
-                #(<Paging>self.registers.segments.paging).invalidateTables(op2, True)
-                (<Paging>self.registers.segments.paging).invalidateTables(op2, False)
+                #if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
+                IF 1:
+                    #op2 = self.registers.regs[CPU_REGISTER_CR3]._union.dword.erx
+                    #(<Paging>self.registers.segments.paging).invalidateTables(op2, True)
+                    #(<Paging>self.registers.segments.paging).invalidateTables(op2, False)
+                    (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsignedDword(CPU_REGISTER_CR3), False)
                 IF (CPU_CACHE_SIZE):
-                    self.reloadCpuCache()
+                    self.registers.reloadCpuCache()
         elif (operOpcode == 0x23): # MOV DRn, R32
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_DREG)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, self.modRMInstance.modRMLoadUnsigned(OP_SIZE_DWORD), OPCODE_SAVE)
         elif (operOpcode in (0x30, 0x31, 0x32)): # WRMSR, RDTSC, RDMSR
-            self.main.notice("Opcodes::opcodeGroup0F: WRMSR/RDTSC/RDMSR: TODO!")
+            with gil:
+                self.main.notice("Opcodes::opcodeGroup0F: WRMSR/RDTSC/RDMSR: TODO!")
             #raise HirnwichseException(CPU_EXCEPTION_UD)
             if (operOpcode == 0x31 and self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_TSD) != 0 and cpl != 0 and self.registers.protectedModeOn): # RDTSC
-                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             elif (cpl != 0):
-                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             eaxId = self.registers.regReadUnsignedDword(CPU_REGISTER_ECX)
             eaxIsInvalid = (eaxId >= 0x40000000 and eaxId <= 0x400000ff)
             if (operOpcode != 0x31 and eaxIsInvalid):
-                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             if (operOpcode == 0x31 or (operOpcode == 0x32 and eaxId == 0x10)):
                 self.registers.regWriteDword(CPU_REGISTER_EAX, <unsigned int>(self.cpu.cycles))
                 self.registers.regWriteDword(CPU_REGISTER_EDX, <unsigned int>(self.cpu.cycles>>32))
             elif (operOpcode == 0x30 and eaxId == 0x10):
                 self.cpu.cycles = self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
-                self.cpu.cycles |= <unsigned long int>self.registers.regReadUnsignedDword(CPU_REGISTER_EDX)<<32
+                self.cpu.cycles = self.cpu.cycles|(<unsigned long int>self.registers.regReadUnsignedDword(CPU_REGISTER_EDX)<<32)
             elif (eaxId == 0x1b): # apic base
+                pass
+            elif (eaxId == 0x2a): # power on configuration bits
                 pass
             elif (eaxId == 0x8b): # no microcode loaded or rather supported.
                 pass
             else:
-                self.main.notice("Opcodes::group0F: MSR: Unimplemented! (operOpcode=={0:#04x}; ECX=={1:#010x})", operOpcode, eaxId)
-                raise HirnwichseException(CPU_EXCEPTION_GP, 0)
+                with gil:
+                    self.main.notice("Opcodes::group0F: MSR: Unimplemented! (operOpcode=={0:#04x}; ECX=={1:#010x})", operOpcode, eaxId)
+                    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         elif (operOpcode == 0x38): # MOVBE
-            self.main.notice("Opcodes::opcodeGroup0F: MOVBE: TODO!")
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: MOVBE: TODO!")
             operOpcodeMod = self.registers.getCurrentOpcodeAddUnsignedByte()
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             if (operOpcodeMod == 0xf0): # MOVBE R16_32, M16_32
                 op2 = self.modRMInstance.modRMLoadUnsigned(self.cpu.operSize)
-                op2 = (<Misc>self.main.misc).reverseByteOrder(op2, self.cpu.operSize)
+                with gil:
+                    op2 = (<Misc>self.main.misc).reverseByteOrder(op2, self.cpu.operSize)
                 self.modRMInstance.modRSave(self.cpu.operSize, op2, OPCODE_SAVE)
             elif (operOpcodeMod == 0xf1): # MOVBE M16_32, R16_32
                 op2 = self.modRMInstance.modRLoadUnsigned(self.cpu.operSize)
-                op2 = (<Misc>self.main.misc).reverseByteOrder(op2, self.cpu.operSize)
+                with gil:
+                    op2 = (<Misc>self.main.misc).reverseByteOrder(op2, self.cpu.operSize)
                 self.modRMInstance.modRMSave(self.cpu.operSize, op2, OPCODE_SAVE)
             else:
-                self.main.exitError("MOVBE: operOpcodeMod {0:#04x} not in (0xf0, 0xf1)", operOpcodeMod)
+                with gil:
+                    self.main.exitError("MOVBE: operOpcodeMod {0:#04x} not in (0xf0, 0xf1)", operOpcodeMod)
         elif ((operOpcode & 0xf0) == 0x40): # CMOVcc ;; R16, R/M 16; R32, R/M 32
             IF COMP_DEBUG:
             #IF 1:
-                self.main.notice("Opcodes::cmovFunc: TODO!")
+                with gil:
+                    self.main.notice("Opcodes::cmovFunc: TODO!")
             self.movR_RM(self.cpu.operSize, self.registers.getCond(operOpcode&0xf))
         elif ((operOpcode & 0xf0) == 0x80):
             self.jumpShort(self.cpu.operSize, self.registers.getCond(operOpcode&0xf))
@@ -1878,7 +2018,9 @@ cdef class Opcodes:
             self.popSeg(POP_FS)
         elif (operOpcode == 0xa2): # CPUID
             eaxId = self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
-            self.main.notice("Opcodes::opcodeGroup0F: CPUID: TODO! (eax; {0:#010x})", eaxId)
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: CPUID: TODO! (eax; {0:#010x})", eaxId)
             #eaxIsInvalid = (eaxId >= <unsigned int>0x40000000 and eaxId <= <unsigned int>0x4fffffff)
             IF 0:
                 if (eaxId in (0x2, 0x3, 0x4, 0x5, <unsigned int>0x80000001, <unsigned int>0x80000005, <unsigned int>0x80000006, <unsigned int>0x80000007)):
@@ -1907,15 +2049,19 @@ cdef class Opcodes:
                     self.registers.regWriteDword(CPU_REGISTER_ECX, 0x20202020)
                     self.registers.regWriteDword(CPU_REGISTER_EDX, 0x00202020)
             if (eaxId & <unsigned int>0x30000000):
-                self.main.exitError("Opcodes::opcodeGroup0F: CPUID test1: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
+                with gil:
+                    self.main.exitError("Opcodes::opcodeGroup0F: CPUID test1: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
             elif (eaxId & <unsigned int>0x80000000):
-                self.main.notice("Opcodes::opcodeGroup0F: CPUID test2: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: CPUID test2: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
             elif (eaxId == 0x1):
-                self.main.notice("Opcodes::opcodeGroup0F: CPUID test4: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: CPUID test4: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
                 #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x521)
                 #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x611)
                 #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x631)
@@ -1926,19 +2072,25 @@ cdef class Opcodes:
                 #self.registers.regWriteDword(CPU_REGISTER_EDX, 0xa11f)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
             elif (eaxId == 0x2):
-                self.main.notice("Opcodes::opcodeGroup0F: CPUID test5: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: CPUID test5: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x1)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
             elif (eaxId == 0x3):
-                self.main.notice("Opcodes::opcodeGroup0F: CPUID test6: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: CPUID test6: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
                 self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
             else:
-                self.main.notice("Opcodes::opcodeGroup0F: CPUID test3: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: CPUID test3: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
                 #if (not (eaxId == 0x0 or eaxIsInvalid)):
                 #    self.main.notice("CPUID: eaxId {0:#04x} unknown.", eaxId)
                 #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x5)
@@ -1949,7 +2101,9 @@ cdef class Opcodes:
         elif (operOpcode == 0xa3): # BT RM16/32, R16/R32
             self.btFunc(BT_NONE)
         elif (operOpcode in (0xa4, 0xa5)): # SHLD
-            self.main.notice("Opcodes::opcodeGroup0F: SHLD: TODO!")
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: SHLD: TODO!")
             bitMaskHalf = BITMASKS_80[self.cpu.operSize]
             bitSize = self.cpu.operSize << 3
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
@@ -1958,7 +2112,8 @@ cdef class Opcodes:
             elif (operOpcode == 0xa5): # SHLD CL
                 count = self.registers.regReadUnsignedLowByte(CPU_REGISTER_CL)
             else:
-                self.main.exitError("group0F::SHLD: operOpcode {0:#04x} unknown.", operOpcode)
+                with gil:
+                    self.main.exitError("group0F::SHLD: operOpcode {0:#04x} unknown.", operOpcode)
                 return True
             count &= 0x1f
             if (not count):
@@ -1989,12 +2144,17 @@ cdef class Opcodes:
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             if (operOpcode == 0xac): # SHRD imm8
                 count = self.registers.getCurrentOpcodeAddUnsignedByte()
-                self.main.notice("Opcodes::opcodeGroup0F: SHRD_imm8: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}, count: {2:#04x}, bitSize: {3:d})", self.cpu.savedEip, self.cpu.savedCs, count, bitSize)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: SHRD_imm8: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}, count: {2:#04x}, bitSize: {3:d})", self.cpu.savedEip, self.cpu.savedCs, count, bitSize)
             elif (operOpcode == 0xad): # SHRD CL
                 count = self.registers.regReadUnsignedLowByte(CPU_REGISTER_CL)
-                self.main.notice("Opcodes::opcodeGroup0F: SHRD_CL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}, count: {2:#04x}), bitSize: {3:d}", self.cpu.savedEip, self.cpu.savedCs, count, bitSize)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: SHRD_CL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}, count: {2:#04x}), bitSize: {3:d}", self.cpu.savedEip, self.cpu.savedCs, count, bitSize)
             else:
-                self.main.exitError("group0F::SHRD: operOpcode {0:#04x} unknown.", operOpcode)
+                with gil:
+                    self.main.exitError("group0F::SHRD: operOpcode {0:#04x} unknown.", operOpcode)
                 return True
             count &= 0x1f
             if (not count):
@@ -2027,7 +2187,8 @@ cdef class Opcodes:
             self.registers.setFullFlags(sop1, sop2, self.cpu.operSize, OPCODE_IMUL)
         elif (operOpcode in (0xb0, 0xb1)): # 0xb0: CMPXCHG RM8, R8 ;; 0xb1: CMPXCHG RM16_32, R16_32
             IF COMP_DEBUG:
-                self.main.notice("Opcodes::opcodeGroup0F: CMPXCHG: TODO!")
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: CMPXCHG: TODO!")
             byteSize = self.cpu.operSize
             if (operOpcode == 0xb0): # 0xb0: CMPXCHG RM8, R8
                 byteSize = OP_SIZE_BYTE
@@ -2051,22 +2212,30 @@ cdef class Opcodes:
         elif (operOpcode == 0xb5): # LGS
             self.lfpFunc(CPU_SEGMENT_GS)
         elif (operOpcode == 0xb8): # POPCNT R16/32 RM16/32
-            self.main.notice("Opcodes::opcodeGroup0F: POPCNT: TODO!")
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: POPCNT: TODO!")
             if (self.cpu.repPrefix):
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.cpu.operSize)
-            op2 = bin(op2).count('1')
+            with gil:
+                op2 = bin(op2).count('1')
             self.modRMInstance.modRSave(self.cpu.operSize, op2, OPCODE_SAVE)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = False
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not op2
         elif (operOpcode == 0xba): # BT/BTS/BTR/BTC RM16/32 IMM8
-            if (self.main.debugEnabled):
-                self.main.notice("Opcodes::opcodeGroup0F: BT*: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+            IF COMP_DEBUG:
+                if (self.main.debugEnabled):
+                    with gil:
+                        self.main.notice("Opcodes::opcodeGroup0F: BT*: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             operOpcodeModId = self.modRMInstance.reg
-            if (self.main.debugEnabled):
-                self.main.debug("Group0F_BA: operOpcodeModId=={0:d}", operOpcodeModId)
+            IF COMP_DEBUG:
+                if (self.main.debugEnabled):
+                    with gil:
+                        self.main.notice("Group0F_BA: operOpcodeModId=={0:d}", operOpcodeModId)
             if (operOpcodeModId == 4): # BT
                 self.btFunc(BT_IMM | BT_NONE)
             elif (operOpcodeModId == 5): # BTS
@@ -2076,32 +2245,43 @@ cdef class Opcodes:
             elif (operOpcodeModId == 7): # BTC
                 self.btFunc(BT_IMM | BT_COMPLEMENT)
             else:
-                self.main.notice("opcodeGroup0F_BA: invalid operOpcodeModId: {0:d}", operOpcodeModId)
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_BA: invalid operOpcodeModId: {0:d}", operOpcodeModId)
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0xbb): # BTC RM16/32, R16/32
             self.btFunc(BT_COMPLEMENT)
         elif (operOpcode == 0xbc): # BSF R16_32, R/M16_32
-            self.main.notice("Opcodes::opcodeGroup0F: BSF: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
-            self.cpu.cpuDump()
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: BSF: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+                    self.cpu.cpuDump()
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.cpu.operSize)
             if (op2 >= 1):
-                op1 = bin(op2)[::-1].find('1')
+                with gil:
+                    op1 = bin(op2)[::-1].find('1')
                 self.modRMInstance.modRSave(self.cpu.operSize, op1, OPCODE_SAVE)
                 self.registers.setSZP_COA(op1, self.cpu.operSize)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not op2
-            self.cpu.cpuDump()
+            IF COMP_DEBUG:
+                with gil:
+                    self.cpu.cpuDump()
         elif (operOpcode == 0xbd): # BSR R16_32, R/M16_32
-            self.main.notice("Opcodes::opcodeGroup0F: BSR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
-            self.cpu.cpuDump()
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: BSR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+                    self.cpu.cpuDump()
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.cpu.operSize)
             if (op2 >= 1):
-                op1 = op2.bit_length()-1
+                with gil:
+                    op1 = op2.bit_length()-1
                 self.modRMInstance.modRSave(self.cpu.operSize, op1, OPCODE_SAVE)
                 self.registers.setSZP_COA(op1, self.cpu.operSize)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not op2
-            self.cpu.cpuDump()
+            IF COMP_DEBUG:
+                with gil:
+                    self.cpu.cpuDump()
         elif (operOpcode in (0xb6, 0xbe)): # 0xb6==MOVZX R16_32, R/M8 ;; 0xbe==MOVSX R16_32, R/M8
             self.modRMInstance.modRMOperands(OP_SIZE_BYTE, MODRM_FLAGS_NONE)
             self.modRMInstance.regName = self.registers.getRegNameWithFlags(MODRM_FLAGS_NONE, self.modRMInstance.reg, self.cpu.operSize)
@@ -2122,7 +2302,8 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(OP_SIZE_DWORD, op2, OPCODE_SAVE)
         elif (operOpcode in (0xc0, 0xc1)): # 0xc0: XADD RM8, R8 ;; 0xc1: XADD RM16_32, R16_32
             IF COMP_DEBUG:
-                self.main.notice("Opcodes::opcodeGroup0F: XADD: TODO! (operOpcode: {0:#04x}, savedEip: {1:#010x}, savedCs: {2:#06x})", operOpcode, self.cpu.savedEip, self.cpu.savedCs)
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: XADD: TODO! (operOpcode: {0:#04x}, savedEip: {1:#010x}, savedCs: {2:#06x})", operOpcode, self.cpu.savedEip, self.cpu.savedCs)
             byteSize = OP_SIZE_BYTE if (operOpcode == 0xc0) else self.cpu.operSize
             self.modRMInstance.modRMOperands(byteSize, MODRM_FLAGS_NONE)
             op1 = self.modRMInstance.modRMLoadUnsigned(byteSize)
@@ -2132,14 +2313,17 @@ cdef class Opcodes:
             self.registers.setFullFlags(op1, op2, byteSize, OPCODE_ADD)
         elif (operOpcode == 0xc7): # CMPXCHG8B M64 / ...
             IF COMP_DEBUG:
-                self.main.notice("Opcodes::opcodeGroup0F: CMPXCHG8B: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: CMPXCHG8B: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             if (self.modRMInstance.mod == 3):
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
             mmAddr = self.modRMInstance.getRMValueFull(self.cpu.operSize)
             IF COMP_DEBUG:
                 if (self.main.debugEnabled):
-                    self.main.debug("Group0F_C7: self.modRMInstance.reg=={0:d}", self.modRMInstance.reg)
+                    with gil:
+                        self.main.notice("Group0F_C7: self.modRMInstance.reg=={0:d}", self.modRMInstance.reg)
             if (self.modRMInstance.reg == 1):
                 qop1 = self.registers.mmReadValueUnsignedQword(mmAddr, self.modRMInstance.rmNameSeg, True)
                 qop2 = self.registers.regReadUnsignedDword(CPU_REGISTER_EDX)
@@ -2156,21 +2340,27 @@ cdef class Opcodes:
                     self.registers.regWriteDword(CPU_REGISTER_EDX, qop1>>32)
                     self.registers.regWriteDword(CPU_REGISTER_EAX, qop1)
             else:
-                self.main.notice("opcodeGroup0F_C7: self.modRMInstance.reg {0:d} isn't supported yet.", self.modRMInstance.reg)
-                raise HirnwichseException(CPU_EXCEPTION_UD)
+                with gil:
+                    self.main.notice("opcodeGroup0F_C7: self.modRMInstance.reg {0:d} isn't supported yet.", self.modRMInstance.reg)
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
         elif ((operOpcode & 0xf8) == 0xc8): # BSWAP R32
-            self.main.notice("Opcodes::opcodeGroup0F: BSWAP: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: BSWAP: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
             regName  = operOpcode&7
             op1 = self.registers.regReadUnsignedDword(regName)
             #self.main.notice("Opcodes::opcodeGroup0F: BSWAP: test1=={0:#010x}", op1)
-            op1 = (<Misc>self.main.misc).reverseByteOrder(op1, OP_SIZE_DWORD)
+            with gil:
+                op1 = (<Misc>self.main.misc).reverseByteOrder(op1, OP_SIZE_DWORD)
             #self.main.notice("Opcodes::opcodeGroup0F: BSWAP: test2=={0:#010x}", op1)
             self.registers.regWriteDword(regName, op1)
         elif (operOpcode == 0xff): # 0xFF UD3
-            self.main.notice("Opcodes::opcodeGroup0F: 0xff UD3!")
-            raise HirnwichseException(CPU_EXCEPTION_UD)
+            with gil:
+                self.main.notice("Opcodes::opcodeGroup0F: 0xff UD3!")
+                raise HirnwichseException(CPU_EXCEPTION_UD)
         else:
-            self.main.exitError("opcodeGroup0F: invalid operOpcode. {0:#04x}", operOpcode)
+            with gil:
+                self.main.exitError("opcodeGroup0F: invalid operOpcode. {0:#04x}", operOpcode)
         return True
     cdef int opcodeGroupFE(self) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char operOpcodeId
@@ -2178,7 +2368,7 @@ cdef class Opcodes:
         operOpcodeId = self.modRMInstance.reg
         if (self.main.debugEnabled):
             with gil:
-                self.main.debug("GroupFE: operOpcodeId=={0:d}", operOpcodeId)
+                self.main.notice("GroupFE: operOpcodeId=={0:d}", operOpcodeId)
         if (operOpcodeId == 0): # 0/INC
             return self.incFuncRM(OP_SIZE_BYTE)
         elif (operOpcodeId == 1): # 1/DEC
@@ -2195,7 +2385,7 @@ cdef class Opcodes:
         operOpcodeId = self.modRMInstance.reg
         if (self.main.debugEnabled):
             with gil:
-                self.main.debug("GroupFF: operOpcodeId=={0:d}", operOpcodeId)
+                self.main.notice("GroupFF: operOpcodeId=={0:d}", operOpcodeId)
         if (operOpcodeId == 0): # 0/INC
             return self.incFuncRM(self.cpu.operSize)
         elif (operOpcodeId == 1): # 1/DEC
@@ -2208,8 +2398,7 @@ cdef class Opcodes:
             op1 = self.modRMInstance.getRMValueFull(self.cpu.addrSize)
             segVal = self.registers.mmReadValueUnsignedWord(op1+self.cpu.operSize, self.modRMInstance.rmNameSeg, True)
             op1 = self.registers.mmReadValueUnsigned(op1, self.cpu.operSize, self.modRMInstance.rmNameSeg, True)
-            with gil:
-                return self.jumpFarDirect(OPCODE_CALL, segVal, op1)
+            return self.jumpFarDirect(OPCODE_CALL, segVal, op1)
         elif (operOpcodeId == 4): # 4/JMP NEAR
             op1 = self.modRMInstance.modRMLoadUnsigned(self.cpu.operSize)
             self.registers.regWriteDword(CPU_REGISTER_EIP, op1)
@@ -2217,8 +2406,7 @@ cdef class Opcodes:
             op1 = self.modRMInstance.getRMValueFull(self.cpu.addrSize)
             segVal = self.registers.mmReadValueUnsignedWord(op1+self.cpu.operSize, self.modRMInstance.rmNameSeg, True)
             op1 = self.registers.mmReadValueUnsigned(op1, self.cpu.operSize, self.modRMInstance.rmNameSeg, True)
-            with gil:
-                return self.jumpFarDirect(OPCODE_JUMP, segVal, op1)
+            return self.jumpFarDirect(OPCODE_JUMP, segVal, op1)
         elif (operOpcodeId == 6): # 6/PUSH
             op1 = self.modRMInstance.modRMLoadUnsigned(self.cpu.operSize)
             return self.stackPushValue(op1, self.cpu.operSize, False)
@@ -2398,25 +2586,25 @@ cdef class Opcodes:
                         self.main.notice("Opcodes::ret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                         self.main.notice("Opcodes::ret: TODO! (segmentIndex: {0:#06x}; segDPL: {1:d}; tempCS=={2:#06x}; segId=={3:d}", (<Segment>self.registers.segments.ds).segmentIndex, (<Segment>self.registers.segments.ds).gdtEntry.segDPL, tempCS, (<Segment>self.registers.segments.ds).segId)
                         self.main.notice("Opcodes::ret: (isValid and (not codeSeg or not conforming) and (cpl > dpl)), set segments to zero")
-                        self.registers.segWriteSegment(&self.registers.segments.ds, 0)
+                    self.registers.segWriteSegment(&self.registers.segments.ds, 0)
                 if ((<Segment>self.registers.segments.es).isValid and (not (<Segment>self.registers.segments.es).gdtEntry.segIsCodeSeg or not (<Segment>self.registers.segments.es).gdtEntry.segIsConforming) and (cpl > (<Segment>self.registers.segments.es).gdtEntry.segDPL)):
                     with gil:
                         self.main.notice("Opcodes::ret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                         self.main.notice("Opcodes::ret: TODO! (segmentIndex: {0:#06x}; segDPL: {1:d}; tempCS=={2:#06x}; segId=={3:d}", (<Segment>self.registers.segments.es).segmentIndex, (<Segment>self.registers.segments.es).gdtEntry.segDPL, tempCS, (<Segment>self.registers.segments.es).segId)
                         self.main.notice("Opcodes::ret: (isValid and (not codeSeg or not conforming) and (cpl > dpl)), set segments to zero")
-                        self.registers.segWriteSegment(&self.registers.segments.es, 0)
+                    self.registers.segWriteSegment(&self.registers.segments.es, 0)
                 if ((<Segment>self.registers.segments.fs).isValid and (not (<Segment>self.registers.segments.fs).gdtEntry.segIsCodeSeg or not (<Segment>self.registers.segments.fs).gdtEntry.segIsConforming) and (cpl > (<Segment>self.registers.segments.fs).gdtEntry.segDPL)):
                     with gil:
                         self.main.notice("Opcodes::ret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                         self.main.notice("Opcodes::ret: TODO! (segmentIndex: {0:#06x}; segDPL: {1:d}; tempCS=={2:#06x}; segId=={3:d}", (<Segment>self.registers.segments.fs).segmentIndex, (<Segment>self.registers.segments.fs).gdtEntry.segDPL, tempCS, (<Segment>self.registers.segments.fs).segId)
                         self.main.notice("Opcodes::ret: (isValid and (not codeSeg or not conforming) and (cpl > dpl)), set segments to zero")
-                        self.registers.segWriteSegment(&self.registers.segments.fs, 0)
+                    self.registers.segWriteSegment(&self.registers.segments.fs, 0)
                 if ((<Segment>self.registers.segments.gs).isValid and (not (<Segment>self.registers.segments.gs).gdtEntry.segIsCodeSeg or not (<Segment>self.registers.segments.gs).gdtEntry.segIsConforming) and (cpl > (<Segment>self.registers.segments.gs).gdtEntry.segDPL)):
                     with gil:
                         self.main.notice("Opcodes::ret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                         self.main.notice("Opcodes::ret: TODO! (segmentIndex: {0:#06x}; segDPL: {1:d}; tempCS=={2:#06x}; segId=={3:d}", (<Segment>self.registers.segments.gs).segmentIndex, (<Segment>self.registers.segments.gs).gdtEntry.segDPL, tempCS, (<Segment>self.registers.segments.gs).segId)
                         self.main.notice("Opcodes::ret: (isValid and (not codeSeg or not conforming) and (cpl > dpl)), set segments to zero")
-                        self.registers.segWriteSegment(&self.registers.segments.gs, 0)
+                    self.registers.segWriteSegment(&self.registers.segments.gs, 0)
                 tempCS &= 0xfffc
                 tempCS |= cpl
                 self.registers.segWriteSegment(&self.registers.segments.ss, tempSS)
@@ -2431,8 +2619,7 @@ cdef class Opcodes:
     cdef int retFarImm(self) nogil except BITMASK_BYTE_CONST:
         cdef unsigned short imm
         imm = self.registers.getCurrentOpcodeAddUnsignedWord() # imm16
-        with gil:
-            return self.retFar(imm)
+        return self.retFar(imm)
     cdef int lfpFunc(self, unsigned short segId) nogil except BITMASK_BYTE_CONST: # 'load far pointer' function
         cdef unsigned short segmentAddr
         cdef unsigned int mmAddr, offsetAddr
@@ -2445,15 +2632,16 @@ cdef class Opcodes:
         segmentAddr = self.registers.mmReadValueUnsignedWord(mmAddr+self.cpu.operSize, self.modRMInstance.rmNameSeg, True)
         with gil:
             if (self.main.debugEnabled):
-                self.main.debug("lfpFunc: test_1 (segId: {0:d}; segmentAddr: {1:#06x}; mmAddr: {2:#010x}; rmNameSeg.segId: {3:d}; operSize: {4:d}; addrSize: {5:d})", segId, segmentAddr, mmAddr, self.modRMInstance.rmNameSeg[0].segId, self.cpu.operSize, self.cpu.addrSize)
-            self.registers.segWrite(segId, segmentAddr)
+                self.main.notice("lfpFunc: test_1 (segId: {0:d}; segmentAddr: {1:#06x}; mmAddr: {2:#010x}; rmNameSeg.segId: {3:d}; operSize: {4:d}; addrSize: {5:d})", segId, segmentAddr, mmAddr, self.modRMInstance.rmNameSeg[0].segId, self.cpu.operSize, self.cpu.addrSize)
+        self.registers.segWrite(segId, segmentAddr)
         self.modRMInstance.modRSave(self.cpu.operSize, offsetAddr, OPCODE_SAVE)
         return True
     cdef int xlatb(self) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char data
         cdef unsigned int mmAddr
-        with gil:
-            self.main.notice("Opcodes::xlatb: TODO!")
+        IF COMP_DEBUG:
+            with gil:
+                self.main.notice("Opcodes::xlatb: TODO!")
         mmAddr = self.registers.regReadUnsigned(CPU_REGISTER_BX, self.cpu.addrSize)+self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL)
         if (self.cpu.addrSize == OP_SIZE_WORD):
             mmAddr = <unsigned short>mmAddr
@@ -2471,7 +2659,7 @@ cdef class Opcodes:
         operOpcodeId = self.modRMInstance.reg
         if (self.main.debugEnabled):
             with gil:
-                self.main.debug("Group2_RM: operOpcodeId=={0:d}", operOpcodeId)
+                self.main.notice("Group2_RM: operOpcodeId=={0:d}", operOpcodeId)
         operOp2 = self.modRMInstance.modRMLoadUnsigned(operSize)
         operSizeInBits = operSize << 3
         bitMask = BITMASKS_FF[operSize]
@@ -2840,14 +3028,16 @@ cdef class Opcodes:
         if (self.registers.protectedModeOn):
             cpl = newCpl = self.registers.getCPL()
             if (currentEFLAGS & FLAG_VM):
-                if (self.main.debugEnabled):
-                    with gil:
-                        self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
-                        self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return from VM86-Mode)")
-                        self.cpu.cpuDump()
+                IF COMP_DEBUG:
+                    if (self.main.debugEnabled):
+                        with gil:
+                            self.main.notice("Opcodes::iret: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+                            self.main.notice("Opcodes::iret: VM86-Mode isn't fully supported yet. (return from VM86-Mode)")
+                            self.cpu.cpuDump()
                 if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.iopl < 3):
                     with gil:
-                        self.main.notice("Opcodes::iret: test1: opl: vm: test1.10 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+                        IF COMP_DEBUG:
+                            self.main.notice("Opcodes::iret: test1: opl: vm: test1.10 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
                         raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 #if (not self.registers.segments.isAddressInLimit(&self.registers.segments.cs.gdtEntry, tempEIP, OP_SIZE_BYTE)):
                 #    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
@@ -3019,7 +3209,10 @@ cdef class Opcodes:
                 return True
             if (not gdtEntryCS.segIsCodeSeg or ((tempCS&3) < cpl) or (gdtEntryCS.segIsConforming and (gdtEntryCS.segDPL > (tempCS&3))) or (not gdtEntryCS.segIsConforming and (gdtEntryCS.segDPL != (tempCS&3)))):
                 with gil:
-                    self.main.notice("Opcodes::iret: test3 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+                    IF COMP_DEBUG:
+                        self.main.notice("Opcodes::iret: test3 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+                    #self.main.notice("Opcodes::iret: test3.1 (segIsCodeSeg: {0:d}, segIsConforming: {1:d}, segDPL: {2:d}, RetCS-RPL: {3:d}; CPL: {4:d})", gdtEntryCS.segIsCodeSeg, gdtEntryCS.segIsConforming, gdtEntryCS.segDPL, tempCS&3, cpl)
+                    #self.cpu.cpuDump()
                     raise HirnwichseException(CPU_EXCEPTION_GP, tempCS & 0xfffc)
             if (not gdtEntryCS.segPresent):
                 with gil:
@@ -3223,8 +3416,9 @@ cdef class Opcodes:
     cdef int rclFunc(self, unsigned char operSize, unsigned char count) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char tempCF_OF, newCF, i
         cdef unsigned int bitMaskHalf, dest
-        with gil:
-            self.main.notice("Opcodes::rclFunc: RCL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+        IF COMP_DEBUG:
+            with gil:
+                self.main.notice("Opcodes::rclFunc: RCL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
         bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize)
         count = count&0x1f
@@ -3249,8 +3443,9 @@ cdef class Opcodes:
     cdef int rcrFunc(self, unsigned char operSize, unsigned char count) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char tempCF_OF, newCF, i
         cdef unsigned int bitMaskHalf, dest
-        with gil:
-            self.main.notice("Opcodes::rcrFunc: RCR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+        IF COMP_DEBUG:
+            with gil:
+                self.main.notice("Opcodes::rcrFunc: RCR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
         bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize)
         count = count&0x1f
@@ -3273,8 +3468,9 @@ cdef class Opcodes:
     cdef int rolFunc(self, unsigned char operSize, unsigned char count) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char tempCF_OF, newCF, i
         cdef unsigned int bitMaskHalf, dest
-        with gil:
-            self.main.notice("Opcodes::rolFunc: ROL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+        IF COMP_DEBUG:
+            with gil:
+                self.main.notice("Opcodes::rolFunc: ROL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
         bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize)
         count &= 0x1f
@@ -3295,8 +3491,9 @@ cdef class Opcodes:
     cdef int rorFunc(self, unsigned char operSize, unsigned char count) nogil except BITMASK_BYTE_CONST:
         cdef unsigned char tempCF_OF, newCF_M1, i
         cdef unsigned int bitMaskHalf, dest
-        with gil:
-            self.main.notice("Opcodes::rorFunc: ROR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+        IF COMP_DEBUG:
+            with gil:
+                self.main.notice("Opcodes::rorFunc: ROR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
         bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize)
         count &= 0x1f
@@ -3319,7 +3516,7 @@ cdef class Opcodes:
         operOpcodeId = self.modRMInstance.reg
         if (self.main.debugEnabled):
             with gil:
-                self.main.debug("opcodeGroup4_RM: operOpcodeId=={0:d}", operOpcodeId)
+                self.main.notice("opcodeGroup4_RM: operOpcodeId=={0:d}", operOpcodeId)
         if (method == GROUP4_1):
             count = 1
         elif (method == GROUP4_CL):

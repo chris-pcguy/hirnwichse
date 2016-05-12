@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=True
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
 
 include "globals.pxi"
 include "cpu_globals.pxi"
@@ -58,7 +58,8 @@ cdef class Mm:
             return self.tempData
         if (dataSize > 0 and mmAddr < VGA_MEMAREA_ADDR):
             tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
-            memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetDataPointer(mmAddr), tempSize)
+            with nogil:
+                memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetDataPointer(mmAddr), tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -75,7 +76,8 @@ cdef class Mm:
             tempDataOffset += tempSize
         if (dataSize > 0 and mmAddr >= VGA_ROM_BASE and mmAddr < self.memSizeBytes):
             tempSize = min(dataSize, self.memSizeBytes-mmAddr)
-            memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetDataPointer(mmAddr), tempSize)
+            with nogil:
+                memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetDataPointer(mmAddr), tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -84,7 +86,8 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= self.memSizeBytes and mmAddr < PCI_MEM_BASE):
             tempSize = min(dataSize, PCI_MEM_BASE-mmAddr)
             #self.main.notice("Mm::mmPhyRead: filling1; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
-            memset(self.mmGetTempDataPointer(tempDataOffset), 0xff, tempSize)
+            with nogil:
+                memset(self.mmGetTempDataPointer(tempDataOffset), 0xff, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -93,7 +96,8 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= PCI_MEM_BASE and mmAddr < PCI_MEM_BASE_PLUS_LIMIT):
             tempOffset = mmAddr-PCI_MEM_BASE
             tempSize = min(dataSize, PCI_MEM_BASE_PLUS_LIMIT-mmAddr)
-            memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetPciDataPointer(tempOffset), tempSize)
+            with nogil:
+                memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetPciDataPointer(tempOffset), tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -102,7 +106,8 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= PCI_MEM_BASE_PLUS_LIMIT and mmAddr < LAST_MEMAREA_BASE_ADDR):
             tempSize = min(dataSize, LAST_MEMAREA_BASE_ADDR-mmAddr)
             #self.main.notice("Mm::mmPhyRead: filling2; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
-            memset(self.mmGetTempDataPointer(tempDataOffset), 0xff, tempSize)
+            with nogil:
+                memset(self.mmGetTempDataPointer(tempDataOffset), 0xff, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -111,7 +116,8 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= LAST_MEMAREA_BASE_ADDR and mmAddr < SIZE_4GB):
             tempOffset = mmAddr-LAST_MEMAREA_BASE_ADDR
             tempSize = min(dataSize, SIZE_4GB-mmAddr)
-            memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetRomDataPointer(tempOffset), tempSize)
+            with nogil:
+                memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetRomDataPointer(tempOffset), tempSize)
         return self.tempData
     cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) nogil except? BITMASK_BYTE_CONST:
         cdef signed long int ret

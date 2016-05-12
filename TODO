@@ -9,13 +9,15 @@ Opcodes::interrupt
 ATA
 VM86
 
-Fix rare issues with cpu exceptions (Win95) (Fixed?)
 PIT (ReactOS 0.4.0)
 PS2
-RS232
+RS232(?)
 
 
 PCI: Save busmaster base address instead of fetching it each time
+
+Somewhen in a few centuries:
 ACPI (win2k, ...)
+AMD64
 
 
