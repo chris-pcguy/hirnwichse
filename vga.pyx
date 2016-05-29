@@ -130,7 +130,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
         if (self.writeCycle >= 3):
             self.writeCycle = 0
             self.writeIndex += 1
-            self.vga.refreshScreen = True
+            #self.vga.refreshScreen = True
     cdef unsigned char getMask(self):
         return self.mask
     cdef unsigned char getState(self):
@@ -207,7 +207,13 @@ cdef class Sequencer(VGA_REGISTER_RAW):
         VGA_REGISTER_RAW.setData(self, data, dataSize)
         if (index == VGA_SEQ_CLOCKING_MODE_REG_INDEX):
             self.vga.ui.mode9Bit = (data&VGA_SEQ_MODE_9BIT) == 0
+            #self.vga.refreshScreen = True
         elif (index == VGA_SEQ_PLANE_SEL_INDEX):
+            #if (data&0xf and self.vga.writeMap != data&0xf):
+            if (self.vga.writeMap==0xf and (data&0xf)!=0xf):
+            #if 1:
+                self.vga.refreshScreen = True
+                #self.vga.main.notice("Sequencer::setData: test1: data&0xf=={0:#03x}; writeMap=={1:#03x}", data&0xf, self.vga.writeMap)
             self.vga.writeMap = data&0xf
         elif (index == VGA_SEQ_CHARMAP_SEL_INDEX):
             charSelA = data&0b101100
@@ -215,11 +221,13 @@ cdef class Sequencer(VGA_REGISTER_RAW):
             self.vga.charSelA = ((charSelA>>2)&3)|(charSelA>>3)
             self.vga.charSelB = (charSelB&3)|(charSelB>>3)
             self.vga.needLoadFont = True
+            #self.vga.refreshScreen = True
         elif (index == VGA_SEQ_MEM_MODE_INDEX):
             self.vga.chain4 = (data&8)!=0
             self.vga.oddEvenWriteDisabled = (data&4)!=0
             self.vga.extMem = (data&2)!=0
             #self.vga.graphicalMode = (data&1) == 0
+            #self.vga.refreshScreen = True
 
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     def __init__(self, Vga vga):
@@ -508,6 +516,8 @@ cdef class Vga:
         if (self.refreshScreen and self.writeMap): # TODO: FIXME: HACK
             #if (dataSize != self.videoMemSize and dataSize != 32768):
             self.refreshScreenFunction()
+            #with gil:
+            #    self.ui.updateScreen()
         if (not (offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize))):
             return
         #if ((self.alphaDis or self.graphicalMode or (self.writeMap == 0x4)) and self.writeMap):
@@ -717,6 +727,7 @@ cdef class Vga:
             self.main.notice("Vga::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
         return <unsigned char>retVal
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
+        #self.refreshScreen = True
         if (ioPortAddr not in (0x400, 0x401, 0x402, 0x403, 0x500, 0x504)):
             IF COMP_DEBUG:
                 self.main.notice("Vga::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)

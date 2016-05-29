@@ -84,8 +84,6 @@ cdef class Paging:
     cdef void invalidateTable(self, unsigned int virtualAddress) nogil
     cdef void invalidatePage(self, unsigned int virtualAddress) nogil
     cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char readAddresses(self, unsigned int virtualAddress, unsigned char written) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char accessAllowed(self, unsigned int virtualAddress, unsigned char written, unsigned char refresh) nogil except BITMASK_BYTE_CONST
     cdef unsigned char setFlags(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) nogil except BITMASK_BYTE_CONST
     cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) nogil except? BITMASK_BYTE_CONST
     

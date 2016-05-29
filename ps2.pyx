@@ -85,10 +85,10 @@ cdef class PS2:
     cpdef keySend(self, unsigned char keyId, unsigned char keyUp):
         cdef unsigned char sc, escaped
         cdef bytes scancode, returnedScancode
-        #self.main.notice("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        self.main.notice("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         if ((not self.kbdClockEnabled) or (not self.scanningEnabled) or (keyId == 0xff)):
             return
-        #self.main.notice("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
+        self.main.notice("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", keyId, keyUp)
         scancode = SCANCODES[keyId][self.currentScancodesSet][keyUp]
         if (self.translateScancodes):
             returnedScancode = b""
@@ -144,7 +144,10 @@ cdef class PS2:
                 #self.irq1Requested = False
                 #self.irq12Requested = False
                 self.batInProgress = False
+                (<Pic>self.main.platform.pic).lowerIrq(MOUSE_IRQ)
                 (<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
+                #with nogil:
+                #    usleep(50)
                 if (len(self.mouseBuffer)):
                     retByte = self.mouseBuffer[0]
                     if (len(self.mouseBuffer) > 1):

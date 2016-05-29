@@ -229,7 +229,8 @@ cdef class AtaDrive:
         translateValue |= (translateValueTemp << (((self.ataController.controllerId&1)<<2)+(self.driveId<<1)))
         (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(translateReg, translateValue, OP_SIZE_BYTE)
         if (self.ataController.controllerId == 0 and self.driveId in (0, 1)):
-            self.writeValue(0, 0xff80) # word 0 ; ata; fixed drive
+            #self.writeValue(0, 0xff80) # word 0 ; ata; fixed drive
+            self.writeValue(0, 0x4000) # word 0 ; ata; fixed drive
             cmosDiskType = (<Cmos>self.ataController.ata.main.platform.cmos).readValue(CMOS_HDD_DRIVE_TYPE, OP_SIZE_BYTE)
             cmosDiskType |= (0xf0 if (self.driveId == 0) else 0x0f)
             (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(CMOS_HDD_DRIVE_TYPE, cmosDiskType, OP_SIZE_BYTE)
@@ -241,12 +242,14 @@ cdef class AtaDrive:
             (<Cmos>self.ataController.ata.main.platform.cmos).writeValue((CMOS_HD0_SPT if (self.driveId == 0) else CMOS_HD1_SPT), SPT, OP_SIZE_BYTE)
             if (self.driveId == 0):
                 (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(CMOS_HD0_CONTROL_BYTE, 0xc8, OP_SIZE_BYTE) # hardcoded
-                self.ataController.ata.pciDevice.setData(0x40, 0x8000, OP_SIZE_WORD)
+                #self.ataController.ata.pciDevice.setData(0x40, 0x8000, OP_SIZE_WORD)
             else:
                 (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(CMOS_HD1_CONTROL_BYTE, 0x80, OP_SIZE_BYTE) # hardcoded
-                self.ataController.ata.pciDevice.setData(0x42, 0x8000, OP_SIZE_WORD)
-        else:
-            self.writeValue(0, 0x85c0) # word 0 ; atapi; removable drive
+                #self.ataController.ata.pciDevice.setData(0x42, 0x8000, OP_SIZE_WORD)
+        elif (self.ataController.controllerId == 1 and self.driveId in (0, 1)):
+            #self.writeValue(0, 0x85c0) # word 0 ; atapi; removable drive
+            #self.writeValue(0, 0x0580) # word 0 ; atapi; removable drive
+            self.writeValue(0, 0x0580) # word 0 ; atapi; removable drive
             self.writeValue(82, 0x4010) # supports packet
             self.writeValue(85, 0x4010) # supports packet
             self.writeValue(125, CD_SECTOR_SIZE) # supports packet
@@ -439,13 +442,21 @@ cdef class AtaController:
             if (dataSize < 36):
                 self.ata.main.notice("AtaController::handlePacket_6: allocation length is < 36! self.data == {0:s}", repr(self.data))
                 return
-            if (drive.driveType == ATA_DRIVE_TYPE_CDROM):
-                self.result = drive.readValue(0).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
-            else:
-                self.result = bytes(2)
+            #if (drive.driveType == ATA_DRIVE_TYPE_CDROM):
+            #    #self.result = drive.readValue(0).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+            #    self.result = (0x0580).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+            #else:
+            #    #self.result = bytes(2)
+            #    self.result = (0x4000).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+            self.result = drive.readValue(0).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
             self.result += b'\x00\x21'
             self.result += bytes([dataSize-5])
-            self.result += bytes(dataSize-5)
+            self.result += bytes(3)
+            self.result += b'HWEMU   '
+            self.result += b'CD-ROM          '
+            self.result += b'1.0 '
+            if (dataSize > 36):
+                self.result += bytes(dataSize-5-3-8-16-4)
         elif (cmd == PACKET_COMMAND_START_STOP_UNIT):
             pass
         elif (cmd == PACKET_COMMAND_READ_CAPACITY):
@@ -1033,9 +1044,11 @@ cdef class AtaController:
             self.ata.main.exitError("AtaController::outPort: dataSize {0:d} not supported.", dataSize)
     cdef void run(self):
         if (self.controllerId == 0):
+            self.ata.pciDevice.setData(0x40, 0x8000, OP_SIZE_WORD)
             if (self.ata.main.hdaFilename): (<AtaDrive>self.drive[0]).loadDrive(self.ata.main.hdaFilename)
             if (self.ata.main.hdbFilename): (<AtaDrive>self.drive[1]).loadDrive(self.ata.main.hdbFilename)
         elif (self.controllerId == 1):
+            self.ata.pciDevice.setData(0x42, 0x8000, OP_SIZE_WORD)
             if (self.ata.main.cdrom1Filename): (<AtaDrive>self.drive[0]).loadDrive(self.ata.main.cdrom1Filename)
             if (self.ata.main.cdrom2Filename): (<AtaDrive>self.drive[1]).loadDrive(self.ata.main.cdrom2Filename)
 
@@ -1147,6 +1160,8 @@ cdef class Ata:
             if (ioPortAddr&0xf or isBusmaster or self.main.debugEnabled):
                 #self.main.debug("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
                 self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
+                #if (ioPortAddr == 0x1f3 and data == 0xfc):
+                #    self.main.debugEnabledTest = self.main.debugEnabled = True
         if (isBusmaster and dataSize != OP_SIZE_BYTE):
             if (dataSize == OP_SIZE_WORD):
                 self.outPort(ioPortAddr, <unsigned char>data, OP_SIZE_BYTE)

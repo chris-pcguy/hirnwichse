@@ -324,6 +324,7 @@ cdef unsigned short TSS_32BIT_IOMAP_BASE_ADDR = 0x66
 
 #DEF CPU_CACHE_SIZE = 16*1024 # in bytes
 #DEF CPU_CACHE_SIZE = 4096*2 # in bytes
+#DEF CPU_CACHE_SIZE = 16 # in bytes
 DEF CPU_CACHE_SIZE = 0 # in bytes
 
 

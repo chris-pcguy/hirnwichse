@@ -69,7 +69,7 @@ cdef class PitChannel:
                     #    #usleep(3000)
                     #if (self.counterMode == 3 and self.counterValue&0x1):
                     #    self.counterValue -= 1
-                    while ((self.counterValue >= 2 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
+                    while ((((self.counterMode == 3 and self.counterValue >= 3) or (self.counterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                     #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                         #for i in range(60):
                         #    pass
@@ -84,8 +84,8 @@ cdef class PitChannel:
                         #if (not (self.counterValue&0xfff)):
                         #if (not (self.counterValue&0xff)):
                         #if (not (self.counterValue&0x7f)):
-                        if (not (self.counterValue&0x3f)):
-                        #if (not (self.counterValue&0x1f)):
+                        #if (not (self.counterValue&0x3f)):
+                        if (not (self.counterValue&0x1f)):
                         #if (not (self.counterValue&0xf)):
                         #if (not (self.counterValue&0x7)):
                         #if (not (self.counterValue&0x3)):
@@ -93,10 +93,10 @@ cdef class PitChannel:
                         #IF 1:
                         #IF 0:
                             #usleep(self.tempTimerValue)
-                            usleep(0)
+                            #usleep(0)
                             #usleep(1)
                             #usleep(5)
-                            #usleep(10)
+                            usleep(10)
                             #usleep(25)
                             #usleep(50)
                             #usleep(100)
@@ -150,13 +150,15 @@ cdef class PitChannel:
             if (self.counterStartValue == 0):
                 #self.counterStartValue = 0x10000
                 self.counterStartValue = 0xffff # TODO: HACK
-            self.counterStartValue -= 1
+            if (self.counterStartValue & 1):
+                self.counterStartValue -= 1
             if (self.bcdMode):
                 self.pit.main.notice("PitChannel::runTimer: WARNING: TODO: bcdMode may not work!")
                 self.counterStartValue = self.pit.main.misc.bcdToDec(self.counterStartValue)
             if (self.counterMode == 3):
                 #self.counterStartValue &= 0xffffe
-                self.counterStartValue &= 0xfffe
+                #self.counterStartValue &= 0xfffe
+                #self.counterStartValue &= 0xfffffffe
                 if (self.counterStartValue == 0):
                     self.pit.main.exitError("runTimer: counterValue is 0")
                     return

@@ -401,7 +401,7 @@ cdef class PysdlUI:
             self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == {0:d}", event.type)
     cpdef updateScreen(self):
         cpdef object colorObject
-        cdef list pointList
+        #cdef list pointList
         #cdef unsigned char doRefresh
         cdef unsigned short x, y
         cdef unsigned int i, bgColor
@@ -409,14 +409,16 @@ cdef class PysdlUI:
             #doRefresh = False
             if (self.renderer):
                 for i in range(256):
-                    pointList = self.points[i]
-                    if (len(pointList) >= 2):
+                    #pointList = self.points[i]
+                    #if (len(pointList) >= 2):
+                    if (len(self.points[i]) >= 2):
                         #doRefresh = True
                         bgColor = self.vga.getColor(i)
                         colorObject = sdl2.ext.ARGB(0xff000000|bgColor)
                         #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
                         #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
-                        self.renderer.draw_point(pointList, colorObject)
+                        #self.renderer.draw_point(pointList, colorObject)
+                        self.renderer.draw_point(self.points[i], colorObject)
                         self.points[i] = []
                         #self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
                         #return newRect

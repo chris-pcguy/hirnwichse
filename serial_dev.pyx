@@ -320,6 +320,8 @@ cdef class Serial:
             self.main.exitError("Serial::inPort_3: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
             return ret
         self.main.notice("Serial::inPort_4: port {0:#04x} data {1:#04x} dataSize {2:d}.", ioPortAddr, ret, dataSize)
+        #if (ioPortAddr == 0x3fe and ret == 0xff):
+        #    self.main.debugEnabledTest = self.main.debugEnabled = True
         return ret
     cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
         cdef SerialPort port

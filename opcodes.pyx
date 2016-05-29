@@ -1947,8 +1947,8 @@ cdef class Opcodes:
                     #(<Paging>self.registers.segments.paging).invalidateTables(op2, True)
                     #(<Paging>self.registers.segments.paging).invalidateTables(op2, False)
                     (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsignedDword(CPU_REGISTER_CR3), False)
-                IF (CPU_CACHE_SIZE):
-                    self.registers.reloadCpuCache()
+                    IF (CPU_CACHE_SIZE):
+                        self.registers.reloadCpuCache()
         elif (operOpcode == 0x23): # MOV DRn, R32
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_DREG)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, self.modRMInstance.modRMLoadUnsigned(OP_SIZE_DWORD), OPCODE_SAVE)
@@ -4091,7 +4091,7 @@ cdef class Opcodes:
                             self.registers.fpu.push(data2, False)
                         elif  (reg == 7): # FSTP
                             self.main.notice("Opcodes::fpuOpcodes: TODO: test16: opcode=={0:#04x}, opcode2=={1:#04x}", FPU_BASE_OPCODE+opcode, opcode2)
-                            baseAddr = self.registers.mmGetRealAddr(dataAddr, 8, self.modRMInstance.rmNameSeg, True, True)
+                            baseAddr = self.registers.mmGetRealAddr(dataAddr, 8, self.modRMInstance.rmNameSeg, True, True, False)
                             self.main.mm.mmPhyWrite(baseAddr, self.registers.fpu.st[self.registers.fpu.getIndex(0)], OP_SIZE_QWORD)
                             self.registers.fpu.pop()
                         else: # FIST/FISTP
@@ -4168,7 +4168,7 @@ cdef class Opcodes:
                                     tempVal = self.registers.mmReadValueUnsignedDword(dataAddr+24, self.modRMInstance.rmNameSeg, True)
                                     self.registers.fpu.dataPointer |= (tempVal>>12)<<16
                             if (self.cpu.operSize == OP_SIZE_DWORD and opcode != 1):
-                                baseAddr = self.registers.mmGetRealAddr(dataAddr+28, 1, self.modRMInstance.rmNameSeg, True, False)
+                                baseAddr = self.registers.mmGetRealAddr(dataAddr+28, 1, self.modRMInstance.rmNameSeg, True, False, False)
                                 if (((baseAddr&0xfff)+80) > 0xfff):
                                     self.main.exitError("Opcodes::fpuOpcodes: baseAddr_1 is over page boundary!")
                                     return True
@@ -4208,7 +4208,7 @@ cdef class Opcodes:
                                     self.registers.mmWriteValue(dataAddr+20, <unsigned short>self.registers.fpu.dataPointer, OP_SIZE_WORD, self.modRMInstance.rmNameSeg, True)
                                     self.registers.mmWriteValue(dataAddr+24, ((self.registers.fpu.dataPointer>>16)<<12), OP_SIZE_DWORD, self.modRMInstance.rmNameSeg, True)
                             if (self.cpu.operSize == OP_SIZE_DWORD and opcode != 1):
-                                baseAddr = self.registers.mmGetRealAddr(dataAddr+28, 1, self.modRMInstance.rmNameSeg, True, True)
+                                baseAddr = self.registers.mmGetRealAddr(dataAddr+28, 1, self.modRMInstance.rmNameSeg, True, True, False)
                                 if (((baseAddr&0xfff)+80) > 0xfff):
                                     self.main.exitError("Opcodes::fpuOpcodes: baseAddr_2 is over page boundary!")
                                     return True

@@ -119,17 +119,13 @@ cdef class Registers:
     cdef Segments segments
     cdef Fpu fpu
     cdef RegStruct regs[CPU_REGISTERS]
-    cdef unsigned char cpl, A20Active, protectedModeOn, pagingOn, writeProtectionOn, ssInhibit, cacheDisabled, cpuCacheCodeSegChange
+    cdef unsigned char cpl, A20Active, protectedModeOn, pagingOn, writeProtectionOn, ssInhibit, cacheDisabled, cpuCacheCodeSegChange, ignoreExceptions
     cdef unsigned short ldtr
-    cdef unsigned int cpuCacheBase, cpuCacheIndex
+    cdef unsigned int cpuCacheBase, cpuCacheSize, cpuCacheIndex
     cdef char *cpuCache
     cpdef quitFunc(self)
     cdef void reset(self) nogil
-    cdef inline unsigned char checkCache(self, unsigned int mmAddr, unsigned char dataSize) nogil except BITMASK_BYTE_CONST: # called on a memory write; reload cache for self-modifying-code
-        IF CPU_CACHE_SIZE:
-            if (mmAddr >= self.cpuCacheBase and mmAddr+dataSize <= self.cpuCacheBase+CPU_CACHE_SIZE):
-                self.reloadCpuCache()
-        return True
+    cdef inline unsigned char checkCache(self, unsigned int mmAddr, unsigned char dataSize) nogil except BITMASK_BYTE_CONST # called on a memory write; reload cache for self-modifying-code
     cdef inline unsigned char setA20Active(self, unsigned char A20Active) nogil except BITMASK_BYTE_CONST:
         self.A20Active = A20Active
         IF CPU_CACHE_SIZE:
@@ -361,7 +357,7 @@ cdef class Registers:
     cdef inline unsigned char getRegNameWithFlags(self, unsigned char modRMflags, unsigned char reg, unsigned char operSize) nogil except BITMASK_BYTE_CONST
     cdef inline unsigned char getCond(self, unsigned char index) nogil
     cdef inline void setFullFlags(self, unsigned long int reg0, unsigned long int reg1, unsigned char regSize, unsigned char method) nogil
-    cdef inline unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment *segment, unsigned char allowOverride, unsigned char written) nogil except? BITMASK_BYTE_CONST
+    cdef inline unsigned int mmGetRealAddr(self, unsigned int mmAddr, unsigned int dataSize, Segment *segment, unsigned char allowOverride, unsigned char written, unsigned char noAddress) nogil except? BITMASK_BYTE_CONST
     cdef inline signed short mmReadValueSignedByte(self, unsigned int mmAddr, Segment *segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:
         return <signed char>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
     cdef inline signed short mmReadValueSignedWord(self, unsigned int mmAddr, Segment *segment, unsigned char allowOverride) nogil except? BITMASK_BYTE_CONST:

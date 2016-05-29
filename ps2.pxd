@@ -3,6 +3,7 @@ from hirnwichse_main cimport Hirnwichse
 from pic cimport Pic
 from registers cimport Registers
 from cpu cimport Cpu
+from posix.unistd cimport usleep
 
 
 cdef class PS2:
