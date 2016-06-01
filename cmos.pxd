@@ -1,4 +1,6 @@
 
+from libc.stdint cimport *
+
 from hirnwichse_main cimport Hirnwichse
 from pic cimport Pic
 from misc cimport Misc
@@ -11,22 +13,22 @@ cdef class Cmos:
     cdef ConfigSpace configSpace
     cdef PitChannel rtcChannel
     cpdef object dt, oldDt, secondsThread
-    cdef unsigned char cmosIndex, equipmentDefaultValue, statusB
-    cdef unsigned int rtcDelay
-    cdef inline void setEquipmentDefaultValue(self, unsigned char value):
+    cdef uint8_t cmosIndex, equipmentDefaultValue, statusB
+    cdef uint32_t rtcDelay
+    cdef inline void setEquipmentDefaultValue(self, uint8_t value):
         self.equipmentDefaultValue = value
-    cdef inline unsigned char getEquipmentDefaultValue(self):
+    cdef inline uint8_t getEquipmentDefaultValue(self):
         return self.equipmentDefaultValue
-    cdef inline unsigned int readValue(self, unsigned char index, unsigned char size)
-    cdef inline void writeValue(self, unsigned char index, unsigned int value, unsigned char size)
+    cdef inline uint32_t readValue(self, uint8_t index, uint8_t size) nogil
+    cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size) nogil
     cdef void reset(self)
-    cdef void updateTime(self)
+    cdef void updateTime(self) nogil
     cpdef secondsThreadFunc(self)
     cpdef uipThreadFunc(self)
-    cdef void periodicFunc(self)
-    cdef void makeCheckSum(self)
-    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
+    cdef void periodicFunc(self) nogil
+    cdef void makeCheckSum(self) nogil
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
     cdef void run(self)
 
 

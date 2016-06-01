@@ -2,6 +2,8 @@
 include "globals.pxi"
 include "cpu_globals.pxi"
 
+from libc.stdint cimport *
+
 from hirnwichse_main cimport Hirnwichse
 #from mm cimport Mm, ConfigSpace
 from mm cimport ConfigSpace
@@ -10,82 +12,79 @@ from registers cimport Registers
 
 cdef extern from "hirnwichse_segs.h":
     struct GdtEntry:
-        unsigned char accessByte
-        unsigned char flags
-        unsigned char segSize
-        unsigned char segPresent
-        unsigned char segIsCodeSeg
-        unsigned char segIsRW
-        unsigned char segIsConforming
-        unsigned char segIsNormal
-        unsigned char segUse4K
-        unsigned char segDPL
-        unsigned char anotherLimit
-        unsigned int base
-        unsigned int limit
+        uint8_t accessByte
+        uint8_t flags
+        uint8_t segSize
+        uint8_t segPresent
+        uint8_t segIsCodeSeg
+        uint8_t segIsRW
+        uint8_t segIsConforming
+        uint8_t segIsNormal
+        uint8_t segUse4K
+        uint8_t segDPL
+        uint8_t anotherLimit
+        uint32_t base
+        uint32_t limit
 
     struct Segment:
         GdtEntry gdtEntry
-        unsigned char isValid
-        unsigned char useGDT
-        unsigned char readChecked
-        unsigned char writeChecked
-        unsigned char segIsGDTandNormal
-        unsigned short segmentIndex
-        unsigned short segId
+        uint8_t isValid
+        uint8_t useGDT
+        uint8_t readChecked
+        uint8_t writeChecked
+        uint8_t segIsGDTandNormal
+        uint16_t segmentIndex
+        uint16_t segId
 
     struct IdtEntry:
-        unsigned char entryType
-        unsigned char entrySize
-        unsigned char entryNeededDPL
-        unsigned char entryPresent
-        unsigned short entrySegment
-        unsigned int entryEip
+        uint8_t entryType
+        uint8_t entrySize
+        uint8_t entryNeededDPL
+        uint8_t entryPresent
+        uint16_t entrySegment
+        uint32_t entryEip
 
 
 cdef class Gdt:
     cdef Segments segments
-    cdef unsigned short tableLimit
-    cdef unsigned int tableBase
-    cdef void loadTablePosition(self, unsigned int tableBase, unsigned short tableLimit) nogil
-    cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit) nogil:
+    cdef uint16_t tableLimit
+    cdef uint32_t tableBase
+    cdef void loadTablePosition(self, uint32_t tableBase, uint16_t tableLimit) nogil
+    cdef inline void getBaseLimit(self, uint32_t *retTableBase, uint16_t *retTableLimit) nogil:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
-    cdef unsigned char getEntry(self, GdtEntry *gdtEntry, unsigned short num) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char getSegType(self, unsigned short num) nogil except? BITMASK_BYTE_CONST
-    cdef unsigned char setSegType(self, unsigned short num, unsigned char segmentType) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char checkReadAllowed(self, unsigned short num) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char checkWriteAllowed(self, unsigned short num) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t getEntry(self, GdtEntry *gdtEntry, uint16_t num) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t getSegType(self, uint16_t num) nogil except? BITMASK_BYTE_CONST
+    cdef uint8_t setSegType(self, uint16_t num, uint8_t segmentType) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t checkAccessAllowed(self, uint16_t num, uint8_t isStackSegment) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t checkReadAllowed(self, uint16_t num) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t checkWriteAllowed(self, uint16_t num) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t checkSegmentLoadAllowed(self, uint16_t num, uint16_t segId) nogil except BITMASK_BYTE_CONST
 
 cdef class Idt:
     cdef Segments segments
-    cdef unsigned short tableLimit
-    cdef unsigned int tableBase
-    cdef void loadTable(self, unsigned int tableBase, unsigned short tableLimit) nogil
-    cdef inline void getBaseLimit(self, unsigned int *retTableBase, unsigned short *retTableLimit) nogil:
+    cdef uint16_t tableLimit
+    cdef uint32_t tableBase
+    cdef void loadTable(self, uint32_t tableBase, uint16_t tableLimit) nogil
+    cdef inline void getBaseLimit(self, uint32_t *retTableBase, uint16_t *retTableLimit) nogil:
         retTableBase[0] = self.tableBase
         retTableLimit[0] = self.tableLimit
-    cdef void parseIdtEntryData(self, IdtEntry *idtEntry, unsigned long int entryData) nogil
-    cdef unsigned char getEntry(self, IdtEntry *idtEntry, unsigned char num) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char isEntryPresent(self, unsigned char num) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char getEntryNeededDPL(self, unsigned char num) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char getEntrySize(self, unsigned char num) nogil except BITMASK_BYTE_CONST
-    cdef void getEntryRealMode(self, unsigned char num, unsigned short *entrySegment, unsigned short *entryEip) nogil
+    cdef void parseIdtEntryData(self, IdtEntry *idtEntry, uint64_t entryData) nogil
+    cdef uint8_t getEntry(self, IdtEntry *idtEntry, uint8_t num) nogil except BITMASK_BYTE_CONST
+    cdef void getEntryRealMode(self, uint8_t num, uint16_t *entrySegment, uint16_t *entryEip) nogil
 
 cdef class Paging:
     cdef Segments segments
     cdef ConfigSpace tlbDirectories, tlbTables
-    cdef unsigned char instrFetch, implicitSV
-    cdef unsigned short pageOffset
-    cdef unsigned int pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
-    cdef void invalidateTables(self, unsigned int pageDirectoryBaseAddress, unsigned char noGlobal) nogil
-    cdef void invalidateTable(self, unsigned int virtualAddress) nogil
-    cdef void invalidatePage(self, unsigned int virtualAddress) nogil
-    cdef unsigned char doPF(self, unsigned int virtualAddress, unsigned char written) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char setFlags(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) nogil except BITMASK_BYTE_CONST
-    cdef unsigned int getPhysicalAddress(self, unsigned int virtualAddress, unsigned int dataSize, unsigned char written) nogil except? BITMASK_BYTE_CONST
+    cdef uint8_t instrFetch, implicitSV
+    cdef uint16_t pageOffset
+    cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
+    cdef void invalidateTables(self, uint32_t pageDirectoryBaseAddress, uint8_t noGlobal) nogil
+    cdef void invalidateTable(self, uint32_t virtualAddress) nogil
+    cdef void invalidatePage(self, uint32_t virtualAddress) nogil
+    cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) nogil except BITMASK_BYTE_CONST
+    cdef uint32_t getPhysicalAddress(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) nogil except? BITMASK_BYTE_CONST
     
 cdef class Segments:
     cdef Hirnwichse main
@@ -94,17 +93,17 @@ cdef class Segments:
     cdef Paging paging
     cdef Registers registers
     cdef Segment cs, ds, es, fs, gs, ss, tss
-    cdef inline unsigned char isAddressInLimit(self, GdtEntry *gdtEntry, unsigned int address, unsigned int size) nogil except BITMASK_BYTE_CONST
-    cdef void parseGdtEntryData(self, GdtEntry *gdtEntry, unsigned long int entryData) nogil
-    cdef unsigned char loadSegment(self, Segment *segment, unsigned short segmentIndex, unsigned char doInit) nogil except BITMASK_BYTE_CONST
-    cdef inline unsigned char getEntry(self, GdtEntry *gdtEntry, unsigned short num) nogil except BITMASK_BYTE_CONST
-    cdef inline unsigned char getSegType(self, unsigned short num) nogil except? BITMASK_BYTE_CONST
-    cdef inline unsigned char setSegType(self, unsigned short num, unsigned char segmentType) nogil except BITMASK_BYTE_CONST
-    cdef inline unsigned char checkAccessAllowed(self, unsigned short num, unsigned char isStackSegment) nogil except BITMASK_BYTE_CONST
-    cdef inline unsigned char checkReadAllowed(self, unsigned short num) nogil except BITMASK_BYTE_CONST
-    cdef inline unsigned char checkWriteAllowed(self, unsigned short num) nogil except BITMASK_BYTE_CONST
-    cdef inline unsigned char checkSegmentLoadAllowed(self, unsigned short num, unsigned short segId) nogil except BITMASK_BYTE_CONST
-    cdef inline unsigned char inLimit(self, unsigned short num) nogil
+    cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size) nogil except BITMASK_BYTE_CONST
+    cdef void parseGdtEntryData(self, GdtEntry *gdtEntry, uint64_t entryData) nogil
+    cdef uint8_t loadSegment(self, Segment *segment, uint16_t segmentIndex, uint8_t doInit) nogil except BITMASK_BYTE_CONST
+    cdef inline uint8_t getEntry(self, GdtEntry *gdtEntry, uint16_t num) nogil except BITMASK_BYTE_CONST
+    cdef inline uint8_t getSegType(self, uint16_t num) nogil except? BITMASK_BYTE_CONST
+    cdef inline uint8_t setSegType(self, uint16_t num, uint8_t segmentType) nogil except BITMASK_BYTE_CONST
+    cdef inline uint8_t checkAccessAllowed(self, uint16_t num, uint8_t isStackSegment) nogil except BITMASK_BYTE_CONST
+    cdef inline uint8_t checkReadAllowed(self, uint16_t num) nogil except BITMASK_BYTE_CONST
+    cdef inline uint8_t checkWriteAllowed(self, uint16_t num) nogil except BITMASK_BYTE_CONST
+    cdef inline uint8_t checkSegmentLoadAllowed(self, uint16_t num, uint16_t segId) nogil except BITMASK_BYTE_CONST
+    cdef inline uint8_t inLimit(self, uint16_t num) nogil
     cdef void run(self)
 
 

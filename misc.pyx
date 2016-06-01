@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False, c_string_type=bytes
 
 from threading import Thread
 
@@ -11,27 +11,28 @@ class HirnwichseException(Exception):
 cdef class Misc:
     def __init__(self):
         pass
-    cdef unsigned int checksum(self, bytes data): # data is bytes
-        cdef unsigned char c
-        cdef unsigned int checksum
+    cdef uint32_t checksum(self, bytes data) nogil: # data is bytes
+        cdef uint8_t c
+        cdef uint32_t checksum
         checksum = 0
-        for c in data:
-            checksum = <unsigned int>(checksum+c)
+        with gil:
+            for c in data:
+                checksum = <uint32_t>(checksum+c)
         return checksum
-    cdef unsigned short decToBcd(self, unsigned short dec):
+    cdef uint16_t decToBcd(self, uint16_t dec):
         return int(str(dec), 16)
-    cdef unsigned short bcdToDec(self, unsigned short bcd):
+    cdef uint16_t bcdToDec(self, uint16_t bcd):
         return int(hex(bcd)[2:], 10)
-    cdef unsigned long int reverseByteOrder(self, unsigned long int value, unsigned char valueSize):
+    cdef uint64_t reverseByteOrder(self, uint64_t value, uint8_t valueSize):
         cdef bytes data
         data = value.to_bytes(length=valueSize, byteorder="big")
         value = int.from_bytes(bytes=data, byteorder="little")
         return value
-    cdef unsigned short calculateInterruptErrorcode(self, unsigned char num, unsigned char idt, unsigned char ext):
+    cdef uint16_t calculateInterruptErrorcode(self, uint8_t num, uint8_t idt, uint8_t ext) nogil:
         if (idt):
             return (num << 3)|2|ext
         return (num & 0xfc)|ext
-    cpdef object createThread(self, object threadFunc, unsigned char startIt):
+    cpdef object createThread(self, object threadFunc, uint8_t startIt):
         cpdef object threadObject
         threadObject = Thread(target=threadFunc)
         if (startIt):

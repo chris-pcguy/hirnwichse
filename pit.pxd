@@ -1,4 +1,7 @@
 
+from libc.stdint cimport *
+from cpython.ref cimport PyObject, Py_INCREF
+
 from hirnwichse_main cimport Hirnwichse
 from cmos cimport Cmos
 from pic cimport Pic
@@ -8,9 +11,9 @@ from posix.unistd cimport usleep
 cdef class PitChannel:
     cpdef object threadObject
     cdef Pit pit
-    cdef unsigned char channelId, bcdMode, counterMode, counterWriteMode, \
+    cdef uint8_t channelId, bcdMode, counterMode, counterWriteMode, \
       counterFlipFlop, timerEnabled, readBackStatusValue, readBackStatusIssued, resetChannel
-    cdef unsigned int counterValue, counterStartValue, counterLatchValue, tempTimerValue
+    cdef uint32_t counterValue, counterStartValue, counterLatchValue, tempTimerValue
     cdef void readBackCount(self) nogil
     cdef void readBackStatus(self) nogil
     cdef void mode0Func(self)
@@ -20,9 +23,9 @@ cdef class PitChannel:
 
 cdef class Pit:
     cdef Hirnwichse main
-    cdef tuple channels
-    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
+    cdef PyObject *channels[3]
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
     cdef void run(self)
 
 

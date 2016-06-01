@@ -1,4 +1,7 @@
 
+from libc.stdint cimport *
+from cpython.ref cimport PyObject
+
 from hirnwichse_main cimport Hirnwichse
 from cmos cimport Cmos
 from isadma cimport IsaDma
@@ -14,8 +17,8 @@ from parallel cimport Parallel
 from gdbstub cimport GDBStub
 from libc.string cimport memcpy
 
-ctypedef unsigned int (*InPort)(self, unsigned short, unsigned char)
-ctypedef void (*OutPort)(self, unsigned short, unsigned int, unsigned char)
+ctypedef uint32_t (*InPort)(self, uint16_t, uint8_t) nogil
+ctypedef void (*OutPort)(self, uint16_t, uint32_t, uint8_t) nogil
 
 cdef class PortHandler:
     cdef tuple ports
@@ -46,11 +49,13 @@ cdef class Platform:
     cdef void delHandlers(self, tuple portNums)
     cdef void delReadHandlers(self, tuple portNums)
     cdef void delWriteHandlers(self, tuple portNums)
-    cpdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
-    cpdef fpuLowerIrq(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
-    cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize)
-    cdef void loadRom(self, bytes romFileName, unsigned long int mmAddr, unsigned char isRomOptional)
+    cdef uint32_t inPortHandler(self, uint16_t ioPortAddr, uint8_t dataSize)
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
+    cdef void outPortHandler(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef void loadRomToMem(self, bytes romFileName, uint64_t mmAddr, uint64_t romSize)
+    cdef void loadRom(self, bytes romFileName, uint64_t mmAddr, uint8_t isRomOptional)
     cdef void initMemory(self)
     cdef void initDevicesPorts(self)
     cdef void runDevices(self)

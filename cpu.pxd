@@ -1,6 +1,9 @@
 
 include "globals.pxi"
 
+from libc.stdint cimport *
+from libc.time cimport time as ttime
+
 from hirnwichse_main cimport Hirnwichse
 #from misc cimport Misc
 from mm cimport Mm
@@ -16,20 +19,20 @@ cdef class Cpu:
     cdef Registers registers
     cdef Opcodes opcodes
     cdef Segment *segmentOverridePrefix
-    cdef unsigned char asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ, repPrefix, operandSizePrefix, addressSizePrefix, codeSegSize, operSize, addrSize
-    cdef unsigned short savedCs, savedSs
-    cdef unsigned int savedEip, savedEsp
-    cdef unsigned long int cycles, lasttime
+    cdef uint8_t asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ, repPrefix, operandSizePrefix, addressSizePrefix, codeSegSize, operSize, addrSize
+    cdef uint16_t savedCs, savedSs
+    cdef uint32_t savedEip, savedEsp
+    cdef uint64_t cycles, lasttime
     cdef inline void reset(self)
     cdef inline void resetPrefixes(self) nogil:
         self.operandSizePrefix = self.addressSizePrefix = self.repPrefix = 0
         self.segmentOverridePrefix = NULL
-    cdef inline void setINTR(self, unsigned char state) nogil:
+    cdef inline void setINTR(self, uint8_t state) nogil:
         self.INTR = state
         if (state):
             self.asyncEvent = True
             self.cpuHalted = False
-    cdef inline void setHRQ(self, unsigned char state) nogil:
+    cdef inline void setHRQ(self, uint8_t state) nogil:
         self.HRQ = state
         if (state):
             self.asyncEvent = True
@@ -38,12 +41,12 @@ cdef class Cpu:
         self.addrSize = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef inline void saveCurrentInstPointer(self) nogil
     cdef void handleAsyncEvent(self)
-    cdef int exception(self, unsigned char exceptionId, signed int errorCode=?) except BITMASK_BYTE_CONST
+    cdef int exception(self, uint8_t exceptionId, int32_t errorCode=?) except BITMASK_BYTE_CONST
     cdef int handleException(self, object exception) except BITMASK_BYTE_CONST
-    cdef unsigned char parsePrefixes(self, unsigned char opcode) nogil except? BITMASK_BYTE_CONST
+    cdef uint8_t parsePrefixes(self, uint8_t opcode) nogil except? BITMASK_BYTE_CONST
     cdef void cpuDump(self)
     cdef void doInfiniteCycles(self)
     cdef void doCycle(self)
-    cdef run(self, unsigned char infiniteCycles = ?)
+    cdef run(self, uint8_t infiniteCycles = ?)
 
 

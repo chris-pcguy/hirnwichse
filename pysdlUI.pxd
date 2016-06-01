@@ -1,4 +1,6 @@
 
+from libc.stdint cimport *
+
 from hirnwichse_main cimport Hirnwichse
 from vga cimport Vga
 #from misc cimport Misc
@@ -12,14 +14,14 @@ cdef class PysdlUI:
     cdef tuple screenSize, charSize
     cdef dict points
     #cdef list points
-    cdef unsigned char mode9Bit, replicate8Bit, msbBlink
+    cdef uint8_t mode9Bit, replicate8Bit, msbBlink
     cpdef initPysdl(self)
     cpdef quitFunc(self)
     cpdef clearScreen(self)
-    cdef void putPixel(self, unsigned short x, unsigned short y, unsigned char colors) nogil # doesn't returns rect
-    cdef void putChar(self, unsigned short x, unsigned short y, unsigned char character, unsigned char colors) # doesn't returns rect
-    cpdef setRepeatRate(self, unsigned short delay, unsigned short interval)
-    cdef unsigned char keyToScancode(self, unsigned int key)
+    cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors) nogil # doesn't returns rect
+    cdef void putChar(self, uint16_t x, uint16_t y, uint8_t character, uint8_t colors) # doesn't returns rect
+    cpdef setRepeatRate(self, uint16_t delay, uint16_t interval)
+    cdef uint8_t keyToScancode(self, uint32_t key)
     cpdef handleSingleEvent(self, object event)
     cpdef updateScreen(self)
     cpdef handleEventsWithoutWaiting(self)

@@ -1,4 +1,7 @@
 
+from libc.stdint cimport *
+from cpython.ref cimport PyObject, Py_INCREF
+
 from hirnwichse_main cimport Hirnwichse
 from cmos cimport Cmos
 from pic cimport Pic
@@ -9,44 +12,44 @@ cdef class AtaDrive:
     cpdef object fp
     cdef AtaController ataController
     cdef ConfigSpace configSpace
-    cdef unsigned char driveId, driveType, isLoaded, isWriteProtected, isLocked, sectorShift, senseKey, senseAsc
-    cdef unsigned short sectorSize, driveCode
-    cdef unsigned long int sectors
+    cdef uint8_t driveId, driveType, isLoaded, isWriteProtected, isLocked, sectorShift, senseKey, senseAsc
+    cdef uint16_t sectorSize, driveCode
+    cdef uint64_t sectors
     cdef bytes filename
-    cdef unsigned long int ChsToSector(self, unsigned int cylinder, unsigned char head, unsigned char sector) nogil
-    cdef inline unsigned short readValue(self, unsigned char index)
-    cdef inline void writeValue(self, unsigned char index, unsigned short value)
+    cdef uint64_t ChsToSector(self, uint32_t cylinder, uint8_t head, uint8_t sector) nogil
+    cdef inline uint16_t readValue(self, uint8_t index) nogil
+    cdef inline void writeValue(self, uint8_t index, uint16_t value) nogil
     cdef void reset(self) nogil
     cdef void loadDrive(self, bytes filename)
-    cdef bytes readBytes(self, unsigned long int offset, unsigned int size)
-    cdef inline bytes readSectors(self, unsigned long int sector, unsigned int count) # count in sectors
-    cdef void writeBytes(self, unsigned long int offset, unsigned int size, bytes data)
-    cdef inline void writeSectors(self, unsigned long int sector, unsigned int count, bytes data)
+    cdef bytes readBytes(self, uint64_t offset, uint32_t size)
+    cdef inline bytes readSectors(self, uint64_t sector, uint32_t count) # count in sectors
+    cdef void writeBytes(self, uint64_t offset, uint32_t size, bytes data)
+    cdef inline void writeSectors(self, uint64_t sector, uint32_t count, bytes data)
     cdef void run(self) nogil
 
 
 cdef class AtaController:
     cdef Ata ata
-    cdef tuple drive
+    cdef PyObject *drive[2]
     cdef bytes result, data
-    cdef unsigned char controllerId, driveId, useLBA, useLBA48, irqEnabled, HOB, doReset, driveBusy, resetInProgress, driveReady, \
+    cdef uint8_t controllerId, driveId, useLBA, useLBA48, irqEnabled, HOB, doReset, driveBusy, resetInProgress, driveReady, \
         errorRegister, drq, seekComplete, err, irq, cmd, sector, head, sectorCountFlipFlop, sectorHighFlipFlop, sectorMiddleFlipFlop, \
         sectorLowFlipFlop, indexPulse, indexPulseCount, features, sectorCountByte, multipleSectors, busmasterCommand, busmasterStatus, mdmaMode, udmaMode
-    cdef unsigned int sectorCount, cylinder, busmasterAddress
-    cdef unsigned long int lba
-    cdef void setSignature(self, unsigned char driveId)
-    cdef void reset(self, unsigned char swReset)
+    cdef uint32_t sectorCount, cylinder, busmasterAddress
+    cdef uint64_t lba
+    cdef void setSignature(self, uint8_t driveId) nogil
+    cdef void reset(self, uint8_t swReset)
     cdef inline void LbaToCHS(self) nogil
     cdef void convertToLBA28(self) nogil
-    cdef void raiseAtaIrq(self, unsigned char withDRQ, unsigned char doIRQ)
+    cdef void raiseAtaIrq(self, uint8_t withDRQ, uint8_t doIRQ) nogil
     cdef void lowerAtaIrq(self) nogil
-    cdef void abortCommand(self)
-    cdef void errorCommand(self, unsigned char errorRegister)
-    cdef void nopCommand(self)
+    cdef void abortCommand(self) nogil
+    cdef void errorCommand(self, uint8_t errorRegister) nogil
+    cdef void nopCommand(self) nogil
     cdef void handlePacket(self)
     cdef void handleBusmaster(self)
-    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
     cdef void run(self)
 
 
@@ -54,11 +57,11 @@ cdef class Ata:
     cdef Hirnwichse main
     cdef tuple controller
     cdef PciDevice pciDevice
-    cdef unsigned int base4Addr
+    cdef uint32_t base4Addr
     cdef void reset(self)
-    cdef unsigned char isBusmaster(self, unsigned short ioPortAddr)
-    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
+    cdef uint8_t isBusmaster(self, uint16_t ioPortAddr) nogil
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
     cdef void run(self)
 
 

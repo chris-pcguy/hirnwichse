@@ -1,7 +1,8 @@
 
 include "globals.pxi"
 
-from libc.stdlib cimport malloc, free
+from libc.stdint cimport *
+from libc.stdlib cimport malloc, free, exit as exitt
 from libc.string cimport memcpy, memset
 
 
@@ -13,50 +14,50 @@ cdef class Mm:
     cdef char *pciData
     cdef char *romData
     cdef char *tempData
-    cdef unsigned char ignoreRomWrite
-    cdef unsigned long int memSizeBytes
+    cdef uint8_t ignoreRomWrite
+    cdef uint64_t memSizeBytes
     cpdef quitFunc(self)
-    cdef inline char *mmGetDataPointer(self, unsigned int mmAddr) nogil:
+    cdef inline char *mmGetDataPointer(self, uint32_t mmAddr) nogil:
         return <char*>(self.data+mmAddr)
-    cdef inline char *mmGetPciDataPointer(self, unsigned int mmAddr) nogil:
+    cdef inline char *mmGetPciDataPointer(self, uint32_t mmAddr) nogil:
         return <char*>(self.pciData+mmAddr)
-    cdef inline char *mmGetRomDataPointer(self, unsigned int mmAddr) nogil:
+    cdef inline char *mmGetRomDataPointer(self, uint32_t mmAddr) nogil:
         return <char*>(self.romData+mmAddr)
-    cdef inline char *mmGetTempDataPointer(self, unsigned int mmAddr) nogil:
+    cdef inline char *mmGetTempDataPointer(self, uint32_t mmAddr) nogil:
         return <char*>(self.tempData+mmAddr)
-    cdef void mmClear(self, unsigned int mmAddr, unsigned char clearByte, unsigned int dataSize) nogil
-    cdef char *mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize) nogil
-    cdef inline signed short mmPhyReadValueSignedByte(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST:
-        return <signed char>self.mmPhyReadValueUnsignedByte(mmAddr)
-    cdef inline signed short mmPhyReadValueSignedWord(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST:
-        return <signed short>self.mmPhyReadValueUnsignedWord(mmAddr)
-    cdef inline signed int mmPhyReadValueSignedDword(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST:
-        return <signed int>self.mmPhyReadValueUnsignedDword(mmAddr)
-    cdef inline signed long int mmPhyReadValueSignedQword(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST:
-        return <signed long int>self.mmPhyReadValueUnsignedQword(mmAddr)
-    cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) nogil except? BITMASK_BYTE_CONST
-    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST
-    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST
-    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST
-    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST
-    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize) nogil except? BITMASK_BYTE_CONST
-    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, char *data, unsigned int dataSize) nogil except BITMASK_BYTE_CONST
-    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize) nogil except BITMASK_BYTE_CONST
+    cdef void mmClear(self, uint32_t mmAddr, uint8_t clearByte, uint32_t dataSize) nogil
+    cdef char *mmPhyRead(self, uint32_t mmAddr, uint32_t dataSize) nogil
+    cdef inline int16_t mmPhyReadValueSignedByte(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
+        return <int8_t>self.mmPhyReadValueUnsignedByte(mmAddr)
+    cdef inline int16_t mmPhyReadValueSignedWord(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
+        return <int16_t>self.mmPhyReadValueUnsignedWord(mmAddr)
+    cdef inline int32_t mmPhyReadValueSignedDword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
+        return <int32_t>self.mmPhyReadValueUnsignedDword(mmAddr)
+    cdef inline int64_t mmPhyReadValueSignedQword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
+        return <int64_t>self.mmPhyReadValueUnsignedQword(mmAddr)
+    cdef int64_t mmPhyReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST
+    cdef uint8_t mmPhyReadValueUnsignedByte(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST
+    cdef uint16_t mmPhyReadValueUnsignedWord(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST
+    cdef uint32_t mmPhyReadValueUnsignedDword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST
+    cdef uint64_t mmPhyReadValueUnsignedQword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST
+    cdef uint64_t mmPhyReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST
+    cdef uint8_t mmPhyWrite(self, uint32_t mmAddr, char *data, uint32_t dataSize) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t mmPhyWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize) nogil except BITMASK_BYTE_CONST
 
 cdef class ConfigSpace:
     cdef Hirnwichse main
     cdef char *csData
-    cdef unsigned char clearByte
-    cdef unsigned int csSize
+    cdef uint8_t clearByte
+    cdef uint32_t csSize
     cpdef quitFunc(self)
-    cdef void csResetData(self, unsigned char clearByte) nogil
-    cdef void csResetAddr(self, unsigned int offset, unsigned char clearByte, unsigned char size) nogil
-    cdef inline char *csGetDataPointer(self, unsigned int offset) nogil:
+    cdef void csResetData(self, uint8_t clearByte) nogil
+    cdef void csResetAddr(self, uint32_t offset, uint8_t clearByte, uint8_t size) nogil
+    cdef inline char *csGetDataPointer(self, uint32_t offset) nogil:
         return <char*>(self.csData+offset)
-    cdef bytes csRead(self, unsigned int offset, unsigned int size)
-    cdef void csWrite(self, unsigned int offset, char *data, unsigned int size) nogil
-    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE_CONST
-    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE_CONST
-    cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) nogil except? BITMASK_BYTE_CONST
+    cdef bytes csRead(self, uint32_t offset, uint32_t size)
+    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil
+    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil except? BITMASK_BYTE_CONST
+    cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size) nogil except? BITMASK_BYTE_CONST
+    cdef uint64_t csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) nogil except? BITMASK_BYTE_CONST
 
 

@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False, c_string_type=bytes
 
 include "globals.pxi"
 include "cpu_globals.pxi"
@@ -28,7 +28,7 @@ cdef class Cpu:
         self.savedSs  = self.registers.segRead(CPU_SEGMENT_SS)
         self.savedEsp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
     cdef void handleAsyncEvent(self):
-        cdef unsigned char irqVector, oldIF
+        cdef uint8_t irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
         oldIF = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag
         if (self.INTR and oldIF):
@@ -40,7 +40,7 @@ cdef class Cpu:
             self.asyncEvent = False
             self.cpuHalted = False
         return
-    cdef int exception(self, unsigned char exceptionId, signed int errorCode=-1) except BITMASK_BYTE_CONST:
+    cdef int exception(self, uint8_t exceptionId, int32_t errorCode=-1) except BITMASK_BYTE_CONST:
         #self.main.debugEnabled = True
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP):
             self.registers.segWriteSegment(&self.registers.segments.cs, self.savedCs)
@@ -48,7 +48,7 @@ cdef class Cpu:
         self.registers.segWriteSegment(&self.registers.segments.ss, self.savedSs)
         self.registers.regWriteDword(CPU_REGISTER_ESP, self.savedEsp)
         #elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
-        #    self.savedEip = <unsigned int>(self.savedEip+1)
+        #    self.savedEip = <uint32_t>(self.savedEip+1)
         IF COMP_DEBUG:
             if (exceptionId == CPU_EXCEPTION_UD):
                 self.main.notice("CPU::exception: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
@@ -86,8 +86,8 @@ cdef class Cpu:
         #    exit()
         return True
     cdef int handleException(self, object exception) except BITMASK_BYTE_CONST:
-        cdef unsigned char exceptionId
-        cdef signed int errorCode
+        cdef uint8_t exceptionId
+        cdef int32_t errorCode
         #if (self.savedCs == 0x70 and self.savedEip == 0x3b2):
         #if (self.savedCs == 0x70 and self.savedEip == 0x382):
         #    self.main.debugEnabled = True
@@ -117,8 +117,8 @@ cdef class Cpu:
         exceptionId = exception.args[0]
         self.exception(exceptionId, errorCode)
         return True
-    cdef unsigned char parsePrefixes(self, unsigned char opcode) nogil except? BITMASK_BYTE_CONST:
-        cdef unsigned char count
+    cdef uint8_t parsePrefixes(self, uint8_t opcode) nogil except? BITMASK_BYTE_CONST:
+        cdef uint8_t count
         count = 0
         while (opcode in OPCODE_PREFIXES and not self.main.quitEmu):
             count += 1
@@ -211,19 +211,21 @@ cdef class Cpu:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
     cdef void doCycle(self):
-        cdef unsigned long int temptime
+        cdef uint64_t temptime
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
         #self.registers.reloadCpuCache()
         self.cycles += CPU_CLOCK_TICK
         self.resetPrefixes()
         self.saveCurrentInstPointer()
-        #if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>4))):
-        #if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>6))):
-        #if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>8))):
-        #if (not (<unsigned short>self.cycles) and not (<unsigned short>(self.cycles>>16))):
-        temptime = time()*100
-        if (temptime - self.lasttime >= 20):
+        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
+        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
+        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>8))):
+        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>16))):
+        #temptime = ttime(NULL)*100
+        #if (temptime - self.lasttime >= 20):
+        temptime = ttime(NULL)
+        if (temptime - self.lasttime >= 1):
             if (self.main.platform.vga and self.main.platform.vga.ui):
                 self.main.platform.vga.ui.handleEventsWithoutWaiting()
             self.lasttime = temptime
@@ -350,7 +352,7 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
-    cdef run(self, unsigned char infiniteCycles = True):
+    cdef run(self, uint8_t infiniteCycles = True):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main, self)
         self.opcodes.registers = self.registers

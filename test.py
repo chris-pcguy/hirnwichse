@@ -1,5 +1,5 @@
 #!/usr/bin/env python3.4
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False, c_string_type=bytes
 
 import os
 from sys import exit

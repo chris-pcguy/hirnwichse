@@ -1,9 +1,9 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False, c_string_type=bytes
 
 include "globals.pxi"
 
-from sys import exit
+from sys import exit, stdout
 from traceback import print_exc
 from atexit import register
 import sdl2, sdl2.ext
@@ -20,7 +20,7 @@ cdef tuple EVENT_LIST = ( sdl2.SDL_MOUSEMOTION, sdl2.SDL_MOUSEBUTTONDOWN, sdl2.S
 
 cdef class PysdlUI:
     def __init__(self, Vga vga):
-        #cdef unsigned int i
+        #cdef uint32_t i
         self.vga  = vga
         self.window = self.screen = self.renderer = None
         self.replicate8Bit = self.mode9Bit = self.msbBlink = True
@@ -33,7 +33,7 @@ cdef class PysdlUI:
             self.points[i] = []
         #self.points = []
     cpdef initPysdl(self):
-        cdef unsigned short event
+        cdef uint16_t event
         sdl2.SDL_Init(sdl2.SDL_INIT_TIMER | sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
         sdl2.SDL_SetHintWithPriority(sdl2.SDL_HINT_RENDER_DRIVER, b"opengl", sdl2.SDL_HINT_OVERRIDE)
         self.window = sdl2.ext.Window('Hirnwichse', self.screenSize, flags=sdl2.SDL_WINDOW_SHOWN)
@@ -53,10 +53,10 @@ cdef class PysdlUI:
     cpdef clearScreen(self):
         pass
         #self.screen.fill((0, 0, 0))
-    cdef void putPixel(self, unsigned short x, unsigned short y, unsigned char colors) nogil: # returns rect
+    cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors) nogil: # returns rect
         #cpdef object newRect, colorObject
         #cpdef object colorObject
-        cdef unsigned int bgColor
+        cdef uint32_t bgColor
         #try:
         IF 1:
             #newRect = sdl2.rect.SDL_Rect(x, y, 1, 1)
@@ -81,10 +81,10 @@ cdef class PysdlUI:
             print_exc()
             self.vga.main.exitError('putPixel: exception, exiting...')
         #return None
-    cdef void putChar(self, unsigned short x, unsigned short y, unsigned char character, unsigned char colors): # returns rect
+    cdef void putChar(self, uint16_t x, uint16_t y, uint8_t character, uint8_t colors): # returns rect
         cdef object newRect, newChar #, charArray
         cdef bytes charData, pixelData
-        cdef unsigned int i, j, k, fgColor, bgColor
+        cdef uint32_t i, j, k, fgColor, bgColor
         try:
             pixelData = bytes()
             #pixelData = bytes(self.charSize[0]*self.charSize[1]*3)
@@ -137,10 +137,10 @@ cdef class PysdlUI:
             print_exc()
             self.vga.main.exitError('putChar: exception, exiting...')
         #return None
-    cpdef setRepeatRate(self, unsigned short delay, unsigned short interval):
+    cpdef setRepeatRate(self, uint16_t delay, uint16_t interval):
         pass
         #pygame.key.set_repeat(delay, interval)
-    cdef unsigned char keyToScancode(self, unsigned int key):
+    cdef uint8_t keyToScancode(self, uint32_t key):
         self.vga.main.notice("keyToScancode: test1: keyToScancode. (keyId: {0:d}, keyName: {1:s})", key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))))
         if (key == sdl2.SDL_SCANCODE_LCTRL):
             return 0x00
@@ -374,6 +374,7 @@ cdef class PysdlUI:
                 #self.vga.refreshScreen = True
                 self.vga.refreshScreenFunction()
                 self.updateScreen()
+                stdout.flush()
                 return
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_RCTRL):
                 #self.vga.main.notice("PysdlUI::ShowCursor_test1: {0:d}", sdl2.SDL_ShowCursor(sdl2.SDL_QUERY))
@@ -402,9 +403,9 @@ cdef class PysdlUI:
     cpdef updateScreen(self):
         cpdef object colorObject
         #cdef list pointList
-        #cdef unsigned char doRefresh
-        cdef unsigned short x, y
-        cdef unsigned int i, bgColor
+        #cdef uint8_t doRefresh
+        cdef uint16_t x, y
+        cdef uint32_t i, bgColor
         if (self.vga.graphicalMode):
             #doRefresh = False
             if (self.renderer):

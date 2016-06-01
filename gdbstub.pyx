@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False, c_string_type=bytes
 
 include "globals.pxi"
 include "cpu_globals.pxi"
@@ -61,7 +61,7 @@ cdef class GDBStubHandler:
     cdef void putPacket(self, bytes data):
         cdef bytes dataFull, dataChecksum
         if (self.connHandler and self.connHandler.request):
-            dataChecksum = self.byteToHex(<unsigned char>((<Misc>self.gdbStub.main.misc).checksum(data)))
+            dataChecksum = self.byteToHex(<uint8_t>((<Misc>self.gdbStub.main.misc).checksum(data)))
             dataFull = b'$'
             dataFull += data
             dataFull += b'#'+dataChecksum
@@ -72,7 +72,7 @@ cdef class GDBStubHandler:
             self.gdbStub.main.notice('GDBStubHandler::putPacket: connHandler[.request] is None.')
     cdef void handleRead(self):
         cdef bytes tempStr
-        cdef unsigned char c
+        cdef uint8_t c
         if (self.connHandler and self.connHandler.request):
             while (not self.gdbStub.main.quitEmu and self.gdbStub.main.cpu.debugHalt):
                 tempStr = self.connHandler.request.recv(MAX_PACKET_SIZE)
@@ -107,7 +107,7 @@ cdef class GDBStubHandler:
                         self.readState = RS_CHKSUM2
                     elif (self.readState == RS_CHKSUM2):
                         self.cmdStrChecksumProof |= int(bytes([c]), 16)
-                        self.cmdStrChecksum = <unsigned char>((<Misc>self.gdbStub.main.misc).checksum(self.cmdStr))
+                        self.cmdStrChecksum = <uint8_t>((<Misc>self.gdbStub.main.misc).checksum(self.cmdStr))
                         if (self.cmdStrChecksum != self.cmdStrChecksumProof):
                             self.gdbStub.main.notice("GDBStubHandler::handleRead: SEND NACK!")
                             self.sendPacketType(PACKET_NACK)
@@ -122,12 +122,12 @@ cdef class GDBStubHandler:
                         self.gdbStub.main.notice("GDBStubHandler::handleRead: unknown case.")
         else:
             self.gdbStub.main.notice('GDBStubHandler::handleRead: connHandler[.request] is None.')
-    cdef bytes byteToHex(self, unsigned char data): # data is unsigned char, output==bytes
+    cdef bytes byteToHex(self, uint8_t data): # data is uint8_t, output==bytes
         cdef bytes returnValue = '{0:02x}'.format(data).encode()
         return returnValue
     cdef bytes bytesToHex(self, bytes data): # data is bytes, output==bytes
         cdef bytes returnValue
-        cdef unsigned char c
+        cdef uint8_t c
         returnValue = bytes()
         for c in data:
             returnValue += self.byteToHex(c)
@@ -137,25 +137,25 @@ cdef class GDBStubHandler:
         return returnValue
     cdef bytes hexToBytes(self, bytes data): # data is bytes, output==bytes
         cdef bytes returnValue = bytes()
-        cdef unsigned int i = 0
-        cdef unsigned int dataLen = len(data)
+        cdef uint32_t i = 0
+        cdef uint32_t dataLen = len(data)
         if ((dataLen & 1) == 1):
             self.gdbStub.main.exitError('GDBStubHandler::hexToBytes: (dataLen & 1) == 1')
         while (i < dataLen and not self.gdbStub.main.quitEmu):
             returnValue += self.hexToByte(data[i:i+2])
             i += 2
         return returnValue
-    cdef void sendInit(self, unsigned short gdbType):
+    cdef void sendInit(self, uint16_t gdbType):
         self.putPacket('T{0:02x}thread:{1:02x};'.format(gdbType, self.connId).encode())
-    cdef void unhandledCmd(self, bytes data, unsigned char noMsg):
+    cdef void unhandledCmd(self, bytes data, uint8_t noMsg):
         if (not noMsg):
             self.gdbStub.main.notice('GDBStubHandler::handleCommand: unhandled cmd: {0:s}', repr(data))
         self.putPacket(bytes())
     cdef void handleCommand(self, bytes data):
-        cdef unsigned int memAddr, memLength, blockSize, regVal
-        cdef signed int threadNum, res_signal, res_thread, signal = 0, thread
-        cdef unsigned short regOffset, maxRegNum, currRegNum
-        cdef unsigned char cpuType, singleStepOn, res
+        cdef uint32_t memAddr, memLength, blockSize, regVal
+        cdef int32_t threadNum, res_signal, res_thread, signal = 0, thread
+        cdef uint16_t regOffset, maxRegNum, currRegNum
+        cdef uint8_t cpuType, singleStepOn, res
         cdef list memList, actionList
         cdef bytes currData, hexToSend, action
         if (not len(data)):

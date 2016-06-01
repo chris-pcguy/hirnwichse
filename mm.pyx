@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False, c_string_type=bytes
 
 include "globals.pxi"
 include "cpu_globals.pxi"
@@ -10,7 +10,7 @@ from atexit import register
 
 cdef class Mm:
     def __init__(self, Hirnwichse main):
-        cdef unsigned short i
+        cdef uint16_t i
         self.main = main
         self.ignoreRomWrite = False
         self.memSizeBytes = self.main.memSize*1024*1024
@@ -47,18 +47,20 @@ cdef class Mm:
         except:
             print_exc()
             self.main.exitError('Mm::quitFunc: exception, exiting...')
-    cdef void mmClear(self, unsigned int offset, unsigned char clearByte, unsigned int dataSize) nogil:
+    cdef void mmClear(self, uint32_t offset, uint8_t clearByte, uint32_t dataSize) nogil:
         with nogil:
             memset(<char*>(self.data+offset), clearByte, dataSize)
-    cdef char *mmPhyRead(self, unsigned int mmAddr, unsigned int dataSize) nogil:
-        cdef unsigned int tempDataOffset = 0, tempOffset, tempSize
+    cdef char *mmPhyRead(self, uint32_t mmAddr, uint32_t dataSize) nogil:
+        cdef uint32_t tempDataOffset = 0, tempOffset, tempSize
         if (dataSize >= SIZE_1MB): # TODO: size
-            with gil:
-                self.main.exitError('Mm::mmPhyRead: dataSize >= SIZE_1MB, exiting...')
+            #with gil: # outcommented because of cython. 'gil ensure' at the beginning of every function which contains 'with gil:'
+            #    self.main.exitError('Mm::mmPhyRead: dataSize >= SIZE_1MB, exiting...')
+            exitt(1)
             return self.tempData
         if (dataSize > 0 and mmAddr < VGA_MEMAREA_ADDR):
             tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
-            with nogil:
+            #with nogil:
+            IF 1:
                 memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetDataPointer(mmAddr), tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
@@ -67,7 +69,8 @@ cdef class Mm:
             tempDataOffset += tempSize
         if (dataSize > 0 and mmAddr >= VGA_MEMAREA_ADDR and mmAddr < VGA_ROM_BASE):
             tempSize = min(dataSize, VGA_ROM_BASE-mmAddr)
-            with gil:
+            #with nogil:
+            IF 1:
                 memcpy(self.mmGetTempDataPointer(tempDataOffset), self.main.platform.vga.vgaAreaRead(mmAddr, tempSize), tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
@@ -76,7 +79,8 @@ cdef class Mm:
             tempDataOffset += tempSize
         if (dataSize > 0 and mmAddr >= VGA_ROM_BASE and mmAddr < self.memSizeBytes):
             tempSize = min(dataSize, self.memSizeBytes-mmAddr)
-            with nogil:
+            #with nogil:
+            IF 1:
                 memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetDataPointer(mmAddr), tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
@@ -86,7 +90,8 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= self.memSizeBytes and mmAddr < PCI_MEM_BASE):
             tempSize = min(dataSize, PCI_MEM_BASE-mmAddr)
             #self.main.notice("Mm::mmPhyRead: filling1; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
-            with nogil:
+            #with nogil:
+            IF 1:
                 memset(self.mmGetTempDataPointer(tempDataOffset), 0xff, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
@@ -96,7 +101,8 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= PCI_MEM_BASE and mmAddr < PCI_MEM_BASE_PLUS_LIMIT):
             tempOffset = mmAddr-PCI_MEM_BASE
             tempSize = min(dataSize, PCI_MEM_BASE_PLUS_LIMIT-mmAddr)
-            with nogil:
+            #with nogil:
+            IF 1:
                 memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetPciDataPointer(tempOffset), tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
@@ -106,7 +112,8 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= PCI_MEM_BASE_PLUS_LIMIT and mmAddr < LAST_MEMAREA_BASE_ADDR):
             tempSize = min(dataSize, LAST_MEMAREA_BASE_ADDR-mmAddr)
             #self.main.notice("Mm::mmPhyRead: filling2; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
-            with nogil:
+            #with nogil:
+            IF 1:
                 memset(self.mmGetTempDataPointer(tempDataOffset), 0xff, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
@@ -116,50 +123,51 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= LAST_MEMAREA_BASE_ADDR and mmAddr < SIZE_4GB):
             tempOffset = mmAddr-LAST_MEMAREA_BASE_ADDR
             tempSize = min(dataSize, SIZE_4GB-mmAddr)
-            with nogil:
+            #with nogil:
+            IF 1:
                 memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetRomDataPointer(tempOffset), tempSize)
         return self.tempData
-    cdef signed long int mmPhyReadValueSigned(self, unsigned int mmAddr, unsigned char dataSize) nogil except? BITMASK_BYTE_CONST:
-        cdef signed long int ret
+    cdef int64_t mmPhyReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST:
+        cdef int64_t ret
         ret = self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
-            ret = <signed char>ret
+            ret = <int8_t>ret
         elif (dataSize == OP_SIZE_WORD):
-            ret = <signed short>ret
+            ret = <int16_t>ret
         elif (dataSize == OP_SIZE_DWORD):
-            ret = <signed int>ret
+            ret = <int32_t>ret
         return ret
-    cdef unsigned char mmPhyReadValueUnsignedByte(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST:
+    cdef uint8_t mmPhyReadValueUnsignedByte(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_BYTE or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_BYTE)):
-            return (<unsigned char*>self.mmGetDataPointer(mmAddr))[0]
+            return (<uint8_t*>self.mmGetDataPointer(mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_BYTE)
-    cdef unsigned short mmPhyReadValueUnsignedWord(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST:
+    cdef uint16_t mmPhyReadValueUnsignedWord(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_WORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_WORD)):
-            return (<unsigned short*>self.mmGetDataPointer(mmAddr))[0]
+            return (<uint16_t*>self.mmGetDataPointer(mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_WORD)
-    cdef unsigned int mmPhyReadValueUnsignedDword(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST:
+    cdef uint32_t mmPhyReadValueUnsignedDword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_DWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_DWORD)):
-            return (<unsigned int*>self.mmGetDataPointer(mmAddr))[0]
+            return (<uint32_t*>self.mmGetDataPointer(mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_DWORD)
-    cdef unsigned long int mmPhyReadValueUnsignedQword(self, unsigned int mmAddr) nogil except? BITMASK_BYTE_CONST:
+    cdef uint64_t mmPhyReadValueUnsignedQword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_QWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_QWORD)):
-            return (<unsigned long int*>self.mmGetDataPointer(mmAddr))[0]
+            return (<uint64_t*>self.mmGetDataPointer(mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_QWORD)
-    cdef unsigned long int mmPhyReadValueUnsigned(self, unsigned int mmAddr, unsigned char dataSize) nogil except? BITMASK_BYTE_CONST:
+    cdef uint64_t mmPhyReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST:
         cdef char *temp
         if (mmAddr <= VGA_MEMAREA_ADDR-dataSize or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-dataSize)):
             temp = self.mmGetDataPointer(mmAddr)
         else:
             temp = self.mmPhyRead(mmAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
-            return (<unsigned char*>temp)[0]
+            return (<uint8_t*>temp)[0]
         elif (dataSize == OP_SIZE_WORD):
-            return (<unsigned short*>temp)[0]
+            return (<uint16_t*>temp)[0]
         elif (dataSize == OP_SIZE_DWORD):
-            return (<unsigned int*>temp)[0]
-        return (<unsigned long int*>temp)[0]
-    cdef unsigned char mmPhyWrite(self, unsigned int mmAddr, char *data, unsigned int dataSize) nogil except BITMASK_BYTE_CONST:
-        cdef unsigned int tempOffset, tempSize
+            return (<uint32_t*>temp)[0]
+        return (<uint64_t*>temp)[0]
+    cdef uint8_t mmPhyWrite(self, uint32_t mmAddr, char *data, uint32_t dataSize) nogil except BITMASK_BYTE_CONST:
+        cdef uint32_t tempOffset, tempSize
         if (dataSize > 0 and mmAddr < SIZE_1MB):
             if (mmAddr < VGA_MEMAREA_ADDR):
                 tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
@@ -232,14 +240,14 @@ cdef class Mm:
                 with nogil:
                     memcpy(<char*>(self.romData+tempOffset), data, tempSize)
         return True
-    cdef unsigned char mmPhyWriteValue(self, unsigned int mmAddr, unsigned long int data, unsigned char dataSize) nogil except BITMASK_BYTE_CONST:
+    cdef uint8_t mmPhyWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize) nogil except BITMASK_BYTE_CONST:
         cdef char *temp
         if (dataSize == OP_SIZE_BYTE):
-            data = <unsigned char>data
+            data = <uint8_t>data
         elif (dataSize == OP_SIZE_WORD):
-            data = <unsigned short>data
+            data = <uint16_t>data
         elif (dataSize == OP_SIZE_DWORD):
-            data = <unsigned int>data
+            data = <uint32_t>data
         #elif (dataSize != OP_SIZE_QWORD):
         #    return self.mmPhyWrite(mmAddr, <bytes>(data.to_bytes(length=dataSize, byteorder="little", signed=False)), dataSize)
         temp = <char*>&data
@@ -247,7 +255,7 @@ cdef class Mm:
 
 
 cdef class ConfigSpace:
-    def __init__(self, unsigned int csSize, Hirnwichse main):
+    def __init__(self, uint32_t csSize, Hirnwichse main):
         self.csSize = csSize
         self.main = main
         self.csData = <char*>malloc(self.csSize)
@@ -265,16 +273,16 @@ cdef class ConfigSpace:
         except:
             print_exc()
             self.main.exitError('ConfigSpace::quitFunc: exception, exiting...')
-    cdef void csResetData(self, unsigned char clearByte) nogil:
+    cdef void csResetData(self, uint8_t clearByte) nogil:
         self.clearByte = clearByte
         with nogil:
             memset(self.csData, clearByte, self.csSize)
-    cdef void csResetAddr(self, unsigned int offset, unsigned char clearByte, unsigned char size) nogil:
+    cdef void csResetAddr(self, uint32_t offset, uint8_t clearByte, uint8_t size) nogil:
         with nogil:
             memset(<char*>(self.csData+offset), clearByte, size)
-    cdef bytes csRead(self, unsigned int offset, unsigned int size):
+    cdef bytes csRead(self, uint32_t offset, uint32_t size):
         cdef bytes data
-        cdef unsigned int tempSize
+        cdef uint32_t tempSize
         tempSize = min(size, self.csSize-offset)
         data = self.csData[offset:offset+tempSize]
         size -= tempSize
@@ -283,46 +291,46 @@ cdef class ConfigSpace:
                 self.main.debug("ConfigSpace::csRead: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             data += bytes([self.clearByte])*size
         return data
-    cdef void csWrite(self, unsigned int offset, char *data, unsigned int size) nogil:
-        cdef unsigned int tempSize
+    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil:
+        cdef uint32_t tempSize
         tempSize = min(size, self.csSize-offset)
         with nogil:
             memcpy(<char*>(self.csData+offset), <char*>data, tempSize)
         size -= tempSize
         #if (size > 0 and self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csWrite: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
-    cdef unsigned long int csReadValueUnsigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE_CONST:
-        cdef unsigned long int ret
+    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil except? BITMASK_BYTE_CONST:
+        cdef uint64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
-        ret = (<unsigned long int*>self.csGetDataPointer(offset))[0]
+        ret = (<uint64_t*>self.csGetDataPointer(offset))[0]
         if (size == OP_SIZE_BYTE):
-            ret = <unsigned char>ret
+            ret = <uint8_t>ret
         elif (size == OP_SIZE_WORD):
-            ret = <unsigned short>ret
+            ret = <uint16_t>ret
         elif (size == OP_SIZE_DWORD):
-            ret = <unsigned int>ret
+            ret = <uint32_t>ret
         return ret
-    cdef signed long int csReadValueSigned(self, unsigned int offset, unsigned char size) nogil except? BITMASK_BYTE_CONST:
-        cdef signed long int ret
+    cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size) nogil except? BITMASK_BYTE_CONST:
+        cdef int64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueSigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
-        ret = (<signed long int*>self.csGetDataPointer(offset))[0]
+        ret = (<int64_t*>self.csGetDataPointer(offset))[0]
         if (size == OP_SIZE_BYTE):
-            ret = <signed char>ret
+            ret = <int8_t>ret
         elif (size == OP_SIZE_WORD):
-            ret = <signed short>ret
+            ret = <int16_t>ret
         elif (size == OP_SIZE_DWORD):
-            ret = <signed int>ret
+            ret = <int32_t>ret
         return ret
-    cdef unsigned long int csWriteValue(self, unsigned int offset, unsigned long int data, unsigned char size) nogil except? BITMASK_BYTE_CONST:
+    cdef uint64_t csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) nogil except? BITMASK_BYTE_CONST:
         cdef char *temp
         if (size == OP_SIZE_BYTE):
-            data = <unsigned char>data
+            data = <uint8_t>data
         elif (size == OP_SIZE_WORD):
-            data = <unsigned short>data
+            data = <uint16_t>data
         elif (size == OP_SIZE_DWORD):
-            data = <unsigned int>data
+            data = <uint32_t>data
         #elif (size != OP_SIZE_QWORD):
         #    self.csWrite(offset, data.to_bytes(length=size, byteorder="little", signed=False), size)
         #    return data

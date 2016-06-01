@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False, c_string_type=bytes
 
 include "globals.pxi"
 
@@ -9,7 +9,7 @@ DEF READBACK_DONT_LATCH_STATUS = 0x10
 
 
 cdef class PitChannel:
-    def __init__(self, Pit pit, unsigned char channelId):
+    def __init__(self, Pit pit, uint8_t channelId):
         self.pit = pit
         self.channelId = channelId
         self.bcdMode = 0 # 0 == binary; 1 == BCD
@@ -41,8 +41,8 @@ cdef class PitChannel:
         #self.pit.main.notice("PitChannel::mode0Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
         self.timerEnabled = False
     cdef void mode2Func(self): # TODO
-        cdef unsigned char clear
-        cdef unsigned long int i
+        cdef uint8_t clear
+        cdef uint64_t i
         while (self.timerEnabled and (not self.pit.main.quitEmu)):
             if (self.channelId == 0): # just raise IRQ on channel0
                 clear = (<Pic>self.pit.main.platform.pic).isClear(0)
@@ -188,81 +188,93 @@ cdef class PitChannel:
 
 cdef class Pit:
     def __init__(self, Hirnwichse main):
+        cdef PitChannel channel0, channel1, channel2
         self.main = main
-        self.channels = (PitChannel(self, 0), PitChannel(self, 1),\
-                         PitChannel(self, 2)) # channel 0-2
+        channel0 = PitChannel(self, 0)
+        channel1 = PitChannel(self, 1)
+        channel2 = PitChannel(self, 2)
+        self.channels[0] = <PyObject*>channel0
+        self.channels[1] = <PyObject*>channel1
+        self.channels[2] = <PyObject*>channel2
         (<Cmos>self.main.platform.cmos).rtcChannel = PitChannel(self, 3)
-    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
-        cdef PitChannel channel
-        cdef unsigned char channelId, retVal
-        cdef unsigned int temp
+        Py_INCREF(channel0)
+        Py_INCREF(channel1)
+        Py_INCREF(channel2)
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+        cdef uint8_t channelId, retVal
+        cdef uint32_t temp
         IF COMP_DEBUG:
         #IF 1:
             if (self.main.debugEnabled):
-                self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
+                with gil:
+                    self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
-                channel = self.channels[channelId]
-                temp = channel.counterValue
-                if (channel.readBackStatusIssued):
-                    channel.readBackStatusIssued = False
-                    retVal = channel.readBackStatusValue
-                elif (channel.counterWriteMode == 1): # LSB
-                    retVal = <unsigned char>temp
-                elif (channel.counterWriteMode == 2): # MSB
-                    retVal = <unsigned char>(temp>>8)
-                elif (channel.counterWriteMode in (0, 3)): # LSB;MSB
-                    if (not channel.counterFlipFlop):
-                        if (channel.counterWriteMode == 0): # TODO?
-                            retVal = <unsigned char>channel.counterLatchValue
+                temp = (<PitChannel>self.channels[channelId]).counterValue
+                if ((<PitChannel>self.channels[channelId]).readBackStatusIssued):
+                    (<PitChannel>self.channels[channelId]).readBackStatusIssued = False
+                    retVal = (<PitChannel>self.channels[channelId]).readBackStatusValue
+                elif ((<PitChannel>self.channels[channelId]).counterWriteMode == 1): # LSB
+                    retVal = <uint8_t>temp
+                elif ((<PitChannel>self.channels[channelId]).counterWriteMode == 2): # MSB
+                    retVal = <uint8_t>(temp>>8)
+                elif ((<PitChannel>self.channels[channelId]).counterWriteMode in (0, 3)): # LSB;MSB
+                    if (not (<PitChannel>self.channels[channelId]).counterFlipFlop):
+                        if ((<PitChannel>self.channels[channelId]).counterWriteMode == 0): # TODO?
+                            retVal = <uint8_t>(<PitChannel>self.channels[channelId]).counterLatchValue
                         else:
-                            retVal = <unsigned char>temp
+                            retVal = <uint8_t>temp
                     else:
-                        if (channel.counterWriteMode == 0):
-                            retVal = <unsigned char>(channel.counterLatchValue>>8)
+                        if ((<PitChannel>self.channels[channelId]).counterWriteMode == 0):
+                            retVal = <uint8_t>((<PitChannel>self.channels[channelId]).counterLatchValue>>8)
                         else:
-                            retVal = <unsigned char>(temp>>8)
-                    channel.counterFlipFlop = not channel.counterFlipFlop
+                            retVal = <uint8_t>(temp>>8)
+                    (<PitChannel>self.channels[channelId]).counterFlipFlop = not (<PitChannel>self.channels[channelId]).counterFlipFlop
                 else:
-                    self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", channel.counterWriteMode)
+                    with gil:
+                        self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", (<PitChannel>self.channels[channelId]).counterWriteMode)
                 IF COMP_DEBUG:
                 #IF 1:
                     if (self.main.debugEnabled):
-                        self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
+                        with gil:
+                            self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
                 return retVal
             elif (ioPortAddr == 0x43):
-                self.main.notice("inPort: read from PIT command port 0x43 is ignored.")
+                with gil:
+                    self.main.notice("inPort: read from PIT command port 0x43 is ignored.")
                 return 0
             else:
-                self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
+                with gil:
+                    self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
         else:
-            self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+            with gil:
+                self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
         return 0
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
-        cdef PitChannel channel
-        cdef unsigned char channelId, bcd, modeNumber, counterWriteMode, i
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+        cdef uint8_t channelId, bcd, modeNumber, counterWriteMode, i
         IF COMP_DEBUG:
         #IF 1:
             if (self.main.debugEnabled):
-                self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
+                with gil:
+                    self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
-                channel = self.channels[channelId]
-                if (channel.counterWriteMode in (0, 3)): # LSB;MSB
-                    if (not channel.counterFlipFlop):
-                        channel.counterStartValue = <unsigned char>data
+                if ((<PitChannel>self.channels[channelId]).counterWriteMode in (0, 3)): # LSB;MSB
+                    if (not (<PitChannel>self.channels[channelId]).counterFlipFlop):
+                        (<PitChannel>self.channels[channelId]).counterStartValue = <uint8_t>data
                     else:
-                        channel.counterStartValue |= (<unsigned char>data)<<8
-                    channel.counterFlipFlop = not channel.counterFlipFlop
-                elif (channel.counterWriteMode in (1, 2)): # 1==LSB/2==MSB
-                    channel.counterStartValue = <unsigned char>data
-                    if (channel.counterWriteMode == 2): # MSB
-                        channel.counterStartValue <<= 8
-                    channel.counterFlipFlop = False
-                if (not channel.counterFlipFlop and channel.resetChannel):
-                    channel.runTimer()
+                        (<PitChannel>self.channels[channelId]).counterStartValue = (<PitChannel>self.channels[channelId]).counterStartValue|((<uint8_t>data)<<8)
+                    (<PitChannel>self.channels[channelId]).counterFlipFlop = not (<PitChannel>self.channels[channelId]).counterFlipFlop
+                elif ((<PitChannel>self.channels[channelId]).counterWriteMode in (1, 2)): # 1==LSB/2==MSB
+                    (<PitChannel>self.channels[channelId]).counterStartValue = <uint8_t>data
+                    if ((<PitChannel>self.channels[channelId]).counterWriteMode == 2): # MSB
+                        (<PitChannel>self.channels[channelId]).counterStartValue = (<PitChannel>self.channels[channelId]).counterStartValue<<8
+                    (<PitChannel>self.channels[channelId]).counterFlipFlop = False
+                if (not (<PitChannel>self.channels[channelId]).counterFlipFlop and (<PitChannel>self.channels[channelId]).resetChannel):
+                    with gil:
+                        (<PitChannel>self.channels[channelId]).runTimer()
             elif (ioPortAddr == 0x43):
                 bcd = data&1
                 modeNumber = (data>>1)&7
@@ -270,40 +282,43 @@ cdef class Pit:
                 channelId = (data>>6)&3
                 if (channelId == 3):
                     if (bcd): # not bcd, reserved!
-                        self.main.exitError("outPort: reserved should be clear.")
+                        with gil:
+                            self.main.exitError("outPort: reserved should be clear.")
                         return
                     if (not (data&READBACK_DONT_LATCH_STATUS)):
-                        self.main.exitError("outPort: latch status isn't supported yet.")
+                        with gil:
+                            self.main.exitError("outPort: latch status isn't supported yet.")
                         return
                     if (modeNumber): # not modeNumber, channels!
                         for i in range(3):
                             if ((data & (2 << i)) != 0):
-                                channel = self.channels[i]
                                 if (not (data&READBACK_DONT_LATCH_COUNT)):
-                                    channel.readBackCount()
+                                    (<PitChannel>self.channels[i]).readBackCount()
                                 if (not (data&READBACK_DONT_LATCH_STATUS)):
-                                    channel.readBackStatus()
-                                    channel.readBackStatusIssued = True
+                                    (<PitChannel>self.channels[i]).readBackStatus()
+                                    (<PitChannel>self.channels[i]).readBackStatusIssued = True
                     #self.main.exitError("outPort: read-back not supported.")
                     return
                 if (bcd): # BCD
-                    self.main.exitError("outPort: BCD not supported yet.")
+                    with gil:
+                        self.main.exitError("outPort: BCD not supported yet.")
                     return
                 if (modeNumber in (6, 7)):
                     modeNumber -= 4
-                channel = self.channels[channelId]
-                channel.bcdMode = bcd
-                channel.counterMode = modeNumber
-                channel.counterWriteMode = counterWriteMode
-                channel.counterFlipFlop = False
-                if (not channel.counterWriteMode):
-                    channel.counterLatchValue = channel.counterValue
+                (<PitChannel>self.channels[channelId]).bcdMode = bcd
+                (<PitChannel>self.channels[channelId]).counterMode = modeNumber
+                (<PitChannel>self.channels[channelId]).counterWriteMode = counterWriteMode
+                (<PitChannel>self.channels[channelId]).counterFlipFlop = False
+                if (not (<PitChannel>self.channels[channelId]).counterWriteMode):
+                    (<PitChannel>self.channels[channelId]).counterLatchValue = (<PitChannel>self.channels[channelId]).counterValue
                 if (counterWriteMode and channelId != 3):
-                    channel.resetChannel = True
+                    (<PitChannel>self.channels[channelId]).resetChannel = True
             else:
-                self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
+                with gil:
+                    self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
         else:
-            self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
+            with gil:
+                self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
     cdef void run(self):
         pass
         #self.main.platform.addHandlers((0x40, 0x41, 0x42, 0x43), self)

@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False, c_string_type=bytes
 
 include "globals.pxi"
 
@@ -75,7 +75,7 @@ cdef class Hirnwichse:
     def notice(self, str msg, *msgArgs): # this needs to be 'def'
         print("NOTICE: " + msg.format(*msgArgs))
         #stdout.flush()
-    cpdef reset(self, unsigned char resetHardware):
+    cpdef reset(self, uint8_t resetHardware):
         self.cpu.reset()
         if (resetHardware):
             self.platform.resetDevices()

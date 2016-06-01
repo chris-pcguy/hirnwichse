@@ -1,10 +1,13 @@
 
-ctypedef void (*ReadFromMem)(self, unsigned char)
-ctypedef unsigned char (*WriteToMem)(self)
+from libc.stdint cimport *
+from cpython.ref cimport PyObject, Py_INCREF
 
-from hirnwichse_main cimport Hirnwichse
+ctypedef void (*ReadFromMem)(self, uint8_t)
+ctypedef uint8_t (*WriteToMem)(self)
+
 from libc.string cimport memset
 
+from hirnwichse_main cimport Hirnwichse
 
 cdef class IsaDmaChannel:
     cdef Hirnwichse main
@@ -13,45 +16,45 @@ cdef class IsaDmaChannel:
     cdef WriteToMem writeToMem
     cdef IsaDmaController controller
     cdef IsaDma isadma
-    cdef unsigned char channelNum, channelMasked, transferDirection, autoInit, addressDecrement, transferMode, page, DRQ, DACK
-    cdef unsigned short baseAddress, baseCount, currentAddress, currentCount
-    cdef void run(self)
+    cdef uint8_t channelNum, channelMasked, transferDirection, autoInit, addressDecrement, transferMode, page, DRQ, DACK
+    cdef uint16_t baseAddress, baseCount, currentAddress, currentCount
+    cdef void run(self) nogil
     ###
 
 cdef class IsaDmaController:
     cdef Hirnwichse main
     cdef IsaDma isadma
-    cdef tuple channel
-    cdef unsigned char flipFlop, firstChannel, master, ctrlDisabled, cmdReg, statusReg
+    cdef PyObject *channel[4]
+    cdef uint8_t flipFlop, firstChannel, master, ctrlDisabled, cmdReg, statusReg
     cdef void reset(self) nogil
-    cdef void doCommand(self, unsigned char data)
-    cdef void doManualRequest(self, unsigned char data)
-    cdef void setFlipFlop(self, unsigned char flipFlop) nogil
-    cdef void setTransferMode(self, unsigned char transferModeByte)
-    cdef void maskChannel(self, unsigned char channel, unsigned char maskIt)
-    cdef void maskChannels(self, unsigned char maskByte)
-    cdef unsigned char getChannelMasks(self)
-    cdef void setPageByte(self, unsigned char channel, unsigned char data)
-    cdef void setAddrByte(self, unsigned char channel, unsigned char data)
-    cdef void setCountByte(self, unsigned char channel, unsigned char data)
-    cdef unsigned char getPageByte(self, unsigned char channel)
-    cdef unsigned char getAddrByte(self, unsigned char channel)
-    cdef unsigned char getCountByte(self, unsigned char channel)
-    cdef unsigned char getStatus(self) nogil
-    cdef void controlHRQ(self)
-    cdef void run(self)
+    cdef void doCommand(self, uint8_t data) nogil
+    cdef void doManualRequest(self, uint8_t data) nogil
+    cdef void setFlipFlop(self, uint8_t flipFlop) nogil
+    cdef void setTransferMode(self, uint8_t transferModeByte) nogil
+    cdef void maskChannel(self, uint8_t channel, uint8_t maskIt) nogil
+    cdef void maskChannels(self, uint8_t maskByte) nogil
+    cdef uint8_t getChannelMasks(self) nogil
+    cdef void setPageByte(self, uint8_t channel, uint8_t data) nogil
+    cdef void setAddrByte(self, uint8_t channel, uint8_t data) nogil
+    cdef void setCountByte(self, uint8_t channel, uint8_t data) nogil
+    cdef uint8_t getPageByte(self, uint8_t channel) nogil
+    cdef uint8_t getAddrByte(self, uint8_t channel) nogil
+    cdef uint8_t getCountByte(self, uint8_t channel) nogil
+    cdef uint8_t getStatus(self) nogil
+    cdef void controlHRQ(self) nogil
+    cdef void run(self) nogil
 
 cdef class IsaDma:
     cdef Hirnwichse main
-    cdef tuple controller
-    cdef unsigned char extPageReg[16]
-    cdef unsigned char HLDA, TC # extPageReg is unused.
-    cdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize)
-    cdef void outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize)
-    cdef unsigned char getTC(self) nogil
-    cdef void setDRQ(self, unsigned char channel, unsigned char val)
+    cdef PyObject *controller[2]
+    cdef uint8_t extPageReg[16]
+    cdef uint8_t HLDA, TC # extPageReg is unused.
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef uint8_t getTC(self) nogil
+    cdef void setDRQ(self, uint8_t channel, uint8_t val)
     cdef void raiseHLDA(self)
-    cdef void setDmaMemActions(self, unsigned char controllerId, unsigned char channelId, object classInstance, ReadFromMem readFromMem, WriteToMem writeToMem)
+    cdef void setDmaMemActions(self, uint8_t controllerId, uint8_t channelId, object classInstance, ReadFromMem readFromMem, WriteToMem writeToMem)
     cdef void run(self)
 
 

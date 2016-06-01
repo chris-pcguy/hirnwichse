@@ -1,5 +1,5 @@
 
-#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False
+#cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, profile=False, c_string_type=bytes
 
 include "cpu_globals.pxi"
 include "globals.pxi"
@@ -58,7 +58,7 @@ cdef class Platform:
         #self.gdbstub.reset()
     cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject):
         cdef PortHandler port
-        cdef unsigned int i # 'i' can be longer than 65536
+        cdef uint32_t i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None or not len(port.ports)):
@@ -81,7 +81,7 @@ cdef class Platform:
         self.ports.append(port)
     cdef void addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject):
         cdef PortHandler port
-        cdef unsigned int i # 'i' can be longer than 65536
+        cdef uint32_t i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None or not len(port.ports)):
@@ -104,7 +104,7 @@ cdef class Platform:
         self.ports.append(port)
     cdef void delHandlers(self, tuple portNums):
         cdef PortHandler port
-        cdef unsigned int i # 'i' can be longer than 65536
+        cdef uint32_t i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None):
@@ -117,7 +117,7 @@ cdef class Platform:
                 port.ports = tuple(set(port.ports).difference_update(portNums))
     cdef void delReadHandlers(self, tuple portNums):
         cdef PortHandler port
-        cdef unsigned int i # 'i' can be longer than 65536
+        cdef uint32_t i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None):
@@ -133,7 +133,7 @@ cdef class Platform:
                 return
     cdef void delWriteHandlers(self, tuple portNums):
         cdef PortHandler port
-        cdef unsigned int i # 'i' can be longer than 65536
+        cdef uint32_t i # 'i' can be longer than 65536
         for i in range(len(self.ports)):
             port = <PortHandler>self.ports[i]
             if (port is None or port.ports is None):
@@ -147,10 +147,10 @@ cdef class Platform:
             elif (set(port.ports).issuperset(portNums)):
                 self.main.notice("delWriteHandlers: Don't know what todo here.")
                 return
-    cpdef unsigned int inPort(self, unsigned short ioPortAddr, unsigned char dataSize):
+    cdef uint32_t inPortHandler(self, uint16_t ioPortAddr, uint8_t dataSize):
         cdef PortHandler port
-        cdef unsigned short portNum
-        cdef unsigned int retVal, bitMask
+        cdef uint16_t portNum
+        cdef uint32_t retVal, bitMask
         try:
             bitMask = BITMASKS_FF[dataSize]
             for port in self.ports:
@@ -171,14 +171,17 @@ cdef class Platform:
         except:
             print_exc()
             exit(1)
-    cpdef outPort(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+        with gil:
+            return self.inPortHandler(ioPortAddr, dataSize)
+    cdef void outPortHandler(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         cdef PortHandler port
-        cdef unsigned short portNum
+        cdef uint16_t portNum
         try:
             if (dataSize == OP_SIZE_BYTE):
-                data = <unsigned char>data
+                data = <uint8_t>data
             elif (dataSize == OP_SIZE_WORD):
-                data = <unsigned short>data
+                data = <uint16_t>data
             for port in self.ports:
                 if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.outPort is NULL):
                     continue
@@ -195,9 +198,12 @@ cdef class Platform:
         except:
             print_exc()
             exit(1)
-    cpdef fpuLowerIrq(self, unsigned short ioPortAddr, unsigned int data, unsigned char dataSize):
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+        with gil:
+            self.outPortHandler(ioPortAddr, data, dataSize)
+    cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         self.pic.lowerIrq(FPU_IRQ)
-    cdef void loadRomToMem(self, bytes romFileName, unsigned long int mmAddr, unsigned long int romSize):
+    cdef void loadRomToMem(self, bytes romFileName, uint64_t mmAddr, uint64_t romSize):
         cdef object romFp
         cdef bytes romData
         try:
@@ -207,8 +213,8 @@ cdef class Platform:
         finally:
             if (romFp):
                 romFp.close()
-    cdef void loadRom(self, bytes romFileName, unsigned long int mmAddr, unsigned char isRomOptional):
-        cdef unsigned long int romMemSize, romSize, size
+    cdef void loadRom(self, bytes romFileName, uint64_t mmAddr, uint8_t isRomOptional):
+        cdef uint64_t romMemSize, romSize, size
         romMemSize = SIZE_64KB
         romSize = stat(romFileName).st_size
         if (not isRomOptional):
@@ -222,7 +228,7 @@ cdef class Platform:
             with nogil:
                 memcpy(self.main.mm.mmGetDataPointer(mmAddr&SIZE_1MB_MASK), self.main.mm.mmGetRomDataPointer(mmAddr&SIZE_1MB_MASK), romSize)
     cdef void initMemory(self):
-        cdef unsigned short i
+        cdef uint16_t i
         if (not self.main or not self.main.mm or not self.main.memSize):
             self.main.exitError("X86Platform::initMemory: not self.main or not self.main.mm or not self.main.memSize")
             return
