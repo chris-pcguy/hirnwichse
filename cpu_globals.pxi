@@ -252,9 +252,9 @@ cdef uint8_t OPCODE_CALL = 17
 
 #cdef uint8_t CPU_CLOCK_TICK_SHIFT = 8
 #cdef uint8_t CPU_CLOCK_TICK_SHIFT = 4
-#cdef uint8_t CPU_CLOCK_TICK_SHIFT = 3
+cdef uint8_t CPU_CLOCK_TICK_SHIFT = 3
 #cdef uint8_t CPU_CLOCK_TICK_SHIFT = 2
-cdef uint8_t CPU_CLOCK_TICK_SHIFT = 0
+#cdef uint8_t CPU_CLOCK_TICK_SHIFT = 0
 cdef uint32_t CPU_CLOCK_TICK = 1<<CPU_CLOCK_TICK_SHIFT
 
 cdef uint32_t PAGE_PRESENT = 0x1

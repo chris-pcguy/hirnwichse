@@ -1475,6 +1475,7 @@ cdef class Opcodes:
         cdef int16_t i
         cdef int32_t sop1, sop2
         cdef GdtEntry gdtEntry
+        cdef Segment *segment
         protectedModeOn = self.registers.protectedModeOn and not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm
         cpl = self.registers.getCPL()
         operOpcode = self.registers.getCurrentOpcodeAddUnsignedByte()
@@ -1710,11 +1711,11 @@ cdef class Opcodes:
                         (<Idt>self.registers.segments.idt).getBaseLimit(&base, &limit)
                     if (self.cpu.operSize == OP_SIZE_WORD):
                         base &= 0xffffff
-                    self.registers.mmWriteValue(mmAddr, limit, OP_SIZE_WORD, &self.registers.segments.ds, True)
-                    self.registers.mmWriteValue(mmAddr+OP_SIZE_WORD, base, OP_SIZE_DWORD, &self.registers.segments.ds, True)
+                    self.registers.mmWriteValue(mmAddr, limit, OP_SIZE_WORD, self.modRMInstance.rmNameSeg, True)
+                    self.registers.mmWriteValue(mmAddr+OP_SIZE_WORD, base, OP_SIZE_DWORD, self.modRMInstance.rmNameSeg, True)
                 elif (operOpcodeModId in (2, 3)): # LGDT/LIDT
-                    limit = self.registers.mmReadValueUnsignedWord(mmAddr, &self.registers.segments.ds, True)
-                    base = self.registers.mmReadValueUnsignedDword(mmAddr+OP_SIZE_WORD, &self.registers.segments.ds, True)
+                    limit = self.registers.mmReadValueUnsignedWord(mmAddr, self.modRMInstance.rmNameSeg, True)
+                    base = self.registers.mmReadValueUnsignedDword(mmAddr+OP_SIZE_WORD, self.modRMInstance.rmNameSeg, True)
                     if (self.cpu.operSize == OP_SIZE_WORD):
                         base &= 0xffffff
                     if (operOpcodeModId == 2): # LGDT
@@ -1750,7 +1751,12 @@ cdef class Opcodes:
                 elif (operOpcodeModId == 7): # INVLPG
                     if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
                         #(<Paging>self.registers.segments.paging).invalidateTables(self.registers.regReadUnsignedDword(CPU_REGISTER_CR3), False)
-                        (<Paging>self.registers.segments.paging).invalidatePage(self.modRMInstance.getRMValueFull(self.cpu.operSize))
+                        mmAddr = self.modRMInstance.getRMValueFull(self.cpu.operSize)
+                        if (self.main.cpu.segmentOverridePrefix is not NULL):
+                            mmAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
+                        else:
+                            mmAddr = self.modRMInstance.rmNameSeg[0].gdtEntry.base+mmAddr
+                        (<Paging>self.registers.segments.paging).invalidatePage(mmAddr)
                     IF CPU_CACHE_SIZE:
                         self.registers.reloadCpuCache()
                 else:
@@ -1930,12 +1936,12 @@ cdef class Opcodes:
                 with gil:
                     if (op2 & CR4_FLAG_VME):
                         self.main.notice("opcodeGroup0F_22: VME (virtual-8086 mode extension) IS NOT FULLY SUPPORTED yet.")
-                    elif (op2 & CR4_FLAG_PSE):
+                    if (op2 & CR4_FLAG_PSE):
                         self.main.exitError("opcodeGroup0F_22: PSE (page-size extension) IS NOT SUPPORTED yet.")
-                    elif (op2 & CR4_FLAG_PAE):
+                    if (op2 & CR4_FLAG_PAE):
                         self.main.exitError("opcodeGroup0F_22: PAE (physical-address extension) IS NOT SUPPORTED yet.")
-                    elif (op2):
-                        self.main.notice("opcodeGroup0F_22: CR4 IS NOT FULLY SUPPORTED yet.")
+                    if (op2):
+                        self.main.notice("opcodeGroup0F_22: CR4 IS NOT FULLY SUPPORTED yet. (op2=={0:#010x})", op2)
             IF COMP_DEBUG:
                 if (self.modRMInstance.regName == CPU_REGISTER_CR2):
                     with gil:
@@ -1974,11 +1980,17 @@ cdef class Opcodes:
                 self.cpu.cycles = self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
                 self.cpu.cycles = self.cpu.cycles|(<uint64_t>self.registers.regReadUnsignedDword(CPU_REGISTER_EDX)<<32)
             elif (eaxId == 0x1b): # apic base
-                pass
+                if (operOpcode == 0x32):
+                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0)
+                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0)
             elif (eaxId == 0x2a): # power on configuration bits
-                pass
+                if (operOpcode == 0x32):
+                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0)
+                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0)
             elif (eaxId == 0x8b): # no microcode loaded or rather supported.
-                pass
+                if (operOpcode == 0x32):
+                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0)
+                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0)
             else:
                 with gil:
                     self.main.notice("Opcodes::group0F: MSR: Unimplemented! (operOpcode=={0:#04x}; ECX=={1:#010x})", operOpcode, eaxId)
@@ -2523,6 +2535,10 @@ cdef class Opcodes:
             with gil:
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         mmAddr = self.modRMInstance.getRMValueFull(self.cpu.operSize)
+        #if (self.main.cpu.segmentOverridePrefix is not NULL):
+        #    mmAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
+        #else:
+        #    mmAddr = self.modRMInstance.rmNameSeg[0].gdtEntry.base+mmAddr
         self.modRMInstance.modRSave(self.cpu.operSize, mmAddr, OPCODE_SAVE)
         return True
     cdef int retNear(self, int16_t imm) nogil except BITMASK_BYTE_CONST:

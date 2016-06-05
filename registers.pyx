@@ -68,7 +68,7 @@ cdef class ModRMClass:
                     self.rmName0 = CPU_REGISTER_NONE
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedWord()
                 elif (self.mod == 1):
-                    self.rmName2 = self.registers.getCurrentOpcodeAddSignedByte()
+                    self.rmName2 = <uint16_t>(<int8_t>self.registers.getCurrentOpcodeAddSignedByte())
                 elif (self.mod == 2):
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedWord()
                 else:
@@ -86,12 +86,12 @@ cdef class ModRMClass:
                     self.rmName0 = CPU_REGISTER_NONE
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
                 elif (self.mod == 1):
-                    self.rmName2 = self.registers.getCurrentOpcodeAddSignedByte()
+                    self.rmName2 = <uint32_t>(<int8_t>self.registers.getCurrentOpcodeAddSignedByte())
                 elif (self.mod == 2):
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
                 else:
                     self.rmName2 = 0
-            if (self.rmName0 in (CPU_REGISTER_ESP, CPU_REGISTER_EBP)):
+            if (self.rmName0 in (CPU_REGISTER_ESP, CPU_REGISTER_EBP)): # on 16-bit modrm, there's no SP
                 self.rmNameSeg = &self.registers.segments.ss
         return True
     cdef uint64_t getRMValueFull(self, uint8_t rmSize) nogil:
@@ -512,10 +512,13 @@ cdef class Registers:
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
         physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
-            self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE, &self.segments.cs, False, False, True)
-            if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_BYTE):
-                self.reloadCpuCache()
-            ret = <uint8_t>self.readFromCacheUnsigned(OP_SIZE_BYTE)
+            if (self.cacheDisabled):
+                ret = self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
+            else:
+                self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE, &self.segments.cs, False, False, True)
+                if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_BYTE):
+                    self.reloadCpuCache()
+                ret = <uint8_t>self.readFromCacheUnsigned(OP_SIZE_BYTE)
         ELSE:
             ret = self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
@@ -529,10 +532,13 @@ cdef class Registers:
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
         physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
-            self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False, False, True)
-            if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < numBytes):
-                self.reloadCpuCache()
-            ret = self.readFromCacheAddSigned(numBytes)
+            if (self.cacheDisabled):
+                ret = self.mmReadValueSigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
+            else:
+                self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False, False, True)
+                if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < numBytes):
+                    self.reloadCpuCache()
+                ret = self.readFromCacheAddSigned(numBytes)
         ELSE:
             ret = self.mmReadValueSigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
         IF COMP_DEBUG:
@@ -547,10 +553,13 @@ cdef class Registers:
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
         physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
-            self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE, &self.segments.cs, False, False, True)
-            if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_BYTE):
-                self.reloadCpuCache()
-            ret = <uint8_t>self.readFromCacheAddUnsigned(OP_SIZE_BYTE)
+            if (self.cacheDisabled):
+                ret = self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
+            else:
+                self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE, &self.segments.cs, False, False, True)
+                if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_BYTE):
+                    self.reloadCpuCache()
+                ret = <uint8_t>self.readFromCacheAddUnsigned(OP_SIZE_BYTE)
         ELSE:
             ret = self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
@@ -565,10 +574,13 @@ cdef class Registers:
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
         physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
-            self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_WORD, &self.segments.cs, False, False, True)
-            if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_WORD):
-                self.reloadCpuCache()
-            ret = <uint16_t>self.readFromCacheAddUnsigned(OP_SIZE_WORD)
+            if (self.cacheDisabled):
+                ret = self.mmReadValueUnsignedWord(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
+            else:
+                self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_WORD, &self.segments.cs, False, False, True)
+                if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_WORD):
+                    self.reloadCpuCache()
+                ret = <uint16_t>self.readFromCacheAddUnsigned(OP_SIZE_WORD)
         ELSE:
             ret = self.mmReadValueUnsignedWord(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
@@ -583,10 +595,13 @@ cdef class Registers:
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
         physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
-            self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_DWORD, &self.segments.cs, False, False, True)
-            if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_DWORD):
-                self.reloadCpuCache()
-            ret = <uint32_t>self.readFromCacheAddUnsigned(OP_SIZE_DWORD)
+            if (self.cacheDisabled):
+                ret = self.mmReadValueUnsignedDword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
+            else:
+                self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_DWORD, &self.segments.cs, False, False, True)
+                if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_DWORD):
+                    self.reloadCpuCache()
+                ret = <uint32_t>self.readFromCacheAddUnsigned(OP_SIZE_DWORD)
         ELSE:
             ret = self.mmReadValueUnsignedDword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
@@ -601,10 +616,13 @@ cdef class Registers:
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
         physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
-            self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_QWORD, &self.segments.cs, False, False, True)
-            if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_QWORD):
-                self.reloadCpuCache()
-            ret = self.readFromCacheAddUnsigned(OP_SIZE_QWORD)
+            if (self.cacheDisabled):
+                ret = self.mmReadValueUnsignedQword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
+            else:
+                self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_QWORD, &self.segments.cs, False, False, True)
+                if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_QWORD):
+                    self.reloadCpuCache()
+                ret = self.readFromCacheAddUnsigned(OP_SIZE_QWORD)
         ELSE:
             ret = self.mmReadValueUnsignedQword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
@@ -619,10 +637,13 @@ cdef class Registers:
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
         physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
-            self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False, False, True)
-            if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < numBytes):
-                self.reloadCpuCache()
-            ret = self.readFromCacheAddUnsigned(numBytes)
+            if (self.cacheDisabled):
+                ret = self.mmReadValueUnsigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
+            else:
+                self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False, False, True)
+                if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < numBytes):
+                    self.reloadCpuCache()
+                ret = self.readFromCacheAddUnsigned(numBytes)
         ELSE:
             ret = self.mmReadValueUnsigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
         IF COMP_DEBUG:
@@ -686,7 +707,8 @@ cdef class Registers:
             else:
                 self.cpl = 0
             IF (CPU_CACHE_SIZE):
-                self.cpuCacheCodeSegChange = True
+                if (not self.cacheDisabled):
+                    self.cpuCacheCodeSegChange = True
         elif (segId == CPU_SEGMENT_SS):
             self.ssInhibit = True
         self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
@@ -738,7 +760,7 @@ cdef class Registers:
             with gil:
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         IF (CPU_CACHE_SIZE):
-            if (regId == CPU_REGISTER_EIP):
+            if (not self.cacheDisabled and regId == CPU_REGISTER_EIP):
                 realNewEip = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
                 if (not self.cpuCacheCodeSegChange and realNewEip >= self.cpuCacheBase and realNewEip+OP_SIZE_BYTE <= self.cpuCacheBase+self.cpuCacheSize):
                     self.cpuCacheIndex = realNewEip - self.cpuCacheBase
@@ -767,7 +789,7 @@ cdef class Registers:
             with gil:
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         IF (CPU_CACHE_SIZE):
-            if (regId == CPU_REGISTER_EIP):
+            if (not self.cacheDisabled and regId == CPU_REGISTER_EIP):
                 realNewEip = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
                 if (not self.cpuCacheCodeSegChange and realNewEip >= self.cpuCacheBase and realNewEip+OP_SIZE_BYTE <= self.cpuCacheBase+self.cpuCacheSize):
                     self.cpuCacheIndex = realNewEip - self.cpuCacheBase
@@ -1310,7 +1332,8 @@ cdef class Registers:
         physAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, True, False)
         retVal = self.main.mm.mmPhyWriteValue(physAddr, data, dataSize)
         IF CPU_CACHE_SIZE:
-            self.checkCache(physAddr, dataSize)
+            if (not self.cacheDisabled):
+                self.checkCache(physAddr, dataSize)
         return retVal
     cdef uint64_t mmWriteValueWithOp(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t valueOp) nogil except? BITMASK_BYTE_CONST:
         cdef uint64_t oldData

@@ -64,15 +64,18 @@ DEF COMMAND_WRITE_DMA_FUA_EXT = 0x3d
 DEF COMMAND_EXECUTE_DRIVE_DIAGNOSTIC = 0x90
 DEF COMMAND_INITIALIZE_DRIVE_PARAMETERS = 0x91
 DEF COMMAND_PACKET = 0xa0
-DEF COMMAND_IDENTIFY_DEVICE_PACKET = 0xa1
 DEF COMMAND_SET_MULTIPLE_MODE = 0xc6
-DEF COMMAND_IDENTIFY_DEVICE = 0xec
 DEF COMMAND_SET_FEATURES = 0xef
+
+DEF COMMAND_IDENTIFY_DEVICE = 0xec
+DEF COMMAND_IDENTIFY_DEVICE_PACKET = 0xa1
 
 DEF COMMAND_MEDIA_LOCK = 0xde
 DEF COMMAND_MEDIA_UNLOCK = 0xdf
 
+DEF COMMAND_IDLE_IMMEDIATE = 0xe1
 DEF COMMAND_CHECK_POWER_MODE = 0xe5
+DEF COMMAND_FLUSH_CACHE = 0xe7
 
 DEF COMMAND_SECURITY_FREEZE_LOCK = 0xf5
 
@@ -613,7 +616,8 @@ cdef class AtaController:
             if (not self.drq):
                 ret = BITMASK_DWORD
                 IF COMP_DEBUG:
-                    self.ata.main.notice("AtaController::inPort_1: not self.drq, returning BITMASK_DWORD; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                    with gil:
+                        self.ata.main.notice("AtaController::inPort_1: not self.drq, returning BITMASK_DWORD; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
                 return ret
             with gil:
                 temp = min(len(self.result), dataSize)
@@ -664,7 +668,8 @@ cdef class AtaController:
                     return ((self.busmasterAddress >> 24) & 0xff)
                 else:
                     IF COMP_DEBUG:
-                        self.ata.main.notice("AtaController::inPort: read from reserved busmaster port; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
+                        with gil:
+                            self.ata.main.notice("AtaController::inPort: read from reserved busmaster port; controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; dataSize: {3:d}", self.controllerId, self.driveId, ioPortAddr, dataSize)
             elif (ioPortAddr in (0x1, 0x2, 0x3, 0x4, 0x5)):
                 if ((<AtaDrive>(self.drive[0])).isLoaded or (<AtaDrive>(self.drive[1])).isLoaded):
                     if (ioPortAddr == 0x1):
@@ -916,7 +921,7 @@ cdef class AtaController:
                             self.setSignature(self.driveId)
                         self.abortCommand()
                         return
-                    self.driveReady = True
+                    self.driveReady = self.seekComplete = True
                     with gil:
                         self.result = (<AtaDrive>self.drive[self.driveId]).configSpace.csRead(0, 512)
                 elif (data in (COMMAND_READ_LBA28, COMMAND_READ_LBA28_WITHOUT_RETRIES, COMMAND_READ_LBA48, COMMAND_READ_MULTIPLE_LBA28, COMMAND_READ_MULTIPLE_LBA48, COMMAND_READ_DMA, COMMAND_READ_DMA_EXT)):
@@ -1044,6 +1049,12 @@ cdef class AtaController:
                     IF 1:
                         self.abortCommand()
                         return
+                elif (data == COMMAND_IDLE_IMMEDIATE): # TODO?
+                    IF 1:
+                        self.abortCommand()
+                        return
+                elif (data == COMMAND_FLUSH_CACHE):
+                    self.driveReady = True
                 elif (data == COMMAND_SECURITY_FREEZE_LOCK):
                     self.abortCommand()
                     return
@@ -1051,7 +1062,7 @@ cdef class AtaController:
                     with gil:
                         self.ata.main.exitError("AtaController::outPort: unknown command 2: controllerId: {0:d}; driveId: {1:d}; ioPortAddr: {2:#06x}; data: {3:#04x}; dataSize: {4:d}", self.controllerId, self.driveId, ioPortAddr, data, dataSize)
                     return
-                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES, COMMAND_SET_MULTIPLE_MODE, COMMAND_VERIFY_SECTORS_LBA28, COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY, COMMAND_VERIFY_SECTORS_LBA48, COMMAND_MEDIA_LOCK, COMMAND_MEDIA_UNLOCK, COMMAND_READ_DMA, COMMAND_READ_DMA_EXT, COMMAND_WRITE_DMA, COMMAND_WRITE_DMA_EXT, COMMAND_WRITE_DMA_FUA_EXT, COMMAND_READ_NATIVE_MAX_ADDRESS, COMMAND_READ_NATIVE_MAX_ADDRESS_EXT, COMMAND_CHECK_POWER_MODE), data not in (COMMAND_RESET, COMMAND_PACKET, COMMAND_READ_DMA, COMMAND_READ_DMA_EXT, COMMAND_WRITE_DMA, COMMAND_WRITE_DMA_EXT, COMMAND_WRITE_DMA_FUA_EXT, COMMAND_CHECK_POWER_MODE))
+                self.raiseAtaIrq(data not in (COMMAND_RECALIBRATE, COMMAND_EXECUTE_DRIVE_DIAGNOSTIC, COMMAND_INITIALIZE_DRIVE_PARAMETERS, COMMAND_RESET, COMMAND_SET_FEATURES, COMMAND_SET_MULTIPLE_MODE, COMMAND_VERIFY_SECTORS_LBA28, COMMAND_VERIFY_SECTORS_LBA28_NO_RETRY, COMMAND_VERIFY_SECTORS_LBA48, COMMAND_MEDIA_LOCK, COMMAND_MEDIA_UNLOCK, COMMAND_READ_DMA, COMMAND_READ_DMA_EXT, COMMAND_WRITE_DMA, COMMAND_WRITE_DMA_EXT, COMMAND_WRITE_DMA_FUA_EXT, COMMAND_READ_NATIVE_MAX_ADDRESS, COMMAND_READ_NATIVE_MAX_ADDRESS_EXT, COMMAND_CHECK_POWER_MODE), data not in (COMMAND_RESET, COMMAND_PACKET, COMMAND_READ_DMA, COMMAND_READ_DMA_EXT, COMMAND_WRITE_DMA, COMMAND_WRITE_DMA_EXT, COMMAND_WRITE_DMA_FUA_EXT))
             elif (ioPortAddr == 0x1fe or ioPortAddr == 0x206):
                 prevReset = self.doReset
                 self.irqEnabled = ((data & CONTROL_REG_NIEN) != CONTROL_REG_NIEN)
@@ -1134,8 +1145,9 @@ cdef class Ata:
         #IF 1:
         IF COMP_DEBUG:
             if (ioPortAddr&0xf or isBusmaster or self.main.debugEnabled):
-                #self.main.debug("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
-                self.main.notice("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
+                with gil:
+                    #self.main.debug("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
+                    self.main.notice("Ata::inPort1: ioPortAddr: {0:#06x}; dataSize: {1:d}", ioPortAddr, dataSize)
         if (isBusmaster and dataSize != OP_SIZE_BYTE):
             if (dataSize == OP_SIZE_WORD):
                 ret = self.inPort(ioPortAddr, OP_SIZE_BYTE)
@@ -1151,8 +1163,9 @@ cdef class Ata:
             #if (self.main.debugEnabled):
             #IF 1:
             IF COMP_DEBUG:
-                #self.main.debug("Ata::inPort2: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#06x}", ioPortAddr, dataSize, ret)
-                self.main.notice("Ata::inPort2: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#06x}", ioPortAddr, dataSize, ret)
+                with gil:
+                    #self.main.debug("Ata::inPort2: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#06x}", ioPortAddr, dataSize, ret)
+                    self.main.notice("Ata::inPort2: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#06x}", ioPortAddr, dataSize, ret)
             return ret
         elif (dataSize == OP_SIZE_DWORD and (ioPortAddr&0xf)):
             ret = self.inPort(ioPortAddr, OP_SIZE_WORD)
@@ -1160,8 +1173,9 @@ cdef class Ata:
             #if (self.main.debugEnabled):
             #IF 1:
             IF COMP_DEBUG:
-                #self.main.debug("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
-                self.main.notice("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
+                with gil:
+                    #self.main.debug("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
+                    self.main.notice("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
             return ret
         with gil:
             if (isBusmaster):
@@ -1181,8 +1195,9 @@ cdef class Ata:
             #IF 1:
             IF COMP_DEBUG:
                 if (ioPortAddr&0xf or isBusmaster or self.main.debugEnabled):
-                    #self.main.debug("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
-                    self.main.notice("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
+                    with gil:
+                        #self.main.debug("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
+                        self.main.notice("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
         return ret
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         cdef uint8_t isBusmaster = 0
@@ -1191,8 +1206,9 @@ cdef class Ata:
         #IF 1:
         IF COMP_DEBUG:
             if (ioPortAddr&0xf or isBusmaster or self.main.debugEnabled):
-                #self.main.debug("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
-                self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
+                with gil:
+                    #self.main.debug("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
+                    self.main.notice("Ata::outPort: ioPortAddr: {0:#06x}; data: {1:#04x}; dataSize: {2:d}", ioPortAddr, data, dataSize)
                 #if (ioPortAddr == 0x1f3 and data == 0xfc):
                 #    self.main.debugEnabledTest = self.main.debugEnabled = True
         if (isBusmaster and dataSize != OP_SIZE_BYTE):

@@ -18,14 +18,16 @@ cdef class Cmos:
         value = self.configSpace.csReadValueUnsigned(index, size)
         #IF 1:
         IF COMP_DEBUG:
-        #if (self.main.debugEnabled):
-            self.main.debug("Cmos::readValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Cmos::readValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
         return value
     cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size) nogil:
         #IF 1:
         IF COMP_DEBUG:
-        #if (self.main.debugEnabled):
-            self.main.debug("Cmos::writeValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
+            if (self.main.debugEnabled):
+                with gil:
+                    self.main.notice("Cmos::writeValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
         self.configSpace.csWriteValue(index, value, size)
     cdef void reset(self):
         cdef uint32_t memSizeInK, extMemSizeInK, extMemSizeIn64K

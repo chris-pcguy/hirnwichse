@@ -79,7 +79,7 @@ cdef class ModRMClass:
     cdef Segment *rmNameSeg
     cdef uint8_t rm, reg, mod, ss, regSize
     cdef uint16_t rmName0, rmName1, regName
-    cdef int64_t rmName2
+    cdef uint64_t rmName2
     cdef uint8_t modRMOperands(self, uint8_t regSize, uint8_t modRMflags) nogil except BITMASK_BYTE_CONST
     cdef uint64_t getRMValueFull(self, uint8_t rmSize) nogil
     cdef int64_t modRMLoadSigned(self, uint8_t regSize) nogil except? BITMASK_BYTE_CONST

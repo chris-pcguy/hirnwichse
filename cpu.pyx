@@ -311,7 +311,7 @@ cdef class Cpu:
             #if (self.savedCs == 0x8 and self.savedEip == 0x312296):
             #IF 1:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-                #self.cpuDump()
+                self.cpuDump()
                 #if (self.savedEip == 0x1c000178):
                 #    self.main.notice("ds:[ds:[edx]-1]=={0:#010x}", self.registers.mmReadValueUnsignedDword(self.registers.mmReadValueUnsignedDword(self.registers.regReadUnsignedDword(CPU_REGISTER_EDX), (<Segment>self.registers.segments.ds), False)-1, (<Segment>self.registers.segments.ds), False))
                 #if (self.savedEip == 0xd02006d1):

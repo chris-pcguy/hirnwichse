@@ -190,29 +190,29 @@ cdef class Pic:
             ma_sl = True
             irq -= 8
         (<PicChannel>self.channels[ma_sl]).lowerIrq(irq)
-    cdef uint8_t isClear(self, uint8_t irq):
-        cdef PicChannel ch
+    cdef uint8_t isClear(self, uint8_t irq) nogil:
         cdef uint8_t temp1, temp2, temp3, ma_sl = False
         if (irq > 15):
-            self.main.exitError("isClear: invalid irq! (irq: {0:d})", irq)
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.exitError("isClear: invalid irq! (irq: {0:d})", irq)
             return 0
         if (irq >= 8):
             ma_sl = True
             irq = 8
-        ch = (<PicChannel>self.channels[ma_sl])
-        temp1 = ch.isr & (1<<irq) # partly commented out because the
-        temp2 = ch.irr & (1<<irq) # PS/2 keyboard has a lower priority.
-        temp3 = ch.imr & (1<<irq)
-        #self.main.notice("Pic::isClear({0:d},{1:d}): temp1=={2:d}; temp2=={3:d}; temp3=={4:d}; ch.intr=={5:d}", irq, ma_sl, temp1, temp2, temp3, ch.intr)
-        if (not temp1 and temp2 and ch.intr):
+        temp1 = (<PicChannel>self.channels[ma_sl]).isr & (1<<irq) # partly commented out because the
+        temp2 = (<PicChannel>self.channels[ma_sl]).irr & (1<<irq) # PS/2 keyboard has a lower priority.
+        temp3 = (<PicChannel>self.channels[ma_sl]).imr & (1<<irq)
+        #self.main.notice("Pic::isClear({0:d},{1:d}): temp1=={2:d}; temp2=={3:d}; temp3=={4:d}; (<PicChannel>self.channels[ma_sl]).intr=={5:d}", irq, ma_sl, temp1, temp2, temp3, (<PicChannel>self.channels[ma_sl]).intr)
+        if (not temp1 and temp2 and (<PicChannel>self.channels[ma_sl]).intr):
             self.main.cpu.registers.ssInhibit = True
             self.main.cpu.asyncEvent = True
-        return not (temp1 or temp2 or temp3 or ch.intr)
+        return not (temp1 or temp2 or temp3 or (<PicChannel>self.channels[ma_sl]).intr)
         #return not (temp1 or temp2 or temp3)
-        #return not (temp2 or temp3 or ch.intr)
-        #return not (temp1 or temp3 or ch.intr)
-        #return not (temp1 or temp2 or ch.intr)
-        #return not (temp1 or ch.intr)
+        #return not (temp2 or temp3 or (<PicChannel>self.channels[ma_sl]).intr)
+        #return not (temp1 or temp3 or (<PicChannel>self.channels[ma_sl]).intr)
+        #return not (temp1 or temp2 or (<PicChannel>self.channels[ma_sl]).intr)
+        #return not (temp1 or (<PicChannel>self.channels[ma_sl]).intr)
         #return not (temp1)
         #return not (temp1 or temp3)
     cdef uint8_t IAC(self):

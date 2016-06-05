@@ -25,13 +25,13 @@ cdef class PitChannel:
         self.readBackStatusValue = self.bcdMode
         self.readBackStatusValue |= self.counterMode<<1
         self.readBackStatusValue |= self.counterWriteMode<<4
-    cdef void mode0Func(self):
+    cdef void mode0Func(self) nogil:
         if (self.channelId == 0): # just raise IRQ on channel0
             (<Pic>self.pit.main.platform.pic).lowerIrq(0)
         elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
             (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
-        with nogil:
-            usleep(self.tempTimerValue)
+        #with nogil:
+        usleep(self.tempTimerValue)
         self.counterValue = 0
         if (self.channelId == 0): # just raise IRQ on channel0
             (<Pic>self.pit.main.platform.pic).raiseIrq(0)
@@ -40,7 +40,7 @@ cdef class PitChannel:
         #else:
         #self.pit.main.notice("PitChannel::mode0Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
         self.timerEnabled = False
-    cdef void mode2Func(self): # TODO
+    cdef void mode2Func(self) nogil: # TODO
         cdef uint8_t clear
         cdef uint64_t i
         while (self.timerEnabled and (not self.pit.main.quitEmu)):
@@ -56,10 +56,11 @@ cdef class PitChannel:
                 clear = (<Pic>self.pit.main.platform.pic).isClear(CMOS_RTC_IRQ) and (<Pic>self.pit.main.platform.pic).isClear(IRQ_SECOND_PIC)
                 if (clear):
                     (<Pic>self.pit.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
-            if (self.channelId != 3):
-                #self.pit.main.notice("PitChannel::mode2Func: before while")
-                #self.pit.main.notice("PitChannel::mode2Func({0:d}): counterValue=={1:d}", self.channelId, self.counterStartValue)
-                with nogil:
+            with nogil:
+            #IF 1:
+                if (self.channelId != 3):
+                    #self.pit.main.notice("PitChannel::mode2Func: before while")
+                    #self.pit.main.notice("PitChannel::mode2Func({0:d}): counterValue=={1:d}", self.channelId, self.counterStartValue)
                     self.counterValue = self.counterStartValue
                     #with nogil:
                     #    #usleep(self.tempTimerValue)
@@ -74,29 +75,28 @@ cdef class PitChannel:
                         #for i in range(60):
                         #    pass
                         if (self.counterMode == 3):
-                            self.counterValue -= 2 # HACK
-                            #self.counterValue -= 4 # HACK
+                            self.counterValue -= 2
                         else:
-                            self.counterValue -= 1 # HACK
-                            #self.counterValue -= 2 # HACK
+                            self.counterValue -= 1
                         #self.pit.main.notice("PitChannel::mode2Func: in while")
                         #if (not (self.counterValue&0x1fff)):
                         #if (not (self.counterValue&0xfff)):
                         #if (not (self.counterValue&0xff)):
                         #if (not (self.counterValue&0x7f)):
                         #if (not (self.counterValue&0x3f)):
-                        if (not (self.counterValue&0x1f)):
+                        #if (not (self.counterValue&0x1f)):
                         #if (not (self.counterValue&0xf)):
                         #if (not (self.counterValue&0x7)):
-                        #if (not (self.counterValue&0x3)):
+                        if (not (self.counterValue&0x3)):
                         #if (not (self.counterValue&0x1)):
                         #IF 1:
                         #IF 0:
                             #usleep(self.tempTimerValue)
-                            #usleep(0)
+                            #with nogil:
+                            usleep(0)
                             #usleep(1)
                             #usleep(5)
-                            usleep(10)
+                            #usleep(10)
                             #usleep(25)
                             #usleep(50)
                             #usleep(100)
@@ -105,19 +105,23 @@ cdef class PitChannel:
                         #for i in range(30000):
                         #for i in range(10000):
                         #for i in range(5000):
+                        #for i in range(4000):
+                        #for i in range(2500):
+                        #for i in range(2000):
                         #for i in range(1000):
                         #for i in range(250):
                         #for i in range(100):
                         #for i in range(60):
+                        #for i in range(1):
                         #    pass
-                    self.counterValue = 1 # to be sure
-                #self.pit.main.notice("PitChannel::mode2Func({0:d}): after while", self.channelId)
-            with nogil:
-                #usleep(self.tempTimerValue)
-                usleep(0)
-                #usleep(1)
-                #usleep(100)
-                #usleep(3000)
+                    #self.counterValue = 1 # to be sure
+                    #self.pit.main.notice("PitChannel::mode2Func({0:d}): after while", self.channelId)
+                else:
+                    #usleep(self.tempTimerValue)
+                    usleep(0)
+                    #usleep(1)
+                    #usleep(100)
+                    #usleep(3000)
             if (self.channelId == 0): # just raise IRQ on channel0
                 #clear = (<Pic>self.pit.main.platform.pic).isClear(0)
                 #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0)")
@@ -132,7 +136,9 @@ cdef class PitChannel:
                     #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(CMOS_RTC_IRQ): clear")
                     (<Cmos>self.pit.main.platform.cmos).periodicFunc()
             else:
-                self.pit.main.notice("PitChannel::mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
+                IF COMP_DEBUG:
+                    with gil:
+                        self.pit.main.notice("PitChannel::mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
     cpdef timerFunc(self): # TODO
         if (self.timerEnabled):
             if (self.counterMode == 0):

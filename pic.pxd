@@ -31,7 +31,7 @@ cdef class Pic:
     cdef void setMode(self, uint8_t channel, uint8_t edgeLevel) nogil
     cdef void raiseIrq(self, uint8_t irq) nogil
     cdef void lowerIrq(self, uint8_t irq) nogil
-    cdef uint8_t isClear(self, uint8_t irq)
+    cdef uint8_t isClear(self, uint8_t irq) nogil
     cdef uint8_t IAC(self)
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil

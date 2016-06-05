@@ -16,8 +16,8 @@ cdef class PitChannel:
     cdef uint32_t counterValue, counterStartValue, counterLatchValue, tempTimerValue
     cdef void readBackCount(self) nogil
     cdef void readBackStatus(self) nogil
-    cdef void mode0Func(self)
-    cdef void mode2Func(self)
+    cdef void mode0Func(self) nogil
+    cdef void mode2Func(self) nogil
     cpdef timerFunc(self)
     cpdef runTimer(self)
 
