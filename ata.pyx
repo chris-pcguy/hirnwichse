@@ -1107,20 +1107,21 @@ cdef class Ata:
         #self.pciDevice.setBarSize(1, 4) # TODO?
         #self.pciDevice.setBarSize(2, 4) # TODO?
         #self.pciDevice.setBarSize(3, 4) # TODO?
+        #self.pciDevice.setBarSize(4, 4) # TODO?
         self.pciDevice.setBarSize(4, 4) # TODO?
-        self.pciDevice.setData(PCI_COMMAND, 0x1, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_COMMAND, 0x5, OP_SIZE_BYTE)
         self.pciDevice.setData(PCI_STATUS, 0x280, OP_SIZE_WORD)
-        #self.pciDevice.setData(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
-        self.pciDevice.setData(PCI_PROG_IF, 0x8a, OP_SIZE_BYTE)
-        self.pciDevice.setData(PCI_INTERRUPT_LINE, 14, OP_SIZE_BYTE)
-        self.pciDevice.setData(PCI_INTERRUPT_PIN, 1, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
+        #self.pciDevice.setData(PCI_PROG_IF, 0x8a, OP_SIZE_BYTE)
+        #self.pciDevice.setData(PCI_INTERRUPT_LINE, 14, OP_SIZE_BYTE)
+        #self.pciDevice.setData(PCI_INTERRUPT_PIN, 1, OP_SIZE_BYTE)
         #self.pciDevice.setData(PCI_BASE_ADDRESS_0, 0x1f1, OP_SIZE_DWORD)
         #self.pciDevice.setData(PCI_BASE_ADDRESS_1, 0x3f5, OP_SIZE_DWORD)
         #self.pciDevice.setData(PCI_BASE_ADDRESS_2, 0x171, OP_SIZE_DWORD)
         #self.pciDevice.setData(PCI_BASE_ADDRESS_3, 0x375, OP_SIZE_DWORD)
         #self.pciDevice.setData(PCI_BASE_ADDRESS_4, 0xc001, OP_SIZE_DWORD)
         self.pciDevice.setData(PCI_BASE_ADDRESS_4, 0x1, OP_SIZE_DWORD)
-        self.base4Addr = 0x1
+        self.base4Addr = 0x0
     cdef void reset(self):
         cdef AtaController controller
         for controller in self.controller:

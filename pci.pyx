@@ -27,6 +27,8 @@ cdef class PciDevice:
             self.barSize[i] = 0
         self.configSpace = ConfigSpace(PCI_FUNCTION_CONFIG_SIZE, self.pci.main)
         self.configSpace.csWriteValue(PCI_HEADER_TYPE, PCI_HEADER_TYPE_STANDARD, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(PCI_COMMAND, 0x4, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(PCI_STATUS, 0x200, OP_SIZE_WORD)
     cdef void reset(self):
         pass
     cdef uint8_t checkWriteAccess(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil: # return true means allowed
@@ -81,11 +83,17 @@ cdef class PciDevice:
                     with gil:
                         self.pci.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", memBarType)
                     return True
-                elif ((data & <uint32_t>0xfffffff0) == <uint32_t>0xfffffff0):
+                #elif ((data & <uint32_t>0xfffffff0) == <uint32_t>0xfffffff0):
+                #if ((data & <uint32_t>0xfffff800) == <uint32_t>0xfffff800):
+                if ((data & <uint32_t>0xfffffff0) in (<uint32_t>0xfffffff0, <uint32_t>0xfff0)):
                     data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1)))
+                    #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))
+                    #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))>>self.barSize[barIndex]
+                #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))
                 if (origData & 1):
-                    data &= ~3
-                    data |= origData & 3
+                    #data &= ~3
+                    #data |= origData & 3
+                    data |= 1
                 #else:
                 #    data &= ~7
                 #    data |= origData & 7
@@ -93,8 +101,12 @@ cdef class PciDevice:
                 barIndex = 6
                 if (not self.barSize[barIndex]):
                     return False
-                elif ((data & <uint32_t>0xfffff800) == <uint32_t>0xfffff800):
+                origData = self.configSpace.csReadValueUnsigned(offset, OP_SIZE_DWORD)
+                if ((data & <uint32_t>0xfffff800) == <uint32_t>0xfffff800):
                     data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1))) # TODO: is this correct?
+                    #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))
+                    #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))>>self.barSize[barIndex]
+                #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))
             self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_DWORD)
             return False
         return True
@@ -136,6 +148,8 @@ cdef class PciBridge(PciDevice):
         self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
         #self.setData(PCI_PRIMARY_BUS, 0, OP_SIZE_BYTE)
         #self.setData(PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
+        #self.setData(PCI_COMMAND, 0x4, OP_SIZE_BYTE)
+        #self.configSpace.csWriteValue(PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
     cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
         #cdef uint32_t addr, limit
         PciDevice.setData(self, mmAddress, data, dataSize)
@@ -207,7 +221,8 @@ cdef class Pci:
         if (deviceHandle):
             if (not pciAddressHandle.enableBit or pciAddressHandle.function):
                 self.main.notice("Pci::readRegister: Warning: tried to read without enableBit or with function set.")
-            return deviceHandle.getData(pciAddressHandle.getMmAddress(), dataSize)
+            else:
+                return deviceHandle.getData(pciAddressHandle.getMmAddress(), dataSize)
         else:
             if (self.main.debugEnabled):
                 self.main.notice("Pci::readRegister: deviceHandle is NULL")
@@ -221,16 +236,17 @@ cdef class Pci:
         if (deviceHandle):
             if (not pciAddressHandle.enableBit or pciAddressHandle.function):
                 self.main.notice("Pci::writeRegister: Warning: tried to write without enableBit or with function set.")
-            deviceHandle.setData(pciAddressHandle.getMmAddress(), data, dataSize)
-            if (deviceHandle == self.main.platform.ata.pciDevice):
-                if ((address&BITMASK_BYTE) >= PCI_BASE_ADDRESS_4 and ((address&BITMASK_BYTE)+dataSize) <= (PCI_BASE_ADDRESS_4+OP_SIZE_DWORD)):
-                #if (PCI_BASE_ADDRESS_4 in range(address, dataSize)):
-                #IF 1:
-                    #if (self.getData(PCI_DEVICE_CLASS, OP_SIZE_WORD) == PCI_CLASS_PATA):
-                    IF 1:
-                        #self.main.notice("Pci::writeRegister: test1")
-                        self.main.platform.ata.base4Addr = deviceHandle.getData((pciAddressHandle.getMmAddress()&0xffffff00)|PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
-                        #self.main.notice("Pci::writeRegister: test2")
+            else:
+                deviceHandle.setData(pciAddressHandle.getMmAddress(), data, dataSize)
+                if (deviceHandle == self.main.platform.ata.pciDevice):
+                    if ((address&BITMASK_BYTE) >= PCI_BASE_ADDRESS_4 and ((address&BITMASK_BYTE)+dataSize) <= (PCI_BASE_ADDRESS_4+OP_SIZE_DWORD)):
+                    #if (PCI_BASE_ADDRESS_4 in range(address, dataSize)):
+                    #IF 1:
+                        #if (self.getData(PCI_DEVICE_CLASS, OP_SIZE_WORD) == PCI_CLASS_PATA):
+                        IF 1:
+                            #self.main.notice("Pci::writeRegister: test1")
+                            self.main.platform.ata.base4Addr = deviceHandle.getData((pciAddressHandle.getMmAddress()&0xffffff00)|PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
+                            #self.main.notice("Pci::writeRegister: test2")
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
         cdef uint32_t ret = BITMASK_DWORD
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
