@@ -245,10 +245,10 @@ cdef class AtaDrive:
             (<Cmos>self.ataController.ata.main.platform.cmos).writeValue((CMOS_HD0_SPT if (self.driveId == 0) else CMOS_HD1_SPT), SPT, OP_SIZE_BYTE)
             if (self.driveId == 0):
                 (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(CMOS_HD0_CONTROL_BYTE, 0xc8, OP_SIZE_BYTE) # hardcoded
-                #self.ataController.ata.pciDevice.setData(0x40, 0x8000, OP_SIZE_WORD)
+                #self.ataController.ata.pciDevice.configSpace.csWriteValue(0x40, 0x8000, OP_SIZE_WORD)
             else:
                 (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(CMOS_HD1_CONTROL_BYTE, 0x80, OP_SIZE_BYTE) # hardcoded
-                #self.ataController.ata.pciDevice.setData(0x42, 0x8000, OP_SIZE_WORD)
+                #self.ataController.ata.pciDevice.configSpace.csWriteValue(0x42, 0x8000, OP_SIZE_WORD)
         elif (self.ataController.controllerId == 1 and self.driveId in (0, 1)):
             #self.writeValue(0, 0x85c0) # word 0 ; atapi; removable drive
             #self.writeValue(0, 0x0580) # word 0 ; atapi; removable drive
@@ -1087,11 +1087,11 @@ cdef class AtaController:
                 self.ata.main.exitError("AtaController::outPort: dataSize {0:d} not supported.", dataSize)
     cdef void run(self):
         if (self.controllerId == 0):
-            self.ata.pciDevice.setData(0x40, 0x8000, OP_SIZE_WORD)
+            self.ata.pciDevice.configSpace.csWriteValue(0x40, 0x8000, OP_SIZE_WORD)
             if (self.ata.main.hdaFilename): (<AtaDrive>self.drive[0]).loadDrive(self.ata.main.hdaFilename)
             if (self.ata.main.hdbFilename): (<AtaDrive>self.drive[1]).loadDrive(self.ata.main.hdbFilename)
         elif (self.controllerId == 1):
-            self.ata.pciDevice.setData(0x42, 0x8000, OP_SIZE_WORD)
+            self.ata.pciDevice.configSpace.csWriteValue(0x42, 0x8000, OP_SIZE_WORD)
             if (self.ata.main.cdrom1Filename): (<AtaDrive>self.drive[0]).loadDrive(self.ata.main.cdrom1Filename)
             if (self.ata.main.cdrom2Filename): (<AtaDrive>self.drive[1]).loadDrive(self.ata.main.cdrom2Filename)
 
@@ -1109,18 +1109,18 @@ cdef class Ata:
         #self.pciDevice.setBarSize(3, 4) # TODO?
         #self.pciDevice.setBarSize(4, 4) # TODO?
         self.pciDevice.setBarSize(4, 4) # TODO?
-        self.pciDevice.setData(PCI_COMMAND, 0x5, OP_SIZE_BYTE)
-        self.pciDevice.setData(PCI_STATUS, 0x280, OP_SIZE_WORD)
-        self.pciDevice.setData(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
-        #self.pciDevice.setData(PCI_PROG_IF, 0x8a, OP_SIZE_BYTE)
-        #self.pciDevice.setData(PCI_INTERRUPT_LINE, 14, OP_SIZE_BYTE)
-        #self.pciDevice.setData(PCI_INTERRUPT_PIN, 1, OP_SIZE_BYTE)
-        #self.pciDevice.setData(PCI_BASE_ADDRESS_0, 0x1f1, OP_SIZE_DWORD)
-        #self.pciDevice.setData(PCI_BASE_ADDRESS_1, 0x3f5, OP_SIZE_DWORD)
-        #self.pciDevice.setData(PCI_BASE_ADDRESS_2, 0x171, OP_SIZE_DWORD)
-        #self.pciDevice.setData(PCI_BASE_ADDRESS_3, 0x375, OP_SIZE_DWORD)
-        #self.pciDevice.setData(PCI_BASE_ADDRESS_4, 0xc001, OP_SIZE_DWORD)
-        self.pciDevice.setData(PCI_BASE_ADDRESS_4, 0x1, OP_SIZE_DWORD)
+        self.pciDevice.configSpace.csWriteValue(PCI_COMMAND, 0x5, OP_SIZE_BYTE)
+        self.pciDevice.configSpace.csWriteValue(PCI_STATUS, 0x280, OP_SIZE_WORD)
+        self.pciDevice.configSpace.csWriteValue(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
+        #self.pciDevice.configSpace.csWriteValue(PCI_PROG_IF, 0x8a, OP_SIZE_BYTE)
+        #self.pciDevice.configSpace.csWriteValue(PCI_INTERRUPT_LINE, 14, OP_SIZE_BYTE)
+        #self.pciDevice.configSpace.csWriteValue(PCI_INTERRUPT_PIN, 1, OP_SIZE_BYTE)
+        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_0, 0x1f1, OP_SIZE_DWORD)
+        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_1, 0x3f5, OP_SIZE_DWORD)
+        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_2, 0x171, OP_SIZE_DWORD)
+        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_3, 0x375, OP_SIZE_DWORD)
+        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_4, 0xc001, OP_SIZE_DWORD)
+        self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_4, 0x1, OP_SIZE_DWORD)
         self.base4Addr = 0x0
     cdef void reset(self):
         cdef AtaController controller

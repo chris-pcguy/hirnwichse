@@ -136,7 +136,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
         if (self.writeCycle >= 3):
             self.writeCycle = 0
             self.writeIndex += 1
-            #self.vga.refreshScreen = True
+            self.vga.refreshScreen = True
     cdef uint8_t getMask(self) nogil:
         return self.mask
     cdef uint8_t getState(self) nogil:

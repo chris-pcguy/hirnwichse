@@ -145,11 +145,9 @@ cdef class PciBridge(PciDevice):
     def __init__(self, PciBus bus, Pci pci, uint8_t deviceIndex):
         PciDevice.__init__(self, bus, pci, deviceIndex)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
-        self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
-        #self.setData(PCI_PRIMARY_BUS, 0, OP_SIZE_BYTE)
-        #self.setData(PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
-        #self.setData(PCI_COMMAND, 0x4, OP_SIZE_BYTE)
-        #self.configSpace.csWriteValue(PCI_HEADER_TYPE, PCI_HEADER_TYPE_BRIDGE, OP_SIZE_BYTE)
+        self.setDeviceClass(0x0601)
+        self.configSpace.csWriteValue(PCI_COMMAND, 0x6, OP_SIZE_WORD)
+        self.configSpace.csWriteValue(PCI_STATUS, 0x280, OP_SIZE_WORD)
     cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
         #cdef uint32_t addr, limit
         PciDevice.setData(self, mmAddress, data, dataSize)
@@ -160,11 +158,130 @@ cdef class PciBridge(PciDevice):
     cdef void run(self):
         PciDevice.run(self)
 
+cdef class Pci2Isa(PciDevice):
+    def __init__(self, PciBus bus, Pci pci, uint8_t deviceIndex):
+        cdef uint8_t i, j
+        for i in range(16):
+            self.irqRegistry[i] = 0
+            for j in range(4):
+                self.irqLevel[j][i] = 0
+        PciDevice.__init__(self, bus, pci, deviceIndex)
+        self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, 0x7000)
+        self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
+        self.configSpace.csWriteValue(PCI_COMMAND, 0x7, OP_SIZE_WORD)
+        self.configSpace.csWriteValue(PCI_STATUS, 0x200, OP_SIZE_WORD)
+        self.configSpace.csWriteValue(PCI_HEADER_TYPE, 0x80, OP_SIZE_BYTE)
+        self.reset()
+    cdef void reset(self):
+        cdef uint8_t i
+        PciDevice.reset(self)
+        self.configSpace.csWriteValue(0x05, 0x00, OP_SIZE_WORD)
+        self.configSpace.csWriteValue(0x07, 0x02, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x4c, 0x4d, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x4e, 0x03, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x4f, 0x00, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x69, 0x02, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x70, 0x80, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x76, 0x0c, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x77, 0x0c, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x78, 0x02, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x79, 0x00, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x80, 0x00, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0x82, 0x00, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0xa0, 0x08, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0xa2, 0x00, OP_SIZE_WORD)
+        self.configSpace.csWriteValue(0xa4, 0x00, OP_SIZE_DWORD)
+        self.configSpace.csWriteValue(0xa8, 0x0f, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0xaa, 0x00, OP_SIZE_WORD)
+        self.configSpace.csWriteValue(0xac, 0x00, OP_SIZE_BYTE)
+        self.configSpace.csWriteValue(0xae, 0x00, OP_SIZE_BYTE)
+        for i in range(4):
+            #pci_set_irq(0x08, i+1, 0);
+            self.pciUnregisterIrq(i, 0x80)
+    cdef void pciRegisterIrq(self, uint8_t pirq, uint8_t irq) nogil:
+        if ((irq < 16) and (((1 << irq) & 0xdef8) != 0)):
+            if (PciDevice.getData(self, 0x60+pirq, OP_SIZE_BYTE) < 16):
+                self.pciUnregisterIrq(pirq, irq)
+            PciDevice.setData(self, 0x60+pirq, irq, OP_SIZE_BYTE)
+            if (not (self.irqRegistry[irq])):
+                pass
+                #DEV_register_irq(irq, "PIIX3 IRQ routing");
+            self.irqRegistry[irq] |= (1 << pirq)
+    cdef void pciUnregisterIrq(self, uint8_t pirq, uint8_t irq) nogil:
+        cdef uint8_t oldData = PciDevice.getData(self, 0x60+pirq, OP_SIZE_BYTE)
+        if (oldData < 16):
+            self.irqRegistry[oldData] &= ~(1 << pirq)
+            if (not self.irqRegistry[oldData]):
+                pass
+                #BX_P2I_THIS pci_set_irq(0x08, pirq+1, 0);
+                #DEV_unregister_irq(oldirq, "PIIX3 IRQ routing");
+            PciDevice.setData(self, 0x60+pirq, irq, OP_SIZE_BYTE)
+    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
+        cdef uint32_t oldData
+        if (mmAddress == 0x6 or (mmAddress >= 0x10 and mmAddress < 0x34)):
+            return
+        oldData = PciDevice.getData(self, mmAddress, dataSize)
+        PciDevice.setData(self, mmAddress, data, dataSize)
+        if (0x4 >= mmAddress and 0x4 < (mmAddress+dataSize)):
+            data = PciDevice.getData(self, 0x4, OP_SIZE_BYTE)
+            PciDevice.setData(self, 0x4, (data & 0x8) | 7, dataSize)
+        if (0x5 >= mmAddress and 0x5 < (mmAddress+dataSize)):
+            data = PciDevice.getData(self, 0x5, OP_SIZE_BYTE)
+            PciDevice.setData(self, 0x5, data & 1, dataSize)
+        if (0x7 >= mmAddress and 0x7 < (mmAddress+dataSize)):
+            data = PciDevice.getData(self, 0x7, OP_SIZE_BYTE)
+            PciDevice.setData(self, 0x7, (oldData & (~(data & 0x78))) | 2, dataSize)
+        if (0x4e >= mmAddress and 0x4e < (mmAddress+dataSize)):
+            data = PciDevice.getData(self, 0x4e, OP_SIZE_BYTE)
+            if ((data & 0x4) != (oldData & 0x4)):
+                pass
+                #DEV_mem_set_bios_write((value8 & 0x04) != 0);
+        if (0x4f >= mmAddress and 0x4f < (mmAddress+dataSize)):
+            data = PciDevice.getData(self, 0x4f, OP_SIZE_BYTE)
+            PciDevice.setData(self, 0x4f, data & 1, dataSize)
+        if (0x60 >= mmAddress and 0x60 < (mmAddress+dataSize)):
+            data &= 0x8f
+            if (data != oldData):
+                if (data >= 0x80):
+                    self.pciUnregisterIrq(0, data)
+                else:
+                    self.pciRegisterIrq(0, data)
+        if (0x61 >= mmAddress and 0x61 < (mmAddress+dataSize)):
+            data &= 0x8f
+            if (data != oldData):
+                if (data >= 0x80):
+                    self.pciUnregisterIrq(1, data)
+                else:
+                    self.pciRegisterIrq(1, data)
+        if (0x62 >= mmAddress and 0x62 < (mmAddress+dataSize)):
+            data &= 0x8f
+            if (data != oldData):
+                if (data >= 0x80):
+                    self.pciUnregisterIrq(2, data)
+                else:
+                    self.pciRegisterIrq(2, data)
+        if (0x63 >= mmAddress and 0x63 < (mmAddress+dataSize)):
+            data &= 0x8f
+            if (data != oldData):
+                if (data >= 0x80):
+                    self.pciUnregisterIrq(3, data)
+                else:
+                    self.pciRegisterIrq(3, data)
+        if (0x6a >= mmAddress and 0x6a < (mmAddress+dataSize)):
+            data = PciDevice.getData(self, 0x6a, OP_SIZE_BYTE)
+            PciDevice.setData(self, 0x6a, data & 0xd7, dataSize)
+        if (0x80 >= mmAddress and 0x80 < (mmAddress+dataSize)):
+            data = PciDevice.getData(self, 0x80, OP_SIZE_BYTE)
+            PciDevice.setData(self, 0x80, data & 0x7f, dataSize)
+    cdef void run(self):
+        PciDevice.run(self)
+
 cdef class PciBus:
     def __init__(self, Pci pci, uint8_t busIndex):
         self.pci = pci
         self.busIndex = busIndex
         self.deviceList = [PciBridge(self, self.pci, 0)]
+        #self.deviceList = [PciBridge(self, self.pci, 0), Pci2Isa(self, self.pci, 1)]
     cdef PciDevice addDevice(self):
         cdef PciDevice pciDevice
         cdef uint8_t deviceLength = len(self.deviceList)

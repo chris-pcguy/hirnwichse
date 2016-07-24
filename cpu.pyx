@@ -219,16 +219,16 @@ cdef class Cpu:
         self.resetPrefixes()
         self.saveCurrentInstPointer()
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
-        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
+        if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>8))):
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>16))):
-        #temptime = ttime(NULL)*100
-        #if (temptime - self.lasttime >= 20):
-        temptime = ttime(NULL)
-        if (temptime - self.lasttime >= 1):
-            if (self.main.platform.vga and self.main.platform.vga.ui):
-                self.main.platform.vga.ui.handleEventsWithoutWaiting()
-            self.lasttime = temptime
+            #temptime = ttime(NULL)*100
+            #if (temptime - self.lasttime >= 20):
+            temptime = ttime(NULL)
+            if (temptime - self.lasttime >= 1):
+                if (self.main.platform.vga and self.main.platform.vga.ui):
+                    self.main.platform.vga.ui.handleEventsWithoutWaiting()
+                self.lasttime = temptime
         try:
             #if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
             #    self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")

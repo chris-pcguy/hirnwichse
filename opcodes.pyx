@@ -1979,18 +1979,11 @@ cdef class Opcodes:
             elif (operOpcode == 0x30 and eaxId == 0x10):
                 self.cpu.cycles = self.registers.regReadUnsignedDword(CPU_REGISTER_EAX)
                 self.cpu.cycles = self.cpu.cycles|(<uint64_t>self.registers.regReadUnsignedDword(CPU_REGISTER_EDX)<<32)
-            elif (eaxId == 0x1b): # apic base
-                if (operOpcode == 0x32):
-                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0)
-                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0)
-            elif (eaxId == 0x2a): # power on configuration bits
-                if (operOpcode == 0x32):
-                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0)
-                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0)
-            elif (eaxId == 0x8b): # no microcode loaded or rather supported.
-                if (operOpcode == 0x32):
-                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0)
-                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0)
+            elif (operOpcode == 0x32 and eaxId in (0x1b, 0x2a, 0x8b)): # apic base, power on configuration bits, no microcode loaded or rather supported.
+                self.registers.regWriteDword(CPU_REGISTER_EAX, 0)
+                self.registers.regWriteDword(CPU_REGISTER_EDX, 0)
+            elif (operOpcode == 0x30 and eaxId in (0x1b, 0x2a, 0x8b)): # apic base, power on configuration bits, no microcode loaded or rather supported.
+                pass
             else:
                 with gil:
                     self.main.notice("Opcodes::group0F: MSR: Unimplemented! (operOpcode=={0:#04x}; ECX=={1:#010x})", operOpcode, eaxId)
@@ -3272,8 +3265,8 @@ cdef class Opcodes:
         cdef uint8_t imm8, tempAL, tempAH
         imm8 = self.registers.getCurrentOpcodeAddUnsignedByte()
         tempAL = self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL)
-        tempAH = self.registers.regReadUnsignedHighByte(CPU_REGISTER_AH)
-        tempAL = self.registers.regWriteWord(CPU_REGISTER_AX, <uint8_t>(tempAL + (tempAH * imm8)))
+        tempAH = self.registers.regReadUnsignedHighByte(CPU_REGISTER_AH)*imm8
+        tempAL = self.registers.regWriteWord(CPU_REGISTER_AX, <uint8_t>(tempAL + tempAH))
         self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
         return True
     cdef int aam(self) nogil except BITMASK_BYTE_CONST:

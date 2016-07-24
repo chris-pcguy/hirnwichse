@@ -8,6 +8,8 @@ from argparse import ArgumentParser
 from atexit import register
 from traceback import print_exc
 
+cdef extern from "Python.h":
+    bytes PyBytes_FromStringAndSize(char *, Py_ssize_t)
 
 
 cdef class Hirnwichse:
@@ -62,6 +64,10 @@ cdef class Hirnwichse:
         #self.debugEnabled = False
     cpdef quitFunc(self):
         self.quitEmu = True
+        fp=open("mmdump_1","wb")
+        fp.write(PyBytes_FromStringAndSize( self.mm.mmGetDataPointer(0), <Py_ssize_t>4*1024))
+        fp.flush()
+        fp.close()
     def exitError(self, str msg, *msgArgs): # this needs to be 'def'
         print("ERROR: " + msg.format(*msgArgs))
         stdout.flush()

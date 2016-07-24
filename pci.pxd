@@ -31,6 +31,16 @@ cdef class PciDevice:
 
 cdef class PciBridge(PciDevice):
     cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil
+    cdef void run(self)
+
+cdef class Pci2Isa(PciDevice):
+    cdef uint8_t irqRegistry[16]
+    cdef uint8_t irqLevel[4][16]
+    cdef void reset(self)
+    cdef void pciRegisterIrq(self, uint8_t pirq, uint8_t irq) nogil
+    cdef void pciUnregisterIrq(self, uint8_t pirq, uint8_t irq) nogil
+    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil
+    cdef void run(self)
 
 cdef class PciBus:
     cdef Pci pci
