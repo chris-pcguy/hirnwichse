@@ -107,7 +107,7 @@ cdef class Opcodes:
     cdef int retNearImm(self) nogil except BITMASK_BYTE_CONST
     cdef int retFar(self, uint16_t imm) nogil except BITMASK_BYTE_CONST
     cdef int retFarImm(self) nogil except BITMASK_BYTE_CONST
-    cdef int lfpFunc(self, uint16_t segId) nogil except BITMASK_BYTE_CONST # 'load far pointer' function
+    cdef int lfpFunc(self, Segment *segment) nogil except BITMASK_BYTE_CONST # 'load far pointer' function
     cdef int xlatb(self) nogil except BITMASK_BYTE_CONST
     cdef int opcodeGroup2_RM(self, uint8_t operSize) nogil except BITMASK_BYTE_CONST
     cdef int interrupt(self, int16_t intNum=?, int32_t errorCode=?) except BITMASK_BYTE_CONST # TODO: complete this!

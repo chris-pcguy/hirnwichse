@@ -508,14 +508,15 @@ cdef class Registers:
         return True
     cdef uint8_t getCurrentOpcodeUnsignedByte(self) nogil except? BITMASK_BYTE_CONST:
         cdef uint8_t ret
-        cdef uint32_t physAddr
+        IF (CPU_CACHE_SIZE):
+            cdef uint32_t physAddr
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
-        physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
             if (self.cacheDisabled):
                 ret = self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
             else:
                 self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE, &self.segments.cs, False, False, True)
+                physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
                 if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_BYTE):
                     self.reloadCpuCache()
                 ret = <uint8_t>self.readFromCacheUnsigned(OP_SIZE_BYTE)
@@ -528,14 +529,15 @@ cdef class Registers:
         return ret
     cdef int64_t getCurrentOpcodeAddSigned(self, uint8_t numBytes) nogil except? BITMASK_BYTE_CONST:
         cdef int64_t ret
-        cdef uint32_t physAddr
+        IF (CPU_CACHE_SIZE):
+            cdef uint32_t physAddr
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
-        physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
             if (self.cacheDisabled):
                 ret = self.mmReadValueSigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
             else:
                 self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False, False, True)
+                physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
                 if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < numBytes):
                     self.reloadCpuCache()
                 ret = self.readFromCacheAddSigned(numBytes)
@@ -549,14 +551,15 @@ cdef class Registers:
         return ret
     cdef uint8_t getCurrentOpcodeAddUnsignedByte(self) nogil except? BITMASK_BYTE_CONST:
         cdef uint8_t ret
-        cdef uint32_t physAddr
+        IF (CPU_CACHE_SIZE):
+            cdef uint32_t physAddr
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
-        physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
             if (self.cacheDisabled):
                 ret = self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
             else:
                 self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE, &self.segments.cs, False, False, True)
+                physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
                 if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_BYTE):
                     self.reloadCpuCache()
                 ret = <uint8_t>self.readFromCacheAddUnsigned(OP_SIZE_BYTE)
@@ -570,14 +573,15 @@ cdef class Registers:
         return ret
     cdef uint16_t getCurrentOpcodeAddUnsignedWord(self) nogil except? BITMASK_BYTE_CONST:
         cdef uint16_t ret
-        cdef uint32_t physAddr
+        IF (CPU_CACHE_SIZE):
+            cdef uint32_t physAddr
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
-        physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
             if (self.cacheDisabled):
                 ret = self.mmReadValueUnsignedWord(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
             else:
                 self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_WORD, &self.segments.cs, False, False, True)
+                physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
                 if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_WORD):
                     self.reloadCpuCache()
                 ret = <uint16_t>self.readFromCacheAddUnsigned(OP_SIZE_WORD)
@@ -591,14 +595,15 @@ cdef class Registers:
         return ret
     cdef uint32_t getCurrentOpcodeAddUnsignedDword(self) nogil except? BITMASK_BYTE_CONST:
         cdef uint32_t ret
-        cdef uint32_t physAddr
+        IF (CPU_CACHE_SIZE):
+            cdef uint32_t physAddr
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
-        physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
             if (self.cacheDisabled):
                 ret = self.mmReadValueUnsignedDword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
             else:
                 self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_DWORD, &self.segments.cs, False, False, True)
+                physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
                 if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_DWORD):
                     self.reloadCpuCache()
                 ret = <uint32_t>self.readFromCacheAddUnsigned(OP_SIZE_DWORD)
@@ -612,14 +617,15 @@ cdef class Registers:
         return ret
     cdef uint64_t getCurrentOpcodeAddUnsignedQword(self) nogil except? BITMASK_BYTE_CONST:
         cdef uint64_t ret
-        cdef uint32_t physAddr
+        IF (CPU_CACHE_SIZE):
+            cdef uint32_t physAddr
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
-        physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
             if (self.cacheDisabled):
                 ret = self.mmReadValueUnsignedQword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
             else:
                 self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_QWORD, &self.segments.cs, False, False, True)
+                physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
                 if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_QWORD):
                     self.reloadCpuCache()
                 ret = self.readFromCacheAddUnsigned(OP_SIZE_QWORD)
@@ -633,14 +639,15 @@ cdef class Registers:
         return ret
     cdef uint64_t getCurrentOpcodeAddUnsigned(self, uint8_t numBytes) nogil except? BITMASK_BYTE_CONST:
         cdef uint64_t ret
-        cdef uint32_t physAddr
+        IF (CPU_CACHE_SIZE):
+            cdef uint32_t physAddr
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
-        physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
         IF (CPU_CACHE_SIZE):
             if (self.cacheDisabled):
                 ret = self.mmReadValueUnsigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
             else:
                 self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False, False, True)
+                physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
                 if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < numBytes):
                     self.reloadCpuCache()
                 ret = self.readFromCacheAddUnsigned(numBytes)
@@ -670,7 +677,7 @@ cdef class Registers:
             segment = &self.segments.tss
         else:
             with gil:
-                self.main.exitError("Segments::getSegment_1: segId {0:d} doesn't exist.", segId)
+                self.main.exitError("Segments::segWrite: segId {0:d} doesn't exist.", segId)
             return False
         return self.segWriteSegment(segment, segValue)
     cdef uint8_t segWriteSegment(self, Segment *segment, uint16_t segValue) nogil except BITMASK_BYTE_CONST:

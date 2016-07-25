@@ -249,7 +249,9 @@ cdef class Paging: # TODO
                     self.tlbDirectories.csWriteValue(i, pageDirectoryEntry, OP_SIZE_DWORD)
                     self.tlbTables.csWriteValue(((i>>2)<<12)|j, pageTableEntry, OP_SIZE_DWORD)
     cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) nogil except BITMASK_BYTE_CONST:
-        cdef uint32_t errorFlags, pageDirectoryEntryMem, pageTableEntryMem
+        cdef uint32_t errorFlags
+        IF COMP_DEBUG:
+            cdef uint32_t pageDirectoryEntryMem, pageTableEntryMem
         if (not self.segments.registers.ignoreExceptions):
             self.invalidatePage(virtualAddress)
             if (self.pageDirectoryEntry & PAGE_SIZE):

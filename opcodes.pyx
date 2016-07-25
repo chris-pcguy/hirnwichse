@@ -327,9 +327,9 @@ cdef class Opcodes:
         elif (opcode == 0xc3):
             retVal = self.retNear(0)
         elif (opcode == 0xc4):
-            retVal = self.lfpFunc(CPU_SEGMENT_ES) # LES
+            retVal = self.lfpFunc(&self.registers.segments.es) # LES
         elif (opcode == 0xc5):
-            retVal = self.lfpFunc(CPU_SEGMENT_DS) # LDS
+            retVal = self.lfpFunc(&self.registers.segments.ds) # LDS
         elif (opcode == 0xc6):
             retVal = self.opcodeGroup3_RM_ImmFunc(OP_SIZE_BYTE)
         elif (opcode == 0xc7):
@@ -1836,8 +1836,7 @@ cdef class Opcodes:
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
                 IF COMP_DEBUG:
                     with gil:
-                        self.main.notice("Opcodes::opcodeGroup0F: LSL: test2!")
-                        self.main.notice("Opcodes::opcodeGroup0F: LSL: test2.1! (c1=={0:d}; c2=={1:d}; c3=={2:d}; c4=={3:d}; c5=={4:#04x})", not gdtEntry.segIsConforming, (cpl > gdtEntry.segDPL), ((op2&3) > gdtEntry.segDPL), (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)), segType)
+                        self.main.notice("Opcodes::opcodeGroup0F: LSL: test2! (c1=={0:d}; c2=={1:d}; c3=={2:d}; c4=={3:d}; c5=={4:#04x})", not gdtEntry.segIsConforming, (cpl > gdtEntry.segDPL), ((op2&3) > gdtEntry.segDPL), (segType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS_BUSY, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)), segType)
                 return True  
             op1 = gdtEntry.limit
             if ((gdtEntry.flags & GDT_FLAG_USE_4K)):
@@ -2209,13 +2208,13 @@ cdef class Opcodes:
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
                 self.registers.regWrite(CPU_REGISTER_AX, op1, byteSize)
         elif (operOpcode == 0xb2): # LSS
-            self.lfpFunc(CPU_SEGMENT_SS)
+            self.lfpFunc(&self.registers.segments.ss)
         elif (operOpcode == 0xb3): # BTR RM16/32, R16/32
             self.btFunc(BT_RESET)
         elif (operOpcode == 0xb4): # LFS
-            self.lfpFunc(CPU_SEGMENT_FS)
+            self.lfpFunc(&self.registers.segments.fs)
         elif (operOpcode == 0xb5): # LGS
-            self.lfpFunc(CPU_SEGMENT_GS)
+            self.lfpFunc(&self.registers.segments.gs)
         elif (operOpcode == 0xb8): # POPCNT R16/32 RM16/32
             IF COMP_DEBUG:
                 with gil:
@@ -2629,7 +2628,7 @@ cdef class Opcodes:
         cdef uint16_t imm
         imm = self.registers.getCurrentOpcodeAddUnsignedWord() # imm16
         return self.retFar(imm)
-    cdef int lfpFunc(self, uint16_t segId) nogil except BITMASK_BYTE_CONST: # 'load far pointer' function
+    cdef int lfpFunc(self, Segment *segment) nogil except BITMASK_BYTE_CONST: # 'load far pointer' function
         cdef uint16_t segmentAddr
         cdef uint32_t mmAddr, offsetAddr
         self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
@@ -2641,8 +2640,8 @@ cdef class Opcodes:
         segmentAddr = self.registers.mmReadValueUnsignedWord(mmAddr+self.cpu.operSize, self.modRMInstance.rmNameSeg, True)
         with gil:
             if (self.main.debugEnabled):
-                self.main.notice("lfpFunc: test_1 (segId: {0:d}; segmentAddr: {1:#06x}; mmAddr: {2:#010x}; rmNameSeg.segId: {3:d}; operSize: {4:d}; addrSize: {5:d})", segId, segmentAddr, mmAddr, self.modRMInstance.rmNameSeg[0].segId, self.cpu.operSize, self.cpu.addrSize)
-        self.registers.segWrite(segId, segmentAddr)
+                self.main.notice("lfpFunc: test_1 (segId: {0:d}; segmentAddr: {1:#06x}; mmAddr: {2:#010x}; rmNameSeg.segId: {3:d}; operSize: {4:d}; addrSize: {5:d})", segment[0].segId, segmentAddr, mmAddr, self.modRMInstance.rmNameSeg[0].segId, self.cpu.operSize, self.cpu.addrSize)
+        self.registers.segWriteSegment(segment, segmentAddr)
         self.modRMInstance.modRSave(self.cpu.operSize, offsetAddr, OPCODE_SAVE)
         return True
     cdef int xlatb(self) nogil except BITMASK_BYTE_CONST:

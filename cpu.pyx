@@ -54,7 +54,6 @@ cdef class Cpu:
                 self.main.notice("CPU::exception: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
             else:
                 self.main.notice("CPU::exception: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", exceptionId, self.opcode, self.savedEip, self.savedCs)
-        IF COMP_DEBUG:
             self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", exceptionId, errorCode)
             self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP and exceptionId != CPU_EXCEPTION_DB):
@@ -115,8 +114,7 @@ cdef class Cpu:
             self.main.exitError('ERROR: exceptionId not a int; type is {0:s}', type(exception.args[0]))
             return True
         exceptionId = exception.args[0]
-        self.exception(exceptionId, errorCode)
-        return True
+        return self.exception(exceptionId, errorCode)
     cdef uint8_t parsePrefixes(self, uint8_t opcode) nogil except? BITMASK_BYTE_CONST:
         cdef uint8_t count
         count = 0
@@ -219,7 +217,8 @@ cdef class Cpu:
         self.resetPrefixes()
         self.saveCurrentInstPointer()
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
-        if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
+        if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>5))):
+        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>8))):
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>16))):
             #temptime = ttime(NULL)*100
@@ -331,8 +330,7 @@ cdef class Cpu:
                 self.handleException(exception) # execute exception handler
             except HirnwichseException as exception: # exception
                 IF COMP_DEBUG:
-                    self.main.notice("Cpu::doCycle: testexc2")
-                    self.main.notice("Cpu::doCycle: testexc2.1; repr=={0:s}", repr(exception.args))
+                    self.main.notice("Cpu::doCycle: testexc2; repr=={0:s}", repr(exception.args))
                 try:
                     self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
                 except HirnwichseException as exception: # exception

@@ -322,8 +322,8 @@ cdef class AtaController:
         IF COMP_DEBUG:
             with gil:
                 self.ata.main.notice("AtaController::setSignature: cylinder: {0:#06x}", self.cylinder)
-    cdef void reset(self, uint8_t swReset):
-        cdef AtaDrive drive
+    cdef void reset(self, uint8_t swReset) nogil:
+        #cdef AtaDrive drive
         self.drq = self.err = self.useLBA = self.useLBA48 = self.HOB = False
         self.seekComplete = self.irqEnabled = True
         self.cmd = self.features = self.mdmaMode = self.udmaMode = 0
@@ -754,19 +754,17 @@ cdef class AtaController:
                 with gil:
                     if (len(self.data) >= (<AtaDrive>self.drive[self.driveId]).sectorSize):
                         (<AtaDrive>self.drive[self.driveId]).writeSectors(self.lba, 1, self.data)
-                        with gil:
-                            self.data = self.data[(<AtaDrive>self.drive[self.driveId]).sectorSize:]
+                        self.data = self.data[(<AtaDrive>self.drive[self.driveId]).sectorSize:]
                         self.lba += 1 # TODO
                         self.sectorCount -= 1
                         self.LbaToCHS()
                         self.drq = self.sectorCount != 0
                         self.raiseAtaIrq(False, True)
             elif (self.cmd == COMMAND_PACKET):
-                IF COMP_DEBUG:
-                    if (self.ata.main.debugEnabled):
-                        with gil:
-                            self.ata.main.notice("AtaController::outPort_0: len(self.data) == {0:d}, self.data == {1:s}", len(self.data), repr(self.data))
                 with gil:
+                    IF COMP_DEBUG:
+                        if (self.ata.main.debugEnabled):
+                            self.ata.main.notice("AtaController::outPort_0: len(self.data) == {0:d}, self.data == {1:s}", len(self.data), repr(self.data))
                     if (len(self.data) >= 12):
                         self.handlePacket()
                     else:
@@ -1073,8 +1071,7 @@ cdef class AtaController:
                         with gil:
                             self.ata.main.notice("AtaController::outPort: test2: prevReset=={0:d}; doReset=={1:d}; resetInProgress=={2:d}; irqEnabled=={3:d}; HOB=={4:d}", prevReset, self.doReset, self.resetInProgress, self.irqEnabled, self.HOB)
                 if (not prevReset and self.doReset):
-                    with gil:
-                        self.reset(True)
+                    self.reset(True)
                 elif (self.resetInProgress and not self.doReset):
                     self.driveBusy = self.resetInProgress = False
                     self.driveReady = True
@@ -1098,8 +1095,14 @@ cdef class AtaController:
 
 cdef class Ata:
     def __init__(self, Hirnwichse main):
+        cdef AtaController controller0, controller1
         self.main = main
-        self.controller = (AtaController(self, 0), AtaController(self, 1))
+        controller0 = AtaController(self, 0)
+        self.controller[0] = <PyObject*>controller0
+        controller1 = AtaController(self, 1)
+        self.controller[1] = <PyObject*>controller1
+        #self.controller[2] = NULL
+        #self.controller[3] = NULL
         self.pciDevice = (<Pci>self.main.platform.pci).addDevice()
         self.pciDevice.setVendorDeviceId(PCI_VENDOR_ID_INTEL, 0x7010)
         self.pciDevice.setDeviceClass(PCI_CLASS_PATA)
@@ -1122,10 +1125,19 @@ cdef class Ata:
         #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_4, 0xc001, OP_SIZE_DWORD)
         self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_4, 0x1, OP_SIZE_DWORD)
         self.base4Addr = 0x0
-    cdef void reset(self):
-        cdef AtaController controller
-        for controller in self.controller:
-            controller.reset(False)
+        Py_INCREF(controller0)
+        Py_INCREF(controller1)
+        #Py_INCREF(controller2)
+        #Py_INCREF(controller3)
+    cdef void reset(self) nogil:
+        if (self.controller[0]):
+            (<AtaController>self.controller[0]).reset(False)
+        if (self.controller[1]):
+            (<AtaController>self.controller[1]).reset(False)
+        #if (self.controller[2]):
+        #    (<AtaController>self.controller[2]).reset(False)
+        #if (self.controller[3]):
+        #    (<AtaController>self.controller[3]).reset(False)
     cdef uint8_t isBusmaster(self, uint16_t ioPortAddr) nogil:
         cdef uint32_t temp
         #temp = self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
@@ -1178,27 +1190,26 @@ cdef class Ata:
                     #self.main.debug("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
                     self.main.notice("Ata::inPort3: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#010x}", ioPortAddr, dataSize, ret)
             return ret
-        with gil:
-            if (isBusmaster):
-                if (not ((ioPortAddr-(self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD) & 0xfffc)) & 0x8)):
-                    ret = (<AtaController>self.controller[0]).inPort(ioPortAddr, dataSize)
-                else:
-                    ret = (<AtaController>self.controller[1]).inPort(ioPortAddr, dataSize)
-            elif (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
-                ret = (<AtaController>self.controller[0]).inPort(ioPortAddr-ATA1_BASE, dataSize)
-            elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
-                ret = (<AtaController>self.controller[1]).inPort(ioPortAddr-ATA2_BASE, dataSize)
-            #elif (ioPortAddr in ATA3_PORTS and len(self.controller) >= 3 and self.controller[2]):
-            #    ret = (<AtaController>self.controller[2]).inPort(ioPortAddr-ATA3_BASE, dataSize)
-            #elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
-            #    ret = (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
-            #if (self.main.debugEnabled):
-            #IF 1:
-            IF COMP_DEBUG:
-                if (ioPortAddr&0xf or isBusmaster or self.main.debugEnabled):
-                    with gil:
-                        #self.main.debug("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
-                        self.main.notice("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
+        if (isBusmaster):
+            if (not ((ioPortAddr-(self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD) & 0xfffc)) & 0x8)):
+                ret = (<AtaController>self.controller[0]).inPort(ioPortAddr, dataSize)
+            else:
+                ret = (<AtaController>self.controller[1]).inPort(ioPortAddr, dataSize)
+        elif (ioPortAddr in ATA1_PORTS and self.controller[0]):
+            ret = (<AtaController>self.controller[0]).inPort(ioPortAddr-ATA1_BASE, dataSize)
+        elif (ioPortAddr in ATA2_PORTS and self.controller[1]):
+            ret = (<AtaController>self.controller[1]).inPort(ioPortAddr-ATA2_BASE, dataSize)
+        #elif (ioPortAddr in ATA3_PORTS and self.controller[2]):
+        #    ret = (<AtaController>self.controller[2]).inPort(ioPortAddr-ATA3_BASE, dataSize)
+        #elif (ioPortAddr in ATA4_PORTS and self.controller[3]):
+        #    ret = (<AtaController>self.controller[3]).inPort(ioPortAddr-ATA4_BASE, dataSize)
+        #if (self.main.debugEnabled):
+        #IF 1:
+        IF COMP_DEBUG:
+            if (ioPortAddr&0xf or isBusmaster or self.main.debugEnabled):
+                with gil:
+                    #self.main.debug("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
+                    self.main.notice("Ata::inPort4: ioPortAddr: {0:#06x}; dataSize: {1:d}; ret: {2:#04x}", ioPortAddr, dataSize, ret)
         return ret
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         cdef uint8_t isBusmaster = 0
@@ -1229,25 +1240,28 @@ cdef class Ata:
             self.outPort(ioPortAddr, <uint16_t>data, OP_SIZE_WORD)
             self.outPort(ioPortAddr, <uint16_t>(data >> 16), OP_SIZE_WORD)
             return
-        with gil:
-            if (isBusmaster):
-                if (not ((ioPortAddr-(self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD) & 0xfffc)) & 0x8)):
-                    (<AtaController>self.controller[0]).outPort(ioPortAddr, data, dataSize)
-                else:
-                    (<AtaController>self.controller[1]).outPort(ioPortAddr, data, dataSize)
-            elif (ioPortAddr in ATA1_PORTS and len(self.controller) >= 1 and self.controller[0]):
-                (<AtaController>self.controller[0]).outPort(ioPortAddr-ATA1_BASE, data, dataSize)
-            elif (ioPortAddr in ATA2_PORTS and len(self.controller) >= 2 and self.controller[1]):
-                (<AtaController>self.controller[1]).outPort(ioPortAddr-ATA2_BASE, data, dataSize)
-            #elif (ioPortAddr in ATA3_PORTS and len(self.controller) >= 3 and self.controller[2]):
-            #    (<AtaController>self.controller[2]).outPort(ioPortAddr-ATA3_BASE, data, dataSize)
-            #elif (ioPortAddr in ATA4_PORTS and len(self.controller) >= 4 and self.controller[3]):
-            #    (<AtaController>self.controller[3]).outPort(ioPortAddr-ATA4_BASE, data, dataSize)
+        if (isBusmaster):
+            if (not ((ioPortAddr-(self.pciDevice.getData(PCI_BASE_ADDRESS_4, OP_SIZE_DWORD) & 0xfffc)) & 0x8)):
+                (<AtaController>self.controller[0]).outPort(ioPortAddr, data, dataSize)
+            else:
+                (<AtaController>self.controller[1]).outPort(ioPortAddr, data, dataSize)
+        elif (ioPortAddr in ATA1_PORTS and self.controller[0]):
+            (<AtaController>self.controller[0]).outPort(ioPortAddr-ATA1_BASE, data, dataSize)
+        elif (ioPortAddr in ATA2_PORTS and self.controller[1]):
+            (<AtaController>self.controller[1]).outPort(ioPortAddr-ATA2_BASE, data, dataSize)
+        #elif (ioPortAddr in ATA3_PORTS and self.controller[2]):
+        #    (<AtaController>self.controller[2]).outPort(ioPortAddr-ATA3_BASE, data, dataSize)
+        #elif (ioPortAddr in ATA4_PORTS and self.controller[3]):
+        #    (<AtaController>self.controller[3]).outPort(ioPortAddr-ATA4_BASE, data, dataSize)
     cdef void run(self):
-        cdef AtaController controller
-        #self.reset()
-        for controller in self.controller:
-            controller.reset(False)
-            controller.run()
+        self.reset()
+        if (self.controller[0]):
+            (<AtaController>self.controller[0]).run()
+        if (self.controller[1]):
+            (<AtaController>self.controller[1]).run()
+        #if (self.controller[2]):
+        #    (<AtaController>self.controller[2]).run()
+        #if (self.controller[3]):
+        #    (<AtaController>self.controller[3]).run()
 
 
