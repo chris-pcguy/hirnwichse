@@ -192,7 +192,7 @@ cdef class GDBStubHandler:
                 if (currRegNum == CPU_REGISTER_EFLAGS):
                     regVal = (<Registers>self.gdbStub.main.cpu.registers).readFlags()
                 else:
-                    regVal = (<Registers>self.gdbStub.main.cpu.registers).regReadUnsignedDword(currRegNum)
+                    regVal = (<Registers>self.gdbStub.main.cpu.registers).regs[currRegNum]._union.dword.erx
                 currData = regVal.to_bytes(OP_SIZE_DWORD, 'little')
                 hexToSend += self.bytesToHex(currData)
                 currRegNum += 1

@@ -16,6 +16,8 @@ RS232(?)
 
 PCI: Save busmaster base address instead of fetching it each time
 
+timing issues, which are resulting into some heavy bugs.
+
 Somewhen in a few centuries:
 ACPI (win2k, ...)
 AMD64

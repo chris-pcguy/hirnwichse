@@ -318,9 +318,9 @@ cdef class Vga:
         #self.main.notice("setStartAddress: startAddress=={0:#06x}", self.startAddress)
         if (not self.graphicalMode):
             self.startAddress <<= 1
-        #if (temp != self.startAddress):
-        #    #self.refreshScreenFunction()
-        #    self.refreshScreen = True
+        if (temp != self.startAddress):
+            #self.refreshScreenFunction()
+            self.refreshScreen = True
     cdef uint32_t getColor(self, uint16_t color) nogil: # RGBA
         cdef uint8_t red, green, blue
         if (not self.enable8Bit):

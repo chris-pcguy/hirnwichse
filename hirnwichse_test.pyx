@@ -23,9 +23,9 @@ cdef class HirnwichseTest:
                     #pass
                     #a = self.configSpace.csReadValueUnsigned(0, TEST_SIZE)
                     self.main.cpu.saveCurrentInstPointer()
-                    #a = self.main.cpu.registers.segRead(CPU_SEGMENT_CS)
+                    #a = self.main.cpu.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx
                     #a = self.main.cpu.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
-                    #a = self.main.cpu.registers.segRead(CPU_SEGMENT_SS)
+                    #a = self.main.cpu.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
                     #a = self.main.cpu.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
                 timediff1 = time()-time1
                 print("timediff1: {0:f}".format(timediff1))

@@ -49,7 +49,7 @@ cdef class Mm:
             self.main.exitError('Mm::quitFunc: exception, exiting...')
     cdef void mmClear(self, uint32_t offset, uint8_t clearByte, uint32_t dataSize) nogil:
         with nogil:
-            memset(<char*>(self.data+offset), clearByte, dataSize)
+            memset(self.data+offset, clearByte, dataSize)
     cdef char *mmPhyRead(self, uint32_t mmAddr, uint32_t dataSize) nogil:
         cdef uint32_t tempDataOffset = 0, tempOffset, tempSize
         if (dataSize >= SIZE_1MB): # TODO: size
@@ -158,7 +158,7 @@ cdef class Mm:
             if (mmAddr < VGA_MEMAREA_ADDR):
                 tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
                 with nogil:
-                    memcpy(<char*>(self.data+mmAddr), data, tempSize)
+                    memcpy(self.data+mmAddr, data, tempSize)
                 if (dataSize <= tempSize):
                     return True
                 dataSize -= tempSize
@@ -167,7 +167,7 @@ cdef class Mm:
             if (dataSize > 0 and mmAddr >= VGA_MEMAREA_ADDR and mmAddr < VGA_ROM_BASE):
                 tempSize = min(dataSize, VGA_ROM_BASE-mmAddr)
                 with nogil:
-                    memcpy(<char*>(self.data+mmAddr), data, tempSize)
+                    memcpy(self.data+mmAddr, data, tempSize)
                 self.main.platform.vga.vgaAreaWrite(mmAddr, tempSize)
                 if (dataSize <= tempSize):
                     return True
@@ -178,7 +178,7 @@ cdef class Mm:
                 tempSize = min(dataSize, SIZE_1MB-mmAddr)
                 if (not self.ignoreRomWrite):
                     with nogil:
-                        memcpy(<char*>(self.data+mmAddr), data, tempSize)
+                        memcpy(self.data+mmAddr, data, tempSize)
                 if (dataSize <= tempSize):
                     return True
                 dataSize -= tempSize
@@ -187,7 +187,7 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= SIZE_1MB and mmAddr < self.memSizeBytes):
             tempSize = min(dataSize, self.memSizeBytes-mmAddr)
             with nogil:
-                memcpy(<char*>(self.data+mmAddr), data, tempSize)
+                memcpy(self.data+mmAddr, data, tempSize)
             if (dataSize <= tempSize):
                 return True
             dataSize -= tempSize
@@ -205,7 +205,7 @@ cdef class Mm:
             tempOffset = mmAddr-PCI_MEM_BASE
             tempSize = min(dataSize, PCI_MEM_BASE_PLUS_LIMIT-mmAddr)
             with nogil:
-                memcpy(<char*>(self.pciData+tempOffset), data, tempSize)
+                memcpy(self.pciData+tempOffset, data, tempSize)
             if (dataSize <= tempSize):
                 return True
             dataSize -= tempSize
@@ -224,7 +224,7 @@ cdef class Mm:
                 tempOffset = mmAddr-LAST_MEMAREA_BASE_ADDR
                 tempSize = min(dataSize, SIZE_4GB-mmAddr)
                 with nogil:
-                    memcpy(<char*>(self.romData+tempOffset), data, tempSize)
+                    memcpy(self.romData+tempOffset, data, tempSize)
         return True
     cdef uint8_t mmPhyWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize) nogil except BITMASK_BYTE_CONST:
         cdef char *temp
@@ -265,26 +265,40 @@ cdef class ConfigSpace:
             memset(self.csData, clearByte, self.csSize)
     cdef void csResetAddr(self, uint32_t offset, uint8_t clearByte, uint8_t size) nogil:
         with nogil:
-            memset(<char*>(self.csData+offset), clearByte, size)
+            memset(self.csData+offset, clearByte, size)
     cdef bytes csRead(self, uint32_t offset, uint32_t size):
         cdef bytes data
         cdef uint32_t tempSize
         tempSize = min(size, self.csSize-offset)
+        if (offset >= self.csSize):
+            #if (self.main.debugEnabled):
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("ConfigSpace::csRead: offset >= self.csSize. (offset: {0:#06x}, tempSize: {1:d}, size: {2:d}, self.csSize: {3:#06x})", offset, tempSize, size, self.csSize)
         data = self.csData[offset:offset+tempSize]
         size -= tempSize
         if (size > 0):
-            if (self.main.debugEnabled):
-                self.main.debug("ConfigSpace::csRead: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
+            #if (self.main.debugEnabled):
+            IF COMP_DEBUG:
+                self.main.notice("ConfigSpace::csRead: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
             data += bytes([self.clearByte])*size
         return data
     cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil:
         cdef uint32_t tempSize
         tempSize = min(size, self.csSize-offset)
+        if (offset >= self.csSize):
+            #if (self.main.debugEnabled):
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("ConfigSpace::csWrite: offset >= self.csSize. (offset: {0:#06x}, tempSize: {1:d}, size: {2:d}, self.csSize: {3:#06x})", offset, tempSize, size, self.csSize)
         with nogil:
-            memcpy(<char*>(self.csData+offset), <char*>data, tempSize)
+            memcpy(self.csData+offset, data, tempSize)
         size -= tempSize
-        #if (size > 0 and self.main.debugEnabled):
-        #    self.main.debug("ConfigSpace::csWrite: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
+        if (size > 0):
+            #if (self.main.debugEnabled):
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("ConfigSpace::csWrite: offset+size > self.csSize. (offset: {0:#06x}, size: {1:d})", offset, size)
     cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil except? BITMASK_BYTE_CONST:
         cdef uint64_t ret
         #if (self.main.debugEnabled):
@@ -310,7 +324,6 @@ cdef class ConfigSpace:
             ret = <int32_t>ret
         return ret
     cdef uint64_t csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) nogil except? BITMASK_BYTE_CONST:
-        cdef char *temp
         if (size == OP_SIZE_BYTE):
             data = <uint8_t>data
         elif (size == OP_SIZE_WORD):
@@ -322,8 +335,7 @@ cdef class ConfigSpace:
         #    return data
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csWriteValue: test1. (offset: {0:#06x}, data: {1:#04x}, size: {2:d})", offset, data, size)
-        temp = <char*>&data
-        self.csWrite(offset, temp, size)
+        self.csWrite(offset, <char*>&data, size)
         return data
 
 

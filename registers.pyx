@@ -98,15 +98,15 @@ cdef class ModRMClass:
         cdef uint64_t retAddr = 0
         if (self.rmName0 != CPU_REGISTER_NONE):
             if (self.regSize in (OP_SIZE_BYTE, OP_SIZE_WORD)):
-                retAddr = self.registers.regReadUnsignedWord(self.rmName0)
+                retAddr = self.registers.regs[self.rmName0]._union.word._union.rx
                 if (self.regSize == OP_SIZE_BYTE):
                     if (self.rm >= 4):
                         retAddr >>= 8
                     retAddr = <uint8_t>retAddr
             elif (self.regSize == OP_SIZE_DWORD):
-                retAddr = self.registers.regReadUnsignedDword(self.rmName0)
+                retAddr = self.registers.regs[self.rmName0]._union.dword.erx
             elif (self.regSize == OP_SIZE_QWORD):
-                retAddr = self.registers.regReadUnsignedQword(self.rmName0)
+                retAddr = self.registers.regs[self.rmName0]._union.rrx
         if (self.rmName1 != CPU_REGISTER_NONE):
             retAddr += self.registers.regReadUnsigned(self.rmName1, self.regSize)<<self.ss
         retAddr += self.rmName2
@@ -124,15 +124,15 @@ cdef class ModRMClass:
         if (self.mod == 3):
             if (regSize == OP_SIZE_BYTE):
                 if (self.rm <= 3):
-                    returnInt = self.registers.regReadSignedLowByte(self.rmName0)
+                    returnInt = <int8_t>self.registers.regs[self.rmName0]._union.word._union.byte.rl
                 else: #elif (self.rm >= 4):
-                    returnInt = self.registers.regReadSignedHighByte(self.rmName0)
+                    returnInt = <int8_t>self.registers.regs[self.rmName0]._union.word._union.byte.rh
             elif (regSize == OP_SIZE_WORD):
-                returnInt = self.registers.regReadSignedWord(self.rmName0)
+                returnInt = <int16_t>self.registers.regs[self.rmName0]._union.word._union.rx
             elif (regSize == OP_SIZE_DWORD):
-                returnInt = self.registers.regReadSignedDword(self.rmName0)
+                returnInt = <int32_t>self.registers.regs[self.rmName0]._union.dword.erx
             elif (regSize == OP_SIZE_QWORD):
-                returnInt = self.registers.regReadSignedQword(self.rmName0)
+                returnInt = <int64_t>self.registers.regs[self.rmName0]._union.rrx
         else:
             mmAddr = self.getRMValueFull(self.regSize)
             returnInt = self.registers.mmReadValueSigned(mmAddr, regSize, self.rmNameSeg, True)
@@ -143,15 +143,15 @@ cdef class ModRMClass:
         if (self.mod == 3):
             if (regSize == OP_SIZE_BYTE):
                 if (self.rm <= 3):
-                    returnInt = self.registers.regReadUnsignedLowByte(self.rmName0)
+                    returnInt = self.registers.regs[self.rmName0]._union.word._union.byte.rl
                 else: #elif (self.rm >= 4):
-                    returnInt = self.registers.regReadUnsignedHighByte(self.rmName0)
+                    returnInt = self.registers.regs[self.rmName0]._union.word._union.byte.rh
             elif (regSize == OP_SIZE_WORD):
-                returnInt = self.registers.regReadUnsignedWord(self.rmName0)
+                returnInt = self.registers.regs[self.rmName0]._union.word._union.rx
             elif (regSize == OP_SIZE_DWORD):
-                returnInt = self.registers.regReadUnsignedDword(self.rmName0)
+                returnInt = self.registers.regs[self.rmName0]._union.dword.erx
             elif (regSize == OP_SIZE_QWORD):
-                returnInt = self.registers.regReadUnsignedQword(self.rmName0)
+                returnInt = self.registers.regs[self.rmName0]._union.rrx
         else:
             mmAddr = self.getRMValueFull(self.regSize)
             returnInt = self.registers.mmReadValueUnsigned(mmAddr, regSize, self.rmNameSeg, True)
@@ -189,29 +189,29 @@ cdef class ModRMClass:
         cdef int64_t retVal # = 0
         if (regSize == OP_SIZE_BYTE):
             if (self.reg <= 3):
-                retVal = self.registers.regReadSignedLowByte(self.regName)
+                retVal = <int8_t>self.registers.regs[self.regName]._union.word._union.byte.rl
             else: #elif (self.reg >= 4):
-                retVal = self.registers.regReadSignedHighByte(self.regName)
+                retVal = <int8_t>self.registers.regs[self.regName]._union.word._union.byte.rh
         elif (regSize == OP_SIZE_WORD):
-            retVal = self.registers.regReadSignedWord(self.regName)
+            retVal = <int16_t>self.registers.regs[self.regName]._union.word._union.rx
         elif (regSize == OP_SIZE_DWORD):
-            retVal = self.registers.regReadSignedDword(self.regName)
+            retVal = <int32_t>self.registers.regs[self.regName]._union.dword.erx
         elif (regSize == OP_SIZE_QWORD):
-            retVal = self.registers.regReadSignedQword(self.regName)
+            retVal = <int64_t>self.registers.regs[self.regName]._union.rrx
         return retVal
     cdef uint64_t modRLoadUnsigned(self, uint8_t regSize) nogil:
         cdef uint64_t retVal # = 0
         if (regSize == OP_SIZE_BYTE):
             if (self.reg <= 3):
-                retVal = self.registers.regReadUnsignedLowByte(self.regName)
+                retVal = self.registers.regs[self.regName]._union.word._union.byte.rl
             else: #elif (self.reg >= 4):
-                retVal = self.registers.regReadUnsignedHighByte(self.regName)
+                retVal = self.registers.regs[self.regName]._union.word._union.byte.rh
         elif (regSize == OP_SIZE_WORD):
-            retVal = self.registers.regReadUnsignedWord(self.regName)
+            retVal = self.registers.regs[self.regName]._union.word._union.rx
         elif (regSize == OP_SIZE_DWORD):
-            retVal = self.registers.regReadUnsignedDword(self.regName)
+            retVal = self.registers.regs[self.regName]._union.dword.erx
         elif (regSize == OP_SIZE_QWORD):
-            retVal = self.registers.regReadUnsignedQword(self.regName)
+            retVal = self.registers.regs[self.regName]._union.rrx
         return retVal
     cdef uint64_t modRSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp) nogil:
         if (regSize == OP_SIZE_BYTE):
@@ -720,31 +720,21 @@ cdef class Registers:
             self.ssInhibit = True
         self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
         return True
-    cdef int64_t regReadSigned(self, uint16_t regId, uint8_t regSize) nogil:
-        if (regSize == OP_SIZE_BYTE):
-            return self.regReadSignedLowByte(regId)
-        elif (regSize == OP_SIZE_WORD):
-            return self.regReadSignedWord(regId)
-        elif (regSize == OP_SIZE_DWORD):
-            return self.regReadSignedDword(regId)
-        elif (regSize == OP_SIZE_QWORD):
-            return self.regReadSignedQword(regId)
-        return 0
     cdef uint64_t regReadUnsigned(self, uint16_t regId, uint8_t regSize) nogil:
         if (regSize == OP_SIZE_BYTE):
-            return self.regReadUnsignedLowByte(regId)
+            return self.regs[regId]._union.word._union.byte.rl
         elif (regSize == OP_SIZE_WORD):
             if (regId == CPU_REGISTER_FLAGS):
                 return <uint16_t>self.readFlags()
-            return self.regReadUnsignedWord(regId)
+            return self.regs[regId]._union.word._union.rx
         elif (regSize == OP_SIZE_DWORD):
             if (regId == CPU_REGISTER_EFLAGS):
                 return self.readFlags()
-            return self.regReadUnsignedDword(regId)
+            return self.regs[regId]._union.dword.erx
         elif (regSize == OP_SIZE_QWORD):
             #if (regId == CPU_REGISTER_RFLAGS): # this isn't used yet.
             #    return self.readFlags()
-            return self.regReadUnsignedQword(regId)
+            return self.regs[regId]._union.rrx
         return 0
     cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil:
         if (regSize == OP_SIZE_BYTE):
@@ -1396,20 +1386,20 @@ cdef class Registers:
             with gil:
                 self.main.exitError("Registers::saveTSS16: TSS is over page boundary!")
             return False
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_AX, self.regReadUnsignedWord(CPU_REGISTER_AX), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_CX, self.regReadUnsignedWord(CPU_REGISTER_CX), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_DX, self.regReadUnsignedWord(CPU_REGISTER_DX), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_BX, self.regReadUnsignedWord(CPU_REGISTER_BX), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_BP, self.regReadUnsignedWord(CPU_REGISTER_BP), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_SI, self.regReadUnsignedWord(CPU_REGISTER_SI), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_DI, self.regReadUnsignedWord(CPU_REGISTER_DI), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_ES, self.segRead(CPU_SEGMENT_ES), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_CS, self.segRead(CPU_SEGMENT_CS), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_DS, self.segRead(CPU_SEGMENT_DS), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_IP, self.regReadUnsignedWord(CPU_REGISTER_IP), OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_AX, self.regs[CPU_REGISTER_AX]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_CX, self.regs[CPU_REGISTER_CX]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_DX, self.regs[CPU_REGISTER_DX]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_BX, self.regs[CPU_REGISTER_BX]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_BP, self.regs[CPU_REGISTER_BP]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_SI, self.regs[CPU_REGISTER_SI]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_DI, self.regs[CPU_REGISTER_DI]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_ES, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_ES]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_CS, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_DS, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_DS]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_IP, self.regs[CPU_REGISTER_IP]._union.word._union.rx, OP_SIZE_WORD)
         self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_FLAGS, self.readFlags(), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_SP, self.regReadUnsignedWord(CPU_REGISTER_SP), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_SS, self.segRead(CPU_SEGMENT_SS), OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_SP, self.regs[CPU_REGISTER_SP]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_16BIT_SS, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx, OP_SIZE_WORD)
         return True
     cdef uint8_t switchTSS32(self) nogil except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress, temp
@@ -1478,22 +1468,22 @@ cdef class Registers:
                 self.main.exitError("Registers::saveTSS32: TSS is over page boundary!")
             return False
         #self.main.debugEnabled = True
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EAX, self.regReadUnsignedDword(CPU_REGISTER_EAX), OP_SIZE_DWORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_ECX, self.regReadUnsignedDword(CPU_REGISTER_ECX), OP_SIZE_DWORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EDX, self.regReadUnsignedDword(CPU_REGISTER_EDX), OP_SIZE_DWORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EBX, self.regReadUnsignedDword(CPU_REGISTER_EBX), OP_SIZE_DWORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EBP, self.regReadUnsignedDword(CPU_REGISTER_EBP), OP_SIZE_DWORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_ESI, self.regReadUnsignedDword(CPU_REGISTER_ESI), OP_SIZE_DWORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EDI, self.regReadUnsignedDword(CPU_REGISTER_EDI), OP_SIZE_DWORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_ES, self.segRead(CPU_SEGMENT_ES), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_CS, self.segRead(CPU_SEGMENT_CS), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_DS, self.segRead(CPU_SEGMENT_DS), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_FS, self.segRead(CPU_SEGMENT_FS), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_GS, self.segRead(CPU_SEGMENT_GS), OP_SIZE_WORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EIP, self.regReadUnsignedDword(CPU_REGISTER_EIP), OP_SIZE_DWORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EAX, self.regs[CPU_REGISTER_EAX]._union.dword.erx, OP_SIZE_DWORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_ECX, self.regs[CPU_REGISTER_ECX]._union.dword.erx, OP_SIZE_DWORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EDX, self.regs[CPU_REGISTER_EDX]._union.dword.erx, OP_SIZE_DWORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EBX, self.regs[CPU_REGISTER_EBX]._union.dword.erx, OP_SIZE_DWORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EBP, self.regs[CPU_REGISTER_EBP]._union.dword.erx, OP_SIZE_DWORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_ESI, self.regs[CPU_REGISTER_ESI]._union.dword.erx, OP_SIZE_DWORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EDI, self.regs[CPU_REGISTER_EDI]._union.dword.erx, OP_SIZE_DWORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_ES, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_ES]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_CS, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_DS, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_DS]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_FS, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_FS]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_GS, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_GS]._union.word._union.rx, OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EIP, self.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_DWORD)
         self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_EFLAGS, self.readFlags(), OP_SIZE_DWORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_ESP, self.regReadUnsignedDword(CPU_REGISTER_ESP), OP_SIZE_DWORD)
-        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_SS, self.segRead(CPU_SEGMENT_SS), OP_SIZE_WORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_ESP, self.regs[CPU_REGISTER_ESP]._union.dword.erx, OP_SIZE_DWORD)
+        self.main.mm.mmPhyWriteValue(baseAddress + TSS_32BIT_SS, self.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx, OP_SIZE_WORD)
         return True
     cdef void run(self):
         self.segments.run()

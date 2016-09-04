@@ -24,10 +24,10 @@ cdef class Cpu:
         self.segmentOverridePrefix = NULL
         self.registers.reset()
     cdef inline void saveCurrentInstPointer(self) nogil:
-        self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
-        self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.savedSs  = self.registers.segRead(CPU_SEGMENT_SS)
-        self.savedEsp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
+        self.savedCs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx
+        self.savedEip = self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.savedSs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
+        self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
     cdef void handleAsyncEvent(self):
         cdef uint8_t irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
@@ -154,34 +154,34 @@ cdef class Cpu:
             opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
         return opcode
     cdef void cpuDump(self):
-        self.main.notice("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EAX), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_ECX))
-        self.main.notice("EDX: {0:#010x}, EBX: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EDX), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_EBX))
-        self.main.notice("ESP: {0:#010x}, EBP: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESP), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_EBP))
-        self.main.notice("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESI), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_EDI))
-        self.main.notice("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EIP), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS))
-        self.main.notice("CS: {0:#06x}, SS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_CS), \
-          self.registers.segRead(CPU_SEGMENT_SS))
-        self.main.notice("DS: {0:#06x}, ES: {1:#06x}", self.registers.segRead(CPU_SEGMENT_DS), \
-          self.registers.segRead(CPU_SEGMENT_ES))
-        self.main.notice("FS: {0:#06x}, GS: {1:#06x}", self.registers.segRead(CPU_SEGMENT_FS), \
-          self.registers.segRead(CPU_SEGMENT_GS))
+        self.main.notice("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx)
+        self.main.notice("EDX: {0:#010x}, EBX: {1:#010x}", self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx)
+        self.main.notice("ESP: {0:#010x}, EBP: {1:#010x}", self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx)
+        self.main.notice("ESI: {0:#010x}, EDI: {1:#010x}", self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx)
+        self.main.notice("EIP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_EFLAGS]._union.dword.erx)
+        self.main.notice("CS: {0:#06x}, SS: {1:#06x}", self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx, \
+          self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx)
+        self.main.notice("DS: {0:#06x}, ES: {1:#06x}", self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_DS]._union.word._union.rx, \
+          self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_ES]._union.word._union.rx)
+        self.main.notice("FS: {0:#06x}, GS: {1:#06x}", self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_FS]._union.word._union.rx, \
+          self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_GS]._union.word._union.rx)
         self.main.notice("LDTR: {0:#06x}, LTR: {1:#06x}", self.registers.ldtr, \
           (<Segment>self.registers.segments.tss).segmentIndex)
-        self.main.notice("CR0: {0:#010x}, CR2: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_CR0), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_CR2))
-        self.main.notice("CR3: {0:#010x}, CR4: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_CR3), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_CR4))
-        self.main.notice("DR0: {0:#010x}, DR1: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_DR0), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_DR1))
-        self.main.notice("DR2: {0:#010x}, DR3: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_DR2), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_DR3))
-        self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_DR6), \
-          self.registers.regReadUnsignedDword(CPU_REGISTER_DR7))
+        self.main.notice("CR0: {0:#010x}, CR2: {1:#010x}", self.registers.regs[CPU_REGISTER_CR0]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_CR2]._union.dword.erx)
+        self.main.notice("CR3: {0:#010x}, CR4: {1:#010x}", self.registers.regs[CPU_REGISTER_CR3]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_CR4]._union.dword.erx)
+        self.main.notice("DR0: {0:#010x}, DR1: {1:#010x}", self.registers.regs[CPU_REGISTER_DR0]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_DR1]._union.dword.erx)
+        self.main.notice("DR2: {0:#010x}, DR3: {1:#010x}", self.registers.regs[CPU_REGISTER_DR2]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_DR3]._union.dword.erx)
+        self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}", self.registers.regs[CPU_REGISTER_DR6]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_DR7]._union.dword.erx)
         self.main.notice("savedCS: {0:#06x}, savedSS: {1:#06x}", self.savedCs, \
           self.savedSs)
         self.main.notice("savedEIP: {0:#010x}, savedESP: {1:#010x}", self.savedEip, self.savedEsp)
@@ -204,10 +204,10 @@ cdef class Cpu:
                         self.repPrefix = 0
                         self.segmentOverridePrefix = NULL
                         #self.saveCurrentInstPointer()
-                        self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
-                        self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
-                        self.savedSs  = self.registers.segRead(CPU_SEGMENT_SS)
-                        self.savedEsp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
+                        self.savedCs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx
+                        self.savedEip = self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
+                        self.savedSs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
+                        self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
                         self.operSize = self.addrSize = self.codeSegSize
                         self.handleAsyncEvent()
                     else:
@@ -229,10 +229,10 @@ cdef class Cpu:
         self.repPrefix = 0
         self.segmentOverridePrefix = NULL
         #self.saveCurrentInstPointer()
-        self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
-        self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
-        self.savedSs  = self.registers.segRead(CPU_SEGMENT_SS)
-        self.savedEsp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
+        self.savedCs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx
+        self.savedEip = self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
+        self.savedSs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
+        self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
         if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>5))):
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
@@ -278,9 +278,9 @@ cdef class Cpu:
             #if (self.savedCs == 0x8 and self.savedEip == 0x803d2f73):
             #if (self.savedCs == 0x8 and self.savedEip == 0x803d3001):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x80455574 and self.registers.regReadUnsignedDword(CPU_REGISTER_EBP) == 0x0004f534):
+            #if (self.savedCs == 0x8 and self.savedEip == 0x80455574 and self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx == 0x0004f534):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x8042ac90 and self.registers.regReadUnsignedDword(CPU_REGISTER_EBP) == 0x0004f060):
+            #if (self.savedCs == 0x8 and self.savedEip == 0x8042ac90 and self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx == 0x0004f060):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x17ff and self.savedEip == 0x310a):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
@@ -288,7 +288,7 @@ cdef class Cpu:
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x8 and self.savedEip == 0x808c8e52):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x8098147e and self.registers.regReadUnsignedDword(CPU_REGISTER_EDI) == 0xb9400000):
+            #if (self.savedCs == 0x8 and self.savedEip == 0x8098147e and self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx == 0xb9400000):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
             #if (self.savedCs == 0x137 and self.savedEip == 0x7fcf2ce9):
             #    self.main.debugEnabledTest = self.main.debugEnabled = True
@@ -327,11 +327,11 @@ cdef class Cpu:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
                 self.cpuDump()
                 #if (self.savedEip == 0x1c000178):
-                #    self.main.notice("ds:[ds:[edx]-1]=={0:#010x}", self.registers.mmReadValueUnsignedDword(self.registers.mmReadValueUnsignedDword(self.registers.regReadUnsignedDword(CPU_REGISTER_EDX), (<Segment>self.registers.segments.ds), False)-1, (<Segment>self.registers.segments.ds), False))
+                #    self.main.notice("ds:[ds:[edx]-1]=={0:#010x}", self.registers.mmReadValueUnsignedDword(self.registers.mmReadValueUnsignedDword(self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx, (<Segment>self.registers.segments.ds), False)-1, (<Segment>self.registers.segments.ds), False))
                 #if (self.savedEip == 0xd02006d1):
-                #    self.main.notice("ds:[esi-1]=={0:#010x}", self.registers.mmReadValueUnsignedDword(self.registers.regReadUnsignedDword(CPU_REGISTER_ESI)-1, (<Segment>self.registers.segments.ds), False))
-                #self.main.notice("EAX: {0:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_EAX))
-                #self.main.notice("ESP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regReadUnsignedDword(CPU_REGISTER_ESP), self.registers.regReadUnsignedDword(CPU_REGISTER_EFLAGS))
+                #    self.main.notice("ds:[esi-1]=={0:#010x}", self.registers.mmReadValueUnsignedDword(self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-1, (<Segment>self.registers.segments.ds), False))
+                #self.main.notice("EAX: {0:#010x}", self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx)
+                #self.main.notice("ESP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx, self.registers.regs[CPU_REGISTER_EFLAGS]._union.dword.erx)
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_UD)

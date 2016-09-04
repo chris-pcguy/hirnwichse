@@ -133,6 +133,7 @@ cdef class PS2:
                 with gil:
                     self.auxb = len(self.mouseBuffer)!=0 # TODO: HACK
                     self.outb = len(self.outBuffer)!=0 or len(self.mouseBuffer)!=0 # TODO: HACK
+                    # TODO?: self.inb
                 retByte = (0x10 | \
                         (self.timeout << 6) | \
                         (self.auxb << 5) | \

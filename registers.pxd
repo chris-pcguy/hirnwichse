@@ -162,30 +162,8 @@ cdef class Registers:
     cdef uint32_t getCurrentOpcodeAddUnsignedDword(self) nogil except? BITMASK_BYTE_CONST
     cdef uint64_t getCurrentOpcodeAddUnsignedQword(self) nogil except? BITMASK_BYTE_CONST
     cdef uint64_t getCurrentOpcodeAddUnsigned(self, uint8_t numBytes) nogil except? BITMASK_BYTE_CONST
-    cdef inline uint16_t segRead(self, uint16_t segId) nogil:
-        return self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx
     cdef uint8_t segWrite(self, uint16_t segId, uint16_t segValue) nogil except BITMASK_BYTE_CONST
     cdef uint8_t segWriteSegment(self, Segment *segment, uint16_t segValue) nogil except BITMASK_BYTE_CONST
-    cdef inline int8_t regReadSignedLowByte(self, uint16_t regId) nogil:
-        return <int8_t>self.regs[regId]._union.word._union.byte.rl
-    cdef inline int8_t regReadSignedHighByte(self, uint16_t regId) nogil:
-        return <int8_t>self.regs[regId]._union.word._union.byte.rh
-    cdef inline int16_t regReadSignedWord(self, uint16_t regId) nogil:
-        return <int16_t>self.regs[regId]._union.word._union.rx
-    cdef inline int32_t regReadSignedDword(self, uint16_t regId) nogil:
-        return <int32_t>self.regs[regId]._union.dword.erx
-    cdef inline int64_t regReadSignedQword(self, uint16_t regId) nogil:
-        return <int64_t>self.regs[regId]._union.rrx
-    cdef inline uint8_t regReadUnsignedLowByte(self, uint16_t regId) nogil:
-        return self.regs[regId]._union.word._union.byte.rl
-    cdef inline uint8_t regReadUnsignedHighByte(self, uint16_t regId) nogil:
-        return self.regs[regId]._union.word._union.byte.rh
-    cdef inline uint16_t regReadUnsignedWord(self, uint16_t regId) nogil:
-        return self.regs[regId]._union.word._union.rx
-    cdef inline uint32_t regReadUnsignedDword(self, uint16_t regId) nogil:
-        return self.regs[regId]._union.dword.erx
-    cdef inline uint64_t regReadUnsignedQword(self, uint16_t regId) nogil:
-        return self.regs[regId]._union.rrx
     cdef inline uint8_t regWriteLowByte(self, uint16_t regId, uint8_t value) nogil:
         self.regs[regId]._union.word._union.byte.rl = value
         return value # returned value is unsigned!!
@@ -202,7 +180,6 @@ cdef class Registers:
         #ELSE:
         self.regs[regId]._union.rrx = value
         return value
-    cdef int64_t regReadSigned(self, uint16_t regId, uint8_t regSize) nogil
     cdef uint64_t regReadUnsigned(self, uint16_t regId, uint8_t regSize) nogil
     cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil
     cdef inline uint8_t regAddLowByte(self, uint16_t regId, uint8_t value) nogil:
@@ -350,7 +327,7 @@ cdef class Registers:
     cdef inline void clearEFLAG(self, uint32_t flags) nogil:
         self.regAndDword(CPU_REGISTER_EFLAGS, ~flags)
     cdef inline uint32_t getFlagDword(self, uint16_t regId, uint32_t flags) nogil:
-        return (self.regReadUnsignedDword(regId)&flags)
+        return (self.regs[regId]._union.dword.erx&flags)
     cdef inline void setSZP(self, uint32_t value, uint8_t regSize) nogil
     cdef inline void setSZP_O(self, uint32_t value, uint8_t regSize) nogil
     cdef inline void setSZP_A(self, uint32_t value, uint8_t regSize) nogil
