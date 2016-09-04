@@ -212,7 +212,7 @@ cdef class IsaDma:
         elif (ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
             return (<IsaDmaController>self.controller[1]).getPageByte(channelNum)
-        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
+        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS_TUPLE):
             return self.extPageReg[ioPortAddr&0xf]
         else:
             with gil:
@@ -256,7 +256,7 @@ cdef class IsaDma:
         elif (ioPortAddr in (0x89, 0x8a, 0x8b, 0x8f)):
             channelNum = DMA_CHANNEL_INDEX[ioPortAddr - 0x89]
             (<IsaDmaController>self.controller[1]).setPageByte(channelNum, <uint8_t>data)
-        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS):
+        elif (ioPortAddr in DMA_EXT_PAGE_REG_PORTS_TUPLE):
             self.extPageReg[ioPortAddr&0xf] = <uint8_t>data
         else:
             with gil:

@@ -65,7 +65,7 @@ cdef class Hirnwichse:
     cpdef quitFunc(self):
         self.quitEmu = True
         fp=open("mmdump_1","wb")
-        fp.write(PyBytes_FromStringAndSize( self.mm.mmGetDataPointer(0), <Py_ssize_t>4*1024))
+        fp.write(PyBytes_FromStringAndSize( self.mm.data, <Py_ssize_t>4*1024))
         fp.flush()
         fp.close()
     def exitError(self, str msg, *msgArgs): # this needs to be 'def'
@@ -85,7 +85,7 @@ cdef class Hirnwichse:
         self.cpu.reset()
         if (resetHardware):
             self.platform.resetDevices()
-    cpdef run(self):
+    cpdef run(self, uint8_t infiniteCycles = True):
         try:
             self.parseArgs()
             self.misc = Misc()
@@ -93,7 +93,7 @@ cdef class Hirnwichse:
             self.platform = Platform(self)
             self.cpu = Cpu(self)
             self.platform.run()
-            self.cpu.run()
+            self.cpu.run(infiniteCycles)
         except:
             print_exc()
             exit(1)

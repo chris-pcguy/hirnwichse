@@ -19,7 +19,7 @@ cdef class Hirnwichse:
     cpdef parseArgs(self)
     cpdef quitFunc(self)
     cpdef reset(self, uint8_t resetHardware)
-    cpdef run(self)
+    cpdef run(self, uint8_t infiniteCycles = ?)
 
 
 

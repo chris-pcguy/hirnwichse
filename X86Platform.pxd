@@ -1,4 +1,6 @@
 
+include "globals.pxi"
+
 from libc.stdint cimport *
 from cpython.ref cimport PyObject
 
@@ -21,7 +23,7 @@ ctypedef uint32_t (*InPort)(self, uint16_t, uint8_t) nogil
 ctypedef void (*OutPort)(self, uint16_t, uint32_t, uint8_t) nogil
 
 cdef class PortHandler:
-    cdef tuple ports
+    cdef uint16_t[PORTS_LEN] ports
     cdef object classObject
     cdef InPort inPort
     cdef OutPort outPort
@@ -44,11 +46,9 @@ cdef class Platform:
     cdef list ports
     cdef void initDevices(self)
     cdef void resetDevices(self)
-    cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject)
-    cdef void addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject)
-    cdef void delHandlers(self, tuple portNums)
-    cdef void delReadHandlers(self, tuple portNums)
-    cdef void delWriteHandlers(self, tuple portNums)
+    cdef void addReadHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject)
+    cdef void addWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, OutPort outObject)
+    cdef void addReadWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject, OutPort outObject)
     cdef uint32_t inPortHandler(self, uint16_t ioPortAddr, uint8_t dataSize)
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
     cdef void outPortHandler(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)

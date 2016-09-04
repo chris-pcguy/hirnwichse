@@ -498,8 +498,7 @@ cdef class Vga:
                     self.main.exitError("Vga::vgaAreaRead: len(retStr)=={0:d} != dataSize=={1:d}", len(retStr), dataSize)
                     return bytes(dataSize)
             return retStr
-        #retStr = self.main.mm.data[offset:offset+dataSize]
-        retStr = PyBytes_FromStringAndSize( self.main.mm.mmGetTempDataPointer(offset), <Py_ssize_t>dataSize)
+        retStr = PyBytes_FromStringAndSize( self.main.mm.tempData+offset, <Py_ssize_t>dataSize)
         #if (self.main.debugEnabled):
         #IF 0:
         IF COMP_DEBUG:

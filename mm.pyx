@@ -59,9 +59,7 @@ cdef class Mm:
             return self.tempData
         if (dataSize > 0 and mmAddr < VGA_MEMAREA_ADDR):
             tempSize = min(dataSize, VGA_MEMAREA_ADDR-mmAddr)
-            #with nogil:
-            IF 1:
-                memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetDataPointer(mmAddr), tempSize)
+            memcpy(self.tempData+tempDataOffset, self.data+mmAddr, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -69,9 +67,7 @@ cdef class Mm:
             tempDataOffset += tempSize
         if (dataSize > 0 and mmAddr >= VGA_MEMAREA_ADDR and mmAddr < VGA_ROM_BASE):
             tempSize = min(dataSize, VGA_ROM_BASE-mmAddr)
-            #with nogil:
-            IF 1:
-                memcpy(self.mmGetTempDataPointer(tempDataOffset), self.main.platform.vga.vgaAreaRead(mmAddr, tempSize), tempSize)
+            memcpy(self.tempData+tempDataOffset, self.main.platform.vga.vgaAreaRead(mmAddr, tempSize), tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -79,9 +75,7 @@ cdef class Mm:
             tempDataOffset += tempSize
         if (dataSize > 0 and mmAddr >= VGA_ROM_BASE and mmAddr < self.memSizeBytes):
             tempSize = min(dataSize, self.memSizeBytes-mmAddr)
-            #with nogil:
-            IF 1:
-                memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetDataPointer(mmAddr), tempSize)
+            memcpy(self.tempData+tempDataOffset, self.data+mmAddr, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -90,9 +84,7 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= self.memSizeBytes and mmAddr < PCI_MEM_BASE):
             tempSize = min(dataSize, PCI_MEM_BASE-mmAddr)
             #self.main.notice("Mm::mmPhyRead: filling1; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
-            #with nogil:
-            IF 1:
-                memset(self.mmGetTempDataPointer(tempDataOffset), 0xff, tempSize)
+            memset(self.tempData+tempDataOffset, 0xff, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -101,9 +93,7 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= PCI_MEM_BASE and mmAddr < PCI_MEM_BASE_PLUS_LIMIT):
             tempOffset = mmAddr-PCI_MEM_BASE
             tempSize = min(dataSize, PCI_MEM_BASE_PLUS_LIMIT-mmAddr)
-            #with nogil:
-            IF 1:
-                memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetPciDataPointer(tempOffset), tempSize)
+            memcpy(self.tempData+tempDataOffset, self.pciData+tempOffset, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -112,9 +102,7 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= PCI_MEM_BASE_PLUS_LIMIT and mmAddr < LAST_MEMAREA_BASE_ADDR):
             tempSize = min(dataSize, LAST_MEMAREA_BASE_ADDR-mmAddr)
             #self.main.notice("Mm::mmPhyRead: filling2; mmAddr=={0:#010x}; tempSize=={1:d}", mmAddr, tempSize)
-            #with nogil:
-            IF 1:
-                memset(self.mmGetTempDataPointer(tempDataOffset), 0xff, tempSize)
+            memset(self.tempData+tempDataOffset, 0xff, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
             dataSize -= tempSize
@@ -123,9 +111,7 @@ cdef class Mm:
         if (dataSize > 0 and mmAddr >= LAST_MEMAREA_BASE_ADDR and mmAddr < SIZE_4GB):
             tempOffset = mmAddr-LAST_MEMAREA_BASE_ADDR
             tempSize = min(dataSize, SIZE_4GB-mmAddr)
-            #with nogil:
-            IF 1:
-                memcpy(self.mmGetTempDataPointer(tempDataOffset), self.mmGetRomDataPointer(tempOffset), tempSize)
+            memcpy(self.tempData+tempDataOffset, self.romData+tempOffset, tempSize)
         return self.tempData
     cdef int64_t mmPhyReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST:
         cdef int64_t ret
@@ -139,24 +125,24 @@ cdef class Mm:
         return ret
     cdef uint8_t mmPhyReadValueUnsignedByte(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_BYTE or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_BYTE)):
-            return (<uint8_t*>self.mmGetDataPointer(mmAddr))[0]
+            return (<uint8_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_BYTE)
     cdef uint16_t mmPhyReadValueUnsignedWord(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_WORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_WORD)):
-            return (<uint16_t*>self.mmGetDataPointer(mmAddr))[0]
+            return (<uint16_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_WORD)
     cdef uint32_t mmPhyReadValueUnsignedDword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_DWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_DWORD)):
-            return (<uint32_t*>self.mmGetDataPointer(mmAddr))[0]
+            return (<uint32_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_DWORD)
     cdef uint64_t mmPhyReadValueUnsignedQword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_QWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_QWORD)):
-            return (<uint64_t*>self.mmGetDataPointer(mmAddr))[0]
+            return (<uint64_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_QWORD)
     cdef uint64_t mmPhyReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST:
         cdef char *temp
         if (mmAddr <= VGA_MEMAREA_ADDR-dataSize or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-dataSize)):
-            temp = self.mmGetDataPointer(mmAddr)
+            temp = self.data+mmAddr
         else:
             temp = self.mmPhyRead(mmAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
@@ -303,7 +289,7 @@ cdef class ConfigSpace:
         cdef uint64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
-        ret = (<uint64_t*>self.csGetDataPointer(offset))[0]
+        ret = (<uint64_t*>(self.csData+offset))[0]
         if (size == OP_SIZE_BYTE):
             ret = <uint8_t>ret
         elif (size == OP_SIZE_WORD):
@@ -315,7 +301,7 @@ cdef class ConfigSpace:
         cdef int64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueSigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
-        ret = (<int64_t*>self.csGetDataPointer(offset))[0]
+        ret = (<int64_t*>(self.csData+offset))[0]
         if (size == OP_SIZE_BYTE):
             ret = <int8_t>ret
         elif (size == OP_SIZE_WORD):

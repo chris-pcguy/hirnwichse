@@ -324,12 +324,12 @@ cdef class Serial:
         with gil:
             self.main.notice("Serial::inPort_1: port {0:#04x} dataSize {1:d}.", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr in SERIAL1_PORTS):
+            if (ioPortAddr in SERIAL1_PORTS_TUPLE):
                 with gil:
-                    ret = (<SerialPort>self.ports[0]).inPort(ioPortAddr-SERIAL1_PORTS[0], dataSize)
-            elif (ioPortAddr in SERIAL2_PORTS):
+                    ret = (<SerialPort>self.ports[0]).inPort(ioPortAddr-SERIAL1_PORTS_TUPLE[0], dataSize)
+            elif (ioPortAddr in SERIAL2_PORTS_TUPLE):
                 with gil:
-                    ret = (<SerialPort>self.ports[1]).inPort(ioPortAddr-SERIAL2_PORTS[0], dataSize)
+                    ret = (<SerialPort>self.ports[1]).inPort(ioPortAddr-SERIAL2_PORTS_TUPLE[0], dataSize)
             else:
                 with gil:
                     self.main.exitError("Serial::inPort_2: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
@@ -350,12 +350,12 @@ cdef class Serial:
         with gil:
             self.main.notice("Serial::outPort_1: port {0:#04x} data {1:#04x} dataSize {2:d}.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
-            if (ioPortAddr in SERIAL1_PORTS):
+            if (ioPortAddr in SERIAL1_PORTS_TUPLE):
                 with gil:
-                    (<SerialPort>self.ports[0]).outPort(ioPortAddr-SERIAL1_PORTS[0], data, dataSize)
-            elif (ioPortAddr in SERIAL2_PORTS):
+                    (<SerialPort>self.ports[0]).outPort(ioPortAddr-SERIAL1_PORTS_TUPLE[0], data, dataSize)
+            elif (ioPortAddr in SERIAL2_PORTS_TUPLE):
                 with gil:
-                    (<SerialPort>self.ports[1]).outPort(ioPortAddr-SERIAL2_PORTS[0], data, dataSize)
+                    (<SerialPort>self.ports[1]).outPort(ioPortAddr-SERIAL2_PORTS_TUPLE[0], data, dataSize)
             else:
                 with gil:
                     self.main.exitError("Serial::outPort_2: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)

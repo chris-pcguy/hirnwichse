@@ -969,8 +969,14 @@ cdef class Registers:
         cdef uint8_t regName
         if (modRMflags == MODRM_FLAGS_SREG):
             regName = CPU_REGISTER_SREG[reg]
+            if (regName == CPU_REGISTER_NONE):
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (modRMflags == MODRM_FLAGS_CREG):
             regName = CPU_REGISTER_CREG[reg]
+            if (regName == CPU_REGISTER_NONE):
+                with gil:
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (modRMflags == MODRM_FLAGS_DREG):
             if (reg in (4, 5)):
                 if (self.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_DE) != 0):
@@ -983,9 +989,6 @@ cdef class Registers:
             regName = reg
             if (operSize == OP_SIZE_BYTE):
                 regName &= 3
-        if (regName == CPU_REGISTER_NONE):
-            with gil:
-                raise HirnwichseException(CPU_EXCEPTION_UD)
         return regName
     cdef inline uint8_t getCond(self, uint8_t index) nogil:
         cdef uint8_t negateCheck, ret # = 0
@@ -1089,9 +1092,9 @@ cdef class Registers:
             self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = regSumu
     cdef inline uint32_t mmGetRealAddr(self, uint32_t mmAddr, uint32_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t written, uint8_t noAddress) nogil except? BITMASK_BYTE_CONST:
         cdef uint8_t addrInLimit
-        cdef uint16_t segId, segVal
-        cdef uint32_t origMmAddr
-        origMmAddr = mmAddr
+        IF COMP_DEBUG:
+            cdef uint32_t origMmAddr
+            origMmAddr = mmAddr
         if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
             segment = self.main.cpu.segmentOverridePrefix
         IF COMP_DEBUG:
@@ -1099,57 +1102,55 @@ cdef class Registers:
                 with gil:
                     self.main.notice("Registers::mmGetRealAddr_1: {0:s}: LIN {1:#010x}; dataSize {2:d}", "WR" if (written) else "RD", origMmAddr, dataSize)
         if (segment is not NULL):
-            segId = segment[0].segId
             IF COMP_DEBUG:
                 if (self.main.debugEnabled):
                     with gil:
-                        self.main.notice("Registers::mmGetRealAddr_1.1: {0:s}: LIN {1:#010x}; dataSize {2:d}; segId {3:d}", "WR" if (written) else "RD", origMmAddr, dataSize, segId)
-            if (self.protectedModeOn and segId == CPU_SEGMENT_TSS):
+                        self.main.notice("Registers::mmGetRealAddr_1.1: {0:s}: LIN {1:#010x}; dataSize {2:d}; segId {3:d}", "WR" if (written) else "RD", origMmAddr, dataSize, segment[0].segId)
+            if (self.protectedModeOn and segment[0].segId == CPU_SEGMENT_TSS):
                 (<Paging>(<Segments>self.segments).paging).implicitSV = True
-            segVal = segment[0].segmentIndex
             addrInLimit = self.segments.isAddressInLimit(&segment[0].gdtEntry, mmAddr, dataSize)
             if (not addrInLimit):
                 if (not self.ignoreExceptions):
                     with gil:
-                        if (segId == CPU_SEGMENT_SS):
-                            raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                        if (segment[0].segId == CPU_SEGMENT_SS):
+                            raise HirnwichseException(CPU_EXCEPTION_SS, segment[0].segmentIndex)
                         else:
-                            raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+                            raise HirnwichseException(CPU_EXCEPTION_GP, segment[0].segmentIndex)
                 else:
                     self.ignoreExceptions = False
                 return BITMASK_BYTE
             if ((written and not segment[0].writeChecked) or (not written and not segment[0].readChecked)):
                 if (segment[0].useGDT):
-                    if (not (segVal&0xfff8) or not segment[0].gdtEntry.segPresent):
+                    if (not (segment[0].segmentIndex&0xfff8) or not segment[0].gdtEntry.segPresent):
                         with gil:
-                            if (segId == CPU_SEGMENT_SS):
+                            if (segment[0].segId == CPU_SEGMENT_SS):
                                 #self.main.notice("Registers::checkMemAccessRights: test1.1.1")
-                                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                                raise HirnwichseException(CPU_EXCEPTION_SS, segment[0].segmentIndex)
                             elif (not segment[0].gdtEntry.segPresent):
                                 #self.main.notice("Registers::checkMemAccessRights: test1.1.2")
-                                raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
+                                raise HirnwichseException(CPU_EXCEPTION_NP, segment[0].segmentIndex)
                             else:
                                 #self.main.notice("Registers::checkMemAccessRights: test1.1.3")
-                                raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+                                raise HirnwichseException(CPU_EXCEPTION_GP, segment[0].segmentIndex)
                 if (written):
                     if (segment[0].segIsGDTandNormal and (segment[0].gdtEntry.segIsCodeSeg or not segment[0].gdtEntry.segIsRW)):
                         #self.main.notice("Registers::checkMemAccessRights: test1.3")
                         #self.main.notice("Registers::checkMemAccessRights: test1.3.1; c0=={0:d}; c1=={1:d}; c2=={2:d}", segment[0].gdtEntry.segIsNormal, (segment[0].gdtEntry.segIsCodeSeg or not segment[0].gdtEntry.segIsRW), not addrInLimit)
                         #self.main.notice("Registers::checkMemAccessRights: test1.3.2; mmAddr=={0:#010x}; dataSize=={1:d}; base=={2:#010x}; limit=={3:#010x}", mmAddr, dataSize, segment[0].gdtEntry.base, segment[0].gdtEntry.limit)
                         with gil:
-                            if (segId == CPU_SEGMENT_SS):
-                                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                            if (segment[0].segId == CPU_SEGMENT_SS):
+                                raise HirnwichseException(CPU_EXCEPTION_SS, segment[0].segmentIndex)
                             else:
-                                raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+                                raise HirnwichseException(CPU_EXCEPTION_GP, segment[0].segmentIndex)
                     segment[0].writeChecked = True
                 else:
                     if (segment[0].segIsGDTandNormal and segment[0].gdtEntry.segIsCodeSeg and not segment[0].gdtEntry.segIsRW):
                         #self.main.notice("Registers::checkMemAccessRights: test1.4")
                         with gil:
-                            if (segId == CPU_SEGMENT_SS):
-                                raise HirnwichseException(CPU_EXCEPTION_SS, segVal)
+                            if (segment[0].segId == CPU_SEGMENT_SS):
+                                raise HirnwichseException(CPU_EXCEPTION_SS, segment[0].segmentIndex)
                             else:
-                                raise HirnwichseException(CPU_EXCEPTION_GP, segVal)
+                                raise HirnwichseException(CPU_EXCEPTION_GP, segment[0].segmentIndex)
                     segment[0].readChecked = True
             mmAddr += segment[0].gdtEntry.base
         if (noAddress):

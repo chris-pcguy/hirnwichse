@@ -17,14 +17,6 @@ cdef class Mm:
     cdef uint8_t ignoreRomWrite
     cdef uint64_t memSizeBytes
     cpdef quitFunc(self)
-    cdef inline char *mmGetDataPointer(self, uint32_t mmAddr) nogil:
-        return <char*>(self.data+mmAddr)
-    cdef inline char *mmGetPciDataPointer(self, uint32_t mmAddr) nogil:
-        return <char*>(self.pciData+mmAddr)
-    cdef inline char *mmGetRomDataPointer(self, uint32_t mmAddr) nogil:
-        return <char*>(self.romData+mmAddr)
-    cdef inline char *mmGetTempDataPointer(self, uint32_t mmAddr) nogil:
-        return <char*>(self.tempData+mmAddr)
     cdef void mmClear(self, uint32_t mmAddr, uint8_t clearByte, uint32_t dataSize) nogil
     cdef char *mmPhyRead(self, uint32_t mmAddr, uint32_t dataSize) nogil
     cdef inline int16_t mmPhyReadValueSignedByte(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
@@ -52,8 +44,6 @@ cdef class ConfigSpace:
     cpdef quitFunc(self)
     cdef void csResetData(self, uint8_t clearByte) nogil
     cdef void csResetAddr(self, uint32_t offset, uint8_t clearByte, uint8_t size) nogil
-    cdef inline char *csGetDataPointer(self, uint32_t offset) nogil:
-        return <char*>(self.csData+offset)
     cdef bytes csRead(self, uint32_t offset, uint32_t size)
     cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil
     cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil except? BITMASK_BYTE_CONST

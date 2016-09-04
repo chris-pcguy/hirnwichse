@@ -9,22 +9,10 @@ from os.path import join
 from sys import exit
 from traceback import print_exc
 
-
-DEF DMA_MASTER_CONTROLLER_PORTS = (0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,
-                                      0x0d,0xe,0x0f,0x81,0x82,0x83,0x87)
-DEF DMA_SLAVE_CONTROLLER_PORTS = (0x89,0x8a,0x8b,0x8f,0xc0,0xc1,0xc2,0xc3,0xc4,0xc5,0xc6,0xc7,
-                                      0xd0,0xd2,0xd4,0xd6,0xd8,0xda,0xdc,0xde)
-DEF PARALLEL_PORTS = (0x3bc, 0x3bd, 0x3be, 0x378, 0x379, 0x37a, 0x278, 0x279, 0x27a, 0x2bc, 0x2bd, 0x2be)
-
-
-
 cdef class PortHandler:
-    def __init__(self, tuple ports):
-        self.ports = ports
+    def __init__(self):
         self.classObject = None
         self.inPort = self.outPort = NULL
-
-
 
 cdef class Platform:
     def __init__(self, Hirnwichse main):
@@ -56,112 +44,51 @@ cdef class Platform:
         self.parallel.reset()
         self.serial.reset()
         #self.gdbstub.reset()
-    cdef void addReadHandlers(self, tuple portNums, object classObject, InPort inObject):
+    cdef void addReadHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject):
         cdef PortHandler port
-        cdef uint32_t i # 'i' can be longer than 65536
-        for i in range(len(self.ports)):
-            port = <PortHandler>self.ports[i]
-            if (port is None or port.ports is None or not len(port.ports)):
-                continue
-            if (set(port.ports) == set(portNums)):
-                port.classObject = classObject
-                port.inPort = inObject
-                self.ports[i] = port
-                return
-            elif (set(port.ports).issuperset(portNums)):
-                port.ports = tuple(set(port.ports).union(portNums))
-                port.classObject = classObject
-                port.inPort = inObject
-                self.ports[i] = port
-                return
-        # if here, the port isn't/ports aren't registered yet... so register it/them here.
-        port = PortHandler(portNums)
+        port = PortHandler()
+        port.ports = portNums
         port.classObject = classObject
         port.inPort = inObject
+        port.outPort = NULL
         self.ports.append(port)
-    cdef void addWriteHandlers(self, tuple portNums, object classObject, OutPort outObject):
+    cdef void addWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, OutPort outObject):
         cdef PortHandler port
-        cdef uint32_t i # 'i' can be longer than 65536
-        for i in range(len(self.ports)):
-            port = <PortHandler>self.ports[i]
-            if (port is None or port.ports is None or not len(port.ports)):
-                continue
-            if (set(port.ports) == set(portNums)):
-                port.classObject = classObject
-                port.outPort = outObject
-                self.ports[i] = port
-                return
-            elif (set(port.ports).issuperset(portNums)):
-                port.ports = tuple(set(port.ports).union(portNums))
-                port.classObject = classObject
-                port.outPort = outObject
-                self.ports[i] = port
-                return
-        # if here, the port isn't/ports aren't registered yet... so register it/them here.
-        port = PortHandler(portNums)
+        port = PortHandler()
+        port.ports = portNums
         port.classObject = classObject
+        port.inPort = NULL
         port.outPort = outObject
         self.ports.append(port)
-    cdef void delHandlers(self, tuple portNums):
+    cdef void addReadWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject, OutPort outObject):
         cdef PortHandler port
-        cdef uint32_t i # 'i' can be longer than 65536
-        for i in range(len(self.ports)):
-            port = <PortHandler>self.ports[i]
-            if (port is None or port.ports is None):
-                continue
-            if (set(port.ports) == set(portNums)):
-                self.ports[i] = None
-                del self.ports[i]
-                return
-            elif (set(port.ports).issuperset(portNums)):
-                port.ports = tuple(set(port.ports).difference_update(portNums))
-    cdef void delReadHandlers(self, tuple portNums):
-        cdef PortHandler port
-        cdef uint32_t i # 'i' can be longer than 65536
-        for i in range(len(self.ports)):
-            port = <PortHandler>self.ports[i]
-            if (port is None or port.ports is None):
-                continue
-            if (set(port.ports) == set(portNums)):
-                port.inPort = NULL
-                if (port.outPort is NULL):
-                    self.ports[i] = None
-                    del self.ports[i]
-                return
-            elif (set(port.ports).issuperset(portNums)):
-                self.main.notice("delReadHandlers: Don't know what todo here.")
-                return
-    cdef void delWriteHandlers(self, tuple portNums):
-        cdef PortHandler port
-        cdef uint32_t i # 'i' can be longer than 65536
-        for i in range(len(self.ports)):
-            port = <PortHandler>self.ports[i]
-            if (port is None or port.ports is None):
-                continue
-            if (set(port.ports) == set(portNums)):
-                port.outPort = NULL
-                if (port.inPort is NULL):
-                    self.ports[i] = None
-                    del self.ports[i]
-                return
-            elif (set(port.ports).issuperset(portNums)):
-                self.main.notice("delWriteHandlers: Don't know what todo here.")
-                return
+        port = PortHandler()
+        port.ports = portNums
+        port.classObject = classObject
+        port.inPort = inObject
+        port.outPort = outObject
+        self.ports.append(port)
     cdef uint32_t inPortHandler(self, uint16_t ioPortAddr, uint8_t dataSize):
         cdef PortHandler port
-        cdef uint16_t portNum
+        cdef uint8_t i
         cdef uint32_t retVal, bitMask
         try:
             bitMask = BITMASKS_FF[dataSize]
-            for port in self.ports:
-                if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.inPort is NULL):
-                    continue
-                for portNum in port.ports:
-                    if (portNum == ioPortAddr):
-                        ##self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
-                        retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
-                        ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
-                        return retVal
+            if (ioPortAddr):
+                for port in self.ports:
+                    if (port.inPort is NULL):
+                        continue
+                    for i in range(PORTS_LEN):
+                        if (not port.ports[i]):
+                            break
+                        elif (port.ports[i] == ioPortAddr):
+                            ##self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
+                            retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
+                            ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
+                            return retVal
+            else:
+                retVal = self.isadma.inPort(ioPortAddr, dataSize)&bitMask
+                return retVal
             if (self.ata.isBusmaster(ioPortAddr)):
                 retVal = self.ata.inPort(ioPortAddr, dataSize)&bitMask
                 return retVal
@@ -176,20 +103,26 @@ cdef class Platform:
             return self.inPortHandler(ioPortAddr, dataSize)
     cdef void outPortHandler(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         cdef PortHandler port
-        cdef uint16_t portNum
+        cdef uint8_t i
         try:
             if (dataSize == OP_SIZE_BYTE):
                 data = <uint8_t>data
             elif (dataSize == OP_SIZE_WORD):
                 data = <uint16_t>data
-            for port in self.ports:
-                if (port is None or port.ports is None or not len(port.ports) or port.classObject is None or port.outPort is NULL):
-                    continue
-                for portNum in port.ports:
-                    if (portNum == ioPortAddr):
-                        ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
-                        port.outPort(port.classObject, ioPortAddr, data, dataSize)
-                        return
+            if (ioPortAddr):
+                for port in self.ports:
+                    if (port.outPort is NULL):
+                        continue
+                    for i in range(PORTS_LEN):
+                        if (not port.ports[i]):
+                            break
+                        elif (port.ports[i] == ioPortAddr):
+                            ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
+                            port.outPort(port.classObject, ioPortAddr, data, dataSize)
+                            return
+            else:
+                self.isadma.outPort(ioPortAddr, data, dataSize)
+                return
             if (self.ata.isBusmaster(ioPortAddr)):
                 self.ata.outPort(ioPortAddr, data, dataSize)
                 return
@@ -226,7 +159,8 @@ cdef class Platform:
         self.loadRomToMem(romFileName, mmAddr, romSize)
         if (not isRomOptional):
             with nogil:
-                memcpy(self.main.mm.mmGetDataPointer(mmAddr&SIZE_1MB_MASK), self.main.mm.mmGetRomDataPointer(mmAddr&SIZE_1MB_MASK), romSize)
+                mmAddr &= SIZE_1MB_MASK
+                memcpy(self.main.mm.data+mmAddr, self.main.mm.romData+mmAddr, romSize)
     cdef void initMemory(self):
         cdef uint16_t i
         if (not self.main or not self.main.mm or not self.main.memSize):
@@ -240,39 +174,26 @@ cdef class Platform:
         self.main.mm.mmClear(VGA_MEMAREA_ADDR, BITMASK_BYTE, 0x10000)
         self.main.mm.mmClear(0xb8000, BITMASK_BYTE, 0x8000)
     cdef void initDevicesPorts(self):
-        self.addReadHandlers((0x70, 0x71), self.cmos, <InPort>self.cmos.inPort)
-        self.addWriteHandlers((0x70, 0x71), self.cmos, <OutPort>self.cmos.outPort)
-        self.addReadHandlers((0x20, 0x21, 0xa0, 0xa1), self.pic, <InPort>self.pic.inPort)
-        self.addWriteHandlers((0x20, 0x21, 0xa0, 0xa1), self.pic, <OutPort>self.pic.outPort)
-        self.addReadHandlers(DMA_MASTER_CONTROLLER_PORTS, self.isadma, <InPort>self.isadma.inPort)
-        self.addReadHandlers(DMA_SLAVE_CONTROLLER_PORTS, self.isadma, <InPort>self.isadma.inPort)
-        self.addReadHandlers(DMA_EXT_PAGE_REG_PORTS, self.isadma, <InPort>self.isadma.inPort)
-        self.addReadHandlers(PCI_CONTROLLER_PORTS, self.pci, <InPort>self.pci.inPort)
-        self.addWriteHandlers(DMA_MASTER_CONTROLLER_PORTS, self.isadma, <OutPort>self.isadma.outPort)
-        self.addWriteHandlers(DMA_SLAVE_CONTROLLER_PORTS, self.isadma, <OutPort>self.isadma.outPort)
-        self.addWriteHandlers(DMA_EXT_PAGE_REG_PORTS, self.isadma, <OutPort>self.isadma.outPort)
-        self.addWriteHandlers(PCI_CONTROLLER_PORTS, self.pci, <OutPort>self.pci.outPort)
+        self.addReadWriteHandlers(CMOS_PORTS, self.cmos, <InPort>self.cmos.inPort, <OutPort>self.cmos.outPort)
+        self.addReadWriteHandlers(PIC_PORTS, self.pic, <InPort>self.pic.inPort, <OutPort>self.pic.outPort)
+        self.addReadWriteHandlers(DMA_MASTER_CONTROLLER_PORTS, self.isadma, <InPort>self.isadma.inPort, <OutPort>self.isadma.outPort)
+        self.addReadWriteHandlers(DMA_SLAVE_CONTROLLER_PORTS, self.isadma, <InPort>self.isadma.inPort, <OutPort>self.isadma.outPort)
+        self.addReadWriteHandlers(DMA_EXT_PAGE_REG_PORTS, self.isadma, <InPort>self.isadma.inPort, <OutPort>self.isadma.outPort)
+        self.addReadWriteHandlers(PCI_CONTROLLER_PORTS, self.pci, <InPort>self.pci.inPort, <OutPort>self.pci.outPort)
+        self.addReadWriteHandlers(PS2_PORTS, self.ps2, <InPort>self.ps2.inPort, <OutPort>self.ps2.outPort)
+        self.addReadWriteHandlers(PIT_PORTS, self.pit, <InPort>self.pit.inPort, <OutPort>self.pit.outPort)
+        self.addReadWriteHandlers(ATA1_PORTS, self.ata, <InPort>self.ata.inPort, <OutPort>self.ata.outPort)
+        self.addReadWriteHandlers(ATA2_PORTS, self.ata, <InPort>self.ata.inPort, <OutPort>self.ata.outPort)
+        #self.addReadWriteHandlers(ATA3_PORTS, self.ata, <InPort>self.ata.inPort, <OutPort>self.ata.outPort)
+        #self.addReadWriteHandlers(ATA4_PORTS, self.ata, <InPort>self.ata.inPort, <OutPort>self.ata.outPort)
+        self.addReadWriteHandlers(FDC_FIRST_PORTS, self.floppy, <InPort>self.floppy.inPort, <OutPort>self.floppy.outPort)
+        #self.addReadWriteHandlers(FDC_SECOND_PORTS, self.floppy, <InPort>self.floppy.inPort, <OutPort>self.floppy.outPort)
+        self.addReadWriteHandlers(PARALLEL_PORTS, self.parallel, <InPort>self.parallel.inPort, <OutPort>self.parallel.outPort)
+
         self.addReadHandlers(VGA_READ_PORTS, self.vga, <InPort>self.vga.inPort)
-        self.addWriteHandlers(VGA_WRITE_PORTS, self.vga, <OutPort>self.vga.outPort)
-        self.addReadHandlers((0x60, 0x61, 0x64, 0x92), self.ps2, <InPort>self.ps2.inPort)
-        self.addReadHandlers((0x40, 0x41, 0x42, 0x43), self.pit, <InPort>self.pit.inPort)
-        self.addWriteHandlers((0x60, 0x61, 0x64, 0x92), self.ps2, <OutPort>self.ps2.outPort)
-        self.addWriteHandlers((0x40, 0x41, 0x42, 0x43), self.pit, <OutPort>self.pit.outPort)
-        self.addReadHandlers(ATA1_PORTS, self.ata, <InPort>self.ata.inPort)
-        self.addReadHandlers(ATA2_PORTS, self.ata, <InPort>self.ata.inPort)
-        #self.addReadHandlers(ATA3_PORTS, self.ata, <InPort>self.ata.inPort)
-        #self.addReadHandlers(ATA4_PORTS, self.ata, <InPort>self.ata.inPort)
-        self.addReadHandlers(FDC_FIRST_READ_PORTS, self.floppy, <InPort>self.floppy.inPort)
-        #self.addReadHandlers(FDC_SECOND_READ_PORTS, self.floppy, <InPort>self.floppy.inPort)
-        self.addWriteHandlers(ATA1_PORTS, self.ata, <OutPort>self.ata.outPort)
-        self.addWriteHandlers(ATA2_PORTS, self.ata, <OutPort>self.ata.outPort)
-        #self.addWriteHandlers(ATA3_PORTS, self.ata, <OutPort>self.ata.outPort)
-        #self.addWriteHandlers(ATA4_PORTS, self.ata, <OutPort>self.ata.outPort)
-        self.addWriteHandlers(FDC_FIRST_WRITE_PORTS, self.floppy, <OutPort>self.floppy.outPort)
-        #self.addWriteHandlers(FDC_SECOND_WRITE_PORTS, self.floppy, <OutPort>self.floppy.outPort)
-        self.addReadHandlers(PARALLEL_PORTS, self.parallel, <InPort>self.parallel.inPort)
         self.addReadHandlers(SERIAL_READ_PORTS, self.serial, <InPort>self.serial.inPort)
-        self.addWriteHandlers(PARALLEL_PORTS, self.parallel, <OutPort>self.parallel.outPort)
+
+        self.addWriteHandlers(VGA_WRITE_PORTS, self.vga, <OutPort>self.vga.outPort)
         self.addWriteHandlers(SERIAL_WRITE_PORTS, self.serial, <OutPort>self.serial.outPort)
         self.addWriteHandlers(FPU_PORTS, self, <OutPort>self.fpuLowerIrq)
     cdef void runDevices(self):

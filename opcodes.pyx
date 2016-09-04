@@ -409,8 +409,7 @@ cdef class Opcodes:
             pass ### undefNoUD
             retVal = True
         elif (opcode == 0xf4):
-            self.hlt()
-            retVal = True
+            retVal = self.hlt()
         elif (opcode == 0xf5):
             self.cmc()
             retVal = True
@@ -2103,7 +2102,7 @@ cdef class Opcodes:
                 self.registers.regWriteDword(CPU_REGISTER_EDX, 0x49656e69)
                 self.registers.regWriteDword(CPU_REGISTER_ECX, 0x6c65746e)
         elif (operOpcode == 0xa3): # BT RM16/32, R16/R32
-            self.btFunc(BT_NONE)
+            return self.btFunc(BT_NONE)
         elif (operOpcode in (0xa4, 0xa5)): # SHLD
             IF COMP_DEBUG:
                 with gil:
@@ -2141,7 +2140,7 @@ cdef class Opcodes:
         elif (operOpcode == 0xa9): # POP GS
             self.popSeg(POP_GS)
         elif (operOpcode == 0xab): # BTS RM16/32, R16/32
-            self.btFunc(BT_SET)
+            return self.btFunc(BT_SET)
         elif (operOpcode in (0xac, 0xad)): # SHRD
             bitMaskHalf = BITMASKS_80[self.cpu.operSize]
             bitSize = self.cpu.operSize << 3
@@ -2177,6 +2176,11 @@ cdef class Opcodes:
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (((op1 << 1) ^ op1) >> (bitSize-1))&1
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = newCF
             self.registers.setSZP_A(op1, self.cpu.operSize)
+        elif (operOpcode == 0xae): # 0xae
+            with gil:
+                #self.main.exitError("Opcodes::opcodeGroup0F: 0xae: TODO!")
+                self.main.notice("Opcodes::opcodeGroup0F: 0xae: TODO!")
+                raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0xaf): # IMUL R16_32, R/M16_32
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             sop1 = self.modRMInstance.modRLoadSigned(self.cpu.operSize)
@@ -2210,7 +2214,7 @@ cdef class Opcodes:
         elif (operOpcode == 0xb2): # LSS
             self.lfpFunc(&self.registers.segments.ss)
         elif (operOpcode == 0xb3): # BTR RM16/32, R16/32
-            self.btFunc(BT_RESET)
+            return self.btFunc(BT_RESET)
         elif (operOpcode == 0xb4): # LFS
             self.lfpFunc(&self.registers.segments.fs)
         elif (operOpcode == 0xb5): # LGS
@@ -2241,19 +2245,19 @@ cdef class Opcodes:
                     with gil:
                         self.main.notice("Group0F_BA: operOpcodeModId=={0:d}", operOpcodeModId)
             if (operOpcodeModId == 4): # BT
-                self.btFunc(BT_IMM | BT_NONE)
+                return self.btFunc(BT_IMM | BT_NONE)
             elif (operOpcodeModId == 5): # BTS
-                self.btFunc(BT_IMM | BT_SET)
+                return self.btFunc(BT_IMM | BT_SET)
             elif (operOpcodeModId == 6): # BTR
-                self.btFunc(BT_IMM | BT_RESET)
+                return self.btFunc(BT_IMM | BT_RESET)
             elif (operOpcodeModId == 7): # BTC
-                self.btFunc(BT_IMM | BT_COMPLEMENT)
+                return self.btFunc(BT_IMM | BT_COMPLEMENT)
             else:
                 with gil:
                     self.main.notice("opcodeGroup0F_BA: invalid operOpcodeModId: {0:d}", operOpcodeModId)
                     raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (operOpcode == 0xbb): # BTC RM16/32, R16/32
-            self.btFunc(BT_COMPLEMENT)
+            return self.btFunc(BT_COMPLEMENT)
         elif (operOpcode == 0xbc): # BSF R16_32, R/M16_32
             IF COMP_DEBUG:
                 with gil:
@@ -2457,7 +2461,7 @@ cdef class Opcodes:
     cdef int incReg(self) nogil except BITMASK_BYTE_CONST:
         cdef uint16_t regName
         regName  = self.cpu.opcode&7
-        return self.incFuncReg(regName, self.cpu.operSize)
+        return self.incFuncReg(self.cpu.opcode&7, self.cpu.operSize)
     cdef int decReg(self) nogil except BITMASK_BYTE_CONST:
         cdef uint16_t regName
         regName  = self.cpu.opcode&7
@@ -3263,9 +3267,9 @@ cdef class Opcodes:
     cdef int aad(self) nogil except BITMASK_BYTE_CONST:
         cdef uint8_t imm8, tempAL, tempAH
         imm8 = self.registers.getCurrentOpcodeAddUnsignedByte()
-        tempAL = self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL)
         tempAH = self.registers.regReadUnsignedHighByte(CPU_REGISTER_AH)*imm8
-        tempAL = self.registers.regWriteWord(CPU_REGISTER_AX, <uint8_t>(tempAL + tempAH))
+        tempAL = self.registers.regReadUnsignedLowByte(CPU_REGISTER_AL)+tempAH
+        self.registers.regWriteWord(CPU_REGISTER_AX, tempAL)
         self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
         return True
     cdef int aam(self) nogil except BITMASK_BYTE_CONST:

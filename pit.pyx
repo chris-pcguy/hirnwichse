@@ -43,21 +43,21 @@ cdef class PitChannel:
     cdef void mode2Func(self) nogil: # TODO
         cdef uint8_t clear
         cdef uint64_t i
-        while (self.timerEnabled and (not self.pit.main.quitEmu)):
-            if (self.channelId == 0): # just raise IRQ on channel0
-                clear = (<Pic>self.pit.main.platform.pic).isClear(0)
-                #self.pit.main.notice("PitChannel::mode2Func: lowerIrq(0)")
-                if (clear):
-                    #self.pit.main.notice("PitChannel::mode2Func: lowerIrq(0): clear")
-                    (<Pic>self.pit.main.platform.pic).lowerIrq(0)
-            elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
-                (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
-            elif (self.channelId == 3):
-                clear = (<Pic>self.pit.main.platform.pic).isClear(CMOS_RTC_IRQ) and (<Pic>self.pit.main.platform.pic).isClear(IRQ_SECOND_PIC)
-                if (clear):
-                    (<Pic>self.pit.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
-            with nogil:
-            #IF 1:
+        with nogil:
+        #IF 1:
+            while (self.timerEnabled and (not self.pit.main.quitEmu)):
+                if (self.channelId == 0): # just raise IRQ on channel0
+                    clear = (<Pic>self.pit.main.platform.pic).isClear(0)
+                    #self.pit.main.notice("PitChannel::mode2Func: lowerIrq(0)")
+                    if (clear):
+                        #self.pit.main.notice("PitChannel::mode2Func: lowerIrq(0): clear")
+                        (<Pic>self.pit.main.platform.pic).lowerIrq(0)
+                elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
+                    (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
+                elif (self.channelId == 3):
+                    clear = (<Pic>self.pit.main.platform.pic).isClear(CMOS_RTC_IRQ) and (<Pic>self.pit.main.platform.pic).isClear(IRQ_SECOND_PIC)
+                    if (clear):
+                        (<Pic>self.pit.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
                 if (self.channelId != 3):
                     #self.pit.main.notice("PitChannel::mode2Func: before while")
                     #self.pit.main.notice("PitChannel::mode2Func({0:d}): counterValue=={1:d}", self.channelId, self.counterStartValue)
@@ -83,10 +83,10 @@ cdef class PitChannel:
                         #if (not (self.counterValue&0xfff)):
                         #if (not (self.counterValue&0xff)):
                         #if (not (self.counterValue&0x7f)):
-                        #if (not (self.counterValue&0x3f)):
+                        if (not (self.counterValue&0x3f)):
                         #if (not (self.counterValue&0x1f)):
                         #if (not (self.counterValue&0xf)):
-                        if (not (self.counterValue&0x7)):
+                        #if (not (self.counterValue&0x7)):
                         #if (not (self.counterValue&0x3)):
                         #if (not (self.counterValue&0x1)):
                         #IF 1:
@@ -122,23 +122,23 @@ cdef class PitChannel:
                     #usleep(1)
                     #usleep(100)
                     #usleep(3000)
-            if (self.channelId == 0): # just raise IRQ on channel0
-                #clear = (<Pic>self.pit.main.platform.pic).isClear(0)
-                #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0)")
-                if (clear):
-                #if (clear and self.pit.main.cpu.savedCs != 0x0028):
-                    #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0): clear")
-                    (<Pic>self.pit.main.platform.pic).raiseIrq(0)
-            elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
-                (<PS2>self.pit.main.platform.ps2).ppcbT2Out = True
-            elif (self.channelId == 3):
-                if (clear):
-                    #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(CMOS_RTC_IRQ): clear")
-                    (<Cmos>self.pit.main.platform.cmos).periodicFunc()
-            else:
-                IF COMP_DEBUG:
-                    with gil:
-                        self.pit.main.notice("PitChannel::mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
+                if (self.channelId == 0): # just raise IRQ on channel0
+                    #clear = (<Pic>self.pit.main.platform.pic).isClear(0)
+                    #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0)")
+                    if (clear):
+                    #if (clear and self.pit.main.cpu.savedCs != 0x0028):
+                        #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0): clear")
+                        (<Pic>self.pit.main.platform.pic).raiseIrq(0)
+                elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
+                    (<PS2>self.pit.main.platform.ps2).ppcbT2Out = True
+                elif (self.channelId == 3):
+                    if (clear):
+                        #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(CMOS_RTC_IRQ): clear")
+                        (<Cmos>self.pit.main.platform.cmos).periodicFunc()
+                else:
+                    IF COMP_DEBUG:
+                        with gil:
+                            self.pit.main.notice("PitChannel::mode2Func: counterMode {0:d} used channelId {1:d}.", self.counterMode, self.channelId)
     cpdef timerFunc(self): # TODO
         if (self.timerEnabled):
             if (self.counterMode == 0):

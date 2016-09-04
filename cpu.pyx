@@ -20,7 +20,8 @@ cdef class Cpu:
         self.debugHalt = self.main.debugHalt
         self.savedSs = self.savedEsp = self.cycles = self.lasttime = 0
         self.operSize = self.addrSize = 0
-        self.resetPrefixes()
+        self.repPrefix = 0
+        self.segmentOverridePrefix = NULL
         self.registers.reset()
     cdef inline void saveCurrentInstPointer(self) nogil:
         self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
@@ -124,9 +125,15 @@ cdef class Cpu:
                 with gil:
                     raise HirnwichseException(CPU_EXCEPTION_UD)
             elif (opcode == OPCODE_PREFIX_OP):
-                self.operandSizePrefix = True
+                if (self.codeSegSize == OP_SIZE_WORD):
+                    self.operSize = OP_SIZE_DWORD
+                else:
+                    self.operSize = OP_SIZE_WORD
             elif (opcode == OPCODE_PREFIX_ADDR):
-                self.addressSizePrefix = True
+                if (self.codeSegSize == OP_SIZE_WORD):
+                    self.addrSize = OP_SIZE_DWORD
+                else:
+                    self.addrSize = OP_SIZE_WORD
             elif (opcode in OPCODE_PREFIX_REPS):
                 self.repPrefix = opcode
             elif (opcode == OPCODE_PREFIX_CS):
@@ -194,9 +201,14 @@ cdef class Cpu:
                     return
                 elif ((self.debugHalt and not self.debugSingleStep) or (self.cpuHalted and not self.main.exitIfCpuHalted)):
                     if (self.asyncEvent and not self.registers.ssInhibit):
-                        self.resetPrefixes()
-                        self.saveCurrentInstPointer()
-                        self.readCodeSegSize()
+                        self.repPrefix = 0
+                        self.segmentOverridePrefix = NULL
+                        #self.saveCurrentInstPointer()
+                        self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
+                        self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
+                        self.savedSs  = self.registers.segRead(CPU_SEGMENT_SS)
+                        self.savedEsp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
+                        self.operSize = self.addrSize = self.codeSegSize
                         self.handleAsyncEvent()
                     else:
                         self.registers.ssInhibit = False
@@ -214,8 +226,13 @@ cdef class Cpu:
             self.debugSingleStep = False
         #self.registers.reloadCpuCache()
         self.cycles += CPU_CLOCK_TICK
-        self.resetPrefixes()
-        self.saveCurrentInstPointer()
+        self.repPrefix = 0
+        self.segmentOverridePrefix = NULL
+        #self.saveCurrentInstPointer()
+        self.savedCs  = self.registers.segRead(CPU_SEGMENT_CS)
+        self.savedEip = self.registers.regReadUnsignedDword(CPU_REGISTER_EIP)
+        self.savedSs  = self.registers.segRead(CPU_SEGMENT_SS)
+        self.savedEsp = self.registers.regReadUnsignedDword(CPU_REGISTER_ESP)
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
         if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>5))):
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
@@ -234,8 +251,8 @@ cdef class Cpu:
             if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
                 self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet! Opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
                 self.cpuDump()
+            self.operSize = self.addrSize = self.codeSegSize
             if (not self.registers.ssInhibit):
-                self.readCodeSegSize()
                 if (self.asyncEvent):
                     self.handleAsyncEvent()
                     return
@@ -245,14 +262,12 @@ cdef class Cpu:
             else:
                 self.registers.ssInhibit = False
                 if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
-                    self.readCodeSegSize()
                     self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf = False
                     raise HirnwichseException(CPU_EXCEPTION_DB)
                     #return
             self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
             if (self.opcode in OPCODE_PREFIXES):
                 self.opcode = self.parsePrefixes(self.opcode)
-            self.readCodeSegSize()
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = False
             #if (self.savedCs == 0x28 and self.savedEip == 0xc00013b7):
             #if (self.savedCs == 0x28 and self.savedEip == 0xc00013d1):
@@ -350,7 +365,7 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
-    cdef run(self, uint8_t infiniteCycles = True):
+    cdef void run(self, uint8_t infiniteCycles):
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main, self)
         self.opcodes.registers = self.registers

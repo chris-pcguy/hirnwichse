@@ -19,14 +19,11 @@ cdef class Cpu:
     cdef Registers registers
     cdef Opcodes opcodes
     cdef Segment *segmentOverridePrefix
-    cdef uint8_t asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ, repPrefix, operandSizePrefix, addressSizePrefix, codeSegSize, operSize, addrSize
+    cdef uint8_t asyncEvent, opcode, cpuHalted, debugHalt, debugSingleStep, INTR, HRQ, repPrefix, codeSegSize, operSize, addrSize
     cdef uint16_t savedCs, savedSs
     cdef uint32_t savedEip, savedEsp
     cdef uint64_t cycles, lasttime
     cdef inline void reset(self)
-    cdef inline void resetPrefixes(self) nogil:
-        self.operandSizePrefix = self.addressSizePrefix = self.repPrefix = 0
-        self.segmentOverridePrefix = NULL
     cdef inline void setINTR(self, uint8_t state) nogil:
         self.INTR = state
         if (state):
@@ -36,9 +33,6 @@ cdef class Cpu:
         self.HRQ = state
         if (state):
             self.asyncEvent = True
-    cdef inline void readCodeSegSize(self) nogil:
-        self.operSize = ((((self.codeSegSize==OP_SIZE_WORD)==self.operandSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
-        self.addrSize = ((((self.codeSegSize==OP_SIZE_WORD)==self.addressSizePrefix) and OP_SIZE_DWORD) or OP_SIZE_WORD)
     cdef inline void saveCurrentInstPointer(self) nogil
     cdef void handleAsyncEvent(self)
     cdef int exception(self, uint8_t exceptionId, int32_t errorCode=?) except BITMASK_BYTE_CONST
@@ -47,6 +41,6 @@ cdef class Cpu:
     cdef void cpuDump(self)
     cdef void doInfiniteCycles(self)
     cdef void doCycle(self)
-    cdef run(self, uint8_t infiniteCycles = ?)
+    cdef void run(self, uint8_t infiniteCycles)
 
 
