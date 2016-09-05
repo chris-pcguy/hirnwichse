@@ -657,7 +657,7 @@ cdef class Opcodes:
         cdef uint8_t oldZF
         cdef int8_t rel8
         oldZF = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
-        rel8 = self.registers.getCurrentOpcodeAddSignedByte()
+        rel8 = <int8_t>self.registers.getCurrentOpcodeAddUnsignedByte()
         if (not self.registers.regSub(CPU_REGISTER_CX, 1, self.cpu.addrSize)):
             return True
         elif (loopType == OPCODE_LOOPE and not oldZF):
@@ -750,13 +750,13 @@ cdef class Opcodes:
         src = self.registers.getCurrentOpcodeAddUnsigned(operSize)
         if (operSize == OP_SIZE_BYTE):
             if (rReg & 0x4):
-                self.registers.regWriteHighByte(rReg&3, src)
+                self.registers.regs[rReg&3]._union.word._union.byte.rh = src
             else:
-                self.registers.regWriteLowByte(rReg, src)
+                self.registers.regs[rReg]._union.word._union.byte.rl = src
         elif (operSize == OP_SIZE_WORD):
-            self.registers.regWriteWord(rReg, src)
+            self.registers.regs[rReg]._union.word._union.rx = src
         elif (operSize == OP_SIZE_DWORD):
-            self.registers.regWriteDword(rReg, src)
+            self.registers.regs[rReg]._union.dword.erx = src
         #else:
         #    self.main.notice("OPCODE::movImmToR: unknown operSize: {0:d}.", operSize)
         return True
@@ -815,11 +815,13 @@ cdef class Opcodes:
         for i in range(countVal):
             self.registers.mmWriteValue(ediVal, data, operSize, &self.registers.segments.es, False)
             if (not dfFlag):
-                ediVal = self.registers.regAddWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
-                ediVal = self.registers.regSubWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
-                self.registers.regSubWord(CPU_REGISTER_CX, 1)
+                self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int stosFuncDword(self, uint8_t operSize) nogil except BITMASK_BYTE_CONST:
@@ -837,11 +839,13 @@ cdef class Opcodes:
         for i in range(countVal):
             self.registers.mmWriteValue(ediVal, data, operSize, &self.registers.segments.es, False)
             if (not dfFlag):
-                ediVal = self.registers.regAddDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
-                ediVal = self.registers.regSubDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
-                self.registers.regSubDword(CPU_REGISTER_ECX, 1)
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int stosFunc(self, uint8_t operSize) nogil except BITMASK_BYTE_CONST:
@@ -865,13 +869,17 @@ cdef class Opcodes:
         for i in range(countVal):
             self.registers.mmWriteValue(ediVal, self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True), operSize, &self.registers.segments.es, False)
             if (not dfFlag):
-                esiVal = self.registers.regAddWord(CPU_REGISTER_SI, operSize)
-                ediVal = self.registers.regAddWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx+operSize
+                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
-                esiVal = self.registers.regSubWord(CPU_REGISTER_SI, operSize)
-                ediVal = self.registers.regSubWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx-operSize
+                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
-                self.registers.regSubWord(CPU_REGISTER_CX, 1)
+                self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int movsFuncDword(self, uint8_t operSize) nogil except BITMASK_BYTE_CONST:
@@ -889,13 +897,17 @@ cdef class Opcodes:
         for i in range(countVal):
             self.registers.mmWriteValue(ediVal, self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True), operSize, &self.registers.segments.es, False)
             if (not dfFlag):
-                esiVal = self.registers.regAddDword(CPU_REGISTER_ESI, operSize)
-                ediVal = self.registers.regAddDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx+operSize
+                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
-                esiVal = self.registers.regSubDword(CPU_REGISTER_ESI, operSize)
-                ediVal = self.registers.regSubDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-operSize
+                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
-                self.registers.regSubDword(CPU_REGISTER_ECX, 1)
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int movsFunc(self, uint8_t operSize) nogil except BITMASK_BYTE_CONST:
@@ -920,11 +932,13 @@ cdef class Opcodes:
             data = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
             self.registers.regWrite(CPU_REGISTER_AX, data, operSize)
             if (not dfFlag):
-                esiVal = self.registers.regAddWord(CPU_REGISTER_SI, operSize)
+                self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx+operSize
+                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
             else:
-                esiVal = self.registers.regSubWord(CPU_REGISTER_SI, operSize)
+                self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx-operSize
+                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
             if (self.cpu.repPrefix):
-                self.registers.regSubWord(CPU_REGISTER_CX, 1)
+                self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int lodsFuncDword(self, uint8_t operSize) nogil except BITMASK_BYTE_CONST:
@@ -942,11 +956,13 @@ cdef class Opcodes:
             data = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
             self.registers.regWrite(CPU_REGISTER_AX, data, operSize)
             if (not dfFlag):
-                esiVal = self.registers.regAddDword(CPU_REGISTER_ESI, operSize)
+                self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx+operSize
+                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
             else:
-                esiVal = self.registers.regSubDword(CPU_REGISTER_ESI, operSize)
+                self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-operSize
+                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
             if (self.cpu.repPrefix):
-                self.registers.regSubDword(CPU_REGISTER_ECX, 1)
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int lodsFunc(self, uint8_t operSize) nogil except BITMASK_BYTE_CONST:
@@ -973,13 +989,17 @@ cdef class Opcodes:
             src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, &self.registers.segments.es, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
             if (not dfFlag):
-                esiVal = self.registers.regAddWord(CPU_REGISTER_SI, operSize)
-                ediVal = self.registers.regAddWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx+operSize
+                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
-                esiVal = self.registers.regSubWord(CPU_REGISTER_SI, operSize)
-                ediVal = self.registers.regSubWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx-operSize
+                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
-                self.registers.regSubWord(CPU_REGISTER_CX, 1)
+                self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
             zfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
             if ((self.cpu.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.cpu.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
@@ -1002,13 +1022,17 @@ cdef class Opcodes:
             src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, &self.registers.segments.es, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
             if (not dfFlag):
-                esiVal = self.registers.regAddDword(CPU_REGISTER_ESI, operSize)
-                ediVal = self.registers.regAddDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx+operSize
+                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
-                esiVal = self.registers.regSubDword(CPU_REGISTER_ESI, operSize)
-                ediVal = self.registers.regSubDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-operSize
+                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
-                self.registers.regSubDword(CPU_REGISTER_ECX, 1)
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
             zfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
             if ((self.cpu.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.cpu.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
@@ -1037,11 +1061,13 @@ cdef class Opcodes:
             src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, &self.registers.segments.es, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
             if (not dfFlag):
-                ediVal = self.registers.regAddWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
-                ediVal = self.registers.regSubWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
-                self.registers.regSubWord(CPU_REGISTER_CX, 1)
+                self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
             zfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
             if ((self.cpu.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.cpu.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
@@ -1063,11 +1089,13 @@ cdef class Opcodes:
             src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, &self.registers.segments.es, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
             if (not dfFlag):
-                ediVal = self.registers.regAddDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
-                ediVal = self.registers.regSubDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
-                self.registers.regSubDword(CPU_REGISTER_ECX, 1)
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
             zfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
             if ((self.cpu.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.cpu.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
@@ -1083,21 +1111,21 @@ cdef class Opcodes:
         cdef uint32_t value
         value = self.inPort(self.registers.getCurrentOpcodeAddUnsignedByte(), operSize)
         if (operSize == OP_SIZE_BYTE):
-            self.registers.regWriteLowByte(CPU_REGISTER_AL, value)
+            self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = value
         elif (operSize == OP_SIZE_WORD):
-            self.registers.regWriteWord(CPU_REGISTER_AX, value)
+            self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = value
         elif (operSize == OP_SIZE_DWORD):
-            self.registers.regWriteDword(CPU_REGISTER_EAX, value)
+            self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = value
         return True
     cdef int inAxDx(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         cdef uint32_t value
         value = self.inPort(self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx, operSize)
         if (operSize == OP_SIZE_BYTE):
-            self.registers.regWriteLowByte(CPU_REGISTER_AL, value)
+            self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = value
         elif (operSize == OP_SIZE_WORD):
-            self.registers.regWriteWord(CPU_REGISTER_AX, value)
+            self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = value
         elif (operSize == OP_SIZE_DWORD):
-            self.registers.regWriteDword(CPU_REGISTER_EAX, value)
+            self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = value
         return True
     cdef int outImm8Ax(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         cdef uint32_t value
@@ -1136,11 +1164,13 @@ cdef class Opcodes:
             value = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
             self.outPort(ioPort, value, operSize)
             if (not dfFlag):
-                esiVal = self.registers.regAddWord(CPU_REGISTER_SI, operSize)
+                self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx+operSize
+                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
             else:
-                esiVal = self.registers.regSubWord(CPU_REGISTER_SI, operSize)
+                self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx-operSize
+                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
             if (self.cpu.repPrefix):
-                self.registers.regSubWord(CPU_REGISTER_CX, 1)
+                self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int outsFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST:
@@ -1160,11 +1190,13 @@ cdef class Opcodes:
             value = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
             self.outPort(ioPort, value, operSize)
             if (not dfFlag):
-                esiVal = self.registers.regAddDword(CPU_REGISTER_ESI, operSize)
+                self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx+operSize
+                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
             else:
-                esiVal = self.registers.regSubDword(CPU_REGISTER_ESI, operSize)
+                self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-operSize
+                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
             if (self.cpu.repPrefix):
-                self.registers.regSubDword(CPU_REGISTER_ECX, 1)
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int outsFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST:
@@ -1190,11 +1222,13 @@ cdef class Opcodes:
             value = self.inPort(ioPort, operSize)
             self.registers.mmWriteValue(ediVal, value, operSize, &self.registers.segments.es, False)
             if (not dfFlag):
-                ediVal = self.registers.regAddWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
-                ediVal = self.registers.regSubWord(CPU_REGISTER_DI, operSize)
+                self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
-                self.registers.regSubWord(CPU_REGISTER_CX, 1)
+                self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int insFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST:
@@ -1214,11 +1248,13 @@ cdef class Opcodes:
             value = self.inPort(ioPort, operSize)
             self.registers.mmWriteValue(ediVal, value, operSize, &self.registers.segments.es, False)
             if (not dfFlag):
-                ediVal = self.registers.regAddDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
-                ediVal = self.registers.regSubDword(CPU_REGISTER_EDI, operSize)
+                self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
+                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
-                self.registers.regSubDword(CPU_REGISTER_ECX, 1)
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
         self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int insFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST:
@@ -1283,7 +1319,7 @@ cdef class Opcodes:
         self.stackPopRegId(CPU_REGISTER_DI, self.cpu.operSize)
         self.stackPopRegId(CPU_REGISTER_SI, self.cpu.operSize)
         self.stackPopRegId(CPU_REGISTER_BP, self.cpu.operSize)
-        self.registers.regAddDword(CPU_REGISTER_ESP, self.cpu.operSize)
+        self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx+self.cpu.operSize
         self.stackPopRegId(CPU_REGISTER_BX, self.cpu.operSize)
         self.stackPopRegId(CPU_REGISTER_DX, self.cpu.operSize)
         self.stackPopRegId(CPU_REGISTER_CX, self.cpu.operSize)
@@ -1384,7 +1420,7 @@ cdef class Opcodes:
     cdef int pushIMM(self, uint8_t immIsByte) nogil except BITMASK_BYTE_CONST:
         cdef uint32_t value
         if (immIsByte):
-            value = self.registers.getCurrentOpcodeAddSignedByte()
+            value = <int8_t>self.registers.getCurrentOpcodeAddUnsignedByte()
         else:
             value = self.registers.getCurrentOpcodeAddUnsigned(self.cpu.operSize)
         if (self.cpu.operSize == OP_SIZE_WORD):
@@ -1398,7 +1434,7 @@ cdef class Opcodes:
         self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
         operOp1 = self.modRMInstance.modRMLoadSigned(self.cpu.operSize)
         if (immIsByte):
-            operOp2 = self.registers.getCurrentOpcodeAddSignedByte()
+            operOp2 = <int8_t>self.registers.getCurrentOpcodeAddUnsignedByte()
             operOp2 &= bitMask
         else:
             operOp2 = self.registers.getCurrentOpcodeAddSigned(self.cpu.operSize)
@@ -1417,7 +1453,7 @@ cdef class Opcodes:
                     self.main.notice("Group1_RM_ImmFunc: operOpcodeId=={0:d}", operOpcodeId)
         operOp1 = self.modRMInstance.modRMLoadUnsigned(operSize)
         if (operSize != OP_SIZE_BYTE and immIsByte):
-            operOp2 = <uint32_t>self.registers.getCurrentOpcodeAddSignedByte() # operImm8 sign-extended to destsize
+            operOp2 = <uint32_t>(<int8_t>self.registers.getCurrentOpcodeAddUnsignedByte()) # operImm8 sign-extended to destsize
             if (operSize == OP_SIZE_WORD):
                 operOp2 = <uint16_t>operOp2
         else:
@@ -1858,7 +1894,7 @@ cdef class Opcodes:
                 with gil:
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             if (operOpcode == 0x06): # CLTS
-                self.registers.regAndDword(CPU_REGISTER_CR0, ~CR0_FLAG_TS)
+                self.registers.regs[CPU_REGISTER_CR0]._union.dword.erx = self.registers.regs[CPU_REGISTER_CR0]._union.dword.erx&(~CR0_FLAG_TS)
             elif (operOpcode == 0x08): # INVD
                 with gil:
                     self.main.notice("Opcodes::opcodeGroup0F: INVD: TODO!")
@@ -1957,8 +1993,9 @@ cdef class Opcodes:
             self.modRMInstance.modRMOperands(OP_SIZE_DWORD, MODRM_FLAGS_DREG)
             self.modRMInstance.modRSave(OP_SIZE_DWORD, self.modRMInstance.modRMLoadUnsigned(OP_SIZE_DWORD), OPCODE_SAVE)
         elif (operOpcode in (0x30, 0x31, 0x32)): # WRMSR, RDTSC, RDMSR
-            with gil:
-                self.main.notice("Opcodes::opcodeGroup0F: WRMSR/RDTSC/RDMSR: TODO!")
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("Opcodes::opcodeGroup0F: WRMSR/RDTSC/RDMSR: TODO!")
             #raise HirnwichseException(CPU_EXCEPTION_UD)
             if (operOpcode == 0x31 and self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_TSD) != 0 and cpl != 0 and self.registers.protectedModeOn): # RDTSC
                 with gil:
@@ -1972,14 +2009,14 @@ cdef class Opcodes:
                 with gil:
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
             if (operOpcode == 0x31 or (operOpcode == 0x32 and eaxId == 0x10)):
-                self.registers.regWriteDword(CPU_REGISTER_EAX, <uint32_t>(self.cpu.cycles))
-                self.registers.regWriteDword(CPU_REGISTER_EDX, <uint32_t>(self.cpu.cycles>>32))
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = <uint32_t>(self.cpu.cycles)
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = <uint32_t>(self.cpu.cycles>>32)
             elif (operOpcode == 0x30 and eaxId == 0x10):
                 self.cpu.cycles = self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx
                 self.cpu.cycles = self.cpu.cycles|(<uint64_t>self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx<<32)
             elif (operOpcode == 0x32 and eaxId in (0x1b, 0x2a, 0x8b)): # apic base, power on configuration bits, no microcode loaded or rather supported.
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0)
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
             elif (operOpcode == 0x30 and eaxId in (0x1b, 0x2a, 0x8b)): # apic base, power on configuration bits, no microcode loaded or rather supported.
                 pass
             else:
@@ -2027,80 +2064,80 @@ cdef class Opcodes:
             #eaxIsInvalid = (eaxId >= <uint32_t>0x40000000 and eaxId <= <uint32_t>0x4fffffff)
             IF 0:
                 if (eaxId in (0x2, 0x3, 0x4, 0x5, <uint32_t>0x80000001, <uint32_t>0x80000005, <uint32_t>0x80000006, <uint32_t>0x80000007)):
-                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
-                    self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
-                    self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
+                    self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0
+                    self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0
+                    self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0
+                    self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
                 elif (eaxId == <uint32_t>0x80000000):
-                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0x80000007)
-                    self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
-                    self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
+                    self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x80000007
+                    self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0
+                    self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0
+                    self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
                 elif (eaxId == <uint32_t>0x80000002):
-                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0x20202020)
-                    self.registers.regWriteDword(CPU_REGISTER_EBX, 0x20202020)
-                    self.registers.regWriteDword(CPU_REGISTER_ECX, 0x20202020)
-                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0x6e492020)
+                    self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x20202020
+                    self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0x20202020
+                    self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0x20202020
+                    self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x6e492020
                 elif (eaxId == <uint32_t>0x80000003):
-                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0x286c6574)
-                    self.registers.regWriteDword(CPU_REGISTER_EBX, 0x50202952)
-                    self.registers.regWriteDword(CPU_REGISTER_ECX, 0x69746e65)
-                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0x52286d75)
+                    self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x286c6574
+                    self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0x50202952
+                    self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0x69746e65
+                    self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x52286d75
                 elif (eaxId == <uint32_t>0x80000004):
-                    self.registers.regWriteDword(CPU_REGISTER_EAX, 0x20342029)
-                    self.registers.regWriteDword(CPU_REGISTER_EBX, 0x20555043)
-                    self.registers.regWriteDword(CPU_REGISTER_ECX, 0x20202020)
-                    self.registers.regWriteDword(CPU_REGISTER_EDX, 0x00202020)
+                    self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x20342029
+                    self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0x20555043
+                    self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0x20202020
+                    self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x00202020
             if (eaxId & <uint32_t>0x30000000):
                 with gil:
                     self.main.exitError("Opcodes::opcodeGroup0F: CPUID test1: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
             elif (eaxId & <uint32_t>0x80000000):
                 with gil:
                     self.main.notice("Opcodes::opcodeGroup0F: CPUID test2: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
             elif (eaxId == 0x1):
                 IF COMP_DEBUG:
                     with gil:
                         self.main.notice("Opcodes::opcodeGroup0F: CPUID test4: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
-                #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x521)
-                #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x611)
-                #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x631)
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x635)
-                self.registers.regWriteDword(CPU_REGISTER_EBX, 0x10000)
-                #self.registers.regWriteDword(CPU_REGISTER_EDX, 0x8113)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0xa117)
-                #self.registers.regWriteDword(CPU_REGISTER_EDX, 0xa11f)
-                self.registers.regWriteDword(CPU_REGISTER_ECX, 0xc00000)
+                #self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x521
+                #self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x611
+                #self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x631
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x635
+                self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0x10000
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0xc00000
+                #self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x8113
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0xa117
+                #self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0xa11f
             elif (eaxId == 0x2):
                 IF COMP_DEBUG:
                     with gil:
                         self.main.notice("Opcodes::opcodeGroup0F: CPUID test5: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x1)
-                self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x1
+                self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
             elif (eaxId == 0x3):
                 IF COMP_DEBUG:
                     with gil:
                         self.main.notice("Opcodes::opcodeGroup0F: CPUID test6: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_EBX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x0)
-                self.registers.regWriteDword(CPU_REGISTER_ECX, 0x0)
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
             else:
                 IF COMP_DEBUG:
                     with gil:
                         self.main.notice("Opcodes::opcodeGroup0F: CPUID test3: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
                 #if (not (eaxId == 0x0 or eaxIsInvalid)):
                 #    self.main.notice("CPUID: eaxId {0:#04x} unknown.", eaxId)
-                #self.registers.regWriteDword(CPU_REGISTER_EAX, 0x5)
-                self.registers.regWriteDword(CPU_REGISTER_EAX, 0x3)
-                self.registers.regWriteDword(CPU_REGISTER_EBX, 0x756e6547)
-                self.registers.regWriteDword(CPU_REGISTER_EDX, 0x49656e69)
-                self.registers.regWriteDword(CPU_REGISTER_ECX, 0x6c65746e)
+                #self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x5
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x3
+                self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0x756e6547
+                self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0x6c65746e
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x49656e69
         elif (operOpcode == 0xa3): # BT RM16/32, R16/R32
             return self.btFunc(BT_NONE)
         elif (operOpcode in (0xa4, 0xa5)): # SHLD
@@ -2345,8 +2382,8 @@ cdef class Opcodes:
                     self.registers.mmWriteValue(mmAddr, qop2, OP_SIZE_QWORD, self.modRMInstance.rmNameSeg, True)
                 else:
                     self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
-                    self.registers.regWriteDword(CPU_REGISTER_EDX, qop1>>32)
-                    self.registers.regWriteDword(CPU_REGISTER_EAX, qop1)
+                    self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = qop1>>32
+                    self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = qop1
             else:
                 with gil:
                     self.main.notice("opcodeGroup0F_C7: self.modRMInstance.reg {0:d} isn't supported yet.", self.modRMInstance.reg)
@@ -2361,7 +2398,7 @@ cdef class Opcodes:
             with gil:
                 op1 = (<Misc>self.main.misc).reverseByteOrder(op1, OP_SIZE_DWORD)
             #self.main.notice("Opcodes::opcodeGroup0F: BSWAP: test2=={0:#010x}", op1)
-            self.registers.regWriteDword(regName, op1)
+            self.registers.regs[regName]._union.dword.erx = op1
         elif (operOpcode == 0xff): # 0xFF UD3
             with gil:
                 self.main.notice("Opcodes::opcodeGroup0F: 0xff UD3!")
@@ -2545,7 +2582,7 @@ cdef class Opcodes:
         return True
     cdef int retNearImm(self) nogil except BITMASK_BYTE_CONST:
         cdef int16_t imm
-        imm = self.registers.getCurrentOpcodeAddSignedWord() # imm16
+        imm = <int16_t>self.registers.getCurrentOpcodeAddUnsignedWord() # imm16
         return self.retNear(imm)
     cdef int retFar(self, uint16_t imm) nogil except BITMASK_BYTE_CONST:
         cdef GdtEntry gdtEntrySS
@@ -2622,9 +2659,9 @@ cdef class Opcodes:
                 self.registers.segWriteSegment(&self.registers.segments.ss, tempSS)
                 stackAddrSize = (<Segment>self.registers.segments.ss).gdtEntry.segSize
                 if (stackAddrSize == OP_SIZE_DWORD):
-                    self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
+                    self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx = tempESP
                 else:
-                    self.registers.regWriteWord(CPU_REGISTER_SP, <uint16_t>tempESP)
+                    self.registers.regs[CPU_REGISTER_SP]._union.word._union.rx = <uint16_t>tempESP
         self.registers.segWriteSegment(&self.registers.segments.cs, tempCS)
         self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
         return True
@@ -2658,7 +2695,7 @@ cdef class Opcodes:
         if (self.cpu.addrSize == OP_SIZE_WORD):
             mmAddr = <uint16_t>mmAddr
         data = self.registers.mmReadValueUnsignedByte(mmAddr, &self.registers.segments.ds, True)
-        self.registers.regWriteLowByte(CPU_REGISTER_AL, data)
+        self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = data
         return True
     cdef int opcodeGroup2_RM(self, uint8_t operSize) nogil except BITMASK_BYTE_CONST:
         cdef uint8_t operOpcodeId, operSizeInBits
@@ -2688,7 +2725,7 @@ cdef class Opcodes:
         elif (operOpcodeId == GROUP2_OP_MUL):
             if (operSize == OP_SIZE_BYTE):
                 operOp1 = self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl
-                self.registers.regWriteWord(CPU_REGISTER_AX, operOp1*operOp2)
+                self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = operOp1*operOp2
                 self.registers.setFullFlags(operOp1, operOp2, operSize, OPCODE_MUL)
                 return True
             operOp1 = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
@@ -2706,7 +2743,7 @@ cdef class Opcodes:
             operOp1 = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
             if (operSize == OP_SIZE_BYTE):
                 operSum = <uint16_t>((<int8_t>operOp1)*(<int8_t>operOp2))
-                self.registers.regWriteWord(CPU_REGISTER_AX, operSum)
+                self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = operSum
                 self.registers.setFullFlags(operOp1, operOp2, operSize, OPCODE_IMUL)
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (<int8_t>operSum)!=(<int16_t>operSum)
                 return True
@@ -2734,8 +2771,8 @@ cdef class Opcodes:
             if (temp != temp&bitMask):
                 with gil:
                     raise HirnwichseException(CPU_EXCEPTION_DE)
-            self.registers.regWriteLowByte(CPU_REGISTER_AL, temp)
-            self.registers.regWriteHighByte(CPU_REGISTER_AH, tempmod)
+            self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = temp
+            self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh = tempmod
         elif (operSize == OP_SIZE_BYTE and operOpcodeId == GROUP2_OP_IDIV):
             sop1  = <int16_t>self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx
             sop2  = self.modRMInstance.modRMLoadSigned(operSize)
@@ -2750,8 +2787,8 @@ cdef class Opcodes:
             if (<int16_t>temp != <int8_t>temp):
                 with gil:
                     raise HirnwichseException(CPU_EXCEPTION_DE)
-            self.registers.regWriteLowByte(CPU_REGISTER_AL, temp)
-            self.registers.regWriteHighByte(CPU_REGISTER_AH, tempmod)
+            self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = temp
+            self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh = tempmod
         elif (operOpcodeId == GROUP2_OP_DIV):
             operOp1  = self.registers.regReadUnsigned(CPU_REGISTER_DX, operSize)<<operSizeInBits
             operOp1 |= self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
@@ -2930,7 +2967,7 @@ cdef class Opcodes:
                     eflagsClearThis |= FLAG_IF
                     if (oldVM):
                         eflagsClearThis |= FLAG_VM | FLAG_NT
-                self.registers.clearEFLAG(eflagsClearThis)
+                self.registers.regs[CPU_REGISTER_EFLAGS]._union.dword.erx &= ~eflagsClearThis
                 oldSS = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
                 oldESP = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
                 self.registers.segWriteSegment(&self.registers.segments.ss, newSS)
@@ -2943,9 +2980,9 @@ cdef class Opcodes:
                     if ((not oldVM and (newESP - (12 if (errorCode != -1) else 10)) >= newESP) or (oldVM and (newESP - (20 if (errorCode != -1) else 18)) >= newESP)):
                         raise HirnwichseException(CPU_EXCEPTION_SS, (<Misc>self.main.misc).calculateInterruptErrorcode(newSS, 0, not isSoftInt))
                 if ((<Segment>self.registers.segments.ss).gdtEntry.segSize == OP_SIZE_DWORD):
-                    self.registers.regWriteDword(CPU_REGISTER_ESP, newESP)
+                    self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx = newESP
                 else:
-                    self.registers.regWriteWord(CPU_REGISTER_SP, <uint16_t>newESP)
+                    self.registers.regs[CPU_REGISTER_SP]._union.word._union.rx = <uint16_t>newESP
                 if (oldVM):
                     self.stackPushSegment(&self.registers.segments.gs, entrySize, False)
                     self.stackPushSegment(&self.registers.segments.fs, entrySize, False)
@@ -2986,7 +3023,7 @@ cdef class Opcodes:
             eflagsClearThis |= FLAG_IF
             if (oldVM):
                 eflagsClearThis |= FLAG_VM | FLAG_NT
-        self.registers.clearEFLAG(eflagsClearThis)
+        self.registers.regs[CPU_REGISTER_EFLAGS]._union.dword.erx &= ~eflagsClearThis
         self.stackPushValue(oldEFLAGS, entrySize, False)
         self.stackPushSegment(&self.registers.segments.cs, entrySize, False)
         self.stackPushRegId(CPU_REGISTER_EIP, entrySize)
@@ -3088,7 +3125,7 @@ cdef class Opcodes:
                         raise HirnwichseException(CPU_EXCEPTION_NP, TSSsel)
                 oldSegType = ((<Segment>self.registers.segments.tss).gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK_WITHOUT_BUSY)
                 self.registers.segments.setSegType(TSSsel, oldSegType)
-                self.registers.clearEFLAG(FLAG_NT)
+                self.registers.regs[CPU_REGISTER_EFLAGS]._union.dword.erx = self.registers.regs[CPU_REGISTER_EFLAGS]._union.dword.erx&(~FLAG_NT)
                 if (segType == TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS):
                     self.registers.saveTSS32()
                 else:
@@ -3127,7 +3164,7 @@ cdef class Opcodes:
                     self.registers.segWriteSegment(&self.registers.segments.cs, tempCS)
                     self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
                     self.registers.segWriteSegment(&self.registers.segments.ss, tempSS)
-                    self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
+                    self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx = tempESP
                     self.registers.segWriteSegment(&self.registers.segments.es, tempES)
                     self.registers.segWriteSegment(&self.registers.segments.ds, tempDS)
                     self.registers.segWriteSegment(&self.registers.segments.fs, tempFS)
@@ -3204,9 +3241,9 @@ cdef class Opcodes:
                     self.registers.segWriteSegment(&self.registers.segments.gs, 0)
                 self.registers.segWriteSegment(&self.registers.segments.ss, tempSS)
                 if ((<Segment>self.registers.segments.ss).gdtEntry.segSize == OP_SIZE_DWORD):
-                    self.registers.regWriteDword(CPU_REGISTER_ESP, tempESP)
+                    self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx = tempESP
                 else:
-                    self.registers.regWriteWord(CPU_REGISTER_SP, <uint16_t>tempESP)
+                    self.registers.regs[CPU_REGISTER_SP]._union.word._union.rx = <uint16_t>tempESP
             if (not (tempCS&0xfff8)):
                 with gil:
                     self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.6 (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
@@ -3269,7 +3306,7 @@ cdef class Opcodes:
         imm8 = self.registers.getCurrentOpcodeAddUnsignedByte()
         tempAH = self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh*imm8
         tempAL = self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl+tempAH
-        self.registers.regWriteWord(CPU_REGISTER_AX, tempAL)
+        self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = tempAL
         self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
         return True
     cdef int aam(self) nogil except BITMASK_BYTE_CONST:
@@ -3281,8 +3318,8 @@ cdef class Opcodes:
         tempAL = self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl
         ALdiv = tempAL//imm8
         ALmod = tempAL%imm8
-        self.registers.regWriteHighByte(CPU_REGISTER_AH, ALdiv)
-        self.registers.regWriteLowByte(CPU_REGISTER_AL, ALmod)
+        self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh = ALdiv
+        self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = ALmod
         self.registers.setSZP_COA(ALmod, OP_SIZE_BYTE)
         return True
     cdef int aaa(self) nogil except BITMASK_BYTE_CONST:
@@ -3296,11 +3333,11 @@ cdef class Opcodes:
             tempAL = (tempAL+6)&0xf
             self.registers.setSZP_O(tempAL, OP_SIZE_BYTE)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = True
-            self.registers.regAddHighByte(CPU_REGISTER_AH, 1)
+            self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh = self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh+1
         else:
             tempAL &= 0xf
             self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
-        self.registers.regWriteLowByte(CPU_REGISTER_AL, tempAL)
+        self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = tempAL
         return True
     cdef int aas(self) nogil except BITMASK_BYTE_CONST:
         cdef uint8_t AFflag, tempAL, tempAH
@@ -3313,11 +3350,11 @@ cdef class Opcodes:
             tempAL = (tempAL-6)&0xf
             self.registers.setSZP_O(tempAL, OP_SIZE_BYTE)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = True
-            self.registers.regSubHighByte(CPU_REGISTER_AH, 1)
+            self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh = self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh-1
         else:
             tempAL &= 0xf
             self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
-        self.registers.regWriteLowByte(CPU_REGISTER_AL, tempAL)
+        self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = tempAL
         return True
     cdef int daa(self) nogil except BITMASK_BYTE_CONST:
         cdef uint8_t old_AL, old_AF, old_CF
@@ -3326,13 +3363,13 @@ cdef class Opcodes:
         old_CF = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         self.clc()
         if (((old_AL&0xf)>9) or old_AF):
-            self.registers.regAddLowByte(CPU_REGISTER_AL, 0x6)
+            self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl+0x6
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = old_CF or (old_AL+6>BITMASK_BYTE)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = True
         else:
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
         if ((old_AL > 0x99) or old_CF):
-            self.registers.regAddLowByte(CPU_REGISTER_AL, 0x60)
+            self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl+0x60
             self.stc()
         else:
             self.clc()
@@ -3345,13 +3382,13 @@ cdef class Opcodes:
         old_CF = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         self.clc()
         if (((old_AL&0xf)>9) or old_AF):
-            self.registers.regSubLowByte(CPU_REGISTER_AL, 6)
+            self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl-0x6
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = old_CF or (old_AL-6<0)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = True
         else:
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
         if ((old_AL > 0x99) or old_CF):
-            self.registers.regSubLowByte(CPU_REGISTER_AL, 0x60)
+            self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl-0x60
             self.stc()
         self.registers.setSZP_O(self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl, OP_SIZE_BYTE)
         return True
@@ -3359,10 +3396,10 @@ cdef class Opcodes:
         cdef uint32_t op2
         if (self.cpu.operSize == OP_SIZE_WORD): # CBW
             op2 = <uint16_t><int8_t>self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl
-            self.registers.regWriteWord(CPU_REGISTER_AX, op2)
+            self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = op2
         elif (self.cpu.operSize == OP_SIZE_DWORD): # CWDE
             op2 = <int16_t>self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx
-            self.registers.regWriteDword(CPU_REGISTER_EAX, op2)
+            self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = op2
         return True
     cdef int cwd_cdq(self) nogil except BITMASK_BYTE_CONST:
         cdef uint32_t bitMask, bitMaskHalf, op2
@@ -3566,19 +3603,19 @@ cdef class Opcodes:
     cdef int lahf(self) nogil except BITMASK_BYTE_CONST:
         cdef uint8_t flagsVal
         flagsVal = self.registers.readFlags() & (FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_REQUIRED | FLAG_CF)
-        self.registers.regWriteHighByte(CPU_REGISTER_AH, flagsVal)
+        self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh = flagsVal
         return True
     cdef int xchgFuncRegWord(self, uint16_t regName, uint16_t regName2) nogil except BITMASK_BYTE_CONST:
         cdef uint16_t regValue, regValue2
         regValue, regValue2 = self.registers.regs[regName]._union.word._union.rx, self.registers.regs[regName2]._union.word._union.rx
-        self.registers.regWriteWord(regName, regValue2)
-        self.registers.regWriteWord(regName2, regValue)
+        self.registers.regs[regName]._union.word._union.rx = regValue2
+        self.registers.regs[regName2]._union.word._union.rx = regValue
         return True
     cdef int xchgFuncRegDword(self, uint16_t regName, uint16_t regName2) nogil except BITMASK_BYTE_CONST:
         cdef uint32_t regValue, regValue2
         regValue, regValue2 = self.registers.regs[regName]._union.dword.erx, self.registers.regs[regName2]._union.dword.erx
-        self.registers.regWriteDword(regName, regValue2)
-        self.registers.regWriteDword(regName2, regValue)
+        self.registers.regs[regName]._union.dword.erx = regValue2
+        self.registers.regs[regName2]._union.dword.erx = regValue
         return True
     ##### DON'T USE XCHG AX, AX FOR OPCODE 0x90, use NOP instead!!
     cdef int xchgReg(self) nogil except BITMASK_BYTE_CONST:
@@ -3601,7 +3638,7 @@ cdef class Opcodes:
         cdef uint32_t frameTemp, temp
         #self.main.debugEnabled = True
         stackAddrSize = (<Segment>self.registers.segments.ss).gdtEntry.segSize
-        sizeOp = self.registers.getCurrentOpcodeAddSignedWord()
+        sizeOp = <int16_t>self.registers.getCurrentOpcodeAddUnsignedWord()
         nestingLevel = self.registers.getCurrentOpcodeAddUnsignedByte()
         nestingLevel &= 0x1f
         if (nestingLevel and self.main.debugEnabled):
@@ -3615,23 +3652,23 @@ cdef class Opcodes:
             if (nestingLevel > 0):
                 if (nestingLevel > 1):
                     for i in range(nestingLevel-2):
-                        self.registers.regSubWord(CPU_REGISTER_BP, self.cpu.operSize)
+                        self.registers.regs[CPU_REGISTER_BP]._union.word._union.rx = self.registers.regs[CPU_REGISTER_BP]._union.word._union.rx-self.cpu.operSize
                         temp = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_BP]._union.word._union.rx, self.cpu.operSize, &self.registers.segments.ss, False)
                         self.stackPushValue(temp, self.cpu.operSize, False)
                 self.stackPushValue(frameTemp, self.cpu.operSize, False)
-            self.registers.regWriteWord(CPU_REGISTER_BP, frameTemp)
-            self.registers.regSubWord(CPU_REGISTER_SP, sizeOp)
+            self.registers.regs[CPU_REGISTER_BP]._union.word._union.rx = frameTemp
+            self.registers.regs[CPU_REGISTER_SP]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SP]._union.word._union.rx-sizeOp
         elif (stackAddrSize == OP_SIZE_DWORD):
             frameTemp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
             if (nestingLevel > 0):
                 if (nestingLevel > 1):
                     for i in range(nestingLevel-2):
-                        self.registers.regSubDword(CPU_REGISTER_EBP, self.cpu.operSize)
+                        self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx = self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx-self.cpu.operSize
                         temp = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx, self.cpu.operSize, &self.registers.segments.ss, False)
                         self.stackPushValue(temp, self.cpu.operSize, False)
                 self.stackPushValue(frameTemp, self.cpu.operSize, False)
-            self.registers.regWriteDword(CPU_REGISTER_EBP, frameTemp)
-            self.registers.regSubDword(CPU_REGISTER_ESP, sizeOp)
+            self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx = frameTemp
+            self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx-sizeOp
         return True
     cdef int leave(self) nogil except BITMASK_BYTE_CONST:
         cdef uint8_t stackAddrSize
@@ -3640,9 +3677,9 @@ cdef class Opcodes:
         #self.cpu.cpuDump()
         stackAddrSize = (<Segment>self.registers.segments.ss).gdtEntry.segSize
         if (stackAddrSize == OP_SIZE_WORD):
-            self.registers.regWriteWord(CPU_REGISTER_SP, self.registers.regs[CPU_REGISTER_BP]._union.word._union.rx)
+            self.registers.regs[CPU_REGISTER_SP]._union.word._union.rx = self.registers.regs[CPU_REGISTER_BP]._union.word._union.rx
         elif (stackAddrSize == OP_SIZE_DWORD):
-            self.registers.regWriteDword(CPU_REGISTER_ESP, self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx)
+            self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx = self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx
         self.stackPopRegId(CPU_REGISTER_EBP, self.cpu.operSize)
         #self.main.notice("Opcodes::leave: end of function")
         return True
@@ -4016,7 +4053,7 @@ cdef class Opcodes:
             if (divZero):
                 self.registers.fpu.status |= 4
         elif (opcode == 7 and opcode2 == 0xe0): # FNSTSW ax
-            self.registers.regWriteWord(CPU_REGISTER_AX, self.registers.fpu.status)
+            self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = self.registers.fpu.status
         else:
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             dataAddr = self.modRMInstance.getRMValueFull(self.cpu.addrSize)
@@ -4033,12 +4070,12 @@ cdef class Opcodes:
                         tempVal = self.registers.mmReadValueUnsignedDword(dataAddr, self.modRMInstance.rmNameSeg, True)
                         data = (<float*>&tempVal)[0]
                     elif (opcode == 2): # int32
-                        signedInt = self.registers.mmReadValueSignedDword(dataAddr, self.modRMInstance.rmNameSeg, True)
+                        signedInt = <int32_t>self.registers.mmReadValueUnsignedDword(dataAddr, self.modRMInstance.rmNameSeg, True)
                     elif (opcode == 4): # fp64
                         tempVal = self.registers.mmReadValueUnsignedQword(dataAddr, self.modRMInstance.rmNameSeg, True)
                         data = (<double*>&tempVal)[0]
                     elif (opcode == 6): # int16
-                        signedInt = self.registers.mmReadValueSignedWord(dataAddr, self.modRMInstance.rmNameSeg, True)
+                        signedInt = <int16_t>self.registers.mmReadValueUnsignedWord(dataAddr, self.modRMInstance.rmNameSeg, True)
                     if (opcode in (0, 4)):
                         data3 = gmpy2.mpfr(data)
                     else:
@@ -4084,7 +4121,7 @@ cdef class Opcodes:
                         if (reg == 3):
                             self.registers.fpu.pop()
                     elif (reg in (5,)): # FILD
-                        signedInt = self.registers.mmReadValueSignedQword(dataAddr, self.modRMInstance.rmNameSeg, True)
+                        signedInt = <int64_t>self.registers.mmReadValueUnsignedQword(dataAddr, self.modRMInstance.rmNameSeg, True)
                         data2 = gmpy2.mpfr(signedInt)
                         self.main.notice("Opcodes::fpuOpcodes: TODO: test13: op1=={0:s}", repr(data2))
                         self.registers.fpu.push(data2, False)
@@ -4097,7 +4134,7 @@ cdef class Opcodes:
                 elif (opcode == 3):
                     if (reg in (0,2,3,7)):
                         if (reg == 0): # FILD
-                            signedInt = self.registers.mmReadValueSignedDword(dataAddr, self.modRMInstance.rmNameSeg, True)
+                            signedInt = <int32_t>self.registers.mmReadValueUnsignedDword(dataAddr, self.modRMInstance.rmNameSeg, True)
                             data2 = gmpy2.mpfr(signedInt)
                             self.main.notice("Opcodes::fpuOpcodes: TODO: test12: op1=={0:s}", repr(data2))
                             self.registers.fpu.push(data2, False)

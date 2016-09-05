@@ -80,7 +80,7 @@ cdef class Hirnwichse:
             print("DEBUG: " + msg.format(*msgArgs))
     def notice(self, str msg, *msgArgs): # this needs to be 'def'
         print("NOTICE: " + msg.format(*msgArgs))
-        stdout.flush()
+        #stdout.flush()
     cpdef reset(self, uint8_t resetHardware):
         self.cpu.reset()
         if (resetHardware):

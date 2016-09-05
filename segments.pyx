@@ -275,7 +275,7 @@ cdef class Paging: # TODO
                     self.segments.main.notice("Paging::doPF: PDEL=={0:#010x}, PTEL=={1:#010x}", self.pageDirectoryEntry, self.pageTableEntry)
                     self.segments.main.notice("Paging::doPF: PDEM=={0:#010x}, PTEM=={1:#010x}", pageDirectoryEntryMem, pageTableEntryMem)
                     self.segments.main.notice("Paging::doPF: PDO=={0:#06x}, PTO=={1:#06x}, PO=={2:#06x}", self.pageDirectoryOffset, self.pageTableOffset, self.pageOffset)
-            self.segments.registers.regWriteDword(CPU_REGISTER_CR2, virtualAddress)
+            self.segments.registers.regs[CPU_REGISTER_CR2]._union.dword.erx = virtualAddress
             self.instrFetch = self.implicitSV = False
             with gil:
                 raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)

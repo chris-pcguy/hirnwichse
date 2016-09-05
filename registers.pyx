@@ -68,7 +68,7 @@ cdef class ModRMClass:
                     self.rmName0 = CPU_REGISTER_NONE
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedWord()
                 elif (self.mod == 1):
-                    self.rmName2 = <uint16_t>(<int8_t>self.registers.getCurrentOpcodeAddSignedByte())
+                    self.rmName2 = <uint16_t>(<int8_t>self.registers.getCurrentOpcodeAddUnsignedByte())
                 elif (self.mod == 2):
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedWord()
                 else:
@@ -86,7 +86,7 @@ cdef class ModRMClass:
                     self.rmName0 = CPU_REGISTER_NONE
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
                 elif (self.mod == 1):
-                    self.rmName2 = <uint32_t>(<int8_t>self.registers.getCurrentOpcodeAddSignedByte())
+                    self.rmName2 = <uint32_t>(<int8_t>self.registers.getCurrentOpcodeAddUnsignedByte())
                 elif (self.mod == 2):
                     self.rmName2 = self.registers.getCurrentOpcodeAddUnsignedDword()
                 else:
@@ -363,7 +363,7 @@ cdef class Registers:
         self.fpu = Fpu(self, self.main)
         IF CPU_CACHE_SIZE:
             with nogil:
-                self.cpuCache = <char*>malloc(CPU_CACHE_SIZE<<1)
+                self.cpuCache = <char*>malloc((CPU_CACHE_SIZE<<1)+OP_SIZE_QWORD)
             if (self.cpuCache is NULL):
                 self.main.exitError("Registers::init: not self.cpuCache.")
                 return
@@ -395,10 +395,10 @@ cdef class Registers:
         #self.regWriteDword(CPU_REGISTER_DR6, 0xffff1ff0) # why has bochs bit 12 set?
         self.regWriteDword(CPU_REGISTER_DR6, 0xffff0ff0)
         self.regWriteDword(CPU_REGISTER_DR7, 0x400)
-        #self.regWriteDword(CPU_REGISTER_EDX, 0x521)
-        #self.regWriteDword(CPU_REGISTER_EDX, 0x611)
-        #self.regWriteDword(CPU_REGISTER_EDX, 0x631)
-        self.regWriteDword(CPU_REGISTER_EDX, 0x635)
+        #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x521
+        #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x611
+        #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x631
+        self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x635
         self.segWriteSegment(&self.segments.cs, 0xf000)
         self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
     cdef inline uint8_t checkCache(self, uint32_t mmAddr, uint8_t dataSize) nogil except BITMASK_BYTE_CONST: # called on a memory write; reload cache for self-modifying-code
@@ -738,7 +738,7 @@ cdef class Registers:
         return 0
     cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil:
         if (regSize == OP_SIZE_BYTE):
-            self.regWriteLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl = value
         elif (regSize == OP_SIZE_WORD):
             self.regWriteWord(regId, value)
         elif (regSize == OP_SIZE_DWORD):
@@ -798,150 +798,156 @@ cdef class Registers:
         return value # returned value is unsigned!!
     cdef inline uint64_t regAdd(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil:
         if (regSize == OP_SIZE_WORD):
-            return self.regAddWord(regId, value)
+            self.regs[regId]._union.word._union.rx += value
+            return self.regs[regId]._union.word._union.rx
         elif (regSize == OP_SIZE_DWORD):
-            return self.regAddDword(regId, value)
+            self.regs[regId]._union.dword.erx += value
+            return self.regs[regId]._union.dword.erx
         elif (regSize == OP_SIZE_QWORD):
-            return self.regAddQword(regId, value)
+            self.regs[regId]._union.rrx += value
+            return self.regs[regId]._union.rrx
         return 0
     cdef inline uint64_t regSub(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil:
         if (regSize == OP_SIZE_WORD):
-            return self.regSubWord(regId, value)
+            self.regs[regId]._union.word._union.rx -= value
+            return self.regs[regId]._union.word._union.rx
         elif (regSize == OP_SIZE_DWORD):
-            return self.regSubDword(regId, value)
+            self.regs[regId]._union.dword.erx -= value
+            return self.regs[regId]._union.dword.erx
         elif (regSize == OP_SIZE_QWORD):
-            return self.regSubQword(regId, value)
+            self.regs[regId]._union.rrx = value
+            return self.regs[regId]._union.rrx
         return 0
     cdef inline uint8_t regWriteWithOpLowByte(self, uint16_t regId, uint8_t value, uint8_t valueOp) nogil:
         if (valueOp == OPCODE_SAVE):
-            return self.regWriteLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl = value
         elif (valueOp == OPCODE_ADD):
-            return self.regAddLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl += value
         elif (valueOp == OPCODE_ADC):
-            return self.regAdcLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_SUB):
-            return self.regSubLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl -= value
         elif (valueOp == OPCODE_SBB):
-            return self.regSbbLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_AND):
-            return self.regAndLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl &= value
         elif (valueOp == OPCODE_OR):
-            return self.regOrLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl |= value
         elif (valueOp == OPCODE_XOR):
-            return self.regXorLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl ^= value
         elif (valueOp == OPCODE_NEG):
             value = (-value)
-            return self.regWriteLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl = value
         elif (valueOp == OPCODE_NOT):
             value = (~value)
-            return self.regWriteLowByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rl = value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpLowByte: unknown valueOp {0:d}.", valueOp)
-        return 0
+        return self.regs[regId]._union.word._union.byte.rl
     cdef inline uint8_t regWriteWithOpHighByte(self, uint16_t regId, uint8_t value, uint8_t valueOp) nogil:
         if (valueOp == OPCODE_SAVE):
-            return self.regWriteHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh = value
         elif (valueOp == OPCODE_ADD):
-            return self.regAddHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh += value
         elif (valueOp == OPCODE_ADC):
-            return self.regAdcHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_SUB):
-            return self.regSubHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh -= value
         elif (valueOp == OPCODE_SBB):
-            return self.regSbbHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_AND):
-            return self.regAndHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh &= value
         elif (valueOp == OPCODE_OR):
-            return self.regOrHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh |= value
         elif (valueOp == OPCODE_XOR):
-            return self.regXorHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh ^= value
         elif (valueOp == OPCODE_NEG):
             value = (-value)
-            return self.regWriteHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh = value
         elif (valueOp == OPCODE_NOT):
             value = (~value)
-            return self.regWriteHighByte(regId, value)
+            self.regs[regId]._union.word._union.byte.rh = value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpHighByte: unknown valueOp {0:d}.", valueOp)
-        return 0
+        return self.regs[regId]._union.word._union.byte.rh
     cdef inline uint16_t regWriteWithOpWord(self, uint16_t regId, uint16_t value, uint8_t valueOp) nogil:
         if (valueOp == OPCODE_SAVE):
-            return self.regWriteWord(regId, value)
+            self.regs[regId]._union.word._union.rx = value
         elif (valueOp == OPCODE_ADD):
-            return self.regAddWord(regId, value)
+            self.regs[regId]._union.word._union.rx += value
         elif (valueOp == OPCODE_ADC):
-            return self.regAdcWord(regId, value)
+            self.regs[regId]._union.word._union.rx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_SUB):
-            return self.regSubWord(regId, value)
+            self.regs[regId]._union.word._union.rx -= value
         elif (valueOp == OPCODE_SBB):
-            return self.regSbbWord(regId, value)
+            self.regs[regId]._union.word._union.rx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_AND):
-            return self.regAndWord(regId, value)
+            self.regs[regId]._union.word._union.rx &= value
         elif (valueOp == OPCODE_OR):
-            return self.regOrWord(regId, value)
+            self.regs[regId]._union.word._union.rx |= value
         elif (valueOp == OPCODE_XOR):
-            return self.regXorWord(regId, value)
+            self.regs[regId]._union.word._union.rx ^= value
         elif (valueOp == OPCODE_NEG):
             value = (-value)
-            return self.regWriteWord(regId, value)
+            self.regs[regId]._union.word._union.rx = value
         elif (valueOp == OPCODE_NOT):
             value = (~value)
-            return self.regWriteWord(regId, value)
+            self.regs[regId]._union.word._union.rx = value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpWord: unknown valueOp {0:d}.", valueOp)
-        return 0
+        return self.regs[regId]._union.word._union.rx
     cdef inline uint32_t regWriteWithOpDword(self, uint16_t regId, uint32_t value, uint8_t valueOp) nogil:
         if (valueOp == OPCODE_SAVE):
-            return self.regWriteDword(regId, value)
+            self.regs[regId]._union.dword.erx = value
         elif (valueOp == OPCODE_ADD):
-            return self.regAddDword(regId, value)
+            self.regs[regId]._union.dword.erx += value
         elif (valueOp == OPCODE_ADC):
-            return self.regAdcDword(regId, value)
+            self.regs[regId]._union.dword.erx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_SUB):
-            return self.regSubDword(regId, value)
+            self.regs[regId]._union.dword.erx -= value
         elif (valueOp == OPCODE_SBB):
-            return self.regSbbDword(regId, value)
+            self.regs[regId]._union.dword.erx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_AND):
-            return self.regAndDword(regId, value)
+            self.regs[regId]._union.dword.erx &= value
         elif (valueOp == OPCODE_OR):
-            return self.regOrDword(regId, value)
+            self.regs[regId]._union.dword.erx |= value
         elif (valueOp == OPCODE_XOR):
-            return self.regXorDword(regId, value)
+            self.regs[regId]._union.dword.erx ^= value
         elif (valueOp == OPCODE_NEG):
             value = (-value)
-            return self.regWriteDword(regId, value)
+            self.regs[regId]._union.dword.erx = value
         elif (valueOp == OPCODE_NOT):
             value = (~value)
-            return self.regWriteDword(regId, value)
+            self.regs[regId]._union.dword.erx = value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpDword: unknown valueOp {0:d}.", valueOp)
-        return 0
+        return self.regs[regId]._union.dword.erx
     cdef inline uint64_t regWriteWithOpQword(self, uint16_t regId, uint64_t value, uint8_t valueOp) nogil:
         if (valueOp == OPCODE_SAVE):
-            return self.regWriteQword(regId, value)
+            self.regs[regId]._union.rrx = value
         elif (valueOp == OPCODE_ADD):
-            return self.regAddQword(regId, value)
+            self.regs[regId]._union.rrx += value
         elif (valueOp == OPCODE_ADC):
-            return self.regAdcQword(regId, value)
+            self.regs[regId]._union.rrx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_SUB):
-            return self.regSubQword(regId, value)
+            self.regs[regId]._union.rrx -= value
         elif (valueOp == OPCODE_SBB):
-            return self.regSbbQword(regId, value)
+            self.regs[regId]._union.rrx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
         elif (valueOp == OPCODE_AND):
-            return self.regAndQword(regId, value)
+            self.regs[regId]._union.rrx &= value
         elif (valueOp == OPCODE_OR):
-            return self.regOrQword(regId, value)
+            self.regs[regId]._union.rrx |= value
         elif (valueOp == OPCODE_XOR):
-            return self.regXorQword(regId, value)
+            self.regs[regId]._union.rrx ^= value
         elif (valueOp == OPCODE_NEG):
             value = (-value)
-            return self.regWriteQword(regId, value)
+            self.regs[regId]._union.rrx = value
         elif (valueOp == OPCODE_NOT):
             value = (~value)
-            return self.regWriteQword(regId, value)
+            self.regs[regId]._union.rrx = value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp {0:d}.", valueOp)
-        return 0
+        return self.regs[regId]._union.rrx
     cdef inline void setSZP(self, uint32_t value, uint8_t regSize) nogil:
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>((regSize<<3)-1))!=0
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = value==0
@@ -1363,19 +1369,19 @@ cdef class Registers:
         self.segWriteSegment(&self.segments.cs, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_CS))
         self.regWriteWord(CPU_REGISTER_IP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_IP))
         self.segWriteSegment(&self.segments.ss, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SS))
-        self.regWriteWord(CPU_REGISTER_SP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SP))
+        self.regs[CPU_REGISTER_SP]._union.word._union.rx = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SP)
         if (self.regWriteWord(CPU_REGISTER_FLAGS, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_FLAGS))):
             self.main.cpu.asyncEvent = True
         self.segWriteSegment(&self.segments.ds, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DS))
         self.segWriteSegment(&self.segments.es, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_ES))
-        self.regWriteWord(CPU_REGISTER_AX, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_AX))
-        self.regWriteWord(CPU_REGISTER_CX, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_CX))
-        self.regWriteWord(CPU_REGISTER_DX, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DX))
-        self.regWriteWord(CPU_REGISTER_BX, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_BX))
-        self.regWriteWord(CPU_REGISTER_BP, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_BP))
-        self.regWriteWord(CPU_REGISTER_SI, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SI))
-        self.regWriteWord(CPU_REGISTER_DI, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DI))
-        self.regOrDword(CPU_REGISTER_CR0, CR0_FLAG_TS)
+        self.regs[CPU_REGISTER_AX]._union.word._union.rx = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_AX)
+        self.regs[CPU_REGISTER_CX]._union.word._union.rx = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_CX)
+        self.regs[CPU_REGISTER_DX]._union.word._union.rx = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DX)
+        self.regs[CPU_REGISTER_BX]._union.word._union.rx = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_BX)
+        self.regs[CPU_REGISTER_BP]._union.word._union.rx = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_BP)
+        self.regs[CPU_REGISTER_SI]._union.word._union.rx = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_SI)
+        self.regs[CPU_REGISTER_DI]._union.word._union.rx = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_DI)
+        self.regs[CPU_REGISTER_CR0]._union.dword.erx |= CR0_FLAG_TS
         return True
     cdef uint8_t saveTSS16(self) nogil except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress
@@ -1415,7 +1421,7 @@ cdef class Registers:
             return False
         if (self.protectedModeOn and self.pagingOn):
             temp = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_CR3)
-            self.regWriteDword(CPU_REGISTER_CR3, temp)
+            self.regs[CPU_REGISTER_CR3]._union.dword.erx = temp
             #(<Paging>self.segments.paging).invalidateTables(temp, True)
             (<Paging>self.segments.paging).invalidateTables(temp, False)
         self.ldtr = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_LDT_SEG_SEL)
@@ -1431,21 +1437,21 @@ cdef class Registers:
         self.segWriteSegment(&self.segments.cs, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_CS))
         self.regWriteDword(CPU_REGISTER_EIP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EIP))
         self.segWriteSegment(&self.segments.ss, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_SS))
-        self.regWriteDword(CPU_REGISTER_ESP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESP))
+        self.regs[CPU_REGISTER_ESP]._union.dword.erx = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESP)
         if (self.regWriteDword(CPU_REGISTER_EFLAGS, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EFLAGS))):
             self.main.cpu.asyncEvent = True
         self.segWriteSegment(&self.segments.ds, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_DS))
         self.segWriteSegment(&self.segments.es, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_ES))
         self.segWriteSegment(&self.segments.fs, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_FS))
         self.segWriteSegment(&self.segments.gs, self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_GS))
-        self.regWriteDword(CPU_REGISTER_EAX, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EAX))
-        self.regWriteDword(CPU_REGISTER_ECX, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ECX))
-        self.regWriteDword(CPU_REGISTER_EDX, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EDX))
-        self.regWriteDword(CPU_REGISTER_EBX, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EBX))
-        self.regWriteDword(CPU_REGISTER_EBP, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EBP))
-        self.regWriteDword(CPU_REGISTER_ESI, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESI))
-        self.regWriteDword(CPU_REGISTER_EDI, self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EDI))
-        self.regOrDword(CPU_REGISTER_CR0, CR0_FLAG_TS)
+        self.regs[CPU_REGISTER_EAX]._union.dword.erx = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EAX)
+        self.regs[CPU_REGISTER_ECX]._union.dword.erx = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ECX)
+        self.regs[CPU_REGISTER_EDX]._union.dword.erx = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EDX)
+        self.regs[CPU_REGISTER_EBX]._union.dword.erx = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EBX)
+        self.regs[CPU_REGISTER_EBP]._union.dword.erx = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EBP)
+        self.regs[CPU_REGISTER_ESI]._union.dword.erx = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_ESI)
+        self.regs[CPU_REGISTER_EDI]._union.dword.erx = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_EDI)
+        self.regs[CPU_REGISTER_CR0]._union.dword.erx |= CR0_FLAG_TS
         #IF (CPU_CACHE_SIZE):
         #    self.reloadCpuCache()
         with gil:

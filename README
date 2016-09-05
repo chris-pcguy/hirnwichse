@@ -14,3 +14,15 @@ Thanks to all of them!
 
 Big endian systems aren't supported (yet).
 
+
+Run after changing hirnwichse.pyxbld:
+shopt -s nullglob
+files=(*.pyx)
+for f in "${files[@]}"; do
+   cp hirnwichse.pyxbld `echo "$f" | sed "s/$/bld/"`
+done
+
+Run (when being configured with ASAN):
+ASAN_OPTIONS="abort_on_error=0:halt_on_error=0:detect_leaks=0" LD_PRELOAD="libasan.so" ./hirnwichse.py
+
+

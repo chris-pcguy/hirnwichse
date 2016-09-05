@@ -16,10 +16,10 @@ cdef class Mm:
         self.memSizeBytes = self.main.memSize*1024*1024
         self.data = self.pciData = self.romData = self.tempData = NULL
         with nogil:
-            self.data = <char*>malloc(self.memSizeBytes)
-            self.pciData = <char*>malloc(SIZE_1MB)
-            self.romData = <char*>malloc(SIZE_1MB)
-            self.tempData = <char*>malloc(SIZE_1MB) # TODO: size
+            self.data = <char*>malloc(self.memSizeBytes+OP_SIZE_QWORD)
+            self.pciData = <char*>malloc(SIZE_1MB+OP_SIZE_QWORD)
+            self.romData = <char*>malloc(SIZE_1MB+OP_SIZE_QWORD)
+            self.tempData = <char*>malloc(SIZE_1MB+OP_SIZE_QWORD) # TODO: size
         if (self.data is NULL or self.pciData is NULL or self.romData is NULL or self.tempData is NULL):
             self.main.exitError("Mm::init: not self.data or not self.pciData or not self.romData or not self.tempData.")
             return
@@ -244,7 +244,7 @@ cdef class ConfigSpace:
     def __init__(self, uint32_t csSize, Hirnwichse main):
         self.csSize = csSize
         self.main = main
-        self.csData = <char*>malloc(self.csSize)
+        self.csData = <char*>malloc(self.csSize+OP_SIZE_QWORD)
         if (not self.csData):
             self.main.exitError("ConfigSpace::run: not self.csData.")
             return
@@ -270,11 +270,12 @@ cdef class ConfigSpace:
         cdef bytes data
         cdef uint32_t tempSize
         tempSize = min(size, self.csSize-offset)
-        if (offset >= self.csSize):
+        #if (offset >= self.csSize):
+        IF 0:
             #if (self.main.debugEnabled):
             IF COMP_DEBUG:
-                with gil:
-                    self.main.notice("ConfigSpace::csRead: offset >= self.csSize. (offset: {0:#06x}, tempSize: {1:d}, size: {2:d}, self.csSize: {3:#06x})", offset, tempSize, size, self.csSize)
+                self.main.notice("ConfigSpace::csRead: offset >= self.csSize. (offset: {0:#06x}, tempSize: {1:d}, size: {2:d}, self.csSize: {3:#06x})", offset, tempSize, size, self.csSize)
+            return bytes([self.clearByte])*size
         data = self.csData[offset:offset+tempSize]
         size -= tempSize
         if (size > 0):
@@ -286,11 +287,13 @@ cdef class ConfigSpace:
     cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil:
         cdef uint32_t tempSize
         tempSize = min(size, self.csSize-offset)
-        if (offset >= self.csSize):
+        #if (offset >= self.csSize):
+        IF 0:
             #if (self.main.debugEnabled):
             IF COMP_DEBUG:
                 with gil:
                     self.main.notice("ConfigSpace::csWrite: offset >= self.csSize. (offset: {0:#06x}, tempSize: {1:d}, size: {2:d}, self.csSize: {3:#06x})", offset, tempSize, size, self.csSize)
+            return
         with nogil:
             memcpy(self.csData+offset, data, tempSize)
         size -= tempSize
@@ -303,6 +306,13 @@ cdef class ConfigSpace:
         cdef uint64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
+        #if (offset >= self.csSize):
+        IF 0:
+            #if (self.main.debugEnabled):
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("ConfigSpace::csReadValueUnsigned: offset >= self.csSize. (offset: {0:#06x}, size: {1:d}, self.csSize: {2:#06x})", offset, size, self.csSize)
+            return 0
         ret = (<uint64_t*>(self.csData+offset))[0]
         if (size == OP_SIZE_BYTE):
             ret = <uint8_t>ret
@@ -315,6 +325,13 @@ cdef class ConfigSpace:
         cdef int64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueSigned: test1. (offset: {0:#06x}, size: {1:d})", offset, size)
+        #if (offset >= self.csSize):
+        IF 0:
+            #if (self.main.debugEnabled):
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("ConfigSpace::csReadValueSigned: offset >= self.csSize. (offset: {0:#06x}, size: {1:d}, self.csSize: {2:#06x})", offset, size, self.csSize)
+            return 0
         ret = (<int64_t*>(self.csData+offset))[0]
         if (size == OP_SIZE_BYTE):
             ret = <int8_t>ret
@@ -324,6 +341,13 @@ cdef class ConfigSpace:
             ret = <int32_t>ret
         return ret
     cdef uint64_t csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) nogil except? BITMASK_BYTE_CONST:
+        #if (offset >= self.csSize):
+        IF 0:
+            #if (self.main.debugEnabled):
+            IF COMP_DEBUG:
+                with gil:
+                    self.main.notice("ConfigSpace::csWriteValue: offset >= self.csSize. (offset: {0:#06x}, size: {1:d}, self.csSize: {2:#06x})", offset, size, self.csSize)
+            return 0
         if (size == OP_SIZE_BYTE):
             data = <uint8_t>data
         elif (size == OP_SIZE_WORD):

@@ -3,6 +3,7 @@
 
 include "globals.pxi"
 
+from cython.parallel import prange
 
 DEF READBACK_DONT_LATCH_COUNT  = 0x20
 DEF READBACK_DONT_LATCH_STATUS = 0x10
@@ -42,7 +43,8 @@ cdef class PitChannel:
         self.timerEnabled = False
     cdef void mode2Func(self) nogil: # TODO
         cdef uint8_t clear
-        cdef uint64_t i
+        #cdef uint64_t i
+        cdef Py_ssize_t i, j
         with nogil:
         #IF 1:
             while (self.timerEnabled and (not self.pit.main.quitEmu)):
@@ -61,7 +63,7 @@ cdef class PitChannel:
                 if (self.channelId != 3):
                     #self.pit.main.notice("PitChannel::mode2Func: before while")
                     #self.pit.main.notice("PitChannel::mode2Func({0:d}): counterValue=={1:d}", self.channelId, self.counterStartValue)
-                    self.counterValue = self.counterStartValue
+                    self.counterValue = self.counterStartValue&0xffffe
                     #with nogil:
                     #    #usleep(self.tempTimerValue)
                     #    usleep(0)
@@ -70,14 +72,22 @@ cdef class PitChannel:
                     #    #usleep(3000)
                     #if (self.counterMode == 3 and self.counterValue&0x1):
                     #    self.counterValue -= 1
-                    while ((((self.counterMode == 3 and self.counterValue >= 3) or (self.counterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
+                    #while ((((self.counterMode == 3 and self.counterValue >= 3) or (self.counterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                     #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
+                    if (self.counterMode == 3):
+                        j = 2
+                    else:
+                        j = 1
+                    for i in prange(0, self.counterValue):
+                        if (not ((((self.counterMode == 3 and self.counterValue >= 3) or (self.counterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu))):
+                            break
                         #for i in range(60):
                         #    pass
-                        if (self.counterMode == 3):
-                            self.counterValue -= 2
-                        else:
-                            self.counterValue -= 1
+                        #if (self.counterMode == 3):
+                        #    self.counterValue -= 2
+                        #else:
+                        #    self.counterValue -= 1
+                        self.counterValue -= j
                         #self.pit.main.notice("PitChannel::mode2Func: in while")
                         #if (not (self.counterValue&0x1fff)):
                         #if (not (self.counterValue&0xfff)):

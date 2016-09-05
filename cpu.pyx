@@ -23,11 +23,11 @@ cdef class Cpu:
         self.repPrefix = 0
         self.segmentOverridePrefix = NULL
         self.registers.reset()
-    cdef inline void saveCurrentInstPointer(self) nogil:
-        self.savedCs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx
-        self.savedEip = self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
-        self.savedSs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
-        self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
+    #cdef inline void saveCurrentInstPointer(self) nogil:
+    #    self.savedCs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx
+    #    self.savedEip = self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
+    #    self.savedSs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
+    #    self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
     cdef void handleAsyncEvent(self):
         cdef uint8_t irqVector, oldIF
         # This is only for IRQs! (exceptions will use cpu.exception)
@@ -47,7 +47,7 @@ cdef class Cpu:
             self.registers.segWriteSegment(&self.registers.segments.cs, self.savedCs)
             self.registers.regWriteDword(CPU_REGISTER_EIP, self.savedEip)
         self.registers.segWriteSegment(&self.registers.segments.ss, self.savedSs)
-        self.registers.regWriteDword(CPU_REGISTER_ESP, self.savedEsp)
+        self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx = self.savedEsp
         #elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP):
         #    self.savedEip = <uint32_t>(self.savedEip+1)
         IF COMP_DEBUG:

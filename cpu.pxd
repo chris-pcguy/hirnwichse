@@ -33,7 +33,7 @@ cdef class Cpu:
         self.HRQ = state
         if (state):
             self.asyncEvent = True
-    cdef inline void saveCurrentInstPointer(self) nogil
+    #cdef inline void saveCurrentInstPointer(self) nogil
     cdef void handleAsyncEvent(self)
     cdef int exception(self, uint8_t exceptionId, int32_t errorCode=?) except BITMASK_BYTE_CONST
     cdef int handleException(self, object exception) except BITMASK_BYTE_CONST

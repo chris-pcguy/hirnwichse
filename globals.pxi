@@ -1,7 +1,7 @@
 
 from libc.stdint cimport *
 
-DEF COMP_DEBUG = 1
+DEF COMP_DEBUG = 0
 
 cdef uint8_t OP_SIZE_BYTE  = 1
 cdef uint8_t OP_SIZE_WORD  = 2
