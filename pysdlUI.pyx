@@ -7,6 +7,7 @@ from sys import exit, stdout
 from traceback import print_exc
 from atexit import register
 import sdl2, sdl2.ext
+import prctl
 
 
 #DEF EVENT_LIST = ( sdl2.SDL_ACTIVEEVENT, sdl2.SDL_MOUSEMOTION, sdl2.SDL_MOUSEBUTTONDOWN, sdl2.SDL_MOUSEBUTTONUP,\
@@ -32,30 +33,30 @@ cdef class PysdlUI:
         for i in range(256):
             self.points[i] = []
         #self.points = []
-    cpdef initPysdl(self):
+    cdef void initPysdl(self):
         cdef uint16_t event
         sdl2.SDL_Init(sdl2.SDL_INIT_TIMER | sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
         sdl2.SDL_SetHintWithPriority(sdl2.SDL_HINT_RENDER_DRIVER, b"opengl", sdl2.SDL_HINT_OVERRIDE)
         self.window = sdl2.ext.Window('Hirnwichse', self.screenSize, flags=sdl2.SDL_WINDOW_SHOWN)
         self.screen = self.window.get_surface()
         self.renderer = sdl2.ext.Renderer(self.screen)
-        register(self.quitFunc)
+        register(self.quitFunc, self)
         for event in EVENT_LIST:
             sdl2.SDL_EventState(event, sdl2.SDL_IGNORE)
         self.setRepeatRate(500, 10)
-    cpdef quitFunc(self):
+    cdef void quitFunc(self):
         try:
             self.vga.main.quitFunc()
             sdl2.SDL_Quit()
         except:
             print_exc()
             self.vga.main.exitError('quitFunc: exception, exiting...')
-    cpdef clearScreen(self):
+    cdef void clearScreen(self):
         pass
         #self.screen.fill((0, 0, 0))
     cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors) nogil: # returns rect
-        #cpdef object newRect, colorObject
-        #cpdef object colorObject
+        #cdef object newRect, colorObject
+        #cdef object colorObject
         cdef uint32_t bgColor
         #try:
         IF 1:
@@ -137,7 +138,7 @@ cdef class PysdlUI:
             print_exc()
             self.vga.main.exitError('putChar: exception, exiting...')
         #return None
-    cpdef setRepeatRate(self, uint16_t delay, uint16_t interval):
+    cdef void setRepeatRate(self, uint16_t delay, uint16_t interval):
         pass
         #pygame.key.set_repeat(delay, interval)
     cdef uint8_t keyToScancode(self, uint32_t key):
@@ -358,7 +359,7 @@ cdef class PysdlUI:
         #    return 0x6a
         self.vga.main.notice("keyToScancode: unknown key. (keyId: {0:d}, keyName: {1:s})", key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))))
         return 0xff
-    cpdef handleSingleEvent(self, object event):
+    cdef void handleSingleEvent(self, object event):
         if (event.type == sdl2.SDL_QUIT):
             self.quitFunc()
             exit(1)
@@ -400,8 +401,8 @@ cdef class PysdlUI:
             (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.scancode), True)
         else:
             self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == {0:d}", event.type)
-    cpdef updateScreen(self):
-        cpdef object colorObject
+    cdef void updateScreen(self):
+        cdef object colorObject
         #cdef list pointList
         #cdef uint8_t doRefresh
         cdef uint16_t x, y
@@ -434,8 +435,8 @@ cdef class PysdlUI:
         #if (doRefresh and self.window and self.screen):
         if (self.window and self.screen):
             self.window.refresh()
-    cpdef handleEventsWithoutWaiting(self):
-        cpdef object event
+    cdef void handleEventsWithoutWaiting(self):
+        cdef object event
         try:
             for event in sdl2.ext.get_events():
                 self.handleSingleEvent(event)
@@ -445,8 +446,9 @@ cdef class PysdlUI:
         except:
             print_exc()
             self.vga.main.exitError('handleEvents: exception, exiting...')
-    cpdef handleEvents(self):
-        cpdef object event
+    cdef void handleEvents(self):
+        cdef object event
+        prctl.set_name("PysdlUI::handleEvents")
         event = sdl2.SDL_Event()
         try:
             while (not self.vga.main.quitEmu):
@@ -458,11 +460,11 @@ cdef class PysdlUI:
         except:
             print_exc()
             self.vga.main.exitError('handleEvents: exception, exiting...')
-    cpdef run(self):
+    cdef void run(self):
         try:
             self.initPysdl()
             #self.handleEvents()
-            #(<Misc>self.vga.main.misc).createThread(self.handleEvents, True)
+            #(<Misc>self.vga.main.misc).createThread(self.handleEvents, self)
         except:
             print_exc()
             self.vga.main.exitError('run: exception, exiting...')

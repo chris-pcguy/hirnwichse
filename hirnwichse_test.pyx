@@ -22,11 +22,13 @@ cdef class HirnwichseTest:
                 #for i in range(1):
                     #pass
                     #a = self.configSpace.csReadValueUnsigned(0, TEST_SIZE)
-                    self.main.cpu.saveCurrentInstPointer()
+                    #self.main.cpu.saveCurrentInstPointer()
                     #a = self.main.cpu.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx
                     #a = self.main.cpu.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
                     #a = self.main.cpu.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
                     #a = self.main.cpu.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
+                    #a = self.main.cpu.registers.getCurrentOpcodeUnsignedByte()
+                    self.main.cpu.opcodes.executeOpcode(0x00)
                 timediff1 = time()-time1
                 print("timediff1: {0:f}".format(timediff1))
         self.configSpace.csWriteValue(0, 0xdeadbeef, 4)
@@ -37,7 +39,7 @@ cdef class HirnwichseTest:
             for i in range(12):
                 a = self.configSpace.csReadValueUnsigned(i, TEST_SIZE)
                 print("msg_a{0:d}: {1:#010x}".format(i, a))
-    cpdef run(self):
+    cdef void run(self):
         self.func1()
 
 

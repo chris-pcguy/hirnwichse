@@ -9,17 +9,18 @@ from ps2 cimport PS2
 from posix.unistd cimport usleep
 
 cdef class PitChannel:
-    cpdef object threadObject
+    cdef object threadObject
     cdef Pit pit
-    cdef uint8_t channelId, bcdMode, counterMode, counterWriteMode, \
+    cdef uint8_t channelId, bcdMode, counterMode, localCounterMode, counterWriteMode, \
       counterFlipFlop, timerEnabled, readBackStatusValue, readBackStatusIssued, resetChannel
     cdef uint32_t counterValue, counterStartValue, counterLatchValue, tempTimerValue
+    cdef uint16_t bcdToDec(self, uint16_t bcd)
     cdef void readBackCount(self) nogil
     cdef void readBackStatus(self) nogil
-    cdef void mode0Func(self) nogil
-    cdef void mode2Func(self) nogil
-    cpdef timerFunc(self)
-    cpdef runTimer(self)
+    cdef void mode0Func(self)
+    cdef void mode2Func(self)
+    cdef void timerFunc(self)
+    cdef void runTimer(self)
 
 cdef class Pit:
     cdef Hirnwichse main

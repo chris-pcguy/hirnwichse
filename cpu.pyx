@@ -7,7 +7,10 @@ include "cpu_globals.pxi"
 from sys import exit #, stdout, stderr
 from time import sleep, time
 from traceback import print_exc
-from misc import HirnwichseException
+
+
+class HirnwichseException(Exception):
+    pass
 
 
 cdef class Cpu:
@@ -116,43 +119,6 @@ cdef class Cpu:
             return True
         exceptionId = exception.args[0]
         return self.exception(exceptionId, errorCode)
-    cdef uint8_t parsePrefixes(self, uint8_t opcode) nogil except? BITMASK_BYTE_CONST:
-        cdef uint8_t count
-        count = 0
-        while (opcode in OPCODE_PREFIXES and not self.main.quitEmu):
-            count += 1
-            if (count >= 16):
-                with gil:
-                    raise HirnwichseException(CPU_EXCEPTION_UD)
-            elif (opcode == OPCODE_PREFIX_OP):
-                if (self.codeSegSize == OP_SIZE_WORD):
-                    self.operSize = OP_SIZE_DWORD
-                else:
-                    self.operSize = OP_SIZE_WORD
-            elif (opcode == OPCODE_PREFIX_ADDR):
-                if (self.codeSegSize == OP_SIZE_WORD):
-                    self.addrSize = OP_SIZE_DWORD
-                else:
-                    self.addrSize = OP_SIZE_WORD
-            elif (opcode in OPCODE_PREFIX_REPS):
-                self.repPrefix = opcode
-            elif (opcode == OPCODE_PREFIX_CS):
-                self.segmentOverridePrefix = &self.registers.segments.cs
-            elif (opcode == OPCODE_PREFIX_SS):
-                self.segmentOverridePrefix = &self.registers.segments.ss
-            elif (opcode == OPCODE_PREFIX_DS):
-                self.segmentOverridePrefix = &self.registers.segments.ds
-            elif (opcode == OPCODE_PREFIX_ES):
-                self.segmentOverridePrefix = &self.registers.segments.es
-            elif (opcode == OPCODE_PREFIX_FS):
-                self.segmentOverridePrefix = &self.registers.segments.fs
-            elif (opcode == OPCODE_PREFIX_GS):
-                self.segmentOverridePrefix = &self.registers.segments.gs
-            ### TODO: I don't think, that we ever need lockPrefix.
-            #elif (opcode == OPCODE_PREFIX_LOCK):
-            #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
-            opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
-        return opcode
     cdef void cpuDump(self):
         self.main.notice("EAX: {0:#010x}, ECX: {1:#010x}", self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx, \
           self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx)
@@ -221,7 +187,9 @@ cdef class Cpu:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
     cdef void doCycle(self):
+        cdef uint8_t count
         cdef uint64_t temptime
+        count = 0
         if (self.debugHalt and self.debugSingleStep):
             self.debugSingleStep = False
         #self.registers.reloadCpuCache()
@@ -266,8 +234,38 @@ cdef class Cpu:
                     raise HirnwichseException(CPU_EXCEPTION_DB)
                     #return
             self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
-            if (self.opcode in OPCODE_PREFIXES):
-                self.opcode = self.parsePrefixes(self.opcode)
+            while (self.opcode in OPCODE_PREFIXES):
+                count += 1
+                if (count >= 16):
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
+                elif (self.opcode == OPCODE_PREFIX_OP):
+                    if (self.codeSegSize == OP_SIZE_WORD):
+                        self.operSize = OP_SIZE_DWORD
+                    else:
+                        self.operSize = OP_SIZE_WORD
+                elif (self.opcode == OPCODE_PREFIX_ADDR):
+                    if (self.codeSegSize == OP_SIZE_WORD):
+                        self.addrSize = OP_SIZE_DWORD
+                    else:
+                        self.addrSize = OP_SIZE_WORD
+                elif (self.opcode in OPCODE_PREFIX_REPS):
+                    self.repPrefix = self.opcode
+                elif (self.opcode == OPCODE_PREFIX_CS):
+                    self.segmentOverridePrefix = &self.registers.segments.cs
+                elif (self.opcode == OPCODE_PREFIX_SS):
+                    self.segmentOverridePrefix = &self.registers.segments.ss
+                elif (self.opcode == OPCODE_PREFIX_DS):
+                    self.segmentOverridePrefix = &self.registers.segments.ds
+                elif (self.opcode == OPCODE_PREFIX_ES):
+                    self.segmentOverridePrefix = &self.registers.segments.es
+                elif (self.opcode == OPCODE_PREFIX_FS):
+                    self.segmentOverridePrefix = &self.registers.segments.fs
+                elif (self.opcode == OPCODE_PREFIX_GS):
+                    self.segmentOverridePrefix = &self.registers.segments.gs
+                ### TODO: I don't think, that we ever need lockPrefix.
+                #elif (self.opcode == OPCODE_PREFIX_LOCK):
+                #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
+                self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = False
             #if (self.savedCs == 0x28 and self.savedEip == 0xc00013b7):
             #if (self.savedCs == 0x28 and self.savedEip == 0xc00013d1):
@@ -372,6 +370,7 @@ cdef class Cpu:
         self.registers.run()
         self.opcodes.run()
         self.reset()
+        self.main.exitError("abcdef")
         if (infiniteCycles):
             self.doInfiniteCycles()
     ###

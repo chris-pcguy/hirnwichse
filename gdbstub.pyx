@@ -9,6 +9,7 @@ from atexit import register
 from socket import error as SocketError, IPPROTO_TCP, TCP_NODELAY
 from socketserver import BaseRequestHandler, ThreadingMixIn, TCPServer
 from traceback import print_exc
+import prctl
 
 # with MUCH help from qemu's gdbstub.c
 
@@ -61,7 +62,7 @@ cdef class GDBStubHandler:
     cdef void putPacket(self, bytes data):
         cdef bytes dataFull, dataChecksum
         if (self.connHandler and self.connHandler.request):
-            dataChecksum = self.byteToHex(<uint8_t>((<Misc>self.gdbStub.main.misc).checksum(data)))
+            dataChecksum = self.byteToHex(<uint8_t>(sum(data)))
             dataFull = b'$'
             dataFull += data
             dataFull += b'#'+dataChecksum
@@ -107,7 +108,7 @@ cdef class GDBStubHandler:
                         self.readState = RS_CHKSUM2
                     elif (self.readState == RS_CHKSUM2):
                         self.cmdStrChecksumProof |= int(bytes([c]), 16)
-                        self.cmdStrChecksum = <uint8_t>((<Misc>self.gdbStub.main.misc).checksum(self.cmdStr))
+                        self.cmdStrChecksum = <uint8_t>(sum(self.cmdStr))
                         if (self.cmdStrChecksum != self.cmdStrChecksumProof):
                             self.gdbStub.main.notice("GDBStubHandler::handleRead: SEND NACK!")
                             self.sendPacketType(PACKET_NACK)
@@ -319,27 +320,28 @@ cdef class GDBStub:
                 self.server.socket.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
             self.server.server_bind()
             self.server.server_activate()
-            register(self.quitFunc)
+            register(self.quitFunc, self)
         except:
             print_exc()
             self.main.notice("GDBStub::__init__: exception.")
             self.server = self.gdbHandler = None
-    cpdef quitFunc(self):
+    cdef void quitFunc(self):
         if (self.server):
             self.server.shutdown()
         self.server = self.gdbHandler = None
         self.main.quitFunc()
-    cpdef serveGDBStub(self):
+    cdef void serveGDBStub(self):
         try:
+            prctl.set_name("GDBStub::serveGDBStub")
             if (self.server):
                 self.server.serve_forever()
         except:
             print_exc()
             self.quitFunc()
-    cpdef run(self):
+    cdef void run(self):
         #return
         try:
-            (<Misc>self.main.misc).createThread(self.serveGDBStub, True)
+            (<Misc>self.main.misc).createThread(self.serveGDBStub, self)
         except:
             print_exc()
             self.quitFunc()

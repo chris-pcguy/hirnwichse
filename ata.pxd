@@ -9,7 +9,7 @@ from mm cimport ConfigSpace
 from pci cimport Pci, PciDevice
 
 cdef class AtaDrive:
-    cpdef object fp
+    cdef object fp
     cdef AtaController ataController
     cdef ConfigSpace configSpace
     cdef uint8_t driveId, driveType, isLoaded, isWriteProtected, isLocked, sectorShift, senseKey, senseAsc

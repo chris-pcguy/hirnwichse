@@ -8,6 +8,7 @@ include "kb_scancodes.pxi"
 
 from time import sleep, time
 from traceback import print_exc
+import prctl
 
 DEF KBC_IRQ = 1 # keyboard controller's IRQnum
 DEF MOUSE_IRQ = 12 # mouse IRQnum
@@ -442,7 +443,7 @@ cdef class PS2:
     cdef void activateTimer(self) nogil:
         if (not self.timerPending):
             self.timerPending = 1
-    cpdef uint8_t periodic(self, uint8_t usecDelta):
+    cdef uint8_t periodic(self, uint8_t usecDelta):
         cdef uint8_t retVal
         retVal = self.irq1Requested
         self.irq1Requested = False
@@ -464,9 +465,11 @@ cdef class PS2:
                 self.irq1Requested = True
         #self.main.notice("PS2::periodic: test4; retVal=={0:#04x}", retVal)
         return retVal
-    cpdef timerFunc(self):
+    cdef void timerFunc(self):
         cdef uint8_t retVal
+        prctl.set_name("PS2::timerFunc")
         while (not self.main.quitEmu):
+            #self.main.notice("PS2::timerFunc: loop begin")
             if (self.timerPending):
                 retVal = self.periodic(1)
                 if (retVal&1):
@@ -478,17 +481,22 @@ cdef class PS2:
             #else:
             if (len(self.outBuffer)):
                 sleep(0.02)
+                #with nogil:
+                #    usleep(20000)
                 self.timerPending = True
             else:
                 sleep(1)
-    cpdef initThread(self):
-        self.main.misc.createThread(self.timerFunc, True)
-    cpdef run(self):
+                #sleep(0.02)
+                #with nogil:
+                #    usleep(20000)
+    cdef void initThread(self):
+        self.main.misc.createThread(self.timerFunc, self)
+    cdef void run(self):
         try:
             self.initDevice()
             self.initThread()
         except:
             print_exc()
-            self.main.exitError('run: exception, exiting...')
+            self.main.exitError('PS2::run: exception, exiting...')
 
 

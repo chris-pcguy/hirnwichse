@@ -2,7 +2,7 @@
 include "globals.pxi"
 
 from libc.stdint cimport *
-from cpython.ref cimport PyObject
+from cpython.ref cimport PyObject, Py_INCREF
 
 from hirnwichse_main cimport Hirnwichse
 from cmos cimport Cmos
@@ -43,15 +43,14 @@ cdef class Platform:
     cdef Parallel parallel
     cdef GDBStub gdbstub
     cdef Cmos cmos
-    cdef list ports
+    cdef PyObject *ports[PORTS_LIST_LEN]
+    cdef uint8_t portsIndex
     cdef void initDevices(self)
     cdef void resetDevices(self)
     cdef void addReadHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject)
     cdef void addWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, OutPort outObject)
     cdef void addReadWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject, OutPort outObject)
-    cdef uint32_t inPortHandler(self, uint16_t ioPortAddr, uint8_t dataSize)
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
-    cdef void outPortHandler(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
     cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
     cdef void loadRomToMem(self, bytes romFileName, uint64_t mmAddr, uint64_t romSize)
@@ -59,6 +58,6 @@ cdef class Platform:
     cdef void initMemory(self)
     cdef void initDevicesPorts(self)
     cdef void runDevices(self)
-    cpdef run(self)
+    cdef void run(self)
 
 

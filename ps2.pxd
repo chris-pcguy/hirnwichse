@@ -27,9 +27,9 @@ cdef class PS2:
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
     cdef void setKbdClockEnable(self, uint8_t value) nogil
     cdef void activateTimer(self) nogil
-    cpdef uint8_t periodic(self, uint8_t usecDelta)
-    cpdef timerFunc(self)
-    cpdef initThread(self)
-    cpdef run(self)
+    cdef uint8_t periodic(self, uint8_t usecDelta)
+    cdef void timerFunc(self)
+    cdef void initThread(self)
+    cdef void run(self)
 
 

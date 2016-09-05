@@ -19,8 +19,9 @@ from hirnwichse_main import Hirnwichse
 
 if (__name__ == '__main__'):
     try:
-        hirnwichse_class = Hirnwichse()
-        hirnwichse_class.run()
+        Hirnwichse()
+        #hirnwichse_class = Hirnwichse()
+        #hirnwichse_class.run()
     except (KeyboardInterrupt, SystemExit):
         exit(0)
     except:

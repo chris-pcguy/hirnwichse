@@ -4,15 +4,18 @@
 include "globals.pxi"
 
 from time import gmtime
+import prctl
 
 
 cdef class Cmos:
     def __init__(self, Hirnwichse main):
         self.main = main
-        self.dt = self.oldDt = self.secondsThread = None
+        self.dt = self.oldDt = None
         self.cmosIndex = self.statusB = self.rtcDelay = 0
         self.equipmentDefaultValue = 0x4
         self.configSpace = ConfigSpace(128, self.main)
+    cdef uint16_t decToBcd(self, uint16_t dec):
+        return int(str(dec), 16)
     cdef inline uint32_t readValue(self, uint8_t index, uint8_t size) nogil:
         cdef uint32_t value
         value = self.configSpace.csReadValueUnsigned(index, size)
@@ -99,14 +102,14 @@ cdef class Cmos:
             wday = 7
         if (not self.statusB&CMOS_STATUSB_BIN):
             with gil:
-                second  = (<Misc>self.main.misc).decToBcd(second)
-                minute  = (<Misc>self.main.misc).decToBcd(minute)
-                hour    = (<Misc>self.main.misc).decToBcd(hour)
-                wday    = (<Misc>self.main.misc).decToBcd(wday)
-                mday    = (<Misc>self.main.misc).decToBcd(mday)
-                month   = (<Misc>self.main.misc).decToBcd(month)
-                year    = (<Misc>self.main.misc).decToBcd(year)
-                century = (<Misc>self.main.misc).decToBcd(century)
+                second  = self.decToBcd(second)
+                minute  = self.decToBcd(minute)
+                hour    = self.decToBcd(hour)
+                wday    = self.decToBcd(wday)
+                mday    = self.decToBcd(mday)
+                month   = self.decToBcd(month)
+                year    = self.decToBcd(year)
+                century = self.decToBcd(century)
         self.writeValue(CMOS_CURRENT_SECOND, second, OP_SIZE_BYTE)
         self.writeValue(CMOS_CURRENT_MINUTE, minute, OP_SIZE_BYTE)
         self.writeValue(CMOS_CURRENT_HOUR, hour, OP_SIZE_BYTE)
@@ -115,8 +118,9 @@ cdef class Cmos:
         self.writeValue(CMOS_MONTH, month, OP_SIZE_BYTE)
         self.writeValue(CMOS_YEAR_NO_CENTURY, year, OP_SIZE_BYTE)
         self.writeValue(CMOS_CENTURY, century, OP_SIZE_BYTE)
-    cpdef secondsThreadFunc(self):
+    cdef void secondsThreadFunc(self):
         cdef uint8_t statusA
+        prctl.set_name("Cmos::secondsThreadFunc")
         with nogil:
             usleep(1000000)
         statusA = self.readValue(CMOS_STATUS_REGISTER_A, OP_SIZE_BYTE)
@@ -126,9 +130,9 @@ cdef class Cmos:
             return
         self.writeValue(CMOS_STATUS_REGISTER_A, (statusA | 0x80), OP_SIZE_BYTE)
         self.updateTime()
-        #self.main.misc.createThread(self.uipThreadFunc, True)
+        #self.main.misc.createThread(self.uipThreadFunc, self)
         self.uipThreadFunc()
-    cpdef uipThreadFunc(self):
+    cdef void uipThreadFunc(self):
         with nogil:
             #usleep(244)
             usleep(244000)
@@ -144,7 +148,7 @@ cdef class Cmos:
     cdef void makeCheckSum(self) nogil:
         cdef uint16_t checkSum
         with gil:
-            checkSum = (<Misc>self.main.misc).checksum(self.configSpace.csRead(0x10, 0x1e)) # 0x10..0x2d
+            checkSum = sum(self.configSpace.csRead(0x10, 0x1e)) # 0x10..0x2d
         self.writeValue(CMOS_CHECKSUM_L, <uint8_t>checkSum, OP_SIZE_BYTE)
         self.writeValue(CMOS_CHECKSUM_H, <uint8_t>(checkSum>>8), OP_SIZE_BYTE)
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
@@ -214,17 +218,18 @@ cdef class Cmos:
                         with gil:
                             self.main.exitError("CMOS::outPort: daylight set. (data=={0:#04x})", data)
                         return
+                    (<PitChannel>self.rtcChannel).timerEnabled = False
+                    with gil:
+                        if ((<PitChannel>self.rtcChannel).threadObject):
+                            (<PitChannel>self.rtcChannel).threadObject.join()
+                            #(<PitChannel>self.rtcChannel).threadObject.cancel()
+                            #(<PitChannel>self.rtcChannel).threadObject.result()
+                            (<PitChannel>self.rtcChannel).threadObject = None
                     if (self.rtcDelay and (data & 0x40)!=0):
-                        self.rtcChannel.counterMode = 2
-                        self.rtcChannel.tempTimerValue = self.rtcDelay
+                        (<PitChannel>self.rtcChannel).counterMode = 2
+                        (<PitChannel>self.rtcChannel).tempTimerValue = self.rtcDelay
                         with gil:
-                            self.rtcChannel.runTimer()
-                    else:
-                        self.rtcChannel.timerEnabled = False
-                        with gil:
-                            if (self.rtcChannel.threadObject):
-                                self.rtcChannel.threadObject.join()
-                                self.rtcChannel.threadObject = None
+                            (<PitChannel>self.rtcChannel).runTimer()
                     self.statusB = data
                 elif (tempIndex == CMOS_EXT_MEMORY_L):
                     self.writeValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
@@ -245,7 +250,7 @@ cdef class Cmos:
         return
     cdef void run(self):
         self.reset()
-        self.secondsThread = self.main.misc.createThread(self.secondsThreadFunc, True)
+        self.main.misc.createThread(self.secondsThreadFunc, self)
         ##self.updateTime()
         #self.main.platform.addHandlers((0x70, 0x71), self)
 

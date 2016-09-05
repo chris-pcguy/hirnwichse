@@ -28,8 +28,8 @@ cdef class Mm:
             memset(self.pciData, 0, SIZE_1MB)
             memset(self.romData, 0, SIZE_1MB)
             memset(self.tempData, 0, SIZE_1MB)
-        register(self.quitFunc)
-    cpdef quitFunc(self):
+        register(self.quitFunc, self)
+    cdef void quitFunc(self):
         try:
             self.main.quitFunc()
             if (self.data is not NULL):
@@ -249,8 +249,8 @@ cdef class ConfigSpace:
             self.main.exitError("ConfigSpace::run: not self.csData.")
             return
         self.csResetData(0)
-        register(self.quitFunc)
-    cpdef quitFunc(self):
+        register(self.quitFunc, self)
+    cdef void quitFunc(self):
         try:
             self.main.quitFunc()
             if (self.csData is not NULL):

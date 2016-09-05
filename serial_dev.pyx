@@ -8,6 +8,7 @@ from atexit import register
 from os import remove
 from os.path import exists
 import socket, serial as seriallib
+import prctl
 
 cdef class SerialPort:
     def __init__(self, Serial serial, uint8_t serialIndex):
@@ -54,7 +55,7 @@ cdef class SerialPort:
                 self.fp = open(self.serialFilename, "w+b")
     cdef void reset(self):
         pass
-    cpdef setFlags(self):
+    cdef void setFlags(self):
         self.lineStatusRegister &= ~0x1
         if (not len(self.data)):
             self.readData()
@@ -72,7 +73,7 @@ cdef class SerialPort:
                 self.lineStatusRegister |= 0x1
         if (len(self.data) > 0):
             self.lineStatusRegister |= 0x1
-    cpdef setBits(self):
+    cdef void setBits(self):
         cdef uint8_t tempVal
         if (self.isDev):
             self.fp.baudrate = 115200//self.divisor
@@ -96,13 +97,14 @@ cdef class SerialPort:
             else:
                 self.fp.stopbits = seriallib.STOPBITS_ONE
             self.fp.bytesize = 5+self.dataBits
-    cpdef handleIrqs(self):
+    cdef void handleIrqs(self):
+        prctl.set_name("SerialPort::handleIrqs")
         if (self.fp is None):
             return
         while (not self.main.quitEmu):
             self.setFlags()
             sleep(1)
-    cpdef quitFunc(self):
+    cdef void quitFunc(self):
         if (self.sock is not None):
             self.sock.close()
             if (exists(self.serialFilename)):
@@ -306,9 +308,9 @@ cdef class SerialPort:
         return
     cdef void run(self):
         if (self.fp is not None):
-            self.main.misc.createThread(self.handleIrqs, True)
+            self.main.misc.createThread(self.handleIrqs, self)
         if (self.sock is not None):
-            register(self.quitFunc)
+            register(self.quitFunc, self)
 
 
 cdef class Serial:

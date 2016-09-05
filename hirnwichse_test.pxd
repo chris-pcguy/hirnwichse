@@ -10,7 +10,7 @@ cdef class HirnwichseTest:
     cdef Hirnwichse main
     cdef ConfigSpace configSpace
     cdef void func1(self) nogil
-    cpdef run(self)
+    cdef void run(self)
 
 
 

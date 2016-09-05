@@ -7,7 +7,7 @@ from mm cimport Mm
 from registers cimport Registers
 
 cdef class GDBStubHandler:
-    cpdef object connHandler
+    cdef object connHandler
     cdef GDBStub gdbStub
     cdef bytes lastReadData, lastWrittenData, cmdStr
     cdef uint8_t cmdStrChecksum, cmdStrChecksumProof, readState, initSent
@@ -27,10 +27,10 @@ cdef class GDBStubHandler:
 
 cdef class GDBStub:
     cdef Hirnwichse main
-    cpdef object server
+    cdef object server
     cdef GDBStubHandler gdbHandler
-    cpdef quitFunc(self)
-    cpdef serveGDBStub(self)
-    cpdef run(self)
+    cdef void quitFunc(self)
+    cdef void serveGDBStub(self)
+    cdef void run(self)
 
 

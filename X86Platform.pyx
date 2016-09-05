@@ -17,7 +17,9 @@ cdef class PortHandler:
 cdef class Platform:
     def __init__(self, Hirnwichse main):
         self.main = main
-        self.ports  = []
+        self.portsIndex = 0
+        for i in range(PORTS_LIST_LEN):
+            self.ports[i] = NULL
     cdef void initDevices(self):
         self.cmos     = Cmos(self.main)
         self.pic      = Pic(self.main)
@@ -51,7 +53,9 @@ cdef class Platform:
         port.classObject = classObject
         port.inPort = inObject
         port.outPort = NULL
-        self.ports.append(port)
+        self.ports[self.portsIndex] = <PyObject*>port
+        self.portsIndex += 1
+        Py_INCREF(port)
     cdef void addWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, OutPort outObject):
         cdef PortHandler port
         port = PortHandler()
@@ -59,7 +63,9 @@ cdef class Platform:
         port.classObject = classObject
         port.inPort = NULL
         port.outPort = outObject
-        self.ports.append(port)
+        self.ports[self.portsIndex] = <PyObject*>port
+        self.portsIndex += 1
+        Py_INCREF(port)
     cdef void addReadWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject, OutPort outObject):
         cdef PortHandler port
         port = PortHandler()
@@ -67,73 +73,61 @@ cdef class Platform:
         port.classObject = classObject
         port.inPort = inObject
         port.outPort = outObject
-        self.ports.append(port)
-    cdef uint32_t inPortHandler(self, uint16_t ioPortAddr, uint8_t dataSize):
-        cdef PortHandler port
-        cdef uint8_t i
+        self.ports[self.portsIndex] = <PyObject*>port
+        self.portsIndex += 1
+        Py_INCREF(port)
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+        cdef uint8_t i, j
         cdef uint32_t retVal, bitMask
-        try:
-            bitMask = BITMASKS_FF[dataSize]
-            if (ioPortAddr):
-                for port in self.ports:
-                    if (port.inPort is NULL):
-                        continue
-                    for i in range(PORTS_LEN):
-                        if (not port.ports[i]):
-                            break
-                        elif (port.ports[i] == ioPortAddr):
-                            ##self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
-                            retVal = port.inPort(port.classObject, ioPortAddr, dataSize)&bitMask
-                            ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
-                            return retVal
-            else:
-                retVal = self.isadma.inPort(ioPortAddr, dataSize)&bitMask
-                return retVal
-            if (self.ata.isBusmaster(ioPortAddr)):
-                retVal = self.ata.inPort(ioPortAddr, dataSize)&bitMask
-                return retVal
+        bitMask = BITMASKS_FF[dataSize]
+        if (ioPortAddr):
+            for j in range(self.portsIndex):
+                if ((<PortHandler>self.ports[j]).inPort is NULL):
+                    continue
+                for i in range(PORTS_LEN):
+                    if (not (<PortHandler>self.ports[j]).ports[i]):
+                        break
+                    elif ((<PortHandler>self.ports[j]).ports[i] == ioPortAddr):
+                        ##self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
+                        retVal = (<PortHandler>self.ports[j]).inPort((<PortHandler>self.ports[j]).classObject, ioPortAddr, dataSize)&bitMask
+                        ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
+                        return retVal
+        else:
+            retVal = self.isadma.inPort(ioPortAddr, dataSize)&bitMask
+            return retVal
+        if (self.ata.isBusmaster(ioPortAddr)):
+            retVal = self.ata.inPort(ioPortAddr, dataSize)&bitMask
+            return retVal
+        with gil:
             self.main.notice("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
             self.main.notice("inPort: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
             return bitMask
-        except:
-            print_exc()
-            exit(1)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+        cdef uint8_t i, j
+        if (dataSize == OP_SIZE_BYTE):
+            data = <uint8_t>data
+        elif (dataSize == OP_SIZE_WORD):
+            data = <uint16_t>data
+        if (ioPortAddr):
+            for j in range(self.portsIndex):
+                if ((<PortHandler>self.ports[j]).outPort is NULL):
+                    continue
+                for i in range(PORTS_LEN):
+                    if (not (<PortHandler>self.ports[j]).ports[i]):
+                        break
+                    elif ((<PortHandler>self.ports[j]).ports[i] == ioPortAddr):
+                        ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
+                        (<PortHandler>self.ports[j]).outPort((<PortHandler>self.ports[j]).classObject, ioPortAddr, data, dataSize)
+                        return
+        else:
+            self.isadma.outPort(ioPortAddr, data, dataSize)
+            return
+        if (self.ata.isBusmaster(ioPortAddr)):
+            self.ata.outPort(ioPortAddr, data, dataSize)
+            return
         with gil:
-            return self.inPortHandler(ioPortAddr, dataSize)
-    cdef void outPortHandler(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
-        cdef PortHandler port
-        cdef uint8_t i
-        try:
-            if (dataSize == OP_SIZE_BYTE):
-                data = <uint8_t>data
-            elif (dataSize == OP_SIZE_WORD):
-                data = <uint16_t>data
-            if (ioPortAddr):
-                for port in self.ports:
-                    if (port.outPort is NULL):
-                        continue
-                    for i in range(PORTS_LEN):
-                        if (not port.ports[i]):
-                            break
-                        elif (port.ports[i] == ioPortAddr):
-                            ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
-                            port.outPort(port.classObject, ioPortAddr, data, dataSize)
-                            return
-            else:
-                self.isadma.outPort(ioPortAddr, data, dataSize)
-                return
-            if (self.ata.isBusmaster(ioPortAddr)):
-                self.ata.outPort(ioPortAddr, data, dataSize)
-                return
             self.main.notice("outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
             self.main.notice("outPort: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-        except:
-            print_exc()
-            exit(1)
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
-        with gil:
-            self.outPortHandler(ioPortAddr, data, dataSize)
     cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         self.pic.lowerIrq(FPU_IRQ)
     cdef void loadRomToMem(self, bytes romFileName, uint64_t mmAddr, uint64_t romSize):
@@ -209,7 +203,7 @@ cdef class Platform:
         self.parallel.run()
         self.serial.run()
         self.gdbstub.run()
-    cpdef run(self):
+    cdef void run(self):
         try:
             self.initMemory()
             self.initDevices()

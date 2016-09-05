@@ -16,7 +16,7 @@ cdef class Mm:
     cdef char *tempData
     cdef uint8_t ignoreRomWrite
     cdef uint64_t memSizeBytes
-    cpdef quitFunc(self)
+    cdef void quitFunc(self)
     cdef void mmClear(self, uint32_t mmAddr, uint8_t clearByte, uint32_t dataSize) nogil
     cdef char *mmPhyRead(self, uint32_t mmAddr, uint32_t dataSize) nogil
     cdef inline int16_t mmPhyReadValueSignedByte(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
@@ -41,7 +41,7 @@ cdef class ConfigSpace:
     cdef char *csData
     cdef uint8_t clearByte
     cdef uint32_t csSize
-    cpdef quitFunc(self)
+    cdef void quitFunc(self)
     cdef void csResetData(self, uint8_t clearByte) nogil
     cdef void csResetAddr(self, uint32_t offset, uint8_t clearByte, uint8_t size) nogil
     cdef bytes csRead(self, uint32_t offset, uint32_t size)

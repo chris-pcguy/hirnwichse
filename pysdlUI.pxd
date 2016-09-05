@@ -9,24 +9,24 @@ from ps2 cimport PS2
 
 cdef class PysdlUI:
     cdef Vga vga
-    cpdef object window, screen, renderer
+    cdef object window, screen, renderer
     cdef bytes fontDataA, fontDataB
     cdef tuple screenSize, charSize
     cdef dict points
     #cdef list points
     cdef uint8_t mode9Bit, replicate8Bit, msbBlink
-    cpdef initPysdl(self)
-    cpdef quitFunc(self)
-    cpdef clearScreen(self)
+    cdef void initPysdl(self)
+    cdef void quitFunc(self)
+    cdef void clearScreen(self)
     cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors) nogil # doesn't returns rect
     cdef void putChar(self, uint16_t x, uint16_t y, uint8_t character, uint8_t colors) # doesn't returns rect
-    cpdef setRepeatRate(self, uint16_t delay, uint16_t interval)
+    cdef void setRepeatRate(self, uint16_t delay, uint16_t interval)
     cdef uint8_t keyToScancode(self, uint32_t key)
-    cpdef handleSingleEvent(self, object event)
-    cpdef updateScreen(self)
-    cpdef handleEventsWithoutWaiting(self)
-    cpdef handleEvents(self)
-    cpdef run(self)
+    cdef void handleSingleEvent(self, object event)
+    cdef void updateScreen(self)
+    cdef void handleEventsWithoutWaiting(self)
+    cdef void handleEvents(self)
+    cdef void run(self)
 
 
 

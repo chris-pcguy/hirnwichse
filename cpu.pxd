@@ -37,7 +37,6 @@ cdef class Cpu:
     cdef void handleAsyncEvent(self)
     cdef int exception(self, uint8_t exceptionId, int32_t errorCode=?) except BITMASK_BYTE_CONST
     cdef int handleException(self, object exception) except BITMASK_BYTE_CONST
-    cdef uint8_t parsePrefixes(self, uint8_t opcode) nogil except? BITMASK_BYTE_CONST
     cdef void cpuDump(self)
     cdef void doInfiniteCycles(self)
     cdef void doCycle(self)

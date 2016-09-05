@@ -16,7 +16,7 @@ cdef class FloppyMedia:
 
 
 cdef class FloppyDrive:
-    cpdef object fp
+    cdef object fp
     cdef FloppyController controller
     cdef FloppyMedia media
     cdef bytes filename

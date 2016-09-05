@@ -7,6 +7,7 @@ from sys import argv, exit, stdout
 from argparse import ArgumentParser
 from atexit import register
 from traceback import print_exc
+import concurrent.futures
 
 cdef extern from "Python.h":
     bytes PyBytes_FromStringAndSize(char *, Py_ssize_t)
@@ -16,8 +17,10 @@ cdef class Hirnwichse:
     def __init__(self):
         self.quitEmu = False
         self.exitOnTripleFault = True
-        register(self.quitFunc)
-    cpdef parseArgs(self):
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=100)
+        register(self.quitFunc, self)
+        self.run()
+    cdef void parseArgs(self):
         self.parser = ArgumentParser(description='Hirnwichse: a x86 emulator in python.')
         self.parser.add_argument('--bios', dest='biosFilename', action='store', type=str, default='bios.bin', help='bios filename')
         self.parser.add_argument('--vgabios', dest='vgaBiosFilename', action='store', type=str, default='vgabios.bin', help='vgabios filename')
@@ -62,7 +65,7 @@ cdef class Hirnwichse:
         self.memSize = self.cmdArgs.memSize
         #self.debugEnabledTest = False
         #self.debugEnabled = False
-    cpdef quitFunc(self):
+    cdef void quitFunc(self):
         self.quitEmu = True
         fp=open("mmdump_1","wb")
         fp.write(PyBytes_FromStringAndSize( self.mm.data, <Py_ssize_t>4*1024))
@@ -80,15 +83,15 @@ cdef class Hirnwichse:
             print("DEBUG: " + msg.format(*msgArgs))
     def notice(self, str msg, *msgArgs): # this needs to be 'def'
         print("NOTICE: " + msg.format(*msgArgs))
-        #stdout.flush()
-    cpdef reset(self, uint8_t resetHardware):
+        stdout.flush()
+    cdef void reset(self, uint8_t resetHardware):
         self.cpu.reset()
         if (resetHardware):
             self.platform.resetDevices()
-    cpdef run(self, uint8_t infiniteCycles = True):
+    cdef void run(self, uint8_t infiniteCycles = True):
         try:
             self.parseArgs()
-            self.misc = Misc()
+            self.misc = Misc(self)
             self.mm = Mm(self)
             self.platform = Platform(self)
             self.cpu = Cpu(self)
