@@ -80,10 +80,10 @@ cdef class Paging:
     cdef uint16_t pageOffset
     cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
     cdef void invalidateTables(self, uint32_t pageDirectoryBaseAddress, uint8_t noGlobal)
-    cdef void invalidateTable(self, uint32_t virtualAddress) nogil
-    cdef void invalidatePage(self, uint32_t virtualAddress) nogil
+    cdef void invalidateTable(self, uint32_t virtualAddress)
+    cdef void invalidatePage(self, uint32_t virtualAddress)
     cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) except BITMASK_BYTE_CONST
-    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) except BITMASK_BYTE_CONST
     cdef uint32_t getPhysicalAddress(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) except? BITMASK_BYTE_CONST
     
 cdef class Segments:

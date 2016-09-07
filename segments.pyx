@@ -204,7 +204,7 @@ cdef class Paging: # TODO
                         self.tlbTables.csWriteValue((i<<12)|j, pageTableEntry, OP_SIZE_DWORD)
             else:
                 self.tlbTables.csResetAddr((i<<12), 0, PAGE_DIRECTORY_LENGTH)
-    cdef void invalidateTable(self, uint32_t virtualAddress) nogil:
+    cdef void invalidateTable(self, uint32_t virtualAddress):
         cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, i
         pageDirectoryOffset = (virtualAddress>>22) << 2
         pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
@@ -212,7 +212,7 @@ cdef class Paging: # TODO
         self.tlbDirectories.csWriteValue(pageDirectoryOffset, pageDirectoryEntry, OP_SIZE_DWORD)
         pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&<uint32_t>0xfffff000)|pageTableOffset) # page table
         self.tlbTables.csWriteValue(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTableEntry, OP_SIZE_DWORD)
-    cdef void invalidatePage(self, uint32_t virtualAddress) nogil:
+    cdef void invalidatePage(self, uint32_t virtualAddress):
         cdef uint8_t updateDir
         cdef uint32_t pageDirectoryEntry, pageTableEntry, pageDirectoryOffset, pageTableOffset, pageDirectoryEntryV, i, j,
         pageDirectoryOffset = (virtualAddress>>22) << 2
@@ -269,7 +269,7 @@ cdef class Paging: # TODO
         else:
             self.segments.registers.ignoreExceptions = False
         return BITMASK_BYTE
-    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) nogil except BITMASK_BYTE_CONST:
+    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) except BITMASK_BYTE_CONST:
         cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, pageDirectoryEntryMem, pageTableEntryMem, pageTablesEntryNew, origVirtualAddress
         # TODO: for now only handling 4KB pages. (very inefficient)
         if (not dataSize):

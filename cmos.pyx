@@ -16,21 +16,19 @@ cdef class Cmos:
         self.configSpace = ConfigSpace(128, self.main)
     cdef uint16_t decToBcd(self, uint16_t dec):
         return int(str(dec), 16)
-    cdef inline uint32_t readValue(self, uint8_t index, uint8_t size) nogil:
+    cdef inline uint32_t readValue(self, uint8_t index, uint8_t size):
         cdef uint32_t value
         value = self.configSpace.csReadValueUnsigned(index, size)
         #IF 1:
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                with gil:
-                    self.main.notice("Cmos::readValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
+                self.main.notice("Cmos::readValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
         return value
-    cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size) nogil:
+    cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size):
         #IF 1:
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                with gil:
-                    self.main.notice("Cmos::writeValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
+                self.main.notice("Cmos::writeValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
         self.configSpace.csWriteValue(index, value, size)
     cdef void reset(self):
         cdef uint32_t memSizeInK, extMemSizeInK, extMemSizeIn64K
@@ -72,23 +70,22 @@ cdef class Cmos:
         # TODO: set here the physical memory over 4GB if we need it...
         # ... or if we're able to handle it anytime in the future... oO
         ##self.updateTime()
-    cdef void updateTime(self) nogil:
+    cdef void updateTime(self):
         cdef uint8_t second, minute, hour, mday, wday, month, year, century
         self.statusB = self.readValue(CMOS_STATUS_REGISTER_B, OP_SIZE_BYTE)
         if (self.statusB&0x80):
             return
-        with gil:
-            self.oldDt = self.dt
-            self.dt = gmtime()
-            if (self.oldDt and self.dt and self.dt == self.oldDt):
-                return
-            second  = self.dt.tm_sec
-            minute  = self.dt.tm_min
-            hour    = self.dt.tm_hour
-            wday    = self.dt.tm_wday
-            mday    = self.dt.tm_mday
-            month   = self.dt.tm_mon
-            century, year = divmod(self.dt.tm_year, 100)
+        self.oldDt = self.dt
+        self.dt = gmtime()
+        if (self.oldDt and self.dt and self.dt == self.oldDt):
+            return
+        second  = self.dt.tm_sec
+        minute  = self.dt.tm_min
+        hour    = self.dt.tm_hour
+        wday    = self.dt.tm_wday
+        mday    = self.dt.tm_mday
+        month   = self.dt.tm_mon
+        century, year = divmod(self.dt.tm_year, 100)
         if (not self.statusB&CMOS_STATUSB_24HOUR):
             if (hour == 0):
                 hour = 12
@@ -101,15 +98,14 @@ cdef class Cmos:
         if (wday == 0):
             wday = 7
         if (not self.statusB&CMOS_STATUSB_BIN):
-            with gil:
-                second  = self.decToBcd(second)
-                minute  = self.decToBcd(minute)
-                hour    = self.decToBcd(hour)
-                wday    = self.decToBcd(wday)
-                mday    = self.decToBcd(mday)
-                month   = self.decToBcd(month)
-                year    = self.decToBcd(year)
-                century = self.decToBcd(century)
+            second  = self.decToBcd(second)
+            minute  = self.decToBcd(minute)
+            hour    = self.decToBcd(hour)
+            wday    = self.decToBcd(wday)
+            mday    = self.decToBcd(mday)
+            month   = self.decToBcd(month)
+            year    = self.decToBcd(year)
+            century = self.decToBcd(century)
         self.writeValue(CMOS_CURRENT_SECOND, second, OP_SIZE_BYTE)
         self.writeValue(CMOS_CURRENT_MINUTE, minute, OP_SIZE_BYTE)
         self.writeValue(CMOS_CURRENT_HOUR, hour, OP_SIZE_BYTE)
@@ -141,14 +137,13 @@ cdef class Cmos:
             self.writeValue(CMOS_STATUS_REGISTER_C, (self.readValue(CMOS_STATUS_REGISTER_C, OP_SIZE_BYTE) | 0x90), OP_SIZE_BYTE)
             (<Pic>self.main.platform.pic).raiseIrq(CMOS_RTC_IRQ)
         self.writeValue(CMOS_STATUS_REGISTER_A, (self.readValue(CMOS_STATUS_REGISTER_A, OP_SIZE_BYTE) & 0x7f), OP_SIZE_BYTE)
-    cdef void periodicFunc(self) nogil:
+    cdef void periodicFunc(self):
         if ((self.statusB & 0x40) != 0):
             self.writeValue(CMOS_STATUS_REGISTER_C, (self.readValue(CMOS_STATUS_REGISTER_C, OP_SIZE_BYTE) | 0xc0), OP_SIZE_BYTE)
             (<Pic>self.main.platform.pic).raiseIrq(CMOS_RTC_IRQ)
-    cdef void makeCheckSum(self) nogil:
+    cdef void makeCheckSum(self):
         cdef uint16_t checkSum
-        with gil:
-            checkSum = sum(self.configSpace.csRead(0x10, 0x1e)) # 0x10..0x2d
+        checkSum = sum(self.configSpace.csRead(0x10, 0x1e)) # 0x10..0x2d
         self.writeValue(CMOS_CHECKSUM_L, <uint8_t>checkSum, OP_SIZE_BYTE)
         self.writeValue(CMOS_CHECKSUM_H, <uint8_t>(checkSum>>8), OP_SIZE_BYTE)
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
@@ -158,12 +153,13 @@ cdef class Cmos:
                 ret = self.cmosIndex
             elif (ioPortAddr == 0x71):
                 tempIndex = self.cmosIndex&0x7f
-                if (tempIndex <= 0x9 or tempIndex == CMOS_CENTURY):
-                    self.updateTime()
-                ret = self.readValue(tempIndex, OP_SIZE_BYTE)
-                if (tempIndex == CMOS_STATUS_REGISTER_C):
-                    self.writeValue(tempIndex, 0, OP_SIZE_BYTE)
-                    (<Pic>self.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
+                with gil:
+                    if (tempIndex <= 0x9 or tempIndex == CMOS_CENTURY):
+                        self.updateTime()
+                    ret = self.readValue(tempIndex, OP_SIZE_BYTE)
+                    if (tempIndex == CMOS_STATUS_REGISTER_C):
+                        self.writeValue(tempIndex, 0, OP_SIZE_BYTE)
+                        (<Pic>self.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
             else:
                 with gil:
                     self.main.exitError("CMOS::inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
@@ -188,59 +184,53 @@ cdef class Cmos:
                 tempIndex = self.cmosIndex&0x7f
                 if (tempIndex in (0xc, 0xd)):
                     return
-                if (tempIndex == CMOS_STATUS_REGISTER_A):
-                    with gil:
+                with gil:
+                    if (tempIndex == CMOS_STATUS_REGISTER_A):
                         self.main.notice("CMOS::outPort: RTC is not fully supported yet. (data=={0:#04x})", data)
-                    timeBase = (data>>4)&7
-                    selectionBits = data&0xf
-                    if (timeBase != 0x2):
-                        with gil:
+                        timeBase = (data>>4)&7
+                        selectionBits = data&0xf
+                        if (timeBase != 0x2):
                             self.main.exitError("CMOS::outPort: RTC timebase != 0x2. (data=={0:#04x})", data)
-                        return
-                    if (not selectionBits):
-                        self.rtcDelay = 0
-                    elif (selectionBits in (0x1, 0x2)):
-                        with gil:
+                            return
+                        if (not selectionBits):
+                            self.rtcDelay = 0
+                        elif (selectionBits in (0x1, 0x2)):
                             self.main.exitError("CMOS::outPort: RTC selection bits in (1, 2). (data=={0:#04x})", data)
-                        return
-                    else:
-                        with gil:
+                            return
+                        else:
                             self.rtcDelay = round(1.0e6/(65536.0/(1<<selectionBits)))
-                elif (tempIndex == CMOS_STATUS_REGISTER_B):
-                    data &= 0xf7
-                    if ((data & 0x80)!=0):
-                        data &= 0xef
-                    if ((data & 0x20)!=0):
-                        with gil:
+                    elif (tempIndex == CMOS_STATUS_REGISTER_B):
+                        data &= 0xf7
+                        if ((data & 0x80)!=0):
+                            data &= 0xef
+                        if ((data & 0x20)!=0):
                             self.main.exitError("CMOS::outPort: statusB alarm set. (data=={0:#04x})", data)
-                        return
-                    if ((data & 0x1)!=0):
-                        with gil:
+                            return
+                        if ((data & 0x1)!=0):
                             self.main.exitError("CMOS::outPort: daylight set. (data=={0:#04x})", data)
-                        return
-                    (<PitChannel>self.rtcChannel).timerEnabled = False
-                    with gil:
-                        if ((<PitChannel>self.rtcChannel).threadObject):
-                            (<PitChannel>self.rtcChannel).threadObject.join()
-                            #(<PitChannel>self.rtcChannel).threadObject.cancel()
-                            #(<PitChannel>self.rtcChannel).threadObject.result()
-                            (<PitChannel>self.rtcChannel).threadObject = None
-                    if (self.rtcDelay and (data & 0x40)!=0):
-                        (<PitChannel>self.rtcChannel).counterMode = 2
-                        (<PitChannel>self.rtcChannel).tempTimerValue = self.rtcDelay
+                            return
+                        (<PitChannel>self.rtcChannel).timerEnabled = False
                         with gil:
+                            if ((<PitChannel>self.rtcChannel).threadObject):
+                                (<PitChannel>self.rtcChannel).threadObject.join()
+                                #(<PitChannel>self.rtcChannel).threadObject.cancel()
+                                #(<PitChannel>self.rtcChannel).threadObject.result()
+                                (<PitChannel>self.rtcChannel).threadObject = None
+                        if (self.rtcDelay and (data & 0x40)!=0):
+                            (<PitChannel>self.rtcChannel).counterMode = 2
+                            (<PitChannel>self.rtcChannel).tempTimerValue = self.rtcDelay
                             (<PitChannel>self.rtcChannel).runTimer()
-                    self.statusB = data
-                elif (tempIndex == CMOS_EXT_MEMORY_L):
-                    self.writeValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
-                elif (tempIndex == CMOS_EXT_MEMORY_H):
-                    self.writeValue(CMOS_EXT_MEMORY_H2, data, OP_SIZE_BYTE)
-                elif (tempIndex == CMOS_EXT_MEMORY_L2):
-                    self.writeValue(CMOS_EXT_MEMORY_L, data, OP_SIZE_BYTE)
-                elif (tempIndex == CMOS_EXT_MEMORY_H2):
-                    self.writeValue(CMOS_EXT_MEMORY_H, data, OP_SIZE_BYTE)
-                self.writeValue(tempIndex, data, OP_SIZE_BYTE)
-                self.makeCheckSum()
+                        self.statusB = data
+                    elif (tempIndex == CMOS_EXT_MEMORY_L):
+                        self.writeValue(CMOS_EXT_MEMORY_L2, data, OP_SIZE_BYTE)
+                    elif (tempIndex == CMOS_EXT_MEMORY_H):
+                        self.writeValue(CMOS_EXT_MEMORY_H2, data, OP_SIZE_BYTE)
+                    elif (tempIndex == CMOS_EXT_MEMORY_L2):
+                        self.writeValue(CMOS_EXT_MEMORY_L, data, OP_SIZE_BYTE)
+                    elif (tempIndex == CMOS_EXT_MEMORY_H2):
+                        self.writeValue(CMOS_EXT_MEMORY_H, data, OP_SIZE_BYTE)
+                    self.writeValue(tempIndex, data, OP_SIZE_BYTE)
+                    self.makeCheckSum()
             else:
                 with gil:
                     self.main.exitError("CMOS::outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)

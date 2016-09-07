@@ -229,6 +229,7 @@ cdef uint8_t PCI_SUBORDINATE_BUS = 0x1a
 cdef uint16_t PCI_CLASS_PATA        = 0x0101
 cdef uint16_t PCI_CLASS_VGA         = 0x0300
 cdef uint16_t PCI_CLASS_BRIDGE_HOST = 0x0600
+cdef uint16_t PCI_CLASS_BRIDGE_ISA  = 0x0601
 cdef uint16_t PCI_CLASS_BRIDGE_PCI  = 0x0604
 cdef uint16_t PCI_VENDOR_ID_INTEL   = 0x8086
 cdef uint16_t PCI_DEVICE_ID_INTEL_440FX = 0x1237

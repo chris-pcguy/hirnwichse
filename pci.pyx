@@ -47,7 +47,8 @@ cdef class PciDevice:
             headerType = 6 if (headerType == 0) else 2
             for barIndex in range(headerType):
                 if (self.barSize[barIndex]):
-                    origData = self.configSpace.csReadValueUnsigned((mmAddress & <uint32_t>0xffffff00)+PCI_BASE_ADDRESS_0+(barIndex<<2), OP_SIZE_DWORD)
+                    with gil:
+                        origData = self.configSpace.csReadValueUnsigned((mmAddress & <uint32_t>0xffffff00)+PCI_BASE_ADDRESS_0+(barIndex<<2), OP_SIZE_DWORD)
                     if (origData and ((origData & <uint32_t>0xfffffff0) != <uint32_t>0xfffffff0)):
                         if (origData & 1):
                             function |= 1
@@ -55,7 +56,8 @@ cdef class PciDevice:
                             function |= 2
             data &= 0x404
             data |= function
-            self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_WORD)
+            with gil:
+                self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_WORD)
             return False
         elif (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BRIDGE_ROM_ADDRESS+OP_SIZE_DWORD):
             if (self.pci.main.debugEnabled and (offset & 3) != 0):
@@ -77,7 +79,8 @@ cdef class PciDevice:
             if (offset >= PCI_BASE_ADDRESS_0 and offset <= PCI_BASE_ADDRESS_5):
                 if (not self.barSize[barIndex]):
                     return False
-                origData = self.configSpace.csReadValueUnsigned(offset, OP_SIZE_DWORD)
+                with gil:
+                    origData = self.configSpace.csReadValueUnsigned(offset, OP_SIZE_DWORD)
                 memBarType = (origData >> 1) & 0x3
                 if (not (origData & 1) and memBarType != 0): #if (memBarType in (1, 2, 3)):
                     with gil:
@@ -101,18 +104,21 @@ cdef class PciDevice:
                 barIndex = 6
                 if (not self.barSize[barIndex]):
                     return False
-                origData = self.configSpace.csReadValueUnsigned(offset, OP_SIZE_DWORD)
+                with gil:
+                    origData = self.configSpace.csReadValueUnsigned(offset, OP_SIZE_DWORD)
                 if ((data & <uint32_t>0xfffff800) == <uint32_t>0xfffff800):
                     data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1))) # TODO: is this correct?
                     #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))
                     #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))>>self.barSize[barIndex]
                 #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))
-            self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_DWORD)
+            with gil:
+                self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_DWORD)
             return False
         return True
     cdef uint32_t getData(self, uint32_t mmAddress, uint8_t dataSize) nogil:
         cdef uint32_t data
-        data = self.configSpace.csReadValueUnsigned(mmAddress, dataSize)
+        with gil:
+            data = self.configSpace.csReadValueUnsigned(mmAddress, dataSize)
         IF COMP_DEBUG:
             with gil:
                 self.pci.main.notice("PciDevice::getData: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", mmAddress, data, dataSize)
@@ -126,7 +132,8 @@ cdef class PciDevice:
         IF COMP_DEBUG:
             with gil:
                 self.pci.main.notice("PciDevice::setData: check says true: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", mmAddress, data, dataSize)
-        self.configSpace.csWriteValue(mmAddress, data, dataSize)
+        with gil:
+            self.configSpace.csWriteValue(mmAddress, data, dataSize)
     cdef void setVendorId(self, uint16_t vendorId):
         self.setData(PCI_VENDOR_ID, vendorId, OP_SIZE_WORD)
     cdef void setDeviceId(self, uint16_t deviceId):
@@ -145,7 +152,7 @@ cdef class PciBridge(PciDevice):
     def __init__(self, PciBus bus, Pci pci, uint8_t deviceIndex):
         PciDevice.__init__(self, bus, pci, deviceIndex)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
-        self.setDeviceClass(0x0601)
+        self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
         self.configSpace.csWriteValue(PCI_COMMAND, 0x6, OP_SIZE_WORD)
         self.configSpace.csWriteValue(PCI_STATUS, 0x280, OP_SIZE_WORD)
     cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
@@ -167,7 +174,7 @@ cdef class Pci2Isa(PciDevice):
                 self.irqLevel[j][i] = 0
         PciDevice.__init__(self, bus, pci, deviceIndex)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, 0x7000)
-        self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
+        self.setDeviceClass(PCI_CLASS_BRIDGE_ISA)
         self.configSpace.csWriteValue(PCI_COMMAND, 0x7, OP_SIZE_WORD)
         self.configSpace.csWriteValue(PCI_STATUS, 0x200, OP_SIZE_WORD)
         self.configSpace.csWriteValue(PCI_HEADER_TYPE, 0x80, OP_SIZE_BYTE)

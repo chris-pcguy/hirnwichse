@@ -779,8 +779,7 @@ cdef class Opcodes:
         self.registers.mmWriteValue(self.registers.getCurrentOpcodeAddUnsigned(self.cpu.addrSize), value, operSize, &self.registers.segments.ds, True)
         return True
     cdef int stosFuncWord(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint16_t countVal, ediVal
+        cdef uint16_t countVal, i
         cdef uint32_t data
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx
@@ -788,44 +787,35 @@ cdef class Opcodes:
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         data = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
-        ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
         for i in range(countVal):
-            self.registers.mmWriteValue(ediVal, data, operSize, &self.registers.segments.es, False)
-            if (not dfFlag):
+            self.registers.mmWriteValue(self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx, data, operSize, &self.registers.segments.es, False)
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int stosFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint32_t data, countVal, ediVal
+        cdef uint32_t data, countVal, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         data = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
-        ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
         for i in range(countVal):
-            self.registers.mmWriteValue(ediVal, data, operSize, &self.registers.segments.es, False)
-            if (not dfFlag):
+            self.registers.mmWriteValue(self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx, data, operSize, &self.registers.segments.es, False)
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int stosFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         if (self.cpu.addrSize == OP_SIZE_WORD):
@@ -834,60 +824,44 @@ cdef class Opcodes:
             return self.stosFuncDword(operSize)
         return True
     cdef int movsFuncWord(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint16_t countVal, esiVal, ediVal, i
+        cdef uint16_t countVal, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
-        ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
         for i in range(countVal):
-            self.registers.mmWriteValue(ediVal, self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True), operSize, &self.registers.segments.es, False)
-            if (not dfFlag):
+            self.registers.mmWriteValue(self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx, self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx, operSize, &self.registers.segments.ds, True), operSize, &self.registers.segments.es, False)
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx+operSize
-                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
                 self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx-operSize
-                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int movsFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint32_t countVal, esiVal, ediVal, i
+        cdef uint32_t countVal, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
-        ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
         for i in range(countVal):
-            self.registers.mmWriteValue(ediVal, self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True), operSize, &self.registers.segments.es, False)
-            if (not dfFlag):
+            self.registers.mmWriteValue(self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx, self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx, operSize, &self.registers.segments.ds, True), operSize, &self.registers.segments.es, False)
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx+operSize
-                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
                 self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-operSize
-                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int movsFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         if (self.cpu.addrSize == OP_SIZE_WORD):
@@ -896,8 +870,7 @@ cdef class Opcodes:
             return self.movsFuncDword(operSize)
         return True
     cdef int lodsFuncWord(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint16_t countVal, esiVal
+        cdef uint16_t countVal, i
         cdef uint32_t data
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx
@@ -905,44 +878,35 @@ cdef class Opcodes:
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
         for i in range(countVal):
-            data = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
+            data = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx, operSize, &self.registers.segments.ds, True)
             self.registers.regWrite(CPU_REGISTER_AX, data, operSize)
-            if (not dfFlag):
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx+operSize
-                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
             else:
                 self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx-operSize
-                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int lodsFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint32_t data, countVal, esiVal
+        cdef uint32_t data, countVal, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
         for i in range(countVal):
-            data = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
+            data = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx, operSize, &self.registers.segments.ds, True)
             self.registers.regWrite(CPU_REGISTER_AX, data, operSize)
-            if (not dfFlag):
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx+operSize
-                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
             else:
                 self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-operSize
-                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int lodsFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         if (self.cpu.addrSize == OP_SIZE_WORD):
@@ -951,8 +915,8 @@ cdef class Opcodes:
             return self.lodsFuncDword(operSize)
         return True
     cdef int cmpsFuncWord(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t zfFlag, dfFlag
-        cdef uint16_t esiVal, ediVal, countVal, i
+        cdef uint8_t zfFlag
+        cdef uint16_t countVal, i
         cdef uint32_t src1, src2
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx
@@ -960,62 +924,48 @@ cdef class Opcodes:
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
-        ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
         for i in range(countVal):
-            src1 = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
-            src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, &self.registers.segments.es, False)
+            src1 = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx, operSize, &self.registers.segments.ds, True)
+            src2 = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx, operSize, &self.registers.segments.es, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
-            if (not dfFlag):
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx+operSize
-                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
                 self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx-operSize
-                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
             zfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
             if ((self.cpu.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.cpu.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int cmpsFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t zfFlag, dfFlag
-        cdef uint32_t esiVal, ediVal, countVal, src1, src2, i
+        cdef uint8_t zfFlag
+        cdef uint32_t countVal, src1, src2, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
-        ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
         for i in range(countVal):
-            src1 = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
-            src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, &self.registers.segments.es, False)
+            src1 = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx, operSize, &self.registers.segments.ds, True)
+            src2 = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx, operSize, &self.registers.segments.es, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
-            if (not dfFlag):
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx+operSize
-                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
                 self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-operSize
-                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
             zfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
             if ((self.cpu.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.cpu.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int cmpsFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         if (self.cpu.addrSize == OP_SIZE_WORD):
@@ -1024,8 +974,8 @@ cdef class Opcodes:
             return self.cmpsFuncDword(operSize)
         return True
     cdef int scasFuncWord(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t zfFlag, dfFlag
-        cdef uint16_t ediVal, countVal, i
+        cdef uint8_t zfFlag
+        cdef uint16_t countVal, i
         cdef uint32_t src1, src2
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx
@@ -1033,52 +983,44 @@ cdef class Opcodes:
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
         src1 = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
         for i in range(countVal):
-            src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, &self.registers.segments.es, False)
+            src2 = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx, operSize, &self.registers.segments.es, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
-            if (not dfFlag):
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
             zfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
             if ((self.cpu.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.cpu.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int scasFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t zfFlag, dfFlag
-        cdef uint32_t src1, src2, ediVal, countVal, i
+        cdef uint8_t zfFlag
+        cdef uint32_t src1, src2, countVal, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
         src1 = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
         for i in range(countVal):
-            src2 = self.registers.mmReadValueUnsigned(ediVal, operSize, &self.registers.segments.es, False)
+            src2 = self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx, operSize, &self.registers.segments.es, False)
             self.registers.setFullFlags(src1, src2, operSize, OPCODE_SUB)
-            if (not dfFlag):
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
             zfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf
             if ((self.cpu.repPrefix == OPCODE_PREFIX_REPE and not zfFlag) or (self.cpu.repPrefix == OPCODE_PREFIX_REPNE and zfFlag)):
                 break
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int scasFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         if (self.cpu.addrSize == OP_SIZE_WORD):
@@ -1127,56 +1069,40 @@ cdef class Opcodes:
         self.outPort(self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx, value, operSize)
         return True
     cdef int outsFuncWord(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint16_t ioPort, esiVal, countVal, i
-        cdef uint32_t value
+        cdef uint16_t countVal, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
-        ioPort = self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         for i in range(countVal):
-            value = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
-            self.outPort(ioPort, value, operSize)
-            if (not dfFlag):
+            self.outPort(self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx, self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx, operSize, &self.registers.segments.ds, True), operSize)
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx+operSize
-                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
             else:
                 self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx-operSize
-                esiVal = self.registers.regs[CPU_REGISTER_SI]._union.word._union.rx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int outsFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint16_t ioPort
-        cdef uint32_t value, esiVal, countVal, i
+        cdef uint32_t countVal, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
-        ioPort = self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
         for i in range(countVal):
-            value = self.registers.mmReadValueUnsigned(esiVal, operSize, &self.registers.segments.ds, True)
-            self.outPort(ioPort, value, operSize)
-            if (not dfFlag):
+            self.outPort(self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx, self.registers.mmReadValueUnsigned(self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx, operSize, &self.registers.segments.ds, True), operSize)
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx+operSize
-                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
             else:
                 self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-operSize
-                esiVal = self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int outsFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         if (self.cpu.addrSize == OP_SIZE_WORD):
@@ -1185,56 +1111,40 @@ cdef class Opcodes:
             return self.outsFuncDword(operSize)
         return True
     cdef int insFuncWord(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint16_t ioPort, ediVal, countVal, i
-        cdef uint32_t value
+        cdef uint16_t countVal, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
-        ioPort = self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx
         for i in range(countVal):
-            value = self.inPort(ioPort, operSize)
-            self.registers.mmWriteValue(ediVal, value, operSize, &self.registers.segments.es, False)
-            if (not dfFlag):
+            self.registers.mmWriteValue(self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx, self.inPort(self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx, operSize), operSize, &self.registers.segments.es, False)
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             else:
                 self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_DI]._union.word._union.rx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx = self.registers.regs[CPU_REGISTER_CX]._union.word._union.rx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef int insFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t dfFlag
-        cdef uint16_t ioPort
-        cdef uint32_t value, ediVal, countVal, i
+        cdef uint32_t countVal, i
         if (self.cpu.repPrefix):
             countVal = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx
             if (not countVal):
                 return True
         else:
             countVal = 1
-        dfFlag = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df
-        ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
-        ioPort = self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx
         for i in range(countVal):
-            value = self.inPort(ioPort, operSize)
-            self.registers.mmWriteValue(ediVal, value, operSize, &self.registers.segments.es, False)
-            if (not dfFlag):
+            self.registers.mmWriteValue(self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx, self.inPort(self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx, operSize), operSize, &self.registers.segments.es, False)
+            if (not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx+operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             else:
                 self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx-operSize
-                ediVal = self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx
             if (self.cpu.repPrefix):
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx-1
-        self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
+        #self.cpu.cycles = self.cpu.cycles+(countVal << CPU_CLOCK_TICK_SHIFT) # cython doesn't like the former variant without GIL
         return True
     cdef inline int insFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         if (self.cpu.addrSize == OP_SIZE_WORD):
@@ -1991,12 +1901,13 @@ cdef class Opcodes:
                 self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0x10000
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0xc00000
                 #self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x8113
-                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0xa117
+                #self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0xa117
                 #self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0xa11f
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x1800a117
             elif (eaxId == 0x2):
                 IF COMP_DEBUG:
                     self.main.notice("Opcodes::opcodeGroup0F: CPUID test5: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x}; eax; {2:#010x})", self.cpu.savedEip, self.cpu.savedCs, eaxId)
-                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x1
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x410601
                 self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0
                 self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
@@ -2240,6 +2151,7 @@ cdef class Opcodes:
                     self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = False
                     self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = qop1>>32
                     self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = qop1
+                    self.registers.mmWriteValue(mmAddr, qop1, OP_SIZE_QWORD, self.modRMInstance.rmNameSeg, True) # it's supposed to write always.
             else:
                 self.main.notice("opcodeGroup0F_C7: self.modRMInstance.reg {0:d} isn't supported yet.", self.modRMInstance.reg)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
@@ -2570,25 +2482,23 @@ cdef class Opcodes:
         elif (operOpcodeId == GROUP2_OP_IMUL):
             operOp1 = self.registers.regReadUnsigned(CPU_REGISTER_AX, operSize)
             if (operSize == OP_SIZE_BYTE):
-                operSum = <uint16_t>((<int8_t>operOp1)*(<int8_t>operOp2))
-                self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = operSum
-                self.registers.setFullFlags(operOp1, operOp2, operSize, OPCODE_IMUL)
-                self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (<int8_t>operSum)!=(<int16_t>operSum)
-                return True
-            if (operSize == OP_SIZE_WORD):
-                operSum = <uint32_t>(<int16_t>operOp1*<int16_t>operOp2)
-                self.registers.regWrite(CPU_REGISTER_AX, <uint16_t>operSum, operSize)
-                self.registers.regWrite(CPU_REGISTER_DX, <uint16_t>(operSum>>operSizeInBits), operSize)
+                operSum = <uint16_t>(<int16_t><int8_t>operOp1*<int8_t>operOp2)
+                self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = <uint16_t>operSum
+            elif (operSize == OP_SIZE_WORD):
+                operSum = <uint32_t>(<int32_t><int16_t>operOp1*<int16_t>operOp2)
+                self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx = <uint16_t>operSum
+                self.registers.regs[CPU_REGISTER_DX]._union.word._union.rx = <uint16_t>(operSum>>operSizeInBits)
             elif (operSize == OP_SIZE_DWORD):
-                operSum = <uint32_t>(<int32_t>operOp1*<int32_t>operOp2)
-                utemp = (operOp1*operOp2)>>operSizeInBits
-                self.registers.regWrite(CPU_REGISTER_AX, operSum, operSize)
-                self.registers.regWrite(CPU_REGISTER_DX, utemp, operSize)
+                operSum = <uint64_t>(<int64_t><int32_t>operOp1*<int32_t>operOp2)
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = <uint32_t>operSum
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = <uint32_t>(operSum>>operSizeInBits)
             self.registers.setFullFlags(operOp1, operOp2, operSize, OPCODE_IMUL)
-            if (operSize == OP_SIZE_WORD):
+            if (operSize == OP_SIZE_BYTE):
+                self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (<int8_t>operSum)!=(<int16_t>operSum)
+            elif (operSize == OP_SIZE_WORD):
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (<int16_t>operSum)!=(<int32_t>operSum)
             elif (operSize == OP_SIZE_DWORD):
-                self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = utemp!=0
+                self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (<int32_t>operSum)!=(<int64_t>operSum)
         elif (operSize == OP_SIZE_BYTE and operOpcodeId == GROUP2_OP_DIV):
             op1Word = self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx
             if (not operOp2):
@@ -3254,8 +3164,7 @@ cdef class Opcodes:
         cdef uint8_t tempCF_OF, newCF, i
         cdef uint32_t bitMaskHalf, dest
         IF COMP_DEBUG:
-            with gil:
-                self.main.notice("Opcodes::rclFunc: RCL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+            self.main.notice("Opcodes::rclFunc: RCL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
         bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize)
         count = count&0x1f
@@ -3281,8 +3190,7 @@ cdef class Opcodes:
         cdef uint8_t tempCF_OF, newCF, i
         cdef uint32_t bitMaskHalf, dest
         IF COMP_DEBUG:
-            with gil:
-                self.main.notice("Opcodes::rcrFunc: RCR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+            self.main.notice("Opcodes::rcrFunc: RCR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
         bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize)
         count = count&0x1f
@@ -3306,8 +3214,7 @@ cdef class Opcodes:
         cdef uint8_t tempCF_OF, newCF, i
         cdef uint32_t bitMaskHalf, dest
         IF COMP_DEBUG:
-            with gil:
-                self.main.notice("Opcodes::rolFunc: ROL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+            self.main.notice("Opcodes::rolFunc: ROL: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
         bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize)
         count &= 0x1f
@@ -3329,8 +3236,7 @@ cdef class Opcodes:
         cdef uint8_t tempCF_OF, newCF_M1, i
         cdef uint32_t bitMaskHalf, dest
         IF COMP_DEBUG:
-            with gil:
-                self.main.notice("Opcodes::rorFunc: ROR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
+            self.main.notice("Opcodes::rorFunc: ROR: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.cpu.savedEip, self.cpu.savedCs)
         bitMaskHalf = BITMASKS_80[operSize]
         dest = self.modRMInstance.modRMLoadUnsigned(operSize)
         count &= 0x1f
@@ -3497,7 +3403,7 @@ cdef class Opcodes:
         index = self.modRMInstance.modRLoadSigned(self.cpu.operSize)
         returnInt = self.modRMInstance.getRMValueFull(self.cpu.addrSize)
         lowerBound = self.registers.mmReadValueSigned(returnInt, self.cpu.operSize, self.modRMInstance.rmNameSeg, True)
-        upperBound = self.registers.mmReadValueSigned(returnInt+self.cpu.operSize, self.cpu.operSize, self.modRMInstance.rmNameSeg, True)
+        upperBound = self.registers.mmReadValueSigned(returnInt+self.cpu.operSize, self.cpu.operSize, self.modRMInstance.rmNameSeg, True)+self.cpu.operSize
         if (index < lowerBound or index > upperBound):
             self.main.notice("bound_test1: index: {0:#06x}, lowerBound: {1:#06x}, upperBound: {2:#06x}", index, lowerBound, upperBound)
             raise HirnwichseException(CPU_EXCEPTION_BR)

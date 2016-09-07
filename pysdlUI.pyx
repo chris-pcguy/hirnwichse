@@ -445,7 +445,7 @@ cdef class PysdlUI:
             self.quitFunc()
         except:
             print_exc()
-            self.vga.main.exitError('handleEvents: exception, exiting...')
+            self.vga.main.exitError('handleEventsWithoutWaiting: exception, exiting...')
     cdef void handleEvents(self):
         cdef object event
         prctl.set_name("PysdlUI::handleEvents")

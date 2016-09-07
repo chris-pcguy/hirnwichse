@@ -8,7 +8,7 @@ from cpu cimport Cpu
 
 
 cdef class Hirnwichse:
-    cdef object parser, cmdArgs, executor
+    cdef object parser, cmdArgs #, executor
     cdef Misc misc
     cdef Mm mm
     cdef Platform platform
@@ -19,7 +19,7 @@ cdef class Hirnwichse:
     cdef void parseArgs(self)
     cdef void quitFunc(self)
     cdef void reset(self, uint8_t resetHardware)
-    cdef void run(self, uint8_t infiniteCycles = ?)
+    cpdef void run(self, uint8_t infiniteCycles)
 
 
 

@@ -45,9 +45,9 @@ cdef class ConfigSpace:
     cdef void csResetData(self, uint8_t clearByte) nogil
     cdef void csResetAddr(self, uint32_t offset, uint8_t clearByte, uint8_t size) nogil
     cdef bytes csRead(self, uint32_t offset, uint32_t size)
-    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil
-    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil except? BITMASK_BYTE_CONST
-    cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size) nogil except? BITMASK_BYTE_CONST
-    cdef uint64_t csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) nogil except? BITMASK_BYTE_CONST
+    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size)
+    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) except? BITMASK_BYTE_CONST
+    cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size) except? BITMASK_BYTE_CONST
+    cdef uint64_t csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) except? BITMASK_BYTE_CONST
 
 

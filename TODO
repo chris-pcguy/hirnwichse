@@ -1,8 +1,7 @@
 temp-disable ss segment after writing to it. (until a write to (e)sp)
 
 
-If there are many REP operations in the code, it could be that GUI-Events can't get executed.
-  Probably this won't get fixed!
+# If there are many REP operations in the code, it could be that GUI-Events can't get executed. Probably this won't get fixed!
 
 PCI
 Opcodes::interrupt
@@ -14,9 +13,13 @@ PS2
 RS232(?)
 
 
-PCI: Save busmaster base address instead of fetching it each time
-
 timing issues, which are resulting into some heavy bugs.
+
+when "F7 /5 IMUL r/m32" is defective:
+hang on reactos boot: e.g. between kbdclass and mouclass
+"vm_page_physrehash: WARNING: could not grow page hash table" warning on openbsd25 hda boot
+
+
 
 Somewhen in a few centuries:
 ACPI (win2k, ...)

@@ -51,11 +51,13 @@ cdef class VGA_REGISTER_RAW:
     cdef uint32_t getData(self, uint8_t dataSize) nogil:
         if (self.index >= self.configSpace.csSize):
             return 0
-        return self.configSpace.csReadValueUnsigned(self.index, dataSize)
+        with gil:
+            return self.configSpace.csReadValueUnsigned(self.index, dataSize)
     cdef void setData(self, uint32_t data, uint8_t dataSize) nogil:
         if (self.index >= self.configSpace.csSize):
             return
-        self.configSpace.csWriteValue(self.index, data, dataSize)
+        with gil:
+            self.configSpace.csWriteValue(self.index, data, dataSize)
 
 cdef class CRT(VGA_REGISTER_RAW):
     def __init__(self, Vga vga):
@@ -86,13 +88,14 @@ cdef class CRT(VGA_REGISTER_RAW):
             self.vga.vde = self.vga.vde&0x300
             self.vga.vde = self.vga.vde|data
         elif (index in (VGA_CRT_OFFSET_INDEX, VGA_CRT_UNDERLINE_LOCATION_INDEX, VGA_CRT_MODE_CTRL_INDEX)):
-            self.vga.offset = self.configSpace.csReadValueUnsigned(VGA_CRT_OFFSET_INDEX, OP_SIZE_BYTE) << 1
-            if ((self.configSpace.csReadValueUnsigned(VGA_CRT_UNDERLINE_LOCATION_INDEX, OP_SIZE_BYTE)&VGA_CRT_UNDERLINE_LOCATION_DW) != 0):
-                self.vga.addressSizeShift = 2
-            elif ((self.configSpace.csReadValueUnsigned(VGA_CRT_MODE_CTRL_INDEX, OP_SIZE_BYTE)&VGA_CRT_MODE_CTRL_WORD_BYTE) == 0):
-                self.vga.addressSizeShift = 1
-            else:
-                self.vga.addressSizeShift = 0
+            with gil:
+                self.vga.offset = self.configSpace.csReadValueUnsigned(VGA_CRT_OFFSET_INDEX, OP_SIZE_BYTE) << 1
+                if ((self.configSpace.csReadValueUnsigned(VGA_CRT_UNDERLINE_LOCATION_INDEX, OP_SIZE_BYTE)&VGA_CRT_UNDERLINE_LOCATION_DW) != 0):
+                    self.vga.addressSizeShift = 2
+                elif ((self.configSpace.csReadValueUnsigned(VGA_CRT_MODE_CTRL_INDEX, OP_SIZE_BYTE)&VGA_CRT_MODE_CTRL_WORD_BYTE) == 0):
+                    self.vga.addressSizeShift = 1
+                else:
+                    self.vga.addressSizeShift = 0
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
     def __init__(self, Vga vga):
@@ -118,7 +121,8 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
                 self.vga.main.exitError("DAC::getData: dataSize != 1 (dataSize: {0:d})", dataSize)
             return retData
         if (self.state == 0x03):
-            retData = self.configSpace.csReadValueUnsigned((self.readIndex*3)+self.readCycle, OP_SIZE_BYTE)&0x3f
+            with gil:
+                retData = self.configSpace.csReadValueUnsigned((self.readIndex*3)+self.readCycle, OP_SIZE_BYTE)&0x3f
             self.readCycle += 1
             if (self.readCycle >= 3):
                 self.readCycle = 0
@@ -131,7 +135,8 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
             return
         if (self.state != 0x00):
             return
-        self.configSpace.csWriteValue((self.writeIndex*3)+self.writeCycle, data&0x3f, 1)
+        with gil:
+            self.configSpace.csWriteValue((self.writeIndex*3)+self.writeCycle, data&0x3f, 1)
         self.writeCycle += 1
         if (self.writeCycle >= 3):
             self.writeCycle = 0
@@ -302,9 +307,9 @@ cdef class Vga:
         self.plane1 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane2 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane3 = ConfigSpace(VGA_PLANE_SIZE, self.main)
-        self.pciDevice = self.main.platform.pci.addDevice()
-        self.pciDevice.setVendorDeviceId(0x1234, 0x1111)
-        self.pciDevice.setDeviceClass(PCI_CLASS_VGA)
+        #self.pciDevice = self.main.platform.pci.addDevice()
+        #self.pciDevice.setVendorDeviceId(0x1234, 0x1111)
+        #self.pciDevice.setDeviceClass(PCI_CLASS_VGA)
         #self.pciDevice.setBarSize(6, 16)
         #self.pciDevice.setData(PCI_ROM_ADDRESS, ((VGA_ROM_BASE << 10) | 0x1), OP_SIZE_DWORD)
         self.ui = None
@@ -313,8 +318,9 @@ cdef class Vga:
     cdef void setStartAddress(self) nogil:
         cdef uint32_t temp
         temp = self.startAddress
-        self.startAddress = self.crt.configSpace.csReadValueUnsigned(0xc, OP_SIZE_BYTE)<<8
-        self.startAddress |= self.crt.configSpace.csReadValueUnsigned(0xd, OP_SIZE_BYTE)
+        with gil:
+            self.startAddress = self.crt.configSpace.csReadValueUnsigned(0xc, OP_SIZE_BYTE)<<8
+            self.startAddress |= self.crt.configSpace.csReadValueUnsigned(0xd, OP_SIZE_BYTE)
         #self.main.notice("setStartAddress: startAddress=={0:#06x}", self.startAddress)
         if (not self.graphicalMode):
             self.startAddress <<= 1
@@ -559,14 +565,15 @@ cdef class Vga:
                     with gil:
                         self.main.notice("Vga::vgaAreaWrite: writeMap=={0:x}; selectedPlanes=={1:x}", self.writeMap, selectedPlanes)
                 data = self.translateBytes(data)
-                if (selectedPlanes & 1):
-                    self.plane0.csWriteValue(tempOffset, (data>>24)&BITMASK_BYTE, OP_SIZE_BYTE)
-                if (selectedPlanes & 2):
-                    self.plane1.csWriteValue(tempOffset, (data>>16)&BITMASK_BYTE, OP_SIZE_BYTE)
-                if (selectedPlanes & 4):
-                    self.plane2.csWriteValue(tempOffset, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
-                if (selectedPlanes & 8):
-                    self.plane3.csWriteValue(tempOffset, data&BITMASK_BYTE, OP_SIZE_BYTE)
+                with gil:
+                    if (selectedPlanes & 1):
+                        self.plane0.csWriteValue(tempOffset, (data>>24)&BITMASK_BYTE, OP_SIZE_BYTE)
+                    if (selectedPlanes & 2):
+                        self.plane1.csWriteValue(tempOffset, (data>>16)&BITMASK_BYTE, OP_SIZE_BYTE)
+                    if (selectedPlanes & 4):
+                        self.plane2.csWriteValue(tempOffset, (data>>8)&BITMASK_BYTE, OP_SIZE_BYTE)
+                    if (selectedPlanes & 8):
+                        self.plane3.csWriteValue(tempOffset, data&BITMASK_BYTE, OP_SIZE_BYTE)
         elif (not self.writeMap):
             selectedPlanes = 0xf
         else:

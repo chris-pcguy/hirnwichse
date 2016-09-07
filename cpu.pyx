@@ -158,13 +158,13 @@ cdef class Cpu:
         #self.main.notice("FS.limit: {0:#06x}, GS.limit: {1:#06x}", (<Segment>self.registers.segments.fs).gdtEntry.limit, \
         #  (<Segment>self.registers.segments.gs).gdtEntry.limit)
         self.main.notice("Opcode: {0:#04x}\n\n", self.opcode)
-    cdef void doInfiniteCycles(self):
+    cdef int doInfiniteCycles(self) except BITMASK_BYTE_CONST:
         try:
             while (not self.main.quitEmu):
                 if (self.cpuHalted and self.main.exitIfCpuHalted):
                     self.main.quitFunc()
                     exit(1)
-                    return
+                    return True
                 elif ((self.debugHalt and not self.debugSingleStep) or (self.cpuHalted and not self.main.exitIfCpuHalted)):
                     if (self.asyncEvent and not self.registers.ssInhibit):
                         self.repPrefix = 0
@@ -186,7 +186,8 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
-    cdef void doCycle(self):
+        return True
+    cdef int doCycle(self) except BITMASK_BYTE_CONST:
         cdef uint8_t count
         cdef uint64_t temptime
         count = 0
@@ -202,14 +203,15 @@ cdef class Cpu:
         self.savedSs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
         self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
-        if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>5))):
-        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
+        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>5))):
+        if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>8))):
         #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>16))):
             #temptime = ttime(NULL)*100
             #if (temptime - self.lasttime >= 20):
             temptime = ttime(NULL)
             if (temptime - self.lasttime >= 1):
+                #self.main.notice("CPU::doCycle: cycles: {0:#010x}", self.cycles)
                 if (self.main.platform.vga and self.main.platform.vga.ui):
                     self.main.platform.vga.ui.handleEventsWithoutWaiting()
                 self.lasttime = temptime
@@ -223,7 +225,7 @@ cdef class Cpu:
             if (not self.registers.ssInhibit):
                 if (self.asyncEvent):
                     self.handleAsyncEvent()
-                    return
+                    return True
                 elif (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
                     self.registers.ssInhibit = True
                 # handle dr0-3 here
@@ -232,7 +234,7 @@ cdef class Cpu:
                 if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
                     self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf = False
                     raise HirnwichseException(CPU_EXCEPTION_DB)
-                    #return
+                    #return True
             self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
             while (self.opcode in OPCODE_PREFIXES):
                 count += 1
@@ -267,69 +269,13 @@ cdef class Cpu:
                 #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
                 self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = False
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc00013b7):
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc00013d1):
-            #    self.main.debugEnabledTest = True
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc03604fa):
-            #if (self.savedCs == 0x9f and self.savedEip == 0xd0c4):
-            #if (self.savedCs == 0x8 and self.savedEip == 0x80014068):
-            #if (self.savedCs == 0x8 and self.savedEip == 0x803d2f73):
-            #if (self.savedCs == 0x8 and self.savedEip == 0x803d3001):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x80455574 and self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx == 0x0004f534):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x8042ac90 and self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx == 0x0004f060):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x17ff and self.savedEip == 0x310a):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x8080275a):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x808c8e52):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x8098147e and self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx == 0xb9400000):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x137 and self.savedEip == 0x7fcf2ce9):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc002ec58):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc0001e7a):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x2b and self.savedEip == 0x1c000193 and self.opcode == 0x57):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x8 and self.savedEip == 0x00320ba7):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x0 and self.savedEip == 0x7c00):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x2b and self.main.debugEnabledTest):
-            #    self.main.debugEnabled = True
-            #if (self.savedCs == 0x2000 and self.savedEip == 0x1c8):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #else:
-            #    self.main.debugEnabled = False
-            #if (self.savedCs == 0xffff and self.savedEip == 0xb09):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x835 and self.savedEip == 0x20a5):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc03603af):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc0372ffd):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
-            #if (self.savedCs == 0x28 and self.savedEip == 0xc002a555):
-            #    self.main.debugEnabledTest = self.main.debugEnabled = True
+            if (self.savedCs == 0x0 and self.savedEip == 0x7c00):
+                self.main.debugEnabledTest = self.main.debugEnabled = True
             if (self.main.debugEnabled):
             #if (self.main.debugEnabled or self.main.debugEnabledTest):
-            #if ((self.main.debugEnabled or self.main.debugEnabledTest) and self.savedCs != 0x50):
-            #if (self.savedCs == 0x2b):
-            #if (self.savedCs == 0x8 and self.savedEip == 0x312296):
             #IF 1:
                 self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
                 self.cpuDump()
-                #if (self.savedEip == 0x1c000178):
-                #    self.main.notice("ds:[ds:[edx]-1]=={0:#010x}", self.registers.mmReadValueUnsignedDword(self.registers.mmReadValueUnsignedDword(self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx, (<Segment>self.registers.segments.ds), False)-1, (<Segment>self.registers.segments.ds), False))
-                #if (self.savedEip == 0xd02006d1):
-                #    self.main.notice("ds:[esi-1]=={0:#010x}", self.registers.mmReadValueUnsignedDword(self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx-1, (<Segment>self.registers.segments.ds), False))
-                #self.main.notice("EAX: {0:#010x}", self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx)
-                #self.main.notice("ESP: {0:#010x}, EFLAGS: {1:#010x}", self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx, self.registers.regs[CPU_REGISTER_EFLAGS]._union.dword.erx)
             if (not self.opcodes.executeOpcode(self.opcode)):
                 self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_UD)
@@ -363,15 +309,16 @@ cdef class Cpu:
         except:
             print_exc()
             self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
-    cdef void run(self, uint8_t infiniteCycles):
+        return True
+    cdef int run(self, uint8_t infiniteCycles) except BITMASK_BYTE_CONST:
         self.registers = Registers(self.main)
         self.opcodes = Opcodes(self.main, self)
         self.opcodes.registers = self.registers
         self.registers.run()
         self.opcodes.run()
         self.reset()
-        self.main.exitError("abcdef")
         if (infiniteCycles):
-            self.doInfiniteCycles()
+            return self.doInfiniteCycles()
+        return True
     ###
 

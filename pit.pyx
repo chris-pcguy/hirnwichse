@@ -88,9 +88,9 @@ cdef class PitChannel:
                     #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                     #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                     if (self.localCounterMode == 3):
-                        i = 2
+                        i = 4
                     else:
-                        i = 1
+                        i = 2
                     #with gil:
                     #    prctl.set_name("Pit::{0:d}{1:d}_15".format(self.channelId, self.localCounterMode))
                     #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
@@ -107,8 +107,8 @@ cdef class PitChannel:
                         #if (not (self.counterValue&0xff)):
                         #if (not (self.counterValue&0x7f)):
                         #if (not (self.counterValue&0x3f)):
-                        if (not (self.counterValue&0x1f)):
-                        #if (not (self.counterValue&0xf)):
+                        #if (not (self.counterValue&0x1f)):
+                        if (not (self.counterValue&0xf)):
                         #if (not (self.counterValue&0x7)):
                         #if (not (self.counterValue&0x3)):
                         #if (not (self.counterValue&0x1)):
@@ -173,7 +173,8 @@ cdef class PitChannel:
                 elif (self.channelId == 3):
                     if (clear):
                         #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(CMOS_RTC_IRQ): clear")
-                        (<Cmos>self.pit.main.platform.cmos).periodicFunc()
+                        with gil:
+                            (<Cmos>self.pit.main.platform.cmos).periodicFunc()
                 else:
                     IF COMP_DEBUG:
                         with gil:

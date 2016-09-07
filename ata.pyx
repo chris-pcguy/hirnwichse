@@ -124,9 +124,9 @@ cdef class AtaDrive:
         self.senseKey = self.senseAsc = 0
     cdef uint64_t ChsToSector(self, uint32_t cylinder, uint8_t head, uint8_t sector) nogil:
         return (cylinder*HEADS+head)*SPT+(sector-1)
-    cdef inline uint16_t readValue(self, uint8_t index) nogil:
+    cdef inline uint16_t readValue(self, uint8_t index):
         return self.configSpace.csReadValueUnsigned(index << 1, OP_SIZE_WORD)
-    cdef inline void writeValue(self, uint8_t index, uint16_t value) nogil:
+    cdef inline void writeValue(self, uint8_t index, uint16_t value):
         self.configSpace.csWriteValue(index << 1, value, OP_SIZE_WORD)
     cdef void reset(self) nogil:
         pass
@@ -220,8 +220,8 @@ cdef class AtaDrive:
         self.writeValue(67, 0x12c)
         self.writeValue(68, 0xb4)
         self.writeValue(53, 6)
-        #if (cylinders <= 1024): # hardcoded
-        if (cylinders <= 2048): # hardcoded
+        if (cylinders <= 1024): # hardcoded
+        #if (cylinders <= 2048): # hardcoded
             translateValueTemp = ATA_TRANSLATE_NONE
         elif ((cylinders * HEADS) <= 131072):
             translateValueTemp = ATA_TRANSLATE_LARGE
@@ -979,8 +979,9 @@ cdef class AtaController:
                         else:
                             self.abortCommand()
                             return
-                        (<AtaDrive>self.drive[self.driveId]).writeValue(63, 0x7 | (self.mdmaMode << 8))
-                        (<AtaDrive>self.drive[self.driveId]).writeValue(88, 0x3f | (self.udmaMode << 8))
+                        with gil:
+                            (<AtaDrive>self.drive[self.driveId]).writeValue(63, 0x7 | (self.mdmaMode << 8))
+                            (<AtaDrive>self.drive[self.driveId]).writeValue(88, 0x3f | (self.udmaMode << 8))
                     elif (self.features not in (0x02, 0x82, 0xAA, 0x55, 0xCC, 0x66)):
                         self.abortCommand()
                         return
@@ -1112,7 +1113,8 @@ cdef class Ata:
         #self.pciDevice.setBarSize(3, 4) # TODO?
         #self.pciDevice.setBarSize(4, 4) # TODO?
         self.pciDevice.setBarSize(4, 4) # TODO?
-        self.pciDevice.configSpace.csWriteValue(PCI_COMMAND, 0x5, OP_SIZE_BYTE)
+        #self.pciDevice.configSpace.csWriteValue(PCI_COMMAND, 0x5, OP_SIZE_BYTE)
+        self.pciDevice.configSpace.csWriteValue(PCI_COMMAND, 0x1, OP_SIZE_BYTE)
         self.pciDevice.configSpace.csWriteValue(PCI_STATUS, 0x280, OP_SIZE_WORD)
         self.pciDevice.configSpace.csWriteValue(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
         #self.pciDevice.configSpace.csWriteValue(PCI_PROG_IF, 0x8a, OP_SIZE_BYTE)

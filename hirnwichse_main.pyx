@@ -7,7 +7,7 @@ from sys import argv, exit, stdout
 from argparse import ArgumentParser
 from atexit import register
 from traceback import print_exc
-import concurrent.futures
+#import concurrent.futures
 
 cdef extern from "Python.h":
     bytes PyBytes_FromStringAndSize(char *, Py_ssize_t)
@@ -17,9 +17,9 @@ cdef class Hirnwichse:
     def __init__(self):
         self.quitEmu = False
         self.exitOnTripleFault = True
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=100)
+        #self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=100)
         register(self.quitFunc, self)
-        self.run()
+        #self.run(True)
     cdef void parseArgs(self):
         self.parser = ArgumentParser(description='Hirnwichse: a x86 emulator in python.')
         self.parser.add_argument('--bios', dest='biosFilename', action='store', type=str, default='bios.bin', help='bios filename')
@@ -67,10 +67,10 @@ cdef class Hirnwichse:
         #self.debugEnabled = False
     cdef void quitFunc(self):
         self.quitEmu = True
-        fp=open("mmdump_1","wb")
-        fp.write(PyBytes_FromStringAndSize( self.mm.data, <Py_ssize_t>4*1024))
-        fp.flush()
-        fp.close()
+        #fp=open("mmdump_1","wb")
+        #fp.write(PyBytes_FromStringAndSize( self.mm.data, <Py_ssize_t>4*1024))
+        #fp.flush()
+        #fp.close()
     def exitError(self, str msg, *msgArgs): # this needs to be 'def'
         print("ERROR: " + msg.format(*msgArgs))
         stdout.flush()
@@ -88,7 +88,7 @@ cdef class Hirnwichse:
         self.cpu.reset()
         if (resetHardware):
             self.platform.resetDevices()
-    cdef void run(self, uint8_t infiniteCycles = True):
+    cpdef void run(self, uint8_t infiniteCycles):
         try:
             self.parseArgs()
             self.misc = Misc(self)
