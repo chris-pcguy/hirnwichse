@@ -401,12 +401,11 @@ cdef class Registers:
             self.regWriteDword(CPU_REGISTER_DR7, 0x400)
             self.segWriteSegment(&self.segments.cs, 0xf000)
             self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
-    cdef inline uint8_t checkCache(self, uint32_t mmAddr, uint8_t dataSize) nogil except BITMASK_BYTE_CONST: # called on a memory write; reload cache for self-modifying-code
+    cdef inline uint8_t checkCache(self, uint32_t mmAddr, uint8_t dataSize) except BITMASK_BYTE_CONST: # called on a memory write; reload cache for self-modifying-code
         cdef uint32_t cpuCacheBasePhy
         IF CPU_CACHE_SIZE:
             self.ignoreExceptions = True
-            with gil:
-                cpuCacheBasePhy = self.mmGetRealAddr(self.cpuCacheBase, 1, NULL, False, False, False)
+            cpuCacheBasePhy = self.mmGetRealAddr(self.cpuCacheBase, 1, NULL, False, False, False)
             if (not self.ignoreExceptions):
                 self.reloadCpuCache()
                 return True
@@ -415,22 +414,19 @@ cdef class Registers:
             if (self.cpuCacheCodeSegChange or (mmAddr >= cpuCacheBasePhy and mmAddr+dataSize <= cpuCacheBasePhy+self.cpuCacheSize)):
                 self.reloadCpuCache()
         return True
-    cdef uint8_t reloadCpuCache(self) nogil except BITMASK_BYTE_CONST:
+    cdef uint8_t reloadCpuCache(self) except BITMASK_BYTE_CONST:
         IF CPU_CACHE_SIZE:
             cdef uint32_t mmAddr, mmAddr2, temp, offset=0, tempSize=0
             cdef char *tempMmArea
             IF COMP_DEBUG:
                 if (self.main.debugEnabled):
-                    with gil:
-                        self.main.notice("Registers::reloadCpuCache: EIP: {0:#010x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx)
-            with gil:
-                mmAddr = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, 1, &self.segments.cs, False, False, False)
+                    self.main.notice("Registers::reloadCpuCache: EIP: {0:#010x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx)
+            mmAddr = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, 1, &self.segments.cs, False, False, False)
             if (self.protectedModeOn and self.pagingOn):
                 while (offset < CPU_CACHE_SIZE):
                     temp = SIZE_4KB-((self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx+offset)&0xfff)
                     self.ignoreExceptions = True
-                    with gil:
-                        mmAddr2 = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx+offset, temp, &self.segments.cs, False, False, False)
+                    mmAddr2 = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx+offset, temp, &self.segments.cs, False, False, False)
                     if (not self.ignoreExceptions):
                         break
                     else:
@@ -449,7 +445,7 @@ cdef class Registers:
             self.cpuCacheSize = tempSize
             self.cpuCacheIndex = self.cpuCacheCodeSegChange = 0
         return True
-    cdef int64_t readFromCacheAddSigned(self, uint8_t numBytes) nogil except? BITMASK_BYTE_CONST:
+    cdef int64_t readFromCacheAddSigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST:
         IF CPU_CACHE_SIZE:
             cdef int64_t *retVal
             if (self.cpuCacheIndex+numBytes > self.cpuCacheSize):
@@ -466,13 +462,12 @@ cdef class Registers:
             return retVal[0]
         ELSE:
             return 0
-    cdef uint64_t readFromCacheAddUnsigned(self, uint8_t numBytes) nogil except? BITMASK_BYTE_CONST:
+    cdef uint64_t readFromCacheAddUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST:
         IF CPU_CACHE_SIZE:
             cdef uint64_t *retVal
             IF COMP_DEBUG:
-                with gil:
-                    if (self.main.debugEnabled):
-                        self.main.notice("Registers::readFromCacheAddUnsigned: cpuCacheIndex: {0:#010x}, numBytes: {1:d}", self.cpuCacheIndex, numBytes)
+                if (self.main.debugEnabled):
+                    self.main.notice("Registers::readFromCacheAddUnsigned: cpuCacheIndex: {0:#010x}, numBytes: {1:d}", self.cpuCacheIndex, numBytes)
             if (self.cpuCacheIndex+numBytes > self.cpuCacheSize):
                 self.reloadCpuCache()
             retVal = <uint64_t*>(self.cpuCache+self.cpuCacheIndex)
@@ -487,7 +482,7 @@ cdef class Registers:
             return retVal[0]
         ELSE:
             return 0
-    cdef uint64_t readFromCacheUnsigned(self, uint8_t numBytes) nogil except? BITMASK_BYTE_CONST:
+    cdef uint64_t readFromCacheUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST:
         IF CPU_CACHE_SIZE:
             cdef uint64_t *retVal
             if (self.cpuCacheIndex+numBytes > self.cpuCacheSize):
@@ -1004,8 +999,6 @@ cdef class Registers:
         cdef uint8_t unsignedOverflow, reg0Nibble, regSumuNibble, carried = False
         cdef uint64_t regSumu
         if (method in (OPCODE_ADD, OPCODE_ADC, OPCODE_SUB, OPCODE_SBB, OPCODE_MUL, OPCODE_IMUL)):
-            if (method in (OPCODE_ADC, OPCODE_SBB) and self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf):
-                carried = True
             if (regSize == OP_SIZE_BYTE):
                 reg0 = <uint8_t>reg0
                 reg1 = <uint8_t>reg1
@@ -1041,6 +1034,8 @@ cdef class Registers:
                         unsignedOverflow = (<int64_t>regSumu)!=(<int32_t>regSumu)
                     regSumu = <uint32_t>regSumu
             else:
+                if (method in (OPCODE_ADC, OPCODE_SBB) and self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf):
+                    carried = True
                 if (carried): reg1 += 1
                 if (method in (OPCODE_ADD, OPCODE_ADC)):
                     regSumu = (reg0+reg1)
@@ -1078,8 +1073,7 @@ cdef class Registers:
     cdef inline uint32_t mmGetRealAddr(self, uint32_t mmAddr, uint32_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t written, uint8_t noAddress) except? BITMASK_BYTE_CONST:
         cdef uint8_t addrInLimit
         IF COMP_DEBUG:
-            cdef uint32_t origMmAddr
-            origMmAddr = mmAddr
+            cdef uint32_t origMmAddr = mmAddr
         if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
             segment = self.main.cpu.segmentOverridePrefix
         IF COMP_DEBUG:

@@ -27,7 +27,7 @@ cdef class HirnwichseTest:
                 timediff1 = time()-time1
                 print("timediff1: {0:f}".format(timediff1))
         with gil:
-            operOp1 = 0x86666667
+            operOp1 = 0x66666667
             operOp2 = 0x03000000
             operSum = <uint64_t>(<int64_t><int32_t>operOp1*<int32_t>operOp2)
             print("IMUL DWORD test2 (operSumLow : {0:#018x})".format(operSum))

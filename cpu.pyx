@@ -159,6 +159,8 @@ cdef class Cpu:
         #  (<Segment>self.registers.segments.gs).gdtEntry.limit)
         self.main.notice("Opcode: {0:#04x}\n\n", self.opcode)
     cdef int doInfiniteCycles(self) except BITMASK_BYTE_CONST:
+        cdef uint8_t count
+        cdef uint64_t temptime
         try:
             while (not self.main.quitEmu):
                 if (self.cpuHalted and self.main.exitIfCpuHalted):
@@ -182,133 +184,128 @@ cdef class Cpu:
                             self.main.platform.vga.ui.handleEventsWithoutWaiting()
                         sleep(0.2)
                     continue
-                self.doCycle()
+                count = 0
+                if (self.debugHalt and self.debugSingleStep):
+                    self.debugSingleStep = False
+                #self.registers.reloadCpuCache()
+                self.cycles += CPU_CLOCK_TICK
+                self.repPrefix = 0
+                self.segmentOverridePrefix = NULL
+                #self.saveCurrentInstPointer()
+                self.savedCs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx
+                self.savedEip = self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
+                self.savedSs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
+                self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
+                #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
+                #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>5))):
+                if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
+                #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>8))):
+                #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>16))):
+                    #temptime = ttime(NULL)*100
+                    #if (temptime - self.lasttime >= 20):
+                    temptime = ttime(NULL)
+                    if (temptime - self.lasttime >= 1):
+                        #self.main.notice("CPU::doCycle: cycles: {0:#010x}", self.cycles)
+                        if (self.main.platform.vga and self.main.platform.vga.ui):
+                            self.main.platform.vga.ui.handleEventsWithoutWaiting()
+                        self.lasttime = temptime
+                try:
+                    #if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
+                    #    self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
+                    if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
+                        self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet! Opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
+                        self.cpuDump()
+                    self.operSize = self.addrSize = self.codeSegSize
+                    if (not self.registers.ssInhibit):
+                        if (self.asyncEvent):
+                            self.handleAsyncEvent()
+                            continue
+                        elif (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
+                            self.registers.ssInhibit = True
+                        # handle dr0-3 here
+                    else:
+                        self.registers.ssInhibit = False
+                        if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
+                            self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf = False
+                            raise HirnwichseException(CPU_EXCEPTION_DB)
+                            #continue
+                    self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
+                    while (self.opcode in OPCODE_PREFIXES):
+                        count += 1
+                        if (count >= 16):
+                            raise HirnwichseException(CPU_EXCEPTION_UD)
+                        elif (self.opcode == OPCODE_PREFIX_OP):
+                            if (self.codeSegSize == OP_SIZE_WORD):
+                                self.operSize = OP_SIZE_DWORD
+                            else:
+                                self.operSize = OP_SIZE_WORD
+                        elif (self.opcode == OPCODE_PREFIX_ADDR):
+                            if (self.codeSegSize == OP_SIZE_WORD):
+                                self.addrSize = OP_SIZE_DWORD
+                            else:
+                                self.addrSize = OP_SIZE_WORD
+                        elif (self.opcode in OPCODE_PREFIX_REPS):
+                            self.repPrefix = self.opcode
+                        elif (self.opcode == OPCODE_PREFIX_CS):
+                            self.segmentOverridePrefix = &self.registers.segments.cs
+                        elif (self.opcode == OPCODE_PREFIX_SS):
+                            self.segmentOverridePrefix = &self.registers.segments.ss
+                        elif (self.opcode == OPCODE_PREFIX_DS):
+                            self.segmentOverridePrefix = &self.registers.segments.ds
+                        elif (self.opcode == OPCODE_PREFIX_ES):
+                            self.segmentOverridePrefix = &self.registers.segments.es
+                        elif (self.opcode == OPCODE_PREFIX_FS):
+                            self.segmentOverridePrefix = &self.registers.segments.fs
+                        elif (self.opcode == OPCODE_PREFIX_GS):
+                            self.segmentOverridePrefix = &self.registers.segments.gs
+                        ### TODO: I don't think, that we ever need lockPrefix.
+                        #elif (self.opcode == OPCODE_PREFIX_LOCK):
+                        #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
+                        self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
+                    self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = False
+                    #if (self.savedCs == 0x0 and self.savedEip == 0x7c00):
+                    #    self.main.debugEnabledTest = self.main.debugEnabled = True
+                    if (self.main.debugEnabled):
+                    #if (self.main.debugEnabled or self.main.debugEnabledTest):
+                    #IF 1:
+                        self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
+                        self.cpuDump()
+                    if (not self.opcodes.executeOpcode(self.opcode)):
+                        self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
+                        raise HirnwichseException(CPU_EXCEPTION_UD)
+                except HirnwichseException as exception: # exception
+                    IF COMP_DEBUG:
+                        self.main.notice("Cpu::doCycle: testexc1")
+                    #stdout.flush()
+                    #print_exc()
+                    #stderr.flush()
+                    try:
+                        self.handleException(exception) # execute exception handler
+                    except HirnwichseException as exception: # exception
+                        IF COMP_DEBUG:
+                            self.main.notice("Cpu::doCycle: testexc2; repr=={0:s}", repr(exception.args))
+                        try:
+                            self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
+                        except HirnwichseException as exception: # exception
+                            IF COMP_DEBUG:
+                                self.main.notice("Cpu::doCycle: testexc3")
+                            if (self.main.exitOnTripleFault):
+                                self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.")
+                            else:
+                                self.main.notice("CPU::doCycle: TRIPLE FAULT! reset.")
+                                self.cpu.reset()
+                        except:
+                            print_exc()
+                            self.main.exitError('doCycle: exception1 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
+                    except:
+                        print_exc()
+                        self.main.exitError('doCycle: exception2 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
+                except:
+                    print_exc()
+                    self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
         except:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')
-        return True
-    cdef int doCycle(self) except BITMASK_BYTE_CONST:
-        cdef uint8_t count
-        cdef uint64_t temptime
-        count = 0
-        if (self.debugHalt and self.debugSingleStep):
-            self.debugSingleStep = False
-        #self.registers.reloadCpuCache()
-        self.cycles += CPU_CLOCK_TICK
-        self.repPrefix = 0
-        self.segmentOverridePrefix = NULL
-        #self.saveCurrentInstPointer()
-        self.savedCs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx
-        self.savedEip = self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
-        self.savedSs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
-        self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
-        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
-        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>5))):
-        if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
-        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>8))):
-        #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>16))):
-            #temptime = ttime(NULL)*100
-            #if (temptime - self.lasttime >= 20):
-            temptime = ttime(NULL)
-            if (temptime - self.lasttime >= 1):
-                #self.main.notice("CPU::doCycle: cycles: {0:#010x}", self.cycles)
-                if (self.main.platform.vga and self.main.platform.vga.ui):
-                    self.main.platform.vga.ui.handleEventsWithoutWaiting()
-                self.lasttime = temptime
-        try:
-            #if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
-            #    self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
-            if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
-                self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet! Opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-                self.cpuDump()
-            self.operSize = self.addrSize = self.codeSegSize
-            if (not self.registers.ssInhibit):
-                if (self.asyncEvent):
-                    self.handleAsyncEvent()
-                    return True
-                elif (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
-                    self.registers.ssInhibit = True
-                # handle dr0-3 here
-            else:
-                self.registers.ssInhibit = False
-                if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
-                    self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf = False
-                    raise HirnwichseException(CPU_EXCEPTION_DB)
-                    #return True
-            self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
-            while (self.opcode in OPCODE_PREFIXES):
-                count += 1
-                if (count >= 16):
-                    raise HirnwichseException(CPU_EXCEPTION_UD)
-                elif (self.opcode == OPCODE_PREFIX_OP):
-                    if (self.codeSegSize == OP_SIZE_WORD):
-                        self.operSize = OP_SIZE_DWORD
-                    else:
-                        self.operSize = OP_SIZE_WORD
-                elif (self.opcode == OPCODE_PREFIX_ADDR):
-                    if (self.codeSegSize == OP_SIZE_WORD):
-                        self.addrSize = OP_SIZE_DWORD
-                    else:
-                        self.addrSize = OP_SIZE_WORD
-                elif (self.opcode in OPCODE_PREFIX_REPS):
-                    self.repPrefix = self.opcode
-                elif (self.opcode == OPCODE_PREFIX_CS):
-                    self.segmentOverridePrefix = &self.registers.segments.cs
-                elif (self.opcode == OPCODE_PREFIX_SS):
-                    self.segmentOverridePrefix = &self.registers.segments.ss
-                elif (self.opcode == OPCODE_PREFIX_DS):
-                    self.segmentOverridePrefix = &self.registers.segments.ds
-                elif (self.opcode == OPCODE_PREFIX_ES):
-                    self.segmentOverridePrefix = &self.registers.segments.es
-                elif (self.opcode == OPCODE_PREFIX_FS):
-                    self.segmentOverridePrefix = &self.registers.segments.fs
-                elif (self.opcode == OPCODE_PREFIX_GS):
-                    self.segmentOverridePrefix = &self.registers.segments.gs
-                ### TODO: I don't think, that we ever need lockPrefix.
-                #elif (self.opcode == OPCODE_PREFIX_LOCK):
-                #    self.main.notice("CPU::parsePrefixes: LOCK-prefix is selected! (unimplemented, bad things may happen.)")
-                self.opcode = self.registers.getCurrentOpcodeAddUnsignedByte()
-            self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = False
-            if (self.savedCs == 0x0 and self.savedEip == 0x7c00):
-                self.main.debugEnabledTest = self.main.debugEnabled = True
-            if (self.main.debugEnabled):
-            #if (self.main.debugEnabled or self.main.debugEnabledTest):
-            #IF 1:
-                self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", self.opcode, self.savedEip, self.savedCs)
-                self.cpuDump()
-            if (not self.opcodes.executeOpcode(self.opcode)):
-                self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", self.opcode, self.savedEip, self.savedCs)
-                raise HirnwichseException(CPU_EXCEPTION_UD)
-        except HirnwichseException as exception: # exception
-            IF COMP_DEBUG:
-                self.main.notice("Cpu::doCycle: testexc1")
-            #stdout.flush()
-            #print_exc()
-            #stderr.flush()
-            try:
-                self.handleException(exception) # execute exception handler
-            except HirnwichseException as exception: # exception
-                IF COMP_DEBUG:
-                    self.main.notice("Cpu::doCycle: testexc2; repr=={0:s}", repr(exception.args))
-                try:
-                    self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
-                except HirnwichseException as exception: # exception
-                    IF COMP_DEBUG:
-                        self.main.notice("Cpu::doCycle: testexc3")
-                    if (self.main.exitOnTripleFault):
-                        self.main.exitError("CPU::doCycle: TRIPLE FAULT! exit.")
-                    else:
-                        self.main.notice("CPU::doCycle: TRIPLE FAULT! reset.")
-                        self.cpu.reset()
-                except:
-                    print_exc()
-                    self.main.exitError('doCycle: exception1 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
-            except:
-                print_exc()
-                self.main.exitError('doCycle: exception2 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
-        except:
-            print_exc()
-            self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: {0:#04x})', self.opcode)
         return True
     cdef int run(self, uint8_t infiniteCycles) except BITMASK_BYTE_CONST:
         self.registers = Registers(self.main)

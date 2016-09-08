@@ -39,7 +39,6 @@ cdef class Cpu:
     cdef int handleException(self, object exception) except BITMASK_BYTE_CONST
     cdef void cpuDump(self)
     cdef int doInfiniteCycles(self) except BITMASK_BYTE_CONST
-    cdef int doCycle(self) except BITMASK_BYTE_CONST
     cdef int run(self, uint8_t infiniteCycles) except BITMASK_BYTE_CONST
 
 

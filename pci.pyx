@@ -369,7 +369,7 @@ cdef class Pci:
                         #if (self.getData(PCI_DEVICE_CLASS, OP_SIZE_WORD) == PCI_CLASS_PATA):
                         IF 1:
                             #self.main.notice("Pci::writeRegister: test1")
-                            self.main.platform.ata.base4Addr = deviceHandle.getData((pciAddressHandle.getMmAddress()&0xffffff00)|PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
+                            self.main.platform.ata.base4Addr = deviceHandle.getData((pciAddressHandle.getMmAddress()&<uint32_t>0xffffff00)|PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
                             #self.main.notice("Pci::writeRegister: test2")
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
         cdef uint32_t ret = BITMASK_DWORD

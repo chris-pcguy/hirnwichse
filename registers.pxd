@@ -124,16 +124,17 @@ cdef class Registers:
     cdef char *cpuCache
     cdef void quitFunc(self)
     cdef void reset(self) nogil
-    cdef inline uint8_t checkCache(self, uint32_t mmAddr, uint8_t dataSize) nogil except BITMASK_BYTE_CONST # called on a memory write; reload cache for self-modifying-code
+    cdef inline uint8_t checkCache(self, uint32_t mmAddr, uint8_t dataSize) except BITMASK_BYTE_CONST # called on a memory write; reload cache for self-modifying-code
     cdef inline uint8_t setA20Active(self, uint8_t A20Active) nogil except BITMASK_BYTE_CONST:
         self.A20Active = A20Active
         IF CPU_CACHE_SIZE:
-            self.reloadCpuCache()
+            with gil:
+                self.reloadCpuCache()
         return True
-    cdef uint8_t reloadCpuCache(self) nogil except BITMASK_BYTE_CONST
-    cdef int64_t readFromCacheAddSigned(self, uint8_t numBytes) nogil except? BITMASK_BYTE_CONST
-    cdef uint64_t readFromCacheAddUnsigned(self, uint8_t numBytes) nogil except? BITMASK_BYTE_CONST
-    cdef uint64_t readFromCacheUnsigned(self, uint8_t numBytes) nogil except? BITMASK_BYTE_CONST
+    cdef uint8_t reloadCpuCache(self) except BITMASK_BYTE_CONST
+    cdef int64_t readFromCacheAddSigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
+    cdef uint64_t readFromCacheAddUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
+    cdef uint64_t readFromCacheUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
     cdef inline uint32_t readFlags(self) nogil:
         return ((self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx & (~RESERVED_FLAGS_BITMASK)) | FLAG_REQUIRED)
     cdef inline uint8_t getCPL(self) nogil:

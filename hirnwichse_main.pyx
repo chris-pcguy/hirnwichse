@@ -37,6 +37,8 @@ cdef class Hirnwichse:
         self.parser.add_argument('--cdrom2', dest='cdrom2Filename', action='store', type=str, default='cdrom2.iso', help='cdrom2Filename')
         self.parser.add_argument('--serial1', dest='serial1Filename', action='store', type=str, default='', help='serial1Filename')
         self.parser.add_argument('--serial2', dest='serial2Filename', action='store', type=str, default='', help='serial2Filename')
+        self.parser.add_argument('--serial3', dest='serial3Filename', action='store', type=str, default='', help='serial3Filename')
+        self.parser.add_argument('--serial4', dest='serial4Filename', action='store', type=str, default='', help='serial4Filename')
         self.parser.add_argument('--boot', dest='bootFrom', action='store', type=int, default=BOOT_FROM_FD, help='bootFrom (0==none, 1==FD, 2==HD, 3==CD)')
         self.parser.add_argument('--noUI', dest='noUI', action='store_true', default=False, help='Disable UI.')
         self.parser.add_argument('--fdaType', dest='fdaType', action='store', type=int, default=4, help='fdaType: 0==auto detect; 1==360K; 2==1.2M; 3==720K; 4==1.44M; 5==2.88M')
@@ -59,6 +61,8 @@ cdef class Hirnwichse:
         self.cdrom2Filename = self.cmdArgs.cdrom2Filename.encode() # default: 'cdrom2.iso'
         self.serial1Filename = self.cmdArgs.serial1Filename.encode() # default: ''
         self.serial2Filename = self.cmdArgs.serial2Filename.encode() # default: ''
+        self.serial3Filename = self.cmdArgs.serial3Filename.encode() # default: ''
+        self.serial4Filename = self.cmdArgs.serial4Filename.encode() # default: ''
         self.bootFrom = self.cmdArgs.bootFrom # default: BOOT_FROM_FD
         self.fdaType    = self.cmdArgs.fdaType # default: 4
         self.fdbType    = self.cmdArgs.fdbType # default: 4

@@ -15,7 +15,7 @@ cdef class Hirnwichse:
     cdef Cpu cpu
     cdef uint8_t quitEmu, debugEnabled, exitIfCpuHalted, noUI, exitOnTripleFault, fdaType, fdbType, debugHalt, bootFrom, debugEnabledTest
     cdef uint32_t memSize
-    cdef bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename, cdrom1Filename, cdrom2Filename, serial1Filename, serial2Filename
+    cdef bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename, cdrom1Filename, cdrom2Filename, serial1Filename, serial2Filename, serial3Filename, serial4Filename
     cdef void parseArgs(self)
     cdef void quitFunc(self)
     cdef void reset(self, uint8_t resetHardware)

@@ -1,5 +1,3 @@
-temp-disable ss segment after writing to it. (until a write to (e)sp)
-
 
 # If there are many REP operations in the code, it could be that GUI-Events can't get executed. Probably this won't get fixed!
 

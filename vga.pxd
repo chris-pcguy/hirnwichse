@@ -33,10 +33,10 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
 
 
 cdef class GDC(VGA_REGISTER_RAW):
-    pass
+    cdef void setData(self, uint32_t data, uint8_t dataSize) nogil
 
 cdef class Sequencer(VGA_REGISTER_RAW):
-    pass
+    cdef void setData(self, uint32_t data, uint8_t dataSize) nogil
 
 cdef class AttrCtrlReg(VGA_REGISTER_RAW):
     cdef uint8_t flipFlop, paletteEnabled

@@ -36,10 +36,9 @@ cdef class Gdt:
     cdef uint8_t setSegType(self, uint16_t num, uint8_t segmentType) except BITMASK_BYTE_CONST: # access byte
         self.segments.paging.implicitSV = True
         num &= 0xfff8
-        self.segments.registers.mmWriteValue(self.tableBase+num+5, <uint8_t>((self.segments.registers.\
+        return self.segments.registers.mmWriteValue(self.tableBase+num+5, <uint8_t>((self.segments.registers.\
           mmReadValueUnsignedByte(self.tableBase+num+5, NULL, False) & (~TABLE_ENTRY_SYSTEM_TYPE_MASK)) | \
             (segmentType & TABLE_ENTRY_SYSTEM_TYPE_MASK)), OP_SIZE_BYTE, NULL, False)
-        return True
     cdef uint8_t checkAccessAllowed(self, uint16_t num, uint8_t isStackSegment) except BITMASK_BYTE_CONST:
         cdef uint8_t cpl
         cdef GdtEntry gdtEntry
@@ -531,10 +530,8 @@ cdef class Segments:
         return self.gdt.getSegType(num)
     cdef inline uint8_t setSegType(self, uint16_t num, uint8_t segmentType) except BITMASK_BYTE_CONST:
         if (num & SELECTOR_USE_LDT):
-            self.ldt.setSegType(num, segmentType)
-            return True
-        self.gdt.setSegType(num, segmentType)
-        return True
+            return self.ldt.setSegType(num, segmentType)
+        return self.gdt.setSegType(num, segmentType)
     cdef inline uint8_t checkAccessAllowed(self, uint16_t num, uint8_t isStackSegment) except BITMASK_BYTE_CONST:
         if (num & SELECTOR_USE_LDT):
             return self.ldt.checkAccessAllowed(num, isStackSegment)

@@ -17,8 +17,12 @@ cdef class SerialPort:
         self.serialIndex = serialIndex
         if (not self.serialIndex):
             self.serialFilename = self.main.serial1Filename
-        else:
+        elif (self.serialIndex == 1):
             self.serialFilename = self.main.serial2Filename
+        elif (self.serialIndex == 2):
+            self.serialFilename = self.main.serial3Filename
+        elif (self.serialIndex == 3):
+            self.serialFilename = self.main.serial4Filename
         if (not (self.serialIndex & 1)):
             self.irq = 4
         else:
@@ -316,7 +320,7 @@ cdef class SerialPort:
 cdef class Serial:
     def __init__(self, Hirnwichse main):
         self.main = main
-        self.ports = (SerialPort(self, 0), SerialPort(self, 1))
+        self.ports = (SerialPort(self, 0), SerialPort(self, 1), SerialPort(self, 2), SerialPort(self, 3))
     cdef void reset(self):
         cdef SerialPort port
         for port in self.ports:
@@ -332,6 +336,12 @@ cdef class Serial:
             elif (ioPortAddr in SERIAL2_PORTS_TUPLE):
                 with gil:
                     ret = (<SerialPort>self.ports[1]).inPort(ioPortAddr-SERIAL2_PORTS_TUPLE[0], dataSize)
+            elif (ioPortAddr in SERIAL3_PORTS_TUPLE):
+                with gil:
+                    ret = (<SerialPort>self.ports[2]).inPort(ioPortAddr-SERIAL3_PORTS_TUPLE[0], dataSize)
+            elif (ioPortAddr in SERIAL4_PORTS_TUPLE):
+                with gil:
+                    ret = (<SerialPort>self.ports[3]).inPort(ioPortAddr-SERIAL4_PORTS_TUPLE[0], dataSize)
             else:
                 with gil:
                     self.main.exitError("Serial::inPort_2: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
@@ -358,6 +368,12 @@ cdef class Serial:
             elif (ioPortAddr in SERIAL2_PORTS_TUPLE):
                 with gil:
                     (<SerialPort>self.ports[1]).outPort(ioPortAddr-SERIAL2_PORTS_TUPLE[0], data, dataSize)
+            elif (ioPortAddr in SERIAL3_PORTS_TUPLE):
+                with gil:
+                    (<SerialPort>self.ports[2]).outPort(ioPortAddr-SERIAL3_PORTS_TUPLE[0], data, dataSize)
+            elif (ioPortAddr in SERIAL4_PORTS_TUPLE):
+                with gil:
+                    (<SerialPort>self.ports[3]).outPort(ioPortAddr-SERIAL4_PORTS_TUPLE[0], data, dataSize)
             else:
                 with gil:
                     self.main.exitError("Serial::outPort_2: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)

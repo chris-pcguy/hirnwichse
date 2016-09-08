@@ -14,7 +14,6 @@ cdef class FloppyMedia:
     cdef uint8_t tracks, heads, sectorsPerTrack, mediaType
     cdef void setDataForMedia(self, uint8_t mediaType)
 
-
 cdef class FloppyDrive:
     cdef object fp
     cdef FloppyController controller
@@ -29,7 +28,6 @@ cdef class FloppyDrive:
     cdef bytes readSectors(self, uint32_t sector, uint32_t count) # count in sectors
     cdef void writeBytes(self, uint32_t offset, uint32_t size, bytes data)
     cdef void writeSectors(self, uint32_t sector, uint32_t count, bytes data)
-
 
 cdef class FloppyController:
     cdef Hirnwichse main
@@ -69,6 +67,5 @@ cdef class Floppy:
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
     cdef void run(self)
-
 
 

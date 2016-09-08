@@ -332,14 +332,14 @@ cdef class Vga:
         if (not self.enable8Bit):
             if (color >= 0x10):
                 with gil:
-                    self.main.exitError("Vga::getColor: color_1 >= 0x10 (color_1=={0:#04x})", color)
-                return 0xff
+                    self.main.notice("Vga::getColor: color_1 >= 0x10 (color_1=={0:#04x})", color)
+                return 0
             color &= self.colorPlaneEnable
             color = (<uint8_t>self.attrctrlreg.configSpace.csData[color])
             if (color >= 0x40):
                 with gil:
-                    self.main.exitError("Vga::getColor: color_2 >= 0x40 (color_2=={0:#04x})", color)
-                return 0xff
+                    self.main.notice("Vga::getColor: color_2 >= 0x40 (color_2=={0:#04x})", color)
+                return 0
             if (self.palette54):
                 color = (color & 0xf) | (self.colorSelect << 4)
             else:

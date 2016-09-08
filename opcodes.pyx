@@ -2255,21 +2255,13 @@ cdef class Opcodes:
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = origCF
         return True
     cdef int incReg(self) nogil except BITMASK_BYTE_CONST:
-        cdef uint16_t regName
-        regName  = self.cpu.opcode&7
-        return self.incFuncReg(regName, self.cpu.operSize)
+        return self.incFuncReg(self.cpu.opcode&7, self.cpu.operSize)
     cdef int decReg(self) nogil except BITMASK_BYTE_CONST:
-        cdef uint16_t regName
-        regName  = self.cpu.opcode&7
-        return self.decFuncReg(regName, self.cpu.operSize)
+        return self.decFuncReg(self.cpu.opcode&7, self.cpu.operSize)
     cdef int pushReg(self) except BITMASK_BYTE_CONST:
-        cdef uint16_t regName
-        regName  = self.cpu.opcode&7
-        return self.stackPushRegId(regName, self.cpu.operSize)
+        return self.stackPushRegId(self.cpu.opcode&7, self.cpu.operSize)
     cdef int popReg(self) except BITMASK_BYTE_CONST:
-        cdef uint16_t regName
-        regName  = self.cpu.opcode&7
-        return self.stackPopRegId(regName, self.cpu.operSize)
+        return self.stackPopRegId(self.cpu.opcode&7, self.cpu.operSize)
     cdef int pushSeg(self, uint8_t opcode) except BITMASK_BYTE_CONST:
         cdef Segment *segment
         if (opcode == PUSH_CS):
