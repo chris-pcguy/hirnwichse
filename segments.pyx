@@ -118,7 +118,7 @@ cdef class Gdt:
                 raise HirnwichseException(CPU_EXCEPTION_GP, num)
         else: # not stack segment
             if ( ((not gdtEntry.segIsCodeSeg or not gdtEntry.segIsConforming) and (num&3 > numSegDPL and \
-              cpl > numSegDPL)) or (gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
+              cpl > numSegDPL)) or (segId != CPU_SEGMENT_CS and not gdtEntry.segIsRW) or (segId == CPU_SEGMENT_CS and not gdtEntry.segIsCodeSeg) ):
                 #self.segments.main.notice("test3: segId=={0:#04d}", segId)
                 raise HirnwichseException(CPU_EXCEPTION_GP, num)
         return True
@@ -476,7 +476,11 @@ cdef class Segments:
     cdef uint8_t loadSegment(self, Segment *segment, uint16_t segmentIndex, uint8_t doInit) except BITMASK_BYTE_CONST:
         cdef GdtEntry gdtEntry
         cdef uint8_t protectedModeOn
-        protectedModeOn = (self.registers.protectedModeOn and not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
+        if (segment[0].segId == CPU_SEGMENT_CS):
+            protectedModeOn = self.registers.protectedModeOn
+        else:
+            protectedModeOn = self.registers.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE) != 0
+        protectedModeOn = (protectedModeOn and not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
         segment[0].segmentIndex = segmentIndex
         segment[0].readChecked = segment[0].writeChecked = False
         if (not protectedModeOn):

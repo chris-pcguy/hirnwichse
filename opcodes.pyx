@@ -546,7 +546,10 @@ cdef class Opcodes:
             if (not gdtEntry.segPresent):
                 raise HirnwichseException(CPU_EXCEPTION_NP, segVal)
             segType = (gdtEntry.accessByte & TABLE_ENTRY_SYSTEM_TYPE_MASK)
-            if (segType == TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE):
+            if (segType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE)):
+                self.main.exitError("Opcodes::jumpFarDirect: call-gate sysSegType {0:d} isn't supported yet. (segVal {1:#06x}; eipVal {2:#010x})", segType, segVal, eipVal)
+                return True
+            elif (segType == TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE):
                 #if (self.main.debugEnabled):
                 IF 1:
                     self.main.notice("Opcodes::jumpFarDirect: task-gates aren't fully implemented yet.")

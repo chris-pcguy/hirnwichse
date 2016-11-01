@@ -667,13 +667,17 @@ cdef class Registers:
     cdef uint8_t segWriteSegment(self, Segment *segment, uint16_t segValue) except BITMASK_BYTE_CONST:
         cdef uint16_t segId
         cdef uint8_t protectedModeOn, segType
-        protectedModeOn = (self.protectedModeOn and not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
+        segId = segment[0].segId
+        if (segId == CPU_SEGMENT_CS):
+            protectedModeOn = self.protectedModeOn
+        else:
+            protectedModeOn = self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE) != 0
+        protectedModeOn = (protectedModeOn and not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm)
         if (protectedModeOn and segValue > 3):
             segType = self.segments.getSegType(segValue)
             if (segType & GDT_ACCESS_NORMAL_SEGMENT and not (segType & GDT_ACCESS_ACCESSED)):
                 segType |= GDT_ACCESS_ACCESSED
                 self.segments.setSegType(segValue, segType)
-        segId = segment[0].segId
         if (protectedModeOn):
             if (not (<Segments>self.segments).checkSegmentLoadAllowed(segValue, segId)):
                 segment[0].useGDT = segment[0].gdtEntry.base = segment[0].gdtEntry.limit = segment[0].gdtEntry.accessByte = segment[0].gdtEntry.flags = \
@@ -1118,7 +1122,7 @@ cdef class Registers:
                             raise HirnwichseException(CPU_EXCEPTION_GP, segment[0].segmentIndex)
                     segment[0].writeChecked = True
                 else:
-                    if (segment[0].segIsGDTandNormal and segment[0].gdtEntry.segIsCodeSeg and not segment[0].gdtEntry.segIsRW):
+                    if (segment[0].segIsGDTandNormal and ((segment[0].segId != CPU_SEGMENT_CS and not segment[0].gdtEntry.segIsRW) or (segment[0].segId == CPU_SEGMENT_CS and not segment[0].gdtEntry.segIsCodeSeg))):
                         #self.main.notice("Registers::checkMemAccessRights: test1.4")
                         if (segment[0].segId == CPU_SEGMENT_SS):
                             raise HirnwichseException(CPU_EXCEPTION_SS, segment[0].segmentIndex)
