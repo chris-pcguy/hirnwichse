@@ -22,13 +22,13 @@ cdef class Cmos:
         #IF 1:
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Cmos::readValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
+                self.main.notice("Cmos::readValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", (index, value, size))
         return value
     cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size):
         #IF 1:
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Cmos::writeValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", index, value, size)
+                self.main.notice("Cmos::writeValue: index=={0:#04x}; value=={1:#04x}; size=={2:d}", (index, value, size))
         self.configSpace.csWriteValue(index, value, size)
     cdef void reset(self):
         cdef uint32_t memSizeInK, extMemSizeInK, extMemSizeIn64K
@@ -162,21 +162,21 @@ cdef class Cmos:
                         (<Pic>self.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
             else:
                 with gil:
-                    self.main.exitError("CMOS::inPort: port {0:#06x} not supported. (dataSize byte)", ioPortAddr)
+                    self.main.exitError("CMOS::inPort: port {0:#06x} not supported. (dataSize byte)", (ioPortAddr,))
         else:
             with gil:
-                self.main.exitError("CMOS::inPort: dataSize {0:d} not supported. (port: {0:#06x})", dataSize, ioPortAddr)
+                self.main.exitError("CMOS::inPort: dataSize {0:d} not supported. (port: {0:#06x})", (dataSize, ioPortAddr))
             return ret
         IF COMP_DEBUG:
             with gil:
-                self.main.notice("CMOS::inPort: port {0:#06x}; ret: {1:#04x}, dataSize byte", ioPortAddr, ret)
+                self.main.notice("CMOS::inPort: port {0:#06x}; ret: {1:#04x}, dataSize byte", (ioPortAddr, ret))
         return ret
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         cdef uint8_t tempIndex, timeBase, selectionBits
         if (dataSize == OP_SIZE_BYTE):
             IF COMP_DEBUG:
                 with gil:
-                    self.main.notice("CMOS::outPort: port {0:#06x}; data: {1:#04x}, dataSize byte", ioPortAddr, data)
+                    self.main.notice("CMOS::outPort: port {0:#06x}; data: {1:#04x}, dataSize byte", (ioPortAddr, data))
             data = <uint8_t>data
             if (ioPortAddr == 0x70):
                 self.cmosIndex = data
@@ -186,16 +186,16 @@ cdef class Cmos:
                     return
                 with gil:
                     if (tempIndex == CMOS_STATUS_REGISTER_A):
-                        self.main.notice("CMOS::outPort: RTC is not fully supported yet. (data=={0:#04x})", data)
+                        self.main.notice("CMOS::outPort: RTC is not fully supported yet. (data=={0:#04x})", (data,))
                         timeBase = (data>>4)&7
                         selectionBits = data&0xf
                         if (timeBase != 0x2):
-                            self.main.exitError("CMOS::outPort: RTC timebase != 0x2. (data=={0:#04x})", data)
+                            self.main.exitError("CMOS::outPort: RTC timebase != 0x2. (data=={0:#04x})", (data,))
                             return
                         if (not selectionBits):
                             self.rtcDelay = 0
                         elif (selectionBits in (0x1, 0x2)):
-                            self.main.exitError("CMOS::outPort: RTC selection bits in (1, 2). (data=={0:#04x})", data)
+                            self.main.exitError("CMOS::outPort: RTC selection bits in (1, 2). (data=={0:#04x})", (data,))
                             return
                         else:
                             self.rtcDelay = round(1.0e6/(65536.0/(1<<selectionBits)))
@@ -204,10 +204,10 @@ cdef class Cmos:
                         if ((data & 0x80)!=0):
                             data &= 0xef
                         if ((data & 0x20)!=0):
-                            self.main.exitError("CMOS::outPort: statusB alarm set. (data=={0:#04x})", data)
+                            self.main.exitError("CMOS::outPort: statusB alarm set. (data=={0:#04x})", (data,))
                             return
                         if ((data & 0x1)!=0):
-                            self.main.exitError("CMOS::outPort: daylight set. (data=={0:#04x})", data)
+                            self.main.exitError("CMOS::outPort: daylight set. (data=={0:#04x})", (data,))
                             return
                         (<PitChannel>self.rtcChannel).timerEnabled = False
                         with gil:
@@ -233,10 +233,10 @@ cdef class Cmos:
                     self.makeCheckSum()
             else:
                 with gil:
-                    self.main.exitError("CMOS::outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", ioPortAddr, data)
+                    self.main.exitError("CMOS::outPort: port {0:#06x} not supported. (data: {1:#04x}, dataSize byte)", (ioPortAddr, data))
         else:
             with gil:
-                self.main.exitError("CMOS::outPort: dataSize {0:d} not supported. (port: {1:#06x})", dataSize, ioPortAddr)
+                self.main.exitError("CMOS::outPort: dataSize {0:d} not supported. (port: {1:#06x})", (dataSize, ioPortAddr))
         return
     cdef void run(self):
         self.reset()

@@ -110,7 +110,7 @@ cdef class PicChannel:
         cdef uint8_t mask
         mask = (1 << (irq&7))
         if (not (self.IRQ_in & mask)):
-            #self.pic.main.notice("PicChannel::raiseIrq({0:d}): irq=={1:d}", not self.master, irq)
+            #self.pic.main.notice("PicChannel::raiseIrq({0:d}): irq=={1:d}", (not self.master, irq))
             self.IRQ_in |= mask
             self.irr |= mask
             self.servicePicChannel()
@@ -130,7 +130,7 @@ cdef class PicChannel:
         self.irqBasePort = irqBasePort
         if (self.irqBasePort & 7):
             with gil:
-                self.pic.main.exitError("setIrqBasePort: (self.irqBasePort {0:#04x} MODULO 8) != 0. (channel{1:d})", irqBasePort, not self.master)
+                self.pic.main.exitError("setIrqBasePort: (self.irqBasePort {0:#04x} MODULO 8) != 0. (channel{1:d})", (irqBasePort, not self.master))
     cdef void setMasterSlaveMap(self, uint8_t value) nogil:
         if (self.master):
             self.mappedSlavesOnMasterMask = value
@@ -140,7 +140,7 @@ cdef class PicChannel:
         self.autoEOI = (flags&2)!=0
         if (not (flags & PIC_FLAG_80x86)):
             with gil:
-                self.pic.main.exitError("setFlags: flags {0:#04x}, PIC_FLAG_80x86 not set! (channel{1:d})", flags, self.master==False)
+                self.pic.main.exitError("setFlags: flags {0:#04x}, PIC_FLAG_80x86 not set! (channel{1:d})", (flags, self.master==False))
     cdef void setNeededRegister(self, uint8_t needRegister) nogil:
         self.needRegister = needRegister
     cdef uint8_t getNeededRegister(self) nogil:
@@ -169,10 +169,10 @@ cdef class Pic:
         (<PicChannel>self.channels[channel]).edgeLevel = edgeLevel
     cdef void raiseIrq(self, uint8_t irq) nogil:
         cdef uint8_t ma_sl = False
-        #self.main.notice("Pic::raiseIrq: irq=={0:d}", irq)
+        #self.main.notice("Pic::raiseIrq: irq=={0:d}", (irq,))
         if (irq > 15):
             with gil:
-                self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", irq)
+                self.main.exitError("raiseIrq: invalid irq! (irq: {0:d})", (irq,))
             return
         elif (irq >= 8):
             ma_sl = True
@@ -181,10 +181,10 @@ cdef class Pic:
     cdef void lowerIrq(self, uint8_t irq) nogil:
         cdef uint8_t ma_sl = False
         #with gil:
-        #    self.main.notice("Pic::lowerIrq: irq=={0:d}", irq)
+        #    self.main.notice("Pic::lowerIrq: irq=={0:d}", (irq,))
         if (irq > 15):
             with gil:
-                self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", irq)
+                self.main.exitError("lowerIrq: invalid irq! (irq: {0:d})", (irq,))
             return
         elif (irq >= 8):
             ma_sl = True
@@ -195,7 +195,7 @@ cdef class Pic:
         if (irq > 15):
             IF COMP_DEBUG:
                 with gil:
-                    self.main.exitError("isClear: invalid irq! (irq: {0:d})", irq)
+                    self.main.exitError("isClear: invalid irq! (irq: {0:d})", (irq,))
             return 0
         if (irq >= 8):
             ma_sl = True
@@ -203,7 +203,7 @@ cdef class Pic:
         temp1 = (<PicChannel>self.channels[ma_sl]).isr & (1<<irq) # partly commented out because the
         temp2 = (<PicChannel>self.channels[ma_sl]).irr & (1<<irq) # PS/2 keyboard has a lower priority.
         temp3 = (<PicChannel>self.channels[ma_sl]).imr & (1<<irq)
-        #self.main.notice("Pic::isClear({0:d},{1:d}): temp1=={2:d}; temp2=={3:d}; temp3=={4:d}; (<PicChannel>self.channels[ma_sl]).intr=={5:d}", irq, ma_sl, temp1, temp2, temp3, (<PicChannel>self.channels[ma_sl]).intr)
+        #self.main.notice("Pic::isClear({0:d},{1:d}): temp1=={2:d}; temp2=={3:d}; temp3=={4:d}; (<PicChannel>self.channels[ma_sl]).intr=={5:d}", (irq, ma_sl, temp1, temp2, temp3, (<PicChannel>self.channels[ma_sl]).intr))
         if (not temp1 and temp2 and (<PicChannel>self.channels[ma_sl]).intr):
             self.main.cpu.registers.ssInhibit = True
             self.main.cpu.asyncEvent = True
@@ -223,7 +223,7 @@ cdef class Pic:
         self.main.cpu.setINTR(False)
         master.intr = False
         if (not master.irr):
-            self.main.notice("Pic::IAC: spurious master irq=={0:d}", master.irq)
+            self.main.notice("Pic::IAC: spurious master irq=={0:d}", (master.irq,))
             return master.getIrqBasePort()+7
         if (not (master.edgeLevel & (1 << master.irq))):
             master.irr &= ~(1 << master.irq)
@@ -237,7 +237,7 @@ cdef class Pic:
             slave.intr = False
             master.IRQ_in &= 0xfb
             if (not slave.irr):
-                self.main.notice("Pic::IAC: spurious slave irq=={0:d}", slave.irq)
+                self.main.notice("Pic::IAC: spurious slave irq=={0:d}", (slave.irq,))
                 return slave.getIrqBasePort()+7
             vector = slave.getIrqBasePort() + slave.irq
             if (not (slave.edgeLevel & (1 << slave.irq))):
@@ -253,7 +253,7 @@ cdef class Pic:
         cdef uint8_t channel
         if (self.main.debugEnabled):
             with gil:
-                self.main.debug("Pic::inPort: ioPortAddr=={0:#06x}; dataSize=={1:d}", ioPortAddr, dataSize)
+                self.main.debug("Pic::inPort: ioPortAddr=={0:#06x}; dataSize=={1:d}", (ioPortAddr, dataSize))
         if (ioPortAddr in PIC_PIC1_PORTS):
             channel = 0
         elif (ioPortAddr in PIC_PIC2_PORTS):
@@ -270,16 +270,16 @@ cdef class Pic:
                 return (<PicChannel>self.channels[channel]).imr
             else:
                 with gil:
-                    self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
+                    self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", (ioPortAddr,))
         else:
                 with gil:
-                    self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+                    self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", (ioPortAddr, dataSize))
         return 0
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         cdef uint8_t channel, oldStep, cmdByte, specialMask, poll, readOp
         if (self.main.debugEnabled):
             with gil:
-                self.main.debug("Pic::outPort: ioPortAddr=={0:#06x}; data=={1:#04x}; dataSize=={2:d}", ioPortAddr, data, dataSize)
+                self.main.debug("Pic::outPort: ioPortAddr=={0:#06x}; data=={1:#04x}; dataSize=={2:d}", (ioPortAddr, data, dataSize))
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in PIC_PIC1_PORTS):
                 channel = 0
@@ -287,7 +287,7 @@ cdef class Pic:
                 channel = 1
             else: # wrong ioPortAddr
                 with gil:
-                    self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
+                    self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", (ioPortAddr,))
                 return
             oldStep = (<PicChannel>self.channels[channel]).step
             if (ioPortAddr in (PIC_PIC1_COMMAND, PIC_PIC2_COMMAND)):
@@ -308,7 +308,7 @@ cdef class Pic:
                         self.main.cpu.setINTR(False)
                     if (data & 0x02 or data & 0x08):
                         with gil:
-                            self.main.exitError("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, dataSize == byte).", data, ioPortAddr)
+                            self.main.exitError("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, dataSize == byte).", (data, ioPortAddr))
                     return
                 elif ((data & 0x18) == 0x08):
                     specialMask = (data & 0x60) >> 5
@@ -349,7 +349,7 @@ cdef class Pic:
                     pass
                 else:
                     with gil:
-                        self.main.exitError("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, oldStep == {2:d}, dataSize == byte).", data, ioPortAddr, oldStep)
+                        self.main.exitError("outPort: setCmd: cmdByte {0:#04x} not supported (ioPortAddr == {1:#04x}, oldStep == {2:d}, dataSize == byte).", (data, ioPortAddr, oldStep))
             elif (ioPortAddr in (PIC_PIC1_DATA, PIC_PIC2_DATA)):
                 cmdByte = (<PicChannel>self.channels[channel]).getCmdByte()
                 if (not (<PicChannel>self.channels[channel]).inInit): # set mask if (<PicChannel>self.channels[channel]).inInit is False
@@ -375,13 +375,13 @@ cdef class Pic:
                     (<PicChannel>self.channels[channel]).inInit = False
                 else: # wrong step
                     with gil:
-                        self.main.exitError("outPort: oldStep {0:d} not supported (ioPortAddr == {1:#04x}, dataSize == byte).", oldStep, ioPortAddr)
+                        self.main.exitError("outPort: oldStep {0:d} not supported (ioPortAddr == {1:#04x}, dataSize == byte).", (oldStep, ioPortAddr))
             else: # wrong ioPortAddr
                 with gil:
-                    self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
+                    self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", (ioPortAddr,))
         else:
             with gil:
-                self.main.exitError("outPort: dataSize {0:d} not supported.", dataSize)
+                self.main.exitError("outPort: dataSize {0:d} not supported.", (dataSize,))
         return
     cdef void run(self) nogil:
         (<PicChannel>self.channels[0]).run()

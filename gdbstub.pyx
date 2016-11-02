@@ -90,10 +90,10 @@ cdef class GDBStubHandler:
                             tempStr = tempStr[1:]
                 self.clearData()
                 #else:
-                #    self.gdbStub.main.notice("handleRead: tempStr doesn't start with b'-' or b'+'. (tempStr: {0:s})", repr(tempStr))
+                #    self.gdbStub.main.notice("handleRead: tempStr doesn't start with b'-' or b'+'. (tempStr: {0:s})", (repr(tempStr),))
                 self.lastReadData = tempStr
                 for c in self.lastReadData:
-                    #self.gdbStub.main.notice("c: {0:#04x}, readState: {1:#04x}", c, self.readState)
+                    #self.gdbStub.main.notice("c: {0:#04x}, readState: {1:#04x}", (c, self.readState))
                     if (self.readState == RS_IDLE):
                         if (c == ord(b'$')):
                             self.readState = RS_GETLINE
@@ -150,7 +150,7 @@ cdef class GDBStubHandler:
         self.putPacket('T{0:02x}thread:{1:02x};'.format(gdbType, self.connId).encode())
     cdef void unhandledCmd(self, bytes data, uint8_t noMsg):
         if (not noMsg):
-            self.gdbStub.main.notice('GDBStubHandler::handleCommand: unhandled cmd: {0:s}', repr(data))
+            self.gdbStub.main.notice('GDBStubHandler::handleCommand: unhandled cmd: {0:s}', (repr(data),))
         self.putPacket(bytes())
     cdef void handleCommand(self, bytes data):
         cdef uint32_t memAddr, memLength, blockSize, regVal
@@ -198,7 +198,7 @@ cdef class GDBStubHandler:
                 hexToSend += self.bytesToHex(currData)
                 currRegNum += 1
             if (len(hexToSend) != SEND_REGHEX_SIZE):
-                self.gdbStub.main.notice('GDBStubHandler::handleCommand: hexToSend_len({0:d}) != SEND_REGHEX_SIZE({1:d})', len(hexToSend), SEND_REGHEX_SIZE)
+                self.gdbStub.main.notice('GDBStubHandler::handleCommand: hexToSend_len({0:d}) != SEND_REGHEX_SIZE({1:d})', (len(hexToSend), SEND_REGHEX_SIZE))
             self.putPacket(hexToSend)
         elif (data.startswith(b'G')):
             currRegNum = 0

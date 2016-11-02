@@ -34,7 +34,7 @@ cdef class PitChannel:
         elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
             (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
         #with gil:
-        #self.pit.main.notice("PitChannel::mode0Func: self.tempTimerValue {0:d}", self.tempTimerValue)
+        #self.pit.main.notice("PitChannel::mode0Func: self.tempTimerValue {0:d}", (self.tempTimerValue,))
         with nogil:
             usleep(self.tempTimerValue)
         if (not self.timerEnabled or self.pit.main.quitEmu):
@@ -45,7 +45,7 @@ cdef class PitChannel:
         elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
             (<PS2>self.pit.main.platform.ps2).ppcbT2Out = True
         #else:
-        #self.pit.main.notice("PitChannel::mode0Func: counterMode {0:d} used channelId {1:d}.", self.localCounterMode, self.channelId)
+        #self.pit.main.notice("PitChannel::mode0Func: counterMode {0:d} used channelId {1:d}.", (self.localCounterMode, self.channelId))
         self.timerEnabled = False
     cdef void mode2Func(self): # TODO
         cdef uint8_t clear
@@ -75,7 +75,7 @@ cdef class PitChannel:
                     #with gil:
                     #    prctl.set_name("Pit::{0:d}{1:d}_14".format(self.channelId, self.localCounterMode))
                     #self.pit.main.notice("PitChannel::mode2Func: before while")
-                    #self.pit.main.notice("PitChannel::mode2Func({0:d}): counterValue=={1:d}", self.channelId, self.counterStartValue)
+                    #self.pit.main.notice("PitChannel::mode2Func({0:d}): counterValue=={1:d}", (self.channelId, self.counterStartValue))
                     self.counterValue = self.counterStartValue&0xffffe
                     #with nogil:
                     #    #usleep(self.tempTimerValue)
@@ -148,7 +148,7 @@ cdef class PitChannel:
                     if (not self.timerEnabled or self.pit.main.quitEmu):
                         break
                     #self.counterValue = 1 # to be sure
-                    #self.pit.main.notice("PitChannel::mode2Func({0:d}): after while", self.channelId)
+                    #self.pit.main.notice("PitChannel::mode2Func({0:d}): after while", (self.channelId,))
                     #with gil:
                     #    prctl.set_name("Pit::{0:d}{1:d}_19".format(self.channelId, self.localCounterMode))
                 else:
@@ -180,7 +180,7 @@ cdef class PitChannel:
                 else:
                     IF COMP_DEBUG:
                         with gil:
-                            self.pit.main.notice("PitChannel::mode2Func: counterMode {0:d} used channelId {1:d}.", self.localCounterMode, self.channelId)
+                            self.pit.main.notice("PitChannel::mode2Func: counterMode {0:d} used channelId {1:d}.", (self.localCounterMode, self.channelId))
             #prctl.set_name("Pit::{0:d}{1:d}_3".format(self.channelId, self.localCounterMode))
         #prctl.set_name("Pit::{0:d}{1:d}_4".format(self.channelId, self.localCounterMode))
     cdef void timerFunc(self): # TODO
@@ -191,7 +191,7 @@ cdef class PitChannel:
             elif (self.localCounterMode in (2, 3)):
                 self.mode2Func()
             else:
-                self.pit.main.exitError("timerFunc: counterMode {0:d} is unknown.", self.localCounterMode)
+                self.pit.main.exitError("timerFunc: counterMode {0:d} is unknown.", (self.localCounterMode,))
                 return
         #prctl.set_name("Pit::{0:d}{1:d}_5".format(self.channelId, self.localCounterMode))
         #with nogil:
@@ -226,10 +226,10 @@ cdef class PitChannel:
             #if (self.localCounterMode == 3):
             #    self.tempTimerValue >>= 1
             if (self.localCounterMode not in (0, 2, 3)):
-                self.pit.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})", self.localCounterMode, self.channelId)
+                self.pit.main.exitError("runTimer: counterMode {0:d} not supported yet. (channelId: {1:d})", (self.localCounterMode, self.channelId))
                 return
             elif (self.localCounterMode == 2 and self.channelId == 2):
-                self.pit.main.exitError("runTimer: is it ok to use mode-{0:d} with channelId-{1:d} and cpu clock measures?", self.localCounterMode, self.channelId)
+                self.pit.main.exitError("runTimer: is it ok to use mode-{0:d} with channelId-{1:d} and cpu clock measures?", (self.localCounterMode, self.channelId))
                 return
             elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
                 (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
@@ -266,7 +266,7 @@ cdef class Pit:
         #IF 1:
             if (self.main.debugEnabled):
                 with gil:
-                    self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", ioPortAddr, dataSize)
+                    self.main.notice("PIT::inPort_1: port {0:#06x} with dataSize {1:d}.", (ioPortAddr, dataSize))
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
@@ -292,12 +292,12 @@ cdef class Pit:
                     (<PitChannel>self.channels[channelId]).counterFlipFlop = not (<PitChannel>self.channels[channelId]).counterFlipFlop
                 else:
                     with gil:
-                        self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", (<PitChannel>self.channels[channelId]).counterWriteMode)
+                        self.main.exitError("inPort: unknown counterWriteMode: {0:d}.", ((<PitChannel>self.channels[channelId]).counterWriteMode,))
                 IF COMP_DEBUG:
                 #IF 1:
                     if (self.main.debugEnabled):
                         with gil:
-                            self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", ioPortAddr, dataSize, retVal)
+                            self.main.notice("PIT::inPort_2: port {0:#06x} with dataSize {1:d} and retVal {2:#04x}.", (ioPortAddr, dataSize, retVal))
                 return retVal
             elif (ioPortAddr == 0x43):
                 with gil:
@@ -305,10 +305,10 @@ cdef class Pit:
                 return 0
             else:
                 with gil:
-                    self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
+                    self.main.exitError("inPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", (ioPortAddr,))
         else:
             with gil:
-                self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+                self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", (ioPortAddr, dataSize))
         return 0
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         cdef uint8_t channelId, bcd, modeNumber, counterWriteMode, i
@@ -316,7 +316,7 @@ cdef class Pit:
         #IF 1:
             if (self.main.debugEnabled):
                 with gil:
-                    self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", ioPortAddr, data, dataSize)
+                    self.main.notice("PIT::outPort: port {0:#06x} with data {1:#06x} and dataSize {2:d}.", (ioPortAddr, data, dataSize))
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in (0x40, 0x41, 0x42)):
                 channelId = ioPortAddr&3
@@ -374,10 +374,10 @@ cdef class Pit:
                     (<PitChannel>self.channels[channelId]).resetChannel = True
             else:
                 with gil:
-                    self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", ioPortAddr)
+                    self.main.exitError("outPort: ioPortAddr {0:#04x} not supported (dataSize == byte).", (ioPortAddr,))
         else:
             with gil:
-                self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", ioPortAddr, dataSize, data)
+                self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", (ioPortAddr, dataSize, data))
     cdef void run(self):
         pass
 

@@ -298,7 +298,7 @@ cdef class Fpu:
         cdef tuple tempTuple
         cdef bytes tempData
         data = gmpy2.mpfr(data)
-        self.main.notice("Fpu::setVal: data=={0:s}", repr(data))
+        self.main.notice("Fpu::setVal: data=={0:s}", (repr(data),))
         tempIndex = self.getIndex(tempIndex)
         if (not gmpy2.is_zero(data)):
             tempTuple = data.as_integer_ratio()
@@ -310,7 +310,7 @@ cdef class Fpu:
             self.st[tempIndex] = tempVal.to_bytes(OP_SIZE_WORD, byteorder="big")+tempData
         else:
             self.st[tempIndex] = bytes(10)
-        self.main.notice("Fpu::setVal: tempIndex=={0:d}, len(st[ti])=={1:d}, repr(st[ti]=={2:s})", tempIndex, len(self.st[tempIndex]), repr(self.st[tempIndex]))
+        self.main.notice("Fpu::setVal: tempIndex=={0:d}, len(st[ti])=={1:d}, repr(st[ti]=={2:s})", (tempIndex, len(self.st[tempIndex]), repr(self.st[tempIndex])))
         if (gmpy2.is_zero(data)):
             self.setTag(tempIndex, 1)
         elif (not gmpy2.is_regular(data)):
@@ -326,7 +326,7 @@ cdef class Fpu:
         cdef uint32_t exp
         cdef object data
         tempIndex = self.getIndex(tempIndex)
-        self.main.notice("Fpu::getVal: tempIndex=={0:d}, len(st[ti])=={1:d}, repr(st[ti]=={2:s})", tempIndex, len(self.st[tempIndex]), repr(self.st[tempIndex]))
+        self.main.notice("Fpu::getVal: tempIndex=={0:d}, len(st[ti])=={1:d}, repr(st[ti]=={2:s})", (tempIndex, len(self.st[tempIndex]), repr(self.st[tempIndex])))
         if (self.st[tempIndex] == bytes(10)):
             return gmpy2.mpfr(0)
         exp = int.from_bytes(self.st[tempIndex][:2],byteorder="big")
@@ -341,7 +341,7 @@ cdef class Fpu:
             exp = 0x10000 - exp
             info_byte |= 0x20
         data = gmpy2.from_binary(b"\x04"+bytes([ info_byte ])+b"\x00\x00"+bytes([self.getPrecision()])+b"\x00\x00\x00"+struct.pack("<I", exp)+self.st[tempIndex][9:1:-1])
-        self.main.notice("Fpu::getVal: data=={0:s}", repr(data))
+        self.main.notice("Fpu::getVal: data=={0:s}", (repr(data),))
         return data
     cdef inline void push(self, object data, uint8_t setFlags): # load
         self.addTop(-1)
@@ -420,7 +420,7 @@ cdef class Registers:
             cdef char *tempMmArea
             IF COMP_DEBUG:
                 if (self.main.debugEnabled):
-                    self.main.notice("Registers::reloadCpuCache: EIP: {0:#010x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx)
+                    self.main.notice("Registers::reloadCpuCache: EIP: {0:#010x}", (self.regs[CPU_REGISTER_EIP]._union.dword.erx,))
             mmAddr = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, 1, &self.segments.cs, False, False, False)
             if (self.protectedModeOn and self.pagingOn):
                 while (offset < CPU_CACHE_SIZE):
@@ -467,7 +467,7 @@ cdef class Registers:
             cdef uint64_t *retVal
             IF COMP_DEBUG:
                 if (self.main.debugEnabled):
-                    self.main.notice("Registers::readFromCacheAddUnsigned: cpuCacheIndex: {0:#010x}, numBytes: {1:d}", self.cpuCacheIndex, numBytes)
+                    self.main.notice("Registers::readFromCacheAddUnsigned: cpuCacheIndex: {0:#010x}, numBytes: {1:d}", (self.cpuCacheIndex, numBytes))
             if (self.cpuCacheIndex+numBytes > self.cpuCacheSize):
                 self.reloadCpuCache()
             retVal = <uint64_t*>(self.cpuCache+self.cpuCacheIndex)
@@ -516,7 +516,7 @@ cdef class Registers:
             ret = self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::getCurrentOpcodeUnsignedByte: EIP: {0:#010x}, ret=={1:#04x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
+                self.main.notice("Registers::getCurrentOpcodeUnsignedByte: EIP: {0:#010x}, ret=={1:#04x}", (self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret))
         return ret
     cdef int64_t getCurrentOpcodeAddSigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST:
         cdef int64_t ret
@@ -536,7 +536,7 @@ cdef class Registers:
             ret = self.mmReadValueSigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::getCurrentOpcodeAddSigned: EIP: {0:#010x}, ret=={1:#04x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
+                self.main.notice("Registers::getCurrentOpcodeAddSigned: EIP: {0:#010x}, ret=={1:#04x}", (self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret))
         self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
         return ret
     cdef uint8_t getCurrentOpcodeAddUnsignedByte(self) except? BITMASK_BYTE_CONST:
@@ -557,7 +557,7 @@ cdef class Registers:
             ret = self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::getCurrentOpcodeAddUnsignedByte: EIP: {0:#010x}, ret=={1:#04x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
+                self.main.notice("Registers::getCurrentOpcodeAddUnsignedByte: EIP: {0:#010x}, ret=={1:#04x}", (self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret))
         self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_BYTE
         return ret
     cdef uint16_t getCurrentOpcodeAddUnsignedWord(self) except? BITMASK_BYTE_CONST:
@@ -578,7 +578,7 @@ cdef class Registers:
             ret = self.mmReadValueUnsignedWord(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::getCurrentOpcodeAddUnsignedWord: EIP: {0:#010x}, ret=={1:#04x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
+                self.main.notice("Registers::getCurrentOpcodeAddUnsignedWord: EIP: {0:#010x}, ret=={1:#04x}", (self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret))
         self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_WORD
         return ret
     cdef uint32_t getCurrentOpcodeAddUnsignedDword(self) except? BITMASK_BYTE_CONST:
@@ -599,7 +599,7 @@ cdef class Registers:
             ret = self.mmReadValueUnsignedDword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::getCurrentOpcodeAddUnsignedDword: EIP: {0:#010x}, ret=={1:#04x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
+                self.main.notice("Registers::getCurrentOpcodeAddUnsignedDword: EIP: {0:#010x}, ret=={1:#04x}", (self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret))
         self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_DWORD
         return ret
     cdef uint64_t getCurrentOpcodeAddUnsignedQword(self) except? BITMASK_BYTE_CONST:
@@ -620,7 +620,7 @@ cdef class Registers:
             ret = self.mmReadValueUnsignedQword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::getCurrentOpcodeAddUnsignedQword: EIP: {0:#010x}, ret=={1:#04x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
+                self.main.notice("Registers::getCurrentOpcodeAddUnsignedQword: EIP: {0:#010x}, ret=={1:#04x}", (self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret))
         self.regs[CPU_REGISTER_EIP]._union.dword.erx += OP_SIZE_QWORD
         return ret
     cdef uint64_t getCurrentOpcodeAddUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST:
@@ -641,7 +641,7 @@ cdef class Registers:
             ret = self.mmReadValueUnsigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::getCurrentOpcodeAddUnsigned: EIP: {0:#010x}, ret=={1:#04x}", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
+                self.main.notice("Registers::getCurrentOpcodeAddUnsigned: EIP: {0:#010x}, ret=={1:#04x}", (self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret))
         self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
         return ret
     cdef uint8_t segWrite(self, uint16_t segId, uint16_t segValue) except BITMASK_BYTE_CONST:
@@ -661,7 +661,7 @@ cdef class Registers:
         elif (segId == CPU_SEGMENT_TSS):
             segment = &self.segments.tss
         else:
-            self.main.exitError("Segments::segWrite: segId {0:d} doesn't exist.", segId)
+            self.main.exitError("Segments::segWrite: segId {0:d} doesn't exist.", (segId,))
             return False
         return self.segWriteSegment(segment, segValue)
     cdef uint8_t segWriteSegment(self, Segment *segment, uint16_t segValue) except BITMASK_BYTE_CONST:
@@ -995,7 +995,7 @@ cdef class Registers:
         elif (index == 0x7): # LE
             ret = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf or self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf != self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of
         #else:
-        #    self.main.exitError("getCond: index {0:#04x} is invalid.", index)
+        #    self.main.exitError("getCond: index {0:#04x} is invalid.", (index,))
         if (negateCheck):
             ret = not ret
         return ret
@@ -1082,11 +1082,11 @@ cdef class Registers:
             segment = self.main.cpu.segmentOverridePrefix
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmGetRealAddr_1: {0:s}: LIN {1:#010x}; dataSize {2:d}", "WR" if (written) else "RD", origMmAddr, dataSize)
+                self.main.notice("Registers::mmGetRealAddr_1: {0:s}: LIN {1:#010x}; dataSize {2:d}", ("WR" if (written) else "RD", origMmAddr, dataSize))
         if (segment is not NULL):
             IF COMP_DEBUG:
                 if (self.main.debugEnabled):
-                    self.main.notice("Registers::mmGetRealAddr_1.1: {0:s}: LIN {1:#010x}; dataSize {2:d}; segId {3:d}", "WR" if (written) else "RD", origMmAddr, dataSize, segment[0].segId)
+                    self.main.notice("Registers::mmGetRealAddr_1.1: {0:s}: LIN {1:#010x}; dataSize {2:d}; segId {3:d}", ("WR" if (written) else "RD", origMmAddr, dataSize, segment[0].segId))
             if (self.protectedModeOn and segment[0].segId == CPU_SEGMENT_TSS):
                 (<Paging>(<Segments>self.segments).paging).implicitSV = True
             addrInLimit = self.segments.isAddressInLimit(&segment[0].gdtEntry, mmAddr, dataSize)
@@ -1114,8 +1114,8 @@ cdef class Registers:
                 if (written):
                     if (segment[0].segIsGDTandNormal and (segment[0].gdtEntry.segIsCodeSeg or not segment[0].gdtEntry.segIsRW)):
                         #self.main.notice("Registers::checkMemAccessRights: test1.3")
-                        #self.main.notice("Registers::checkMemAccessRights: test1.3.1; c0=={0:d}; c1=={1:d}; c2=={2:d}", segment[0].gdtEntry.segIsNormal, (segment[0].gdtEntry.segIsCodeSeg or not segment[0].gdtEntry.segIsRW), not addrInLimit)
-                        #self.main.notice("Registers::checkMemAccessRights: test1.3.2; mmAddr=={0:#010x}; dataSize=={1:d}; base=={2:#010x}; limit=={3:#010x}", mmAddr, dataSize, segment[0].gdtEntry.base, segment[0].gdtEntry.limit)
+                        #self.main.notice("Registers::checkMemAccessRights: test1.3.1; c0=={0:d}; c1=={1:d}; c2=={2:d}", (segment[0].gdtEntry.segIsNormal, (segment[0].gdtEntry.segIsCodeSeg or not segment[0].gdtEntry.segIsRW), not addrInLimit))
+                        #self.main.notice("Registers::checkMemAccessRights: test1.3.2; mmAddr=={0:#010x}; dataSize=={1:d}; base=={2:#010x}; limit=={3:#010x}", (mmAddr, dataSize, segment[0].gdtEntry.base, segment[0].gdtEntry.limit))
                         if (segment[0].segId == CPU_SEGMENT_SS):
                             raise HirnwichseException(CPU_EXCEPTION_SS, segment[0].segmentIndex)
                         else:
@@ -1139,7 +1139,7 @@ cdef class Registers:
             mmAddr &= <uint32_t>0xffefffff
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmGetRealAddr_2: {0:s}: LIN {1:#010x}; PHY {2:#010x}", "WR" if (written) else "RD", origMmAddr, mmAddr)
+                self.main.notice("Registers::mmGetRealAddr_2: {0:s}: LIN {1:#010x}; PHY {2:#010x}", ("WR" if (written) else "RD", origMmAddr, mmAddr))
         return mmAddr
     cdef int64_t mmReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint8_t i
@@ -1166,16 +1166,16 @@ cdef class Registers:
         ret = self.main.mm.mmPhyReadValueSigned(physAddr, dataSize)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmReadValueSigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
+                self.main.notice("Registers::mmReadValueSigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", (mmAddr, ret, dataSize))
         return ret
     cdef inline uint8_t mmReadValueUnsignedByte(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint8_t ret
         #if (self.main.debugEnabled):
-        #    self.main.notice("Registers::mmReadValueUnsignedByte_1: virt mmAddr {0:#010x}; dataSize {1:d}", mmAddr, OP_SIZE_BYTE)
+        #    self.main.notice("Registers::mmReadValueUnsignedByte_1: virt mmAddr {0:#010x}; dataSize {1:d}", (mmAddr, OP_SIZE_BYTE))
         ret = self.main.mm.mmPhyReadValueUnsignedByte(self.mmGetRealAddr(mmAddr, OP_SIZE_BYTE, segment, allowOverride, False, False))
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmReadValueUnsignedByte_2: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_BYTE)
+                self.main.notice("Registers::mmReadValueUnsignedByte_2: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", (mmAddr, ret, OP_SIZE_BYTE))
         return ret
     cdef uint16_t mmReadValueUnsignedWord(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint16_t ret
@@ -1194,7 +1194,7 @@ cdef class Registers:
         ret = self.main.mm.mmPhyReadValueUnsignedWord(physAddr)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmReadValueUnsignedWord: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_WORD)
+                self.main.notice("Registers::mmReadValueUnsignedWord: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", (mmAddr, ret, OP_SIZE_WORD))
         return ret
     cdef uint32_t mmReadValueUnsignedDword(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint32_t ret, physAddr
@@ -1214,7 +1214,7 @@ cdef class Registers:
         ret = self.main.mm.mmPhyReadValueUnsignedDword(physAddr)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmReadValueUnsignedDword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_DWORD)
+                self.main.notice("Registers::mmReadValueUnsignedDword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", (mmAddr, ret, OP_SIZE_DWORD))
         return ret
     cdef uint64_t mmReadValueUnsignedQword(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint32_t physAddr
@@ -1239,7 +1239,7 @@ cdef class Registers:
         ret = self.main.mm.mmPhyReadValueUnsignedQword(physAddr)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmReadValueUnsignedQword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, OP_SIZE_QWORD)
+                self.main.notice("Registers::mmReadValueUnsignedQword: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", (mmAddr, ret, OP_SIZE_QWORD))
         return ret
     cdef uint64_t mmReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint8_t i
@@ -1260,7 +1260,7 @@ cdef class Registers:
         ret = self.main.mm.mmPhyReadValueUnsigned(physAddr, dataSize)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmReadValueUnsigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", mmAddr, ret, dataSize)
+                self.main.notice("Registers::mmReadValueUnsigned: virt mmAddr {0:#010x}; ret {1:#010x}; dataSize {2:d}", (mmAddr, ret, dataSize))
         return ret
     cdef uint8_t mmWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize, Segment *segment, uint8_t allowOverride) except BITMASK_BYTE_CONST:
         cdef uint8_t retVal, i
@@ -1273,7 +1273,7 @@ cdef class Registers:
             physAddr = mmAddr
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmWriteValue: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
+                self.main.notice("Registers::mmWriteValue: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", (mmAddr, data, dataSize))
         if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < dataSize):
             for i in range(dataSize):
                 self.mmWriteValue(mmAddr+i, <uint8_t>data, OP_SIZE_BYTE, segment, allowOverride)
@@ -1311,16 +1311,16 @@ cdef class Registers:
                     else:
                         data = (oldData-data)
                 #else:
-                #    self.main.exitError("Registers::mmWriteValueWithOp: unknown valueOp {0:d}.", valueOp)
+                #    self.main.exitError("Registers::mmWriteValueWithOp: unknown valueOp {0:d}.", (valueOp,))
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmWriteValueWithOp: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", mmAddr, data, dataSize)
+                self.main.notice("Registers::mmWriteValueWithOp: virt mmAddr {0:#010x}; data {1:#010x}; dataSize {2:d}", (mmAddr, data, dataSize))
         self.mmWriteValue(mmAddr, data, dataSize, segment, allowOverride)
         return data
     cdef uint8_t switchTSS16(self) except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress
         cdef GdtEntry gdtEntry
-        self.main.notice("Registers::switchTSS16: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        self.main.notice("Registers::switchTSS16: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", (self.main.cpu.savedEip, self.main.cpu.savedCs))
         baseAddress = self.mmGetRealAddr(0, 1, &self.segments.tss, False, False, False)
         if (((baseAddress&0xfff)+TSS_MIN_16BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::switchTSS16: TSS is over page boundary!")
@@ -1353,7 +1353,7 @@ cdef class Registers:
         return True
     cdef uint8_t saveTSS16(self) except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress
-        self.main.notice("Registers::saveTSS16: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        self.main.notice("Registers::saveTSS16: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", (self.main.cpu.savedEip, self.main.cpu.savedCs))
         baseAddress = self.mmGetRealAddr(0, 1, &self.segments.tss, False, True, False)
         if (((baseAddress&0xfff)+TSS_MIN_16BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::saveTSS16: TSS is over page boundary!")
@@ -1376,9 +1376,9 @@ cdef class Registers:
     cdef uint8_t switchTSS32(self) except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress, temp
         cdef GdtEntry gdtEntry
-        self.main.notice("Registers::switchTSS32: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        self.main.notice("Registers::switchTSS32: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", (self.main.cpu.savedEip, self.main.cpu.savedCs))
         self.main.cpu.cpuDump()
-        self.main.notice("Registers::switchTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", self.getCPL(), self.cpl)
+        self.main.notice("Registers::switchTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", (self.getCPL(), self.cpl))
         baseAddress = self.mmGetRealAddr(0, 1, &self.segments.tss, False, False, False)
         if (((baseAddress&0xfff)+TSS_MIN_32BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::switchTSS32: TSS is over page boundary!")
@@ -1418,16 +1418,16 @@ cdef class Registers:
         #IF (CPU_CACHE_SIZE):
         #    self.reloadCpuCache()
         self.main.cpu.cpuDump()
-        self.main.notice("Registers::switchTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", self.getCPL(), self.cpl)
+        self.main.notice("Registers::switchTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", (self.getCPL(), self.cpl))
         if ((self.main.mm.mmPhyReadValueUnsignedByte(baseAddress + TSS_32BIT_T_FLAG) & 1) != 0):
             self.main.notice("Registers::switchTSS32: Debug")
             raise HirnwichseException(CPU_EXCEPTION_DB)
         return True
     cdef uint8_t saveTSS32(self) except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress
-        self.main.notice("Registers::saveTSS32: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        self.main.notice("Registers::saveTSS32: TODO? (savedEip: {0:#010x}, savedCs: {1:#06x})", (self.main.cpu.savedEip, self.main.cpu.savedCs))
         self.main.cpu.cpuDump()
-        self.main.notice("Registers::saveTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", self.getCPL(), self.cpl)
+        self.main.notice("Registers::saveTSS32: TODO? (getCPL(): {0:d}; cpl: {1:d})", (self.getCPL(), self.cpl))
         baseAddress = self.mmGetRealAddr(0, 1, &self.segments.tss, False, True, False)
         if (((baseAddress&0xfff)+TSS_MIN_32BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::saveTSS32: TSS is over page boundary!")

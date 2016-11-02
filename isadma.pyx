@@ -88,7 +88,7 @@ cdef class IsaDmaController:
                 self.main.notice("IsaDmaController::setTransferMode: maybe TODO: addressDecrement is set.")
         if ((self.master or (not self.master and channel != 0)) and (<IsaDmaChannel>self.channel[channel]).transferMode != DMA_MODE_SINGLE):
             with gil:
-                self.main.exitError("ISADMA::setTransferMode: transferMode: {0:d} not supported yet.", (<IsaDmaChannel>self.channel[channel]).transferMode)
+                self.main.exitError("ISADMA::setTransferMode: transferMode: {0:d} not supported yet.", ((<IsaDmaChannel>self.channel[channel]).transferMode,))
     cdef void maskChannel(self, uint8_t channel, uint8_t maskIt) nogil:
         (<IsaDmaChannel>self.channel[channel]).channelMasked = (maskIt!=False)
         self.controlHRQ()
@@ -194,7 +194,7 @@ cdef class IsaDma:
             return retVal
         elif (dataSize != OP_SIZE_BYTE):
             with gil:
-                self.main.exitError("ISADma::inPort: unknown dataSize. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
+                self.main.exitError("ISADma::inPort: unknown dataSize. (ioPortAddr: {0:#06x}, dataSize: {1:d})", (ioPortAddr, dataSize))
             return 0
         elif (ioPortAddr in (0x00, 0x02, 0x04, 0x06, 0xc0, 0xc4, 0xc8, 0xcc)):
             return (<IsaDmaController>self.controller[ma_sl]).getAddrByte(channelNum)
@@ -216,7 +216,7 @@ cdef class IsaDma:
             return self.extPageReg[ioPortAddr&0xf]
         else:
             with gil:
-                self.main.exitError("ISADma::inPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, dataSize: {1:d})", ioPortAddr, dataSize)
+                self.main.exitError("ISADma::inPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, dataSize: {1:d})", (ioPortAddr, dataSize))
         return 0
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         cdef uint8_t ma_sl, channelNum
@@ -228,7 +228,7 @@ cdef class IsaDma:
             return
         elif (dataSize != OP_SIZE_BYTE):
             with gil:
-                self.main.exitError("ISADma::outPort: unknown dataSize. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
+                self.main.exitError("ISADma::outPort: unknown dataSize. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", (ioPortAddr, data, dataSize))
             return
         elif (ioPortAddr in (0x00, 0x02, 0x04, 0x06, 0xc0, 0xc4, 0xc8, 0xcc)):
             (<IsaDmaController>self.controller[ma_sl]).setAddrByte(channelNum, <uint8_t>data)
@@ -260,7 +260,7 @@ cdef class IsaDma:
             self.extPageReg[ioPortAddr&0xf] = <uint8_t>data
         else:
             with gil:
-                self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", ioPortAddr, data, dataSize)
+                self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: {0:#06x}, data: {1:#06x}, dataSize: {2:d})", (ioPortAddr, data, dataSize))
     cdef uint8_t getTC(self) nogil:
         return self.TC
     cdef void setDRQ(self, uint8_t channel, uint8_t val):
@@ -282,7 +282,7 @@ cdef class IsaDma:
             return
         currController.statusReg |= (1 << (channel+4))
         if (currChannel.transferMode not in (DMA_MODE_DEMAND, DMA_MODE_SINGLE, DMA_MODE_CASCADE)):
-            self.main.exitError("ISADMA::setDRQ: transferMode {0:d} not handled.", currChannel.transferMode)
+            self.main.exitError("ISADMA::setDRQ: transferMode {0:d} not handled.", (currChannel.transferMode,))
             return
         dmaBase = ((currChannel.page << 16) | (currChannel.baseAddress << ma_sl))
         if (not currChannel.addressDecrement):
@@ -341,7 +341,7 @@ cdef class IsaDma:
             if (currChannel.dmaMemActionInstance and currChannel.writeToMem is not NULL):
                 data = currChannel.writeToMem(currChannel.dmaMemActionInstance)
             else:
-                self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
+                self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", (channel,))
                 return
             if (ma_sl):
                 self.main.mm.mmPhyWriteValue(phyAddr, <uint16_t>data, OP_SIZE_WORD)
@@ -355,13 +355,13 @@ cdef class IsaDma:
             if (currChannel.dmaMemActionInstance and currChannel.readFromMem is not NULL):
                 currChannel.readFromMem(currChannel.dmaMemActionInstance, data)
             else:
-                self.main.exitError("ISADMA::raiseHLDA: no dmaRead handler for channel {0:d}", channel)
+                self.main.exitError("ISADMA::raiseHLDA: no dmaRead handler for channel {0:d}", (channel,))
                 return
         elif (currChannel.transferDirection == 0): # Verify
             if (currChannel.dmaMemActionInstance and currChannel.writeToMem is not NULL):
                 data = currChannel.writeToMem(currChannel.dmaMemActionInstance)
             else:
-                self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", channel)
+                self.main.exitError("ISADMA::raiseHLDA: no dmaWrite handler for channel {0:d}", (channel,))
                 return
         else:
             self.main.exitError("ISADMA::raiseHLDA: transferDirection 3 is unknown.")

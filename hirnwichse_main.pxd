@@ -18,6 +18,9 @@ cdef class Hirnwichse:
     cdef bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename, cdrom1Filename, cdrom2Filename, serial1Filename, serial2Filename, serial3Filename, serial4Filename
     cdef void parseArgs(self)
     cdef void quitFunc(self)
+    cdef void exitError(self, char *msg, msgArgs=*)
+    cdef void debug(self, char *msg, msgArgs=*)
+    cdef void notice(self, char *msg, msgArgs=*)
     cdef void reset(self, uint8_t resetHardware)
     cpdef void run(self, uint8_t infiniteCycles)
 

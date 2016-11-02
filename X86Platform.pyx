@@ -88,9 +88,9 @@ cdef class Platform:
                     if (not (<PortHandler>self.ports[j]).ports[i]):
                         break
                     elif ((<PortHandler>self.ports[j]).ports[i] == ioPortAddr):
-                        ##self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", ioPortAddr, dataSize)
+                        ##self.main.debug("inPort: Port {0:#04x}. (dataSize: {1:d})", (ioPortAddr, dataSize))
                         retVal = (<PortHandler>self.ports[j]).inPort((<PortHandler>self.ports[j]).classObject, ioPortAddr, dataSize)&bitMask
-                        ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", ioPortAddr, retVal, dataSize)
+                        ##self.main.debug("inPort: Port {0:#04x} returned {1:#04x}. (dataSize: {2:d})", (ioPortAddr, retVal, dataSize))
                         return retVal
         else:
             retVal = self.isadma.inPort(ioPortAddr, dataSize)&bitMask
@@ -98,10 +98,11 @@ cdef class Platform:
         if (self.ata.isBusmaster(ioPortAddr)):
             retVal = self.ata.inPort(ioPortAddr, dataSize)&bitMask
             return retVal
-        with gil:
-            self.main.notice("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", ioPortAddr, dataSize)
-            self.main.notice("inPort: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
-            return bitMask
+        IF COMP_DEBUG:
+            with gil:
+                self.main.notice("inPort: Port {0:#04x} doesn't exist! (dataSize: {1:d})", (ioPortAddr, dataSize))
+                self.main.notice("inPort: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", (self.main.cpu.savedEip, self.main.cpu.savedCs))
+        return bitMask
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         cdef uint8_t i, j
         if (dataSize == OP_SIZE_BYTE):
@@ -116,7 +117,7 @@ cdef class Platform:
                     if (not (<PortHandler>self.ports[j]).ports[i]):
                         break
                     elif ((<PortHandler>self.ports[j]).ports[i] == ioPortAddr):
-                        ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
+                        ##self.main.debug("outPort: Port {0:#04x}. (data {1:#04x}; dataSize: {2:d})", (ioPortAddr, data, dataSize))
                         (<PortHandler>self.ports[j]).outPort((<PortHandler>self.ports[j]).classObject, ioPortAddr, data, dataSize)
                         return
         else:
@@ -125,9 +126,10 @@ cdef class Platform:
         if (self.ata.isBusmaster(ioPortAddr)):
             self.ata.outPort(ioPortAddr, data, dataSize)
             return
-        with gil:
-            self.main.notice("outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", ioPortAddr, data, dataSize)
-            self.main.notice("outPort: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        IF COMP_DEBUG:
+            with gil:
+                self.main.notice("outPort: Port {0:#04x} doesn't exist! (data: {1:#04x}; dataSize: {2:d})", (ioPortAddr, data, dataSize))
+                self.main.notice("outPort: TODO! (savedEip: {0:#010x}, savedCs: {1:#06x})", (self.main.cpu.savedEip, self.main.cpu.savedCs))
     cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         self.pic.lowerIrq(FPU_IRQ)
     cdef void loadRomToMem(self, bytes romFileName, uint64_t mmAddr, uint64_t romSize):

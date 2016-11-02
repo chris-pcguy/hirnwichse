@@ -39,7 +39,7 @@ cdef class PciDevice:
         if (function): # TODO
             if (self.pci.main.debugEnabled):
                 with gil:
-                    self.pci.main.notice("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", function)
+                    self.pci.main.notice("PciDevice::checkWriteAccess: function ({0:#04x}) != 0x00", (function,))
             return False
         if (offset == PCI_COMMAND):
             headerType = self.getData(PCI_HEADER_TYPE, OP_SIZE_BYTE)
@@ -68,7 +68,7 @@ cdef class PciDevice:
             if (headerType >= 0x02):
                 if (self.pci.main.debugEnabled):
                     with gil:
-                        self.pci.main.notice("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", headerType)
+                        self.pci.main.notice("PciDevice::checkWriteAccess: headerType ({0:#04x}) >= 0x02", (headerType,))
                 return True
             elif (headerType == 0x01):
                 if (offset in (PCI_BRIDGE_IO_BASE_LOW, PCI_BRIDGE_IO_LIMIT_LOW, PCI_BRIDGE_PREF_MEM_BASE_LOW, PCI_BRIDGE_PREF_MEM_LIMIT_LOW, \
@@ -84,7 +84,7 @@ cdef class PciDevice:
                 memBarType = (origData >> 1) & 0x3
                 if (not (origData & 1) and memBarType != 0): #if (memBarType in (1, 2, 3)):
                     with gil:
-                        self.pci.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", memBarType)
+                        self.pci.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType ({0:d})", (memBarType,))
                     return True
                 #elif ((data & <uint32_t>0xfffffff0) == <uint32_t>0xfffffff0):
                 #if ((data & <uint32_t>0xfffff800) == <uint32_t>0xfffff800):
@@ -121,17 +121,17 @@ cdef class PciDevice:
             data = self.configSpace.csReadValueUnsigned(mmAddress, dataSize)
         IF COMP_DEBUG:
             with gil:
-                self.pci.main.notice("PciDevice::getData: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", mmAddress, data, dataSize)
+                self.pci.main.notice("PciDevice::getData: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", (mmAddress, data, dataSize))
         return data
     cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
         if (not self.checkWriteAccess(mmAddress, data, dataSize)):
             IF COMP_DEBUG:
                 with gil:
-                    self.pci.main.notice("PciDevice::setData: check says false: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", mmAddress, data, dataSize)
+                    self.pci.main.notice("PciDevice::setData: check says false: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", (mmAddress, data, dataSize))
             return
         IF COMP_DEBUG:
             with gil:
-                self.pci.main.notice("PciDevice::setData: check says true: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", mmAddress, data, dataSize)
+                self.pci.main.notice("PciDevice::setData: check says true: mmAddress=={0:#010x}; data=={1:#010x}; dataSize=={2:d}", (mmAddress, data, dataSize))
         with gil:
             self.configSpace.csWriteValue(mmAddress, data, dataSize)
     cdef void setVendorId(self, uint16_t vendorId):
@@ -174,6 +174,7 @@ cdef class Pci2Isa(PciDevice):
                 self.irqLevel[j][i] = 0
         PciDevice.__init__(self, bus, pci, deviceIndex)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, 0x7000)
+        #self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, 0x7113) # move this to an additional pci acpi device
         self.setDeviceClass(PCI_CLASS_BRIDGE_ISA)
         self.configSpace.csWriteValue(PCI_COMMAND, 0x7, OP_SIZE_WORD)
         self.configSpace.csWriteValue(PCI_STATUS, 0x200, OP_SIZE_WORD)
@@ -385,20 +386,22 @@ cdef class Pci:
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
                 with gil:
                     ret = self.readRegister((self.address&<uint32_t>0xfffffffc)+(ioPortAddr&3), dataSize)
+            elif (ioPortAddr == 0xae0c):
+                ret = 0
             else:
                 with gil:
-                    self.main.exitError("PCI::inPort: port {0:#06x} is not supported. (dataSize {1:d})", ioPortAddr, dataSize)
+                    self.main.exitError("PCI::inPort: port {0:#06x} is not supported. (dataSize {1:d})", (ioPortAddr, dataSize))
         else:
             with gil:
-                self.main.exitError("PCI::inPort: port {0:#06x} with dataSize {1:d} not supported.", ioPortAddr, dataSize)
+                self.main.exitError("PCI::inPort: port {0:#06x} with dataSize {1:d} not supported.", (ioPortAddr, dataSize))
         if (self.main.debugEnabled):
             with gil:
-                self.main.notice("PCI::inPort: port {0:#06x}. (dataSize {1:d}; ret {2:#06x})", ioPortAddr, dataSize, ret)
+                self.main.notice("PCI::inPort: port {0:#06x}. (dataSize {1:d}; ret {2:#06x})", (ioPortAddr, dataSize, ret))
         return ret
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         if (self.main.debugEnabled):
             with gil:
-                self.main.notice("PCI::outPort: port {0:#06x}. (dataSize {1:d}; data {2:#06x})", ioPortAddr, dataSize, data)
+                self.main.notice("PCI::outPort: port {0:#06x}. (dataSize {1:d}; data {2:#06x})", (ioPortAddr, dataSize, data))
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0x4d0):
                 data &= 0xf8
@@ -425,10 +428,10 @@ cdef class Pci:
                     self.writeRegister((self.address&<uint32_t>0xfffffffc)+(ioPortAddr&3), data, dataSize)
             else:
                 with gil:
-                    self.main.exitError("PCI::outPort: port {0:#06x} is not supported. (data == {1:#04x}, dataSize {2:d})", ioPortAddr, data, dataSize)
+                    self.main.exitError("PCI::outPort: port {0:#06x} is not supported. (data == {1:#04x}, dataSize {2:d})", (ioPortAddr, data, dataSize))
         else:
             with gil:
-                self.main.exitError("PCI::outPort: dataSize {0:d} not supported.", dataSize)
+                self.main.exitError("PCI::outPort: dataSize {0:d} not supported.", (dataSize,))
         return
     cdef void run(self):
         cdef uint8_t busIndex

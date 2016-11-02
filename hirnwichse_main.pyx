@@ -75,18 +75,18 @@ cdef class Hirnwichse:
         #fp.write(PyBytes_FromStringAndSize( self.mm.data, <Py_ssize_t>4*1024))
         #fp.flush()
         #fp.close()
-    def exitError(self, str msg, *msgArgs): # this needs to be 'def'
-        print("ERROR: " + msg.format(*msgArgs))
+    cdef void exitError(self, char *msg, msgArgs=()):
+        print("ERROR: " + msg.decode().format(*msgArgs))
         stdout.flush()
         self.cpu.cpuDump()
         self.quitFunc()
         exit(1)
-    def debug(self, str msg, *msgArgs): # this needs to be 'def'
+    cdef void debug(self, char *msg, msgArgs=()):
         if (self.debugEnabled):
         #if (self.debugEnabled and self.cpu.savedCs != 0x50):
-            print("DEBUG: " + msg.format(*msgArgs))
-    def notice(self, str msg, *msgArgs): # this needs to be 'def'
-        print("NOTICE: " + msg.format(*msgArgs))
+            print("DEBUG: " + msg.decode().format(*msgArgs))
+    cdef void notice(self, char *msg, msgArgs=()):
+        print("NOTICE: " + msg.decode().format(*msgArgs))
         stdout.flush()
     cdef void reset(self, uint8_t resetHardware):
         self.cpu.reset()
