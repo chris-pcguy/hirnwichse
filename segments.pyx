@@ -118,7 +118,7 @@ cdef class Gdt:
                 raise HirnwichseException(CPU_EXCEPTION_GP, num)
         else: # not stack segment
             if ( ((not gdtEntry.segIsCodeSeg or not gdtEntry.segIsConforming) and (num&3 > numSegDPL and \
-              cpl > numSegDPL)) or (segId != CPU_SEGMENT_CS and not gdtEntry.segIsRW) or (segId == CPU_SEGMENT_CS and not gdtEntry.segIsCodeSeg) ):
+              cpl > numSegDPL)) or (not (<Paging>(<Segments>self.segments).paging).instrFetch and gdtEntry.segIsCodeSeg and not gdtEntry.segIsRW) ):
                 #self.segments.main.notice("test3: segId=={0:#04d}", segId)
                 raise HirnwichseException(CPU_EXCEPTION_GP, num)
         return True

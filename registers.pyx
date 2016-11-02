@@ -1122,7 +1122,7 @@ cdef class Registers:
                             raise HirnwichseException(CPU_EXCEPTION_GP, segment[0].segmentIndex)
                     segment[0].writeChecked = True
                 else:
-                    if (segment[0].segIsGDTandNormal and ((segment[0].segId != CPU_SEGMENT_CS and not segment[0].gdtEntry.segIsRW) or (segment[0].segId == CPU_SEGMENT_CS and not segment[0].gdtEntry.segIsCodeSeg))):
+                    if (segment[0].segIsGDTandNormal and not (<Paging>(<Segments>self.segments).paging).instrFetch and segment[0].gdtEntry.segIsCodeSeg and not segment[0].gdtEntry.segIsRW):
                         #self.main.notice("Registers::checkMemAccessRights: test1.4")
                         if (segment[0].segId == CPU_SEGMENT_SS):
                             raise HirnwichseException(CPU_EXCEPTION_SS, segment[0].segmentIndex)
