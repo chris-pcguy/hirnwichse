@@ -55,17 +55,17 @@ cdef class Cpu:
         #    self.savedEip = <uint32_t>(self.savedEip+1)
         IF COMP_DEBUG:
             if (exceptionId == CPU_EXCEPTION_UD):
-                self.main.notice("CPU::exception: UD: Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", (self.opcode, self.savedEip, self.savedCs))
+                self.main.notice("CPU::exception: UD: Opcode not found. (opcode: 0x%02x; EIP: 0x%04x, CS: 0x%04x)", self.opcode, self.savedEip, self.savedCs)
             else:
-                self.main.notice("CPU::exception: Handle exception {0:d}. (opcode: {1:#04x}; EIP: {2:#06x}, CS: {3:#06x})", (exceptionId, self.opcode, self.savedEip, self.savedCs))
-            self.main.notice("Running exception_1.0: exceptionId: {0:#04x}, errorCode: {1:#04x}", (exceptionId, errorCode))
+                self.main.notice("CPU::exception: Handle exception %u. (opcode: 0x%02x; EIP: 0x%04x, CS: 0x%04x)", exceptionId, self.opcode, self.savedEip, self.savedCs)
+            self.main.notice("Running exception_1.0: exceptionId: 0x%02x, errorCode: 0x%02x", exceptionId, errorCode)
             self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_FAULT_GROUP and exceptionId != CPU_EXCEPTION_DB):
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = True
         elif (exceptionId in CPU_EXCEPTIONS_TRAP_GROUP and self.repPrefix):
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.rf = True
         IF COMP_DEBUG:
-            self.main.notice("Running exception_1.1: exceptionId: {0:#04x}, errorCode: {1:#04x}", (exceptionId, errorCode))
+            self.main.notice("Running exception_1.1: exceptionId: 0x%02x, errorCode: 0x%02x", exceptionId, errorCode)
             self.cpuDump()
         if (exceptionId in CPU_EXCEPTIONS_WITH_ERRORCODE):
             if (errorCode == -1):
@@ -75,7 +75,7 @@ cdef class Cpu:
         else:
             self.opcodes.interrupt(exceptionId)
         IF COMP_DEBUG:
-            self.main.notice("Running exception_2: exceptionId: {0:#04x}, errorCode: {1:#04x}", (exceptionId, errorCode))
+            self.main.notice("Running exception_2: exceptionId: 0x%02x, errorCode: 0x%02x", exceptionId, errorCode)
             self.cpuDump()
         #if (exceptionId == CPU_EXCEPTION_GP and self.opcode == 0xcf and self.savedEip == 0x80139a2c and self.savedCs == 0x0008):
         #    self.main.debugEnabledTest = self.main.debugEnabled = True
@@ -106,56 +106,58 @@ cdef class Cpu:
         #if (self.savedCs == 0x17cf and self.savedEip == 0x56ad):
         #    self.main.debugEnabledTest = self.main.debugEnabled = True
         if (len(exception.args) not in (1, 2)):
-            self.main.exitError('ERROR: exception argument length not in (1, 2); is {0:d}', (len(exception.args),))
+            self.main.exitError('ERROR: exception argument length not in (1, 2); is %u', len(exception.args))
             return True
         errorCode = -1
         if (len(exception.args) == 2):
             if (not isinstance(exception.args[1], int)):
-                self.main.exitError('ERROR: errorCode not a int; type is {0:s}', (type(exception.args[1]),))
+                #self.main.exitError('ERROR: errorCode not a int; type is %s', type(exception.args[1]))
+                self.main.exitError('ERROR: errorCode not a int')
                 return True
             errorCode = exception.args[1]
         if (not isinstance(exception.args[0], int)):
-            self.main.exitError('ERROR: exceptionId not a int; type is {0:s}', (type(exception.args[0]),))
+            #self.main.exitError('ERROR: exceptionId not a int; type is %s', type(exception.args[0]))
+            self.main.exitError('ERROR: exceptionId not a int')
             return True
         exceptionId = exception.args[0]
         return self.exception(exceptionId, errorCode)
-    cdef void cpuDump(self):
-        self.main.notice("EAX: {0:#010x}, ECX: {1:#010x}", (self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx))
-        self.main.notice("EDX: {0:#010x}, EBX: {1:#010x}", (self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx))
-        self.main.notice("ESP: {0:#010x}, EBP: {1:#010x}", (self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx))
-        self.main.notice("ESI: {0:#010x}, EDI: {1:#010x}", (self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx))
-        self.main.notice("EIP: {0:#010x}, EFLAGS: {1:#010x}", (self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_EFLAGS]._union.dword.erx))
-        self.main.notice("CS: {0:#06x}, SS: {1:#06x}", (self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx, \
-          self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx))
-        self.main.notice("DS: {0:#06x}, ES: {1:#06x}", (self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_DS]._union.word._union.rx, \
-          self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_ES]._union.word._union.rx))
-        self.main.notice("FS: {0:#06x}, GS: {1:#06x}", (self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_FS]._union.word._union.rx, \
-          self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_GS]._union.word._union.rx))
-        self.main.notice("LDTR: {0:#06x}, LTR: {1:#06x}", (self.registers.ldtr, (<Segment>self.registers.segments.tss).segmentIndex))
-        self.main.notice("CR0: {0:#010x}, CR2: {1:#010x}", (self.registers.regs[CPU_REGISTER_CR0]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_CR2]._union.dword.erx))
-        self.main.notice("CR3: {0:#010x}, CR4: {1:#010x}", (self.registers.regs[CPU_REGISTER_CR3]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_CR4]._union.dword.erx))
-        self.main.notice("DR0: {0:#010x}, DR1: {1:#010x}", (self.registers.regs[CPU_REGISTER_DR0]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_DR1]._union.dword.erx))
-        self.main.notice("DR2: {0:#010x}, DR3: {1:#010x}", (self.registers.regs[CPU_REGISTER_DR2]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_DR3]._union.dword.erx))
-        self.main.notice("DR6: {0:#010x}, DR7: {1:#010x}", (self.registers.regs[CPU_REGISTER_DR6]._union.dword.erx, \
-          self.registers.regs[CPU_REGISTER_DR7]._union.dword.erx))
-        self.main.notice("savedCS: {0:#06x}, savedSS: {1:#06x}", (self.savedCs, self.savedSs))
-        self.main.notice("savedEIP: {0:#010x}, savedESP: {1:#010x}", (self.savedEip, self.savedEsp))
-        #self.main.notice("CS.limit: {0:#06x}, SS.limit: {1:#06x}", ((<Segment>self.registers.segments.cs).gdtEntry.limit, \
-        #  (<Segment>self.registers.segments.ss).gdtEntry.limit))
-        #self.main.notice("DS.limit: {0:#06x}, ES.limit: {1:#06x}", ((<Segment>self.registers.segments.ds).gdtEntry.limit, \
-        #  (<Segment>self.registers.segments.es).gdtEntry.limit))
-        #self.main.notice("FS.limit: {0:#06x}, GS.limit: {1:#06x}", ((<Segment>self.registers.segments.fs).gdtEntry.limit, \
-        #  (<Segment>self.registers.segments.gs).gdtEntry.limit))
-        self.main.notice("Opcode: {0:#04x}\n\n", (self.opcode,))
+    cdef void cpuDump(self) nogil:
+        self.main.notice("EAX: 0x%08x, ECX: 0x%08x", self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx)
+        self.main.notice("EDX: 0x%08x, EBX: 0x%08x", self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx)
+        self.main.notice("ESP: 0x%08x, EBP: 0x%08x", self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_EBP]._union.dword.erx)
+        self.main.notice("ESI: 0x%08x, EDI: 0x%08x", self.registers.regs[CPU_REGISTER_ESI]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_EDI]._union.dword.erx)
+        self.main.notice("EIP: 0x%08x, EFLAGS: 0x%08x", self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_EFLAGS]._union.dword.erx)
+        self.main.notice("CS: 0x%04x, SS: 0x%04x", self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_CS]._union.word._union.rx, \
+          self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx)
+        self.main.notice("DS: 0x%04x, ES: 0x%04x", self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_DS]._union.word._union.rx, \
+          self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_ES]._union.word._union.rx)
+        self.main.notice("FS: 0x%04x, GS: 0x%04x", self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_FS]._union.word._union.rx, \
+          self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_GS]._union.word._union.rx)
+        self.main.notice("LDTR: 0x%04x, LTR: 0x%04x", self.registers.ldtr, (<Segment>self.registers.segments.tss).segmentIndex)
+        self.main.notice("CR0: 0x%08x, CR2: 0x%08x", self.registers.regs[CPU_REGISTER_CR0]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_CR2]._union.dword.erx)
+        self.main.notice("CR3: 0x%08x, CR4: 0x%08x", self.registers.regs[CPU_REGISTER_CR3]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_CR4]._union.dword.erx)
+        self.main.notice("DR0: 0x%08x, DR1: 0x%08x", self.registers.regs[CPU_REGISTER_DR0]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_DR1]._union.dword.erx)
+        self.main.notice("DR2: 0x%08x, DR3: 0x%08x", self.registers.regs[CPU_REGISTER_DR2]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_DR3]._union.dword.erx)
+        self.main.notice("DR6: 0x%08x, DR7: 0x%08x", self.registers.regs[CPU_REGISTER_DR6]._union.dword.erx, \
+          self.registers.regs[CPU_REGISTER_DR7]._union.dword.erx)
+        self.main.notice("savedCS: 0x%04x, savedSS: 0x%04x", self.savedCs, self.savedSs)
+        self.main.notice("savedEIP: 0x%08x, savedESP: 0x%08x", self.savedEip, self.savedEsp)
+        #self.main.notice("CS.limit: 0x%04x, SS.limit: 0x%04x", (<Segment>self.registers.segments.cs).gdtEntry.limit, \
+        #  (<Segment>self.registers.segments.ss).gdtEntry.limit)
+        #self.main.notice("DS.limit: 0x%04x, ES.limit: 0x%04x", (<Segment>self.registers.segments.ds).gdtEntry.limit, \
+        #  (<Segment>self.registers.segments.es).gdtEntry.limit)
+        #self.main.notice("FS.limit: 0x%04x, GS.limit: 0x%04x", (<Segment>self.registers.segments.fs).gdtEntry.limit, \
+        #  (<Segment>self.registers.segments.gs).gdtEntry.limit)
+        self.main.notice("Opcode: 0x%02x\n\n", self.opcode)
     cdef int doInfiniteCycles(self) except BITMASK_BYTE_CONST:
         cdef uint8_t count
         cdef uint64_t temptime
@@ -203,7 +205,7 @@ cdef class Cpu:
                     #if (temptime - self.lasttime >= 20):
                     temptime = ttime(NULL)
                     if (temptime - self.lasttime >= 1):
-                        #self.main.notice("CPU::doCycle: cycles: {0:#010x}", (self.cycles,))
+                        #self.main.notice("CPU::doCycle: cycles: 0x%08x", self.cycles)
                         if (self.main.platform.vga and self.main.platform.vga.ui):
                             self.main.platform.vga.ui.handleEventsWithoutWaiting()
                         self.lasttime = temptime
@@ -211,7 +213,7 @@ cdef class Cpu:
                     #if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                     #    self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
                     if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.tf):
-                        self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet! Opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x}", (self.opcode, self.savedEip, self.savedCs))
+                        self.main.notice("CPU::doCycle: TF-flag isn't fully supported yet! Opcode: 0x%02x; EIP: 0x%04x, CS: 0x%04x", self.opcode, self.savedEip, self.savedCs)
                         self.cpuDump()
                     self.operSize = self.addrSize = self.codeSegSize
                     if (not self.registers.ssInhibit):
@@ -266,10 +268,10 @@ cdef class Cpu:
                     if (self.main.debugEnabled):
                     #if (self.main.debugEnabled or self.main.debugEnabledTest):
                     #IF 1:
-                        self.main.notice("Current Opcode: {0:#04x}; It's EIP: {1:#06x}, CS: {2:#06x}", (self.opcode, self.savedEip, self.savedCs))
+                        self.main.notice("Current Opcode: 0x%02x; It's EIP: 0x%02x, CS: 0x%02x", self.opcode, self.savedEip, self.savedCs)
                         self.cpuDump()
                     if (not self.opcodes.executeOpcode(self.opcode)):
-                        self.main.notice("Opcode not found. (opcode: {0:#04x}; EIP: {1:#06x}, CS: {2:#06x})", (self.opcode, self.savedEip, self.savedCs))
+                        self.main.notice("Opcode not found. (opcode: 0x%02x; EIP: 0x%02x, CS: 0x%02x)", self.opcode, self.savedEip, self.savedCs)
                         raise HirnwichseException(CPU_EXCEPTION_UD)
                 except HirnwichseException as exception: # exception
                     IF COMP_DEBUG:
@@ -281,7 +283,7 @@ cdef class Cpu:
                         self.handleException(exception) # execute exception handler
                     except HirnwichseException as exception: # exception
                         IF COMP_DEBUG:
-                            self.main.notice("Cpu::doCycle: testexc2; repr=={0:s}", (repr(exception.args),))
+                            self.main.notice("Cpu::doCycle: testexc2; repr==%s", repr(exception.args))
                         try:
                             self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
                         except HirnwichseException as exception: # exception
@@ -294,13 +296,13 @@ cdef class Cpu:
                                 self.cpu.reset()
                         except:
                             print_exc()
-                            self.main.exitError('doCycle: exception1 while handling opcode, exiting... (opcode: {0:#04x})', (self.opcode,))
+                            self.main.exitError('doCycle: exception1 while handling opcode, exiting... (opcode: 0x%02x)', self.opcode)
                     except:
                         print_exc()
-                        self.main.exitError('doCycle: exception2 while handling opcode, exiting... (opcode: {0:#04x})', (self.opcode,))
+                        self.main.exitError('doCycle: exception2 while handling opcode, exiting... (opcode: 0x%02x)', self.opcode)
                 except:
                     print_exc()
-                    self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: {0:#04x})', (self.opcode,))
+                    self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: 0x%02x)', self.opcode)
         except:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')

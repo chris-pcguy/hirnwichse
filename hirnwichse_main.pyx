@@ -3,7 +3,7 @@
 
 include "globals.pxi"
 
-from sys import argv, exit, stdout
+from sys import argv, exit
 from argparse import ArgumentParser
 from atexit import register
 from traceback import print_exc
@@ -69,25 +69,42 @@ cdef class Hirnwichse:
         self.memSize = self.cmdArgs.memSize
         #self.debugEnabledTest = False
         #self.debugEnabled = False
-    cdef void quitFunc(self):
+    cdef void quitFunc(self) nogil:
         self.quitEmu = True
-        #fp=open("mmdump_1","wb")
-        #fp.write(PyBytes_FromStringAndSize( self.mm.data, <Py_ssize_t>4*1024))
-        #fp.flush()
-        #fp.close()
-    cdef void exitError(self, char *msg, msgArgs=()):
-        print("ERROR: " + msg.decode().format(*msgArgs))
-        stdout.flush()
+    cdef void exitError(self, char *msg, ...) nogil:
+        cdef va_list args
+        cdef char msgBuf[1024]
+        va_start(args, msg)
+        strcpy(msgBuf, b"ERROR: ");
+        strcat(msgBuf, msg);
+        strcat(msgBuf, b"\n");
+        vprintf(msgBuf, args)
+        va_end(args)
+        fflush(stdout)
         self.cpu.cpuDump()
         self.quitFunc()
-        exit(1)
-    cdef void debug(self, char *msg, msgArgs=()):
+        exitt(1)
+    cdef void debug(self, char *msg, ...) nogil:
+        cdef va_list args
+        cdef char msgBuf[1024]
         if (self.debugEnabled):
         #if (self.debugEnabled and self.cpu.savedCs != 0x50):
-            print("DEBUG: " + msg.decode().format(*msgArgs))
-    cdef void notice(self, char *msg, msgArgs=()):
-        print("NOTICE: " + msg.decode().format(*msgArgs))
-        stdout.flush()
+            va_start(args, msg)
+            strcpy(msgBuf, b"DEBUG: ");
+            strcat(msgBuf, msg);
+            strcat(msgBuf, b"\n");
+            vprintf(msgBuf, args)
+            va_end(args)
+    cdef void notice(self, char *msg, ...) nogil:
+        cdef va_list args
+        cdef char msgBuf[1024]
+        va_start(args, msg)
+        strcpy(msgBuf, b"NOTICE: ");
+        strcat(msgBuf, msg);
+        strcat(msgBuf, b"\n");
+        vprintf(msgBuf, args)
+        va_end(args)
+        fflush(stdout)
     cdef void reset(self, uint8_t resetHardware):
         self.cpu.reset()
         if (resetHardware):

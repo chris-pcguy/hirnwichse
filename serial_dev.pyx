@@ -52,9 +52,11 @@ cdef class SerialPort:
                 if (exists(self.serialFilename)):
                     self.fp = seriallib.Serial(port=self.serialFilename.decode())
                     self.setBits()
-                    self.main.notice("SerialPort::__init__: \"serial:serialFilename\" does exist. (self.serialFilename: {0:s})", (self.serialFilename.decode(),))
+                    #self.main.notice("SerialPort::__init__: \"serial:serialFilename\" does exist. (self.serialFilename: %s)", self.serialFilename.decode())
+                    self.main.notice("SerialPort::__init__: \"serial:serialFilename\" does exist. (self.serialFilename: %s)", self.serialFilename)
                 else:
-                    self.main.exitError("SerialPort::__init__: \"serial:serialFilename\" doesn't exist. (self.serialFilename: {0:s})", (self.serialFilename.decode(),))
+                    #self.main.exitError("SerialPort::__init__: \"serial:serialFilename\" doesn't exist. (self.serialFilename: %s)", self.serialFilename.decode())
+                    self.main.exitError("SerialPort::__init__: \"serial:serialFilename\" doesn't exist. (self.serialFilename: %s)", self.serialFilename)
             else:
                 self.fp = open(self.serialFilename, "w+b")
     cdef void reset(self):
@@ -117,10 +119,10 @@ cdef class SerialPort:
             self.fp.close()
     cdef void raiseIrq(self):
         if (self.modemControlRegister & 0x8):
-            self.main.notice("SerialPort::raiseIrq: raiseIrq enabled (self.serialIndex {0:d})", (self.serialIndex,))
+            self.main.notice("SerialPort::raiseIrq: raiseIrq enabled (self.serialIndex %u)", self.serialIndex)
             (<Pic>self.main.platform.pic).raiseIrq(self.irq)
         else:
-            self.main.notice("SerialPort::raiseIrq: raiseIrq disabled (self.serialIndex {0:d})", (self.serialIndex,))
+            self.main.notice("SerialPort::raiseIrq: raiseIrq disabled (self.serialIndex %u)", self.serialIndex)
     cdef void readData(self):
         cdef bytes tempData
         if (self.fp is not None):
@@ -147,7 +149,8 @@ cdef class SerialPort:
         if (self.fp is not None):
             if (len(data) > 0):
                 self.lineStatusRegister &= ~0x60
-                self.main.notice("SerialPort{0:d}::writeData: write string: {1:s}", (self.serialIndex, repr(data.decode())))
+                #self.main.notice("SerialPort%u::writeData: write string: %s", self.serialIndex, repr(data.decode()))
+                self.main.notice("SerialPort%u::writeData: write string", self.serialIndex)
                 if (self.modemControlRegister & 0x10):
                     self.data += data
                 else:
@@ -176,23 +179,22 @@ cdef class SerialPort:
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
         cdef uint8_t ret = BITMASK_BYTE
         if (self.fp is None):
-            with gil:
-                self.main.notice("SerialPort::inPort_4: fp is None")
+            self.main.notice("SerialPort::inPort_4: fp is None")
             return ret
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0):
                 if (self.dlab): # low byte divisor
-                    with gil:
-                        self.main.notice("SerialPort::inPort_5: get divisor low")
+                    self.main.notice("SerialPort::inPort_5: get divisor low")
                     return (self.divisor & BITMASK_BYTE)
                 else:
+                    self.main.notice("SerialPort::inPort_8: read character")
                     with gil:
-                        self.main.notice("SerialPort::inPort_8: read character")
                         if (not len(self.data)):
                             self.readData()
                         if (len(self.data) > 0):
                             ret = self.data[0]
-                            self.main.notice("SerialPort{0:d}::inPort_3: read character: {1:s}, {2:#04x}", (self.serialIndex, repr(chr(ret)), ret))
+                            #self.main.notice("SerialPort%u::inPort_3: read character: %s, 0x%02x", self.serialIndex, repr(chr(ret)), ret)
+                            self.main.notice("SerialPort%u::inPort_3: read character, 0x%02x", self.serialIndex, ret)
                             if (len(self.data) > 1):
                                 self.data = self.data[1:]
                             else:
@@ -201,12 +203,10 @@ cdef class SerialPort:
                     #    ret = 0
             elif (ioPortAddr == 1):
                 if (self.dlab): # high byte divisor
-                    with gil:
-                        self.main.notice("SerialPort::inPort_6: get divisor high")
+                    self.main.notice("SerialPort::inPort_6: get divisor high")
                     return (self.divisor >> 8)
                 else:
-                    with gil:
-                        self.main.notice("SerialPort::inPort_7: get interruptEnableRegister")
+                    self.main.notice("SerialPort::inPort_7: get interruptEnableRegister")
                     return self.interruptEnableRegister
             elif (ioPortAddr == 2):
                 (<Pic>self.main.platform.pic).lowerIrq(self.irq)
@@ -242,41 +242,36 @@ cdef class SerialPort:
             elif (ioPortAddr == 7):
                 return self.scratchRegister
             else:
-                with gil:
-                    self.main.exitError("SerialPort::inPort_1: port {0:#04x} with dataSize {1:d} not supported.", (ioPortAddr, dataSize))
+                self.main.exitError("SerialPort::inPort_1: port 0x%02x with dataSize %u not supported.", ioPortAddr, dataSize)
         else:
-            with gil:
-                self.main.exitError("SerialPort::inPort_2: port {0:#04x} with dataSize {1:d} not supported.", (ioPortAddr, dataSize))
+            self.main.exitError("SerialPort::inPort_2: port 0x%02x with dataSize %u not supported.", ioPortAddr, dataSize)
         return ret
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         if (self.fp is None):
-            with gil:
-                self.main.notice("SerialPort::outPort_4: fp is None")
+            self.main.notice("SerialPort::outPort_4: fp is None")
             return
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0):
                 if (self.dlab): # low byte divisor
-                    with gil:
-                        self.main.notice("SerialPort::outPort_3: set divisor low")
+                    self.main.notice("SerialPort::outPort_3: set divisor low")
                     self.divisor &= 0xff00
                     self.divisor |= data
                     with gil:
                         self.setBits()
                 else:
+                    #self.main.notice("SerialPort%u::outPort: write character: %s, 0x%02x", self.serialIndex, repr(chr(data)), data)
+                    self.main.notice("SerialPort%u::outPort: write character, 0x%02x", self.serialIndex, data)
                     with gil:
-                        self.main.notice("SerialPort{0:d}::outPort: write character: {1:s}, {2:#04x}", (self.serialIndex, repr(chr(data)), data))
                         self.writeData(bytes([data]))
             elif (ioPortAddr == 1):
                 if (self.dlab): # high byte divisor
-                    with gil:
-                        self.main.notice("SerialPort::outPort_4: set divisor high")
+                    self.main.notice("SerialPort::outPort_4: set divisor high")
                     self.divisor &= 0x00ff
                     self.divisor |= (data<<8)
                     with gil:
                         self.setBits()
                 else:
-                    with gil:
-                        self.main.notice("SerialPort::outPort_5: set interruptEnableRegister")
+                    self.main.notice("SerialPort::outPort_5: set interruptEnableRegister")
                     self.interruptEnableRegister = data
             elif (ioPortAddr == 2):
                 if (data & 1):
@@ -304,11 +299,9 @@ cdef class SerialPort:
             elif (ioPortAddr == 7):
                 self.scratchRegister = data
             else:
-                with gil:
-                    self.main.exitError("SerialPort::outPort_1: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", (ioPortAddr, dataSize, data))
+                self.main.exitError("SerialPort::outPort_1: port 0x%02x with dataSize %u not supported. (data: 0x%04x)", ioPortAddr, dataSize, data)
         else:
-            with gil:
-                self.main.exitError("SerialPort::outPort_2: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", (ioPortAddr, dataSize, data))
+            self.main.exitError("SerialPort::outPort_2: port 0x%02x with dataSize %u not supported. (data: 0x%04x)", ioPortAddr, dataSize, data)
         return
     cdef void run(self):
         if (self.fp is not None):
@@ -327,8 +320,7 @@ cdef class Serial:
             port.reset()
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
         cdef uint32_t ret = BITMASK_BYTE
-        with gil:
-            self.main.notice("Serial::inPort_1: port {0:#04x} dataSize {1:d}.", (ioPortAddr, dataSize))
+        self.main.notice("Serial::inPort_1: port 0x%02x dataSize %u.", ioPortAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in SERIAL1_PORTS_TUPLE):
                 with gil:
@@ -343,24 +335,20 @@ cdef class Serial:
                 with gil:
                     ret = (<SerialPort>self.ports[3]).inPort(ioPortAddr-SERIAL4_PORTS_TUPLE[0], dataSize)
             else:
-                with gil:
-                    self.main.exitError("Serial::inPort_2: port {0:#04x} with dataSize {1:d} not supported.", (ioPortAddr, dataSize))
+                self.main.exitError("Serial::inPort_2: port 0x%02x with dataSize %u not supported.", ioPortAddr, dataSize)
                 return ret
         elif (dataSize == OP_SIZE_WORD):
             ret = self.inPort(ioPortAddr, OP_SIZE_BYTE)
             ret |= self.inPort(ioPortAddr+1, OP_SIZE_BYTE)<<8
         else:
-            with gil:
-                self.main.exitError("Serial::inPort_3: port {0:#04x} with dataSize {1:d} not supported.", (ioPortAddr, dataSize))
+            self.main.exitError("Serial::inPort_3: port 0x%02x with dataSize %u not supported.", ioPortAddr, dataSize)
             return ret
-        with gil:
-            self.main.notice("Serial::inPort_4: port {0:#04x} data {1:#04x} dataSize {2:d}.", (ioPortAddr, ret, dataSize))
+        self.main.notice("Serial::inPort_4: port 0x%02x data 0x%02x dataSize %u.", ioPortAddr, ret, dataSize)
         #if (ioPortAddr == 0x3fe and ret == 0xff):
         #    self.main.debugEnabledTest = self.main.debugEnabled = True
         return ret
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
-        with gil:
-            self.main.notice("Serial::outPort_1: port {0:#04x} data {1:#04x} dataSize {2:d}.", (ioPortAddr, data, dataSize))
+        self.main.notice("Serial::outPort_1: port 0x%02x data 0x%02x dataSize %u.", ioPortAddr, data, dataSize)
         if (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr in SERIAL1_PORTS_TUPLE):
                 with gil:
@@ -375,14 +363,12 @@ cdef class Serial:
                 with gil:
                     (<SerialPort>self.ports[3]).outPort(ioPortAddr-SERIAL4_PORTS_TUPLE[0], data, dataSize)
             else:
-                with gil:
-                    self.main.exitError("Serial::outPort_2: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", (ioPortAddr, dataSize, data))
+                self.main.exitError("Serial::outPort_2: port 0x%02x with dataSize %u not supported. (data: 0x%04x)", ioPortAddr, dataSize, data)
         elif (dataSize == OP_SIZE_WORD):
             self.outPort(ioPortAddr, <uint8_t>data, OP_SIZE_BYTE)
             self.outPort(ioPortAddr+1, <uint8_t>(data>>8), OP_SIZE_BYTE)
         else:
-            with gil:
-                self.main.exitError("Serial::outPort_3: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", (ioPortAddr, dataSize, data))
+            self.main.exitError("Serial::outPort_3: port 0x%02x with dataSize %u not supported. (data: 0x%04x)", ioPortAddr, dataSize, data)
         return
     cdef void run(self):
         cdef SerialPort port

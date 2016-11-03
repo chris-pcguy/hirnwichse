@@ -156,17 +156,7 @@ cdef class Registers:
     cdef uint8_t segWriteSegment(self, Segment *segment, uint16_t segValue) except BITMASK_BYTE_CONST
     cdef uint16_t regWriteWord(self, uint16_t regId, uint16_t value) except? BITMASK_BYTE_CONST
     cdef uint32_t regWriteDword(self, uint16_t regId, uint32_t value) except? BITMASK_BYTE_CONST
-    cdef inline uint64_t regWriteQword(self, uint16_t regId, uint64_t value) nogil:
-        IF 0:
-        #if (regId == CPU_REGISTER_RFLAGS):
-            cdef uint8_t ifEnabled
-            ifEnabled = ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((<uint32_t>value>>9)&1))
-            if (ifEnabled):
-                self.main.cpu.asyncEvent = True
-        #else:
-        #ELSE:
-        self.regs[regId]._union.rrx = value
-        return value
+    cdef uint64_t regWriteQword(self, uint16_t regId, uint64_t value)
     cdef uint64_t regReadUnsigned(self, uint16_t regId, uint8_t regSize) nogil
     cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil
     cdef inline uint64_t regAdd(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil

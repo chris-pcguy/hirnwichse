@@ -142,7 +142,7 @@ cdef class PysdlUI:
         pass
         #pygame.key.set_repeat(delay, interval)
     cdef uint8_t keyToScancode(self, uint32_t key):
-        self.vga.main.notice("keyToScancode: test1: keyToScancode. (keyId: {0:d}, keyName: {1:s})", (key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key)))))
+        #self.vga.main.notice("keyToScancode: test1: keyToScancode. (keyId: %u, keyName: %s)", key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))))
         if (key == sdl2.SDL_SCANCODE_LCTRL):
             return 0x00
         elif (key == sdl2.SDL_SCANCODE_LSHIFT):
@@ -357,7 +357,7 @@ cdef class PysdlUI:
             return 0x69
         #elif (key == sdl2.SDL_SCANCODE_BREAK):
         #    return 0x6a
-        self.vga.main.notice("keyToScancode: unknown key. (keyId: {0:d}, keyName: {1:s})", (key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key)))))
+        #self.vga.main.notice("keyToScancode: unknown key. (keyId: %u, keyName: %s)", key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))))
         return 0xff
     cdef void handleSingleEvent(self, object event):
         if (event.type == sdl2.SDL_QUIT):
@@ -378,7 +378,7 @@ cdef class PysdlUI:
                 stdout.flush()
                 return
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_RCTRL):
-                #self.vga.main.notice("PysdlUI::ShowCursor_test1: {0:d}", (sdl2.SDL_ShowCursor(sdl2.SDL_QUERY),))
+                #self.vga.main.notice("PysdlUI::ShowCursor_test1: %u", sdl2.SDL_ShowCursor(sdl2.SDL_QUERY))
                 if (sdl2.SDL_ShowCursor(sdl2.SDL_QUERY) == sdl2.SDL_ENABLE):
                     sdl2.SDL_ShowCursor(sdl2.SDL_DISABLE)
                     sdl2.SDL_SetHintWithPriority(sdl2.SDL_HINT_GRAB_KEYBOARD, b"1", sdl2.SDL_HINT_OVERRIDE)
@@ -400,7 +400,7 @@ cdef class PysdlUI:
                 return
             (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.scancode), True)
         else:
-            self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == {0:d}", (event.type,))
+            self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == %u", <int>event.type)
     cdef void updateScreen(self):
         cdef object colorObject
         #cdef list pointList

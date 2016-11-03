@@ -63,8 +63,7 @@ cdef class PS2:
             (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
     cdef void appendToOutBytesDoIrq(self, bytes data) nogil:
         if (self.outb):
-            with gil:
-                self.main.notice("KBC::appendToOutBytesDoIrq: self.outb!=0")
+            self.main.notice("KBC::appendToOutBytesDoIrq: self.outb!=0")
             return
         self.appendToOutBytesImm(data)
     cdef void setKeyboardRepeatRate(self, uint8_t data) nogil: # input is data from cmd 0xf3
@@ -83,8 +82,7 @@ cdef class PS2:
         elif (interval == 0x14): interval = 200
         elif (interval == 0x1f): interval = 500
         else:
-            with gil:
-                self.main.exitError("setKeyboardRepeatRate: interval {0:d} unknown.", (interval,))
+            self.main.exitError("setKeyboardRepeatRate: interval %u unknown.", interval)
         # TODO: Set the repeat-rate properly.
         if (self.main.platform.vga.ui is not None):
             with gil:
@@ -92,10 +90,10 @@ cdef class PS2:
     cdef void keySend(self, uint8_t keyId, uint8_t keyUp):
         cdef uint8_t sc, escaped
         cdef bytes scancode, returnedScancode
-        self.main.notice("PS2::keySend entered. (keyId: {0:#04x}, keyUp: {1:d})", (keyId, keyUp))
+        self.main.notice("PS2::keySend entered. (keyId: 0x%02x, keyUp: %u)", keyId, keyUp)
         if ((not self.kbdClockEnabled) or (not self.scanningEnabled) or (keyId == 0xff)):
             return
-        self.main.notice("PS2::keySend: send key. (keyId: {0:#04x}, keyUp: {1:d})", (keyId, keyUp))
+        self.main.notice("PS2::keySend: send key. (keyId: 0x%02x, keyUp: %u)", keyId, keyUp)
         scancode = SCANCODES[keyId][self.currentScancodesSet][keyUp]
         if (self.translateScancodes):
             returnedScancode = b""
@@ -120,8 +118,7 @@ cdef class PS2:
         if (dataSize == OP_SIZE_BYTE):
             #if (ioPortAddr != 0x64):
             IF COMP_DEBUG:
-                with gil:
-                    self.main.notice("PS2: inPort_1: port {0:#04x}; savedCs=={1:#06x}; savedEip=={2:#06x}", (ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip))
+                self.main.notice("PS2: inPort_1: port 0x%02x; savedCs==0x%04x; savedEip==0x%04x", ioPortAddr, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x64):
                 #if (len(self.mouseBuffer)):
                 #    self.auxb = True # TODO: HACK
@@ -144,10 +141,9 @@ cdef class PS2:
                         self.outb)
                 self.timeout = False
                 #if (self.main.debugEnabled):
-                #    self.main.debug("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", (ioPortAddr, retByte))
+                #    self.main.debug("PS2: inPort_2: port 0x%02x; retByte 0x%02x", ioPortAddr, retByte)
                 IF COMP_DEBUG:
-                    with gil:
-                        self.main.notice("PS2: inPort_2: port {0:#04x}; retByte {1:#04x}", (ioPortAddr, retByte))
+                    self.main.notice("PS2: inPort_2: port 0x%02x; retByte 0x%02x", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x60):
                 #self.outb = False
@@ -188,10 +184,9 @@ cdef class PS2:
                 #if (len(self.outBuffer)):
                 #    self.activateTimer()
                 #if (self.main.debugEnabled):
-                #    self.main.debug("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", (ioPortAddr, retByte))
+                #    self.main.debug("PS2: inPort_3: port 0x%02x; retByte 0x%02x", ioPortAddr, retByte)
                 IF COMP_DEBUG:
-                    with gil:
-                        self.main.notice("PS2: inPort_3: port {0:#04x}; retByte {1:#04x}", (ioPortAddr, retByte))
+                    self.main.notice("PS2: inPort_3: port 0x%02x; retByte 0x%02x", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x61):
                 with gil:
@@ -200,23 +195,19 @@ cdef class PS2:
                         (self.ppcbT2Spkr and PPCB_T2_SPKR) | \
                         (self.ppcbT2Out  and PPCB_T2_OUT))
                 IF COMP_DEBUG:
-                    with gil:
-                        self.main.notice("PS2: inPort_4: port {0:#04x}; retByte {1:#04x}", (ioPortAddr, retByte))
+                    self.main.notice("PS2: inPort_4: port 0x%02x; retByte 0x%02x", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x92):
                 return ((<Registers>(<Cpu>self.main.cpu).registers).A20Active << 1)
             else:
-                with gil:
-                    self.main.exitError("inPort: port {0:#04x} is not supported.", (ioPortAddr,))
+                self.main.exitError("inPort: port 0x%02x is not supported.", ioPortAddr)
         else:
-            with gil:
-                self.main.exitError("inPort: port {0:#04x} with dataSize {1:d} not supported.", (ioPortAddr, dataSize))
+            self.main.exitError("inPort: port 0x%02x with dataSize %u not supported.", ioPortAddr, dataSize)
         return 0
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         if (dataSize == OP_SIZE_BYTE):
             IF COMP_DEBUG:
-                with gil:
-                    self.main.notice("PS2: outPort: port {0:#04x} ; data {1:#04x}; savedCs=={2:#06x}; savedEip=={3:#06x}", (ioPortAddr, data, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip))
+                self.main.notice("PS2: outPort: port 0x%02x ; data 0x%02x; savedCs==0x%04x; savedEip==0x%04x", ioPortAddr, data, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x60):
                 self.lastUsedController = False
                 if (not self.needWriteBytes):
@@ -259,8 +250,7 @@ cdef class PS2:
                         self.appendToOutBytes(b'\xfa')
                         self.scanningEnabled = True
                     elif (data == 0xfe): # got resend cmd
-                        with gil:
-                            self.main.exitError("KBD: got resend cmd, maybe it's better to check for bugs in ps2.pyx. exiting...")
+                        self.main.exitError("KBD: got resend cmd, maybe it's better to check for bugs in ps2.pyx. exiting...")
                     elif (data == 0xff):
                         self.resetInternals(True)
                         self.appendToOutBytes(b'\xfa')
@@ -269,8 +259,7 @@ cdef class PS2:
                     elif (data in (0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd)):
                         self.appendToOutBytes(b'\xfe')
                     else:
-                        with gil:
-                            self.main.notice("outPort: data {0:#04x} is not supported. (port {1:#04x})", (data, ioPortAddr))
+                        self.main.notice("outPort: data 0x%02x is not supported. (port 0x%02x)", data, ioPortAddr)
                     if (self.needWriteBytes > 0):
                         self.lastUsedPort = ioPortAddr
                         self.lastUsedCmd = data
@@ -290,8 +279,7 @@ cdef class PS2:
                         elif (self.lastUsedCmd == 0xd4): # port 0x64
                             #if (self.main.debugEnabled):
                             IF 0:
-                                with gil:
-                                    self.main.notice("outPort: self.lastUsedPort == 0x64; self.lastUsedCmd == 0xd4. (port {0:#04x}; data {1:#04x}; self.needWriteBytesMouse {2:d})", (ioPortAddr, data, self.needWriteBytesMouse))
+                                self.main.notice("outPort: self.lastUsedPort == 0x64; self.lastUsedCmd == 0xd4. (port 0x%02x; data 0x%02x; self.needWriteBytesMouse %u)", ioPortAddr, data, self.needWriteBytesMouse)
                             IF 0:
                             #IF 1: # mouse present
                                 self.appendToOutBytesMouse(b'\xfa')
@@ -316,8 +304,7 @@ cdef class PS2:
                                 self.irq1Requested = True
                                 (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
                         else:
-                            with gil:
-                                self.main.exitError("outPort: data_3 {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", (data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd))
+                            self.main.exitError("outPort: data_3 0x%02x is not supported. (port 0x%02x, needWriteBytes==%u, lastUsedPort==0x%02x, lastUsedCmd==0x%02x)", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
                     elif (self.lastUsedPort == 0x60):
                         if (self.lastUsedCmd == 0xf0): # port 0x60
                             if (data == 0x00): # get scancodes
@@ -325,8 +312,7 @@ cdef class PS2:
                                     self.appendToOutBytes(bytes([ 0xfa, self.currentScancodesSet+1 ]))
                             elif (data in (0x01, 0x02, 0x03)):
                                 self.currentScancodesSet = data-1
-                                with gil:
-                                    self.main.notice("outPort: self.currentScancodesSet is now set to {0:d}. (port {1:#04x}; data {2:#04x})", (self.currentScancodesSet, ioPortAddr, data))
+                                self.main.notice("outPort: self.currentScancodesSet is now set to %u. (port 0x%02x; data 0x%02x)", self.currentScancodesSet, ioPortAddr, data)
                                 self.appendToOutBytes(b'\xfa')
                             else:
                                 self.appendToOutBytes(b'\xff')
@@ -335,11 +321,9 @@ cdef class PS2:
                         elif (self.lastUsedCmd == 0xed): # port 0x60; setLeds
                             self.appendToOutBytesImm(b'\xfa')
                         else:
-                            with gil:
-                                self.main.exitError("outPort: data_2 {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", (data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd))
+                            self.main.exitError("outPort: data_2 0x%02x is not supported. (port 0x%02x, needWriteBytes==%u, lastUsedPort==0x%02x, lastUsedCmd==0x%02x)", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
                     elif (self.lastUsedPort):
-                        with gil:
-                            self.main.exitError("outPort: data_1 {0:#04x} is not supported. (port {1:#04x}, needWriteBytes=={2:d}, lastUsedPort=={3:#04x}, lastUsedCmd=={4:#04x})", (data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd))
+                        self.main.exitError("outPort: data_1 0x%02x is not supported. (port 0x%02x, needWriteBytes==%u, lastUsedPort==0x%02x, lastUsedCmd==0x%02x)", data, ioPortAddr, self.needWriteBytes, self.lastUsedPort, self.lastUsedCmd)
                     self.needWriteBytes -= 1
                     if (not self.needWriteBytes):
                         self.lastUsedPort = self.lastUsedCmd = 0
@@ -347,8 +331,7 @@ cdef class PS2:
                 self.lastUsedController = True
                 if (data == 0x20): # read keyboard mode
                     if (self.outb):
-                        with gil:
-                            self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0x20: outb is set.")
+                        self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0x20: outb is set.")
                         return
                     with gil:
                         self.appendToOutBytes(bytes([( \
@@ -362,8 +345,7 @@ cdef class PS2:
                 elif (data == 0xa4): # check if password is set
                     self.appendToOutBytesImm(b'\xf1') # no password is set
                 elif (data in (0xa7, 0xa8, 0xa9)): # 0xa7: disable mouse, 0xa8: enable mouse, 0xa9: test mouse port
-                    with gil:
-                        self.main.notice("PS2::outPort: mouse isn't supported yet. (data: {0:#04x})", (data,))
+                    self.main.notice("PS2::outPort: mouse isn't supported yet. (data: 0x%02x)", data)
                     if (data == 0xa9):
                         self.appendToOutBytes(b'\x00') # return success anyway
                 elif (data == 0xaa):
@@ -376,8 +358,7 @@ cdef class PS2:
                     self.appendToOutBytesImm(b'\x55')
                 elif (data == 0xab):
                     if (self.outb):
-                        with gil:
-                            self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0xab: outb is set.")
+                        self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0xab: outb is set.")
                         return
                     self.appendToOutBytesImm(b'\x00')
                 elif (data == 0xad): # disable keyboard
@@ -386,8 +367,7 @@ cdef class PS2:
                     self.setKbdClockEnable(True)
                 elif (data == 0xd0):
                     if (self.outb):
-                        with gil:
-                            self.main.exitError("ERROR: KBC::outPort: Port 0x64, data 0xd0: outb is set.")
+                        self.main.exitError("ERROR: KBC::outPort: Port 0x64, data 0xd0: outb is set.")
                         return
                     outputByte = ((self.irq1Requested << 4) | ((<Registers>(<Cpu>self.main.cpu).registers).A20Active << 1) | 0x01)
                     with gil:
@@ -403,10 +383,9 @@ cdef class PS2:
                         (<Cpu>self.main.cpu).reset()
                 elif ((data >= 0xf0 and data <= 0xfd) or data == 0xff):
                     pass
-                    ##self.main.debug("outPort: ignoring useless command {0:#04x}. (port {1:#04x})", (data, ioPortAddr))
+                    ##self.main.debug("outPort: ignoring useless command 0x%02x. (port 0x%02x)", data, ioPortAddr)
                 else:
-                    with gil:
-                        self.main.notice("outPort: data {0:#04x} is not supported. (port {1:#04x})", (data, ioPortAddr))
+                    self.main.notice("outPort: data 0x%02x is not supported. (port 0x%02x)", data, ioPortAddr)
                 if (self.needWriteBytes > 0):
                     self.lastUsedPort = ioPortAddr
                     self.lastUsedCmd = data
@@ -414,8 +393,7 @@ cdef class PS2:
                     self.lastUsedPort = self.lastUsedCmd = 0
             elif (ioPortAddr == 0x61):
                 if (data & PORT_61H_LOWER_TIMER_IRQ):
-                    with gil:
-                        self.main.notice("PS2::outPort: timer lowerIrq")
+                    self.main.notice("PS2::outPort: timer lowerIrq")
                     (<Pic>self.main.platform.pic).lowerIrq(TIMER_IRQ)
                 #else:
                 #    (<Pic>self.main.platform.pic).raiseIrq(TIMER_IRQ)
@@ -425,11 +403,9 @@ cdef class PS2:
             elif (ioPortAddr == 0x92):
                 (<Registers>(<Cpu>self.main.cpu).registers).setA20Active( (data & PS2_A20) != 0 )
             else:
-                with gil:
-                    self.main.exitError("outPort: port {0:#04x} is not supported. (data {1:#04x})", (ioPortAddr, data))
+                self.main.exitError("outPort: port 0x%02x is not supported. (data 0x%02x)", ioPortAddr, data)
         else:
-            with gil:
-                self.main.exitError("outPort: port {0:#04x} with dataSize {1:d} not supported. (data: {2:#06x})", (ioPortAddr, dataSize, data))
+            self.main.exitError("outPort: port 0x%02x with dataSize %u not supported. (data: 0x%04x)", ioPortAddr, dataSize, data)
         return
     cdef void setKbdClockEnable(self, uint8_t value) nogil:
         cdef uint8_t prevKbdClockEnabled
@@ -463,7 +439,7 @@ cdef class PS2:
             self.outb = True
             if (self.allowIrq1):
                 self.irq1Requested = True
-        #self.main.notice("PS2::periodic: test4; retVal=={0:#04x}", (retVal,))
+        #self.main.notice("PS2::periodic: test4; retVal==0x%02x", retVal)
         return retVal
     cdef void timerFunc(self):
         cdef uint8_t retVal
