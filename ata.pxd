@@ -17,8 +17,8 @@ cdef class AtaDrive:
     cdef uint64_t sectors
     cdef bytes filename
     cdef uint64_t ChsToSector(self, uint32_t cylinder, uint8_t head, uint8_t sector) nogil
-    cdef inline uint16_t readValue(self, uint8_t index)
-    cdef inline void writeValue(self, uint8_t index, uint16_t value)
+    cdef inline uint16_t readValue(self, uint8_t index) nogil
+    cdef inline void writeValue(self, uint8_t index, uint16_t value) nogil
     cdef void reset(self) nogil
     cdef void loadDrive(self, bytes filename)
     cdef bytes readBytes(self, uint64_t offset, uint32_t size)

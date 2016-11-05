@@ -265,7 +265,9 @@ cdef class Opcodes:
         elif (opcode == 0x8f):
             retVal = self.popRM16_32()
         elif (opcode == 0x90):
-            pass # TODO: maybe implement PAUSE-Opcode (F3 90 / REPE NOP)
+            if (self.cpu.repPrefix == OPCODE_PREFIX_REPE): # PAUSE-Opcode (F3 90 / REPE NOP)
+                with nogil:
+                    usleep(0)
             retVal = True
         elif ((opcode & 0xf8) == 0x90): # this won't match 0x90 because of the upper if
             retVal = self.xchgReg()
@@ -1160,11 +1162,9 @@ cdef class Opcodes:
         cxVal = self.registers.regReadUnsigned(CPU_REGISTER_CX, self.cpu.addrSize)
         self.jumpShort(OP_SIZE_BYTE, not cxVal)
         return True
-    cdef inline int jumpShort(self, uint8_t offsetSize, uint8_t cond) except BITMASK_BYTE_CONST:
-        cdef int32_t offset
-        offset = offsetSize
+    cdef inline int jumpShort(self, int32_t offset, uint8_t cond) except BITMASK_BYTE_CONST:
         if (cond):
-            offset = self.registers.getCurrentOpcodeAddSigned(offsetSize)
+            offset = self.registers.getCurrentOpcodeAddSigned(offset)
         self.registers.syncCR0State()
         if (self.cpu.operSize == OP_SIZE_WORD):
             self.registers.regWriteWord(CPU_REGISTER_EIP, self.registers.regs[CPU_REGISTER_EIP]._union.word._union.rx+offset)
@@ -1890,7 +1890,8 @@ cdef class Opcodes:
                 self.main.exitError("Opcodes::opcodeGroup0F: CPUID test1: TODO! (savedEip: 0x%08x, savedCs: 0x%04x; eax; 0x%08x)", self.cpu.savedEip, self.cpu.savedCs, eaxId)
             elif (eaxId & <uint32_t>0x80000000):
                 self.main.notice("Opcodes::opcodeGroup0F: CPUID test2: TODO! (savedEip: 0x%08x, savedCs: 0x%04x; eax; 0x%08x)", self.cpu.savedEip, self.cpu.savedCs, eaxId)
-                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0
+                #self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0x3 # TODO: HACK
                 self.registers.regs[CPU_REGISTER_EBX]._union.dword.erx = 0
                 self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx = 0
                 self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
@@ -2086,6 +2087,18 @@ cdef class Opcodes:
                 self.modRMInstance.modRSave(self.cpu.operSize, op1, OPCODE_SAVE)
                 self.registers.setSZP_COA(op1, self.cpu.operSize)
             self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not op2
+            IF COMP_DEBUG:
+                self.cpu.cpuDump()
+        elif (self.cpu.repPrefix == OPCODE_PREFIX_REPE and operOpcode == 0xbd): # LZCNT R16_32, R/M16_32
+            IF COMP_DEBUG:
+                self.main.notice("Opcodes::opcodeGroup0F: LZCNT: TODO! (savedEip: 0x%08x, savedCs: 0x%04x)", self.cpu.savedEip, self.cpu.savedCs)
+                self.cpu.cpuDump()
+            self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
+            op2 = self.modRMInstance.modRMLoadUnsigned(self.cpu.operSize)
+            op1 = self.cpu.operSize-op2.bit_length()
+            self.modRMInstance.modRSave(self.cpu.operSize, op1, OPCODE_SAVE)
+            self.registers.setSZP_COA(op1, self.cpu.operSize)
+            self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = not op2
             IF COMP_DEBUG:
                 self.cpu.cpuDump()
         elif (operOpcode == 0xbd): # BSR R16_32, R/M16_32
@@ -3397,8 +3410,12 @@ cdef class Opcodes:
             raise HirnwichseException(CPU_EXCEPTION_UD)
         index = self.modRMInstance.modRLoadSigned(self.cpu.operSize)
         returnInt = self.modRMInstance.getRMValueFull(self.cpu.addrSize)
-        lowerBound = self.registers.mmReadValueSigned(returnInt, self.cpu.operSize, self.modRMInstance.rmNameSeg, True)
-        upperBound = self.registers.mmReadValueSigned(returnInt+self.cpu.operSize, self.cpu.operSize, self.modRMInstance.rmNameSeg, True)+self.cpu.operSize
+        if (self.cpu.operSize == OP_SIZE_WORD):
+            lowerBound = <int16_t>self.registers.mmReadValueUnsignedWord(returnInt, self.modRMInstance.rmNameSeg, True)
+            upperBound = <int16_t>self.registers.mmReadValueUnsignedWord(returnInt+self.cpu.operSize, self.modRMInstance.rmNameSeg, True)+self.cpu.operSize
+        else:
+            lowerBound = <int32_t>self.registers.mmReadValueUnsignedDword(returnInt, self.modRMInstance.rmNameSeg, True)
+            upperBound = <int32_t>self.registers.mmReadValueUnsignedDword(returnInt+self.cpu.operSize, self.modRMInstance.rmNameSeg, True)+self.cpu.operSize
         if (index < lowerBound or index > upperBound):
             self.main.notice("bound_test1: index: 0x%04x, lowerBound: 0x%04x, upperBound: 0x%04x", index, lowerBound, upperBound)
             raise HirnwichseException(CPU_EXCEPTION_BR)

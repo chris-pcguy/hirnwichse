@@ -135,7 +135,14 @@ cdef class ModRMClass:
                 returnInt = <int64_t>self.registers.regs[self.rmName0]._union.rrx
         else:
             mmAddr = self.getRMValueFull(self.regSize)
-            returnInt = self.registers.mmReadValueSigned(mmAddr, regSize, self.rmNameSeg, True)
+            if (regSize == OP_SIZE_BYTE):
+                returnInt = <int8_t>self.registers.mmReadValueUnsignedByte(mmAddr, self.rmNameSeg, True)
+            elif (regSize == OP_SIZE_WORD):
+                returnInt = <int16_t>self.registers.mmReadValueUnsignedWord(mmAddr, self.rmNameSeg, True)
+            elif (regSize == OP_SIZE_DWORD):
+                returnInt = <int32_t>self.registers.mmReadValueUnsignedDword(mmAddr, self.rmNameSeg, True)
+            elif (regSize == OP_SIZE_QWORD):
+                returnInt = <int64_t>self.registers.mmReadValueUnsignedQword(mmAddr, self.rmNameSeg, True)
         return returnInt
     cdef uint64_t modRMLoadUnsigned(self, uint8_t regSize) except? BITMASK_BYTE_CONST:
         # NOTE: imm == unsigned ; disp == signed
@@ -154,7 +161,14 @@ cdef class ModRMClass:
                 returnInt = self.registers.regs[self.rmName0]._union.rrx
         else:
             mmAddr = self.getRMValueFull(self.regSize)
-            returnInt = self.registers.mmReadValueUnsigned(mmAddr, regSize, self.rmNameSeg, True)
+            if (regSize == OP_SIZE_BYTE):
+                returnInt = self.registers.mmReadValueUnsignedByte(mmAddr, self.rmNameSeg, True)
+            elif (regSize == OP_SIZE_WORD):
+                returnInt = self.registers.mmReadValueUnsignedWord(mmAddr, self.rmNameSeg, True)
+            elif (regSize == OP_SIZE_DWORD):
+                returnInt = self.registers.mmReadValueUnsignedDword(mmAddr, self.rmNameSeg, True)
+            elif (regSize == OP_SIZE_QWORD):
+                returnInt = self.registers.mmReadValueUnsignedQword(mmAddr, self.rmNameSeg, True)
         return returnInt
     cdef uint64_t modRMSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp) except? BITMASK_BYTE_CONST:
         # stdValueOp==OPCODE_SAVE
@@ -525,7 +539,12 @@ cdef class Registers:
         (<Paging>(<Segments>self.segments).paging).instrFetch = True
         IF (CPU_CACHE_SIZE):
             if (self.cacheDisabled):
-                ret = self.mmReadValueSigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
+                if (numBytes == OP_SIZE_BYTE):
+                    ret = <int8_t>self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
+                elif (numBytes == OP_SIZE_WORD):
+                    ret = <int16_t>self.mmReadValueUnsignedWord(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
+                elif (numBytes == OP_SIZE_DWORD):
+                    ret = <int32_t>self.mmReadValueUnsignedDword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
             else:
                 self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False, False, True)
                 physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
@@ -533,7 +552,12 @@ cdef class Registers:
                     self.reloadCpuCache()
                 ret = self.readFromCacheAddSigned(numBytes)
         ELSE:
-            ret = self.mmReadValueSigned(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False)
+            if (numBytes == OP_SIZE_BYTE):
+                ret = <int8_t>self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
+            elif (numBytes == OP_SIZE_WORD):
+                ret = <int16_t>self.mmReadValueUnsignedWord(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
+            elif (numBytes == OP_SIZE_DWORD):
+                ret = <int32_t>self.mmReadValueUnsignedDword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
                 self.main.notice("Registers::getCurrentOpcodeAddSigned: EIP: 0x%08x, ret==0x%02x", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
@@ -733,14 +757,12 @@ cdef class Registers:
         elif (regSize == OP_SIZE_QWORD):
             self.regs[regId]._union.rrx = value
     cdef uint16_t regWriteWord(self, uint16_t regId, uint16_t value) except? BITMASK_BYTE_CONST:
-        cdef uint8_t ifEnabled
         IF (CPU_CACHE_SIZE):
             cdef uint32_t realNewEip
         if (regId == CPU_REGISTER_EFLAGS):
             value &= ~RESERVED_FLAGS_BITMASK
             value |= FLAG_REQUIRED
-            ifEnabled = ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((value>>9)&1))
-            if (ifEnabled):
+            if ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((value>>9)&1)):
                 self.main.cpu.asyncEvent = True
         self.regs[regId]._union.word._union.rx = value
         if (regId == CPU_REGISTER_EIP and not self.segments.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_BYTE)):
@@ -755,7 +777,6 @@ cdef class Registers:
                     self.reloadCpuCache()
         return value # returned value is unsigned!!
     cdef uint32_t regWriteDword(self, uint16_t regId, uint32_t value) except? BITMASK_BYTE_CONST:
-        cdef uint8_t ifEnabled
         IF (CPU_CACHE_SIZE):
             cdef uint32_t realNewEip
         if (regId == CPU_REGISTER_CR0):
@@ -770,8 +791,7 @@ cdef class Registers:
         elif (regId == CPU_REGISTER_EFLAGS):
             value &= ~RESERVED_FLAGS_BITMASK
             value |= FLAG_REQUIRED
-            ifEnabled = ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((value>>9)&1))
-            if (ifEnabled):
+            if ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((value>>9)&1)):
                 self.main.cpu.asyncEvent = True
         self.regs[regId]._union.dword.erx = value
         if (regId == CPU_REGISTER_EIP and not self.segments.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_BYTE)):
@@ -788,10 +808,8 @@ cdef class Registers:
             #    self.reloadCpuCache()
         return value # returned value is unsigned!!
     cdef uint64_t regWriteQword(self, uint16_t regId, uint64_t value):
-        cdef uint8_t ifEnabled
         if (regId == CPU_REGISTER_RFLAGS):
-            ifEnabled = ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((<uint32_t>value>>9)&1))
-            if (ifEnabled):
+            if ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((value>>9)&1)):
                 self.main.cpu.asyncEvent = True
         self.regs[regId]._union.rrx = value
         return value
@@ -835,11 +853,9 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             self.regs[regId]._union.word._union.byte.rl ^= value
         elif (valueOp == OPCODE_NEG):
-            value = (-value)
-            self.regs[regId]._union.word._union.byte.rl = value
+            self.regs[regId]._union.word._union.byte.rl = -value
         elif (valueOp == OPCODE_NOT):
-            value = (~value)
-            self.regs[regId]._union.word._union.byte.rl = value
+            self.regs[regId]._union.word._union.byte.rl = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpLowByte: unknown valueOp %u.", valueOp)
         return self.regs[regId]._union.word._union.byte.rl
@@ -861,11 +877,9 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             self.regs[regId]._union.word._union.byte.rh ^= value
         elif (valueOp == OPCODE_NEG):
-            value = (-value)
-            self.regs[regId]._union.word._union.byte.rh = value
+            self.regs[regId]._union.word._union.byte.rh = -value
         elif (valueOp == OPCODE_NOT):
-            value = (~value)
-            self.regs[regId]._union.word._union.byte.rh = value
+            self.regs[regId]._union.word._union.byte.rh = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpHighByte: unknown valueOp %u.", valueOp)
         return self.regs[regId]._union.word._union.byte.rh
@@ -887,11 +901,9 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             self.regs[regId]._union.word._union.rx ^= value
         elif (valueOp == OPCODE_NEG):
-            value = (-value)
-            self.regs[regId]._union.word._union.rx = value
+            self.regs[regId]._union.word._union.rx = -value
         elif (valueOp == OPCODE_NOT):
-            value = (~value)
-            self.regs[regId]._union.word._union.rx = value
+            self.regs[regId]._union.word._union.rx = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpWord: unknown valueOp %u.", valueOp)
         return self.regs[regId]._union.word._union.rx
@@ -913,11 +925,9 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             self.regs[regId]._union.dword.erx ^= value
         elif (valueOp == OPCODE_NEG):
-            value = (-value)
-            self.regs[regId]._union.dword.erx = value
+            self.regs[regId]._union.dword.erx = -value
         elif (valueOp == OPCODE_NOT):
-            value = (~value)
-            self.regs[regId]._union.dword.erx = value
+            self.regs[regId]._union.dword.erx = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpDword: unknown valueOp %u.", valueOp)
         return self.regs[regId]._union.dword.erx
@@ -939,11 +949,9 @@ cdef class Registers:
         elif (valueOp == OPCODE_XOR):
             self.regs[regId]._union.rrx ^= value
         elif (valueOp == OPCODE_NEG):
-            value = (-value)
-            self.regs[regId]._union.rrx = value
+            self.regs[regId]._union.rrx = -value
         elif (valueOp == OPCODE_NOT):
-            value = (~value)
-            self.regs[regId]._union.rrx = value
+            self.regs[regId]._union.rrx = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp %u.", valueOp)
         return self.regs[regId]._union.rrx
@@ -961,14 +969,13 @@ cdef class Registers:
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
     cdef inline uint8_t getRegNameWithFlags(self, uint8_t modRMflags, uint8_t reg, uint8_t operSize) except BITMASK_BYTE_CONST:
-        cdef uint8_t regName
         if (modRMflags == MODRM_FLAGS_SREG):
-            regName = CPU_REGISTER_SREG[reg]
-            if (regName == CPU_REGISTER_NONE):
+            reg = CPU_REGISTER_SREG[reg]
+            if (reg == CPU_REGISTER_NONE):
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (modRMflags == MODRM_FLAGS_CREG):
-            regName = CPU_REGISTER_CREG[reg]
-            if (regName == CPU_REGISTER_NONE):
+            reg = CPU_REGISTER_CREG[reg]
+            if (reg == CPU_REGISTER_NONE):
                 raise HirnwichseException(CPU_EXCEPTION_UD)
         elif (modRMflags == MODRM_FLAGS_DREG):
             if (reg in (4, 5)):
@@ -976,12 +983,11 @@ cdef class Registers:
                     raise HirnwichseException(CPU_EXCEPTION_UD)
                 else:
                     reg += 2
-            regName = CPU_REGISTER_DREG[reg]
+            reg = CPU_REGISTER_DREG[reg]
         else:
-            regName = reg
             if (operSize == OP_SIZE_BYTE):
-                regName &= 3
-        return regName
+                reg &= 3
+        return reg
     cdef inline uint8_t getCond(self, uint8_t index) nogil:
         cdef uint8_t negateCheck, ret # = 0
         negateCheck = index & 1
@@ -1048,7 +1054,7 @@ cdef class Registers:
             else:
                 if (method in (OPCODE_ADC, OPCODE_SBB) and self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf):
                     carried = True
-                if (carried): reg1 += 1
+                    reg1 += 1
                 if (method in (OPCODE_ADD, OPCODE_ADC)):
                     regSumu = (reg0+reg1)
                 elif (method in (OPCODE_SUB, OPCODE_SBB)):
@@ -1090,11 +1096,11 @@ cdef class Registers:
             segment = self.main.cpu.segmentOverridePrefix
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmGetRealAddr_1: %s: LIN 0x%08x; dataSize %u", "WR" if (written) else "RD", origMmAddr, dataSize)
+                self.main.notice("Registers::mmGetRealAddr_1: %s: LIN 0x%08x; dataSize %u", b"WR" if (written) else b"RD", origMmAddr, dataSize)
         if (segment is not NULL):
             IF COMP_DEBUG:
                 if (self.main.debugEnabled):
-                    self.main.notice("Registers::mmGetRealAddr_1.1: %s: LIN 0x%08x; dataSize %u; segId %u", "WR" if (written) else "RD", origMmAddr, dataSize, segment[0].segId)
+                    self.main.notice("Registers::mmGetRealAddr_1.1: %s: LIN 0x%08x; dataSize %u; segId %u", b"WR" if (written) else b"RD", origMmAddr, dataSize, segment[0].segId)
             if (self.protectedModeOn and segment[0].segId == CPU_SEGMENT_TSS):
                 (<Paging>(<Segments>self.segments).paging).implicitSV = True
             addrInLimit = self.segments.isAddressInLimit(&segment[0].gdtEntry, mmAddr, dataSize)
@@ -1147,35 +1153,8 @@ cdef class Registers:
             mmAddr &= <uint32_t>0xffefffff
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
-                self.main.notice("Registers::mmGetRealAddr_2: %s: LIN 0x%08x; PHY 0x%08x", "WR" if (written) else "RD", origMmAddr, mmAddr)
+                self.main.notice("Registers::mmGetRealAddr_2: %s: LIN 0x%08x; PHY 0x%08x", b"WR" if (written) else b"RD", origMmAddr, mmAddr)
         return mmAddr
-    cdef int64_t mmReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
-        cdef uint8_t i
-        cdef uint32_t physAddr
-        cdef int64_t ret
-        if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
-            physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
-        elif (segment is not NULL):
-            physAddr = segment[0].gdtEntry.base+mmAddr
-        else:
-            physAddr = mmAddr
-        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < dataSize):
-            ret = 0
-            for i in range(dataSize):
-                ret |= <int64_t>self.mmReadValueUnsignedByte(mmAddr+i, segment, allowOverride)<<(i<<3)
-            if (dataSize == OP_SIZE_BYTE):
-                return <int8_t>ret
-            elif (dataSize == OP_SIZE_WORD):
-                return <int16_t>ret
-            elif (dataSize == OP_SIZE_DWORD):
-                return <int32_t>ret
-            return <int64_t>ret
-        physAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, False, False)
-        ret = self.main.mm.mmPhyReadValueSigned(physAddr, dataSize)
-        IF COMP_DEBUG:
-            if (self.main.debugEnabled):
-                self.main.notice("Registers::mmReadValueSigned: virt mmAddr 0x%08x; ret 0x%08x; dataSize %u", mmAddr, ret, dataSize)
-        return ret
     cdef inline uint8_t mmReadValueUnsignedByte(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint8_t ret
         #if (self.main.debugEnabled):

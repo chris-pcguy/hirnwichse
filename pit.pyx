@@ -35,6 +35,7 @@ cdef class PitChannel:
             (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
         #self.pit.main.notice("PitChannel::mode0Func: self.tempTimerValue %u", self.tempTimerValue)
         with nogil:
+        #IF 1:
             usleep(self.tempTimerValue)
         if (not self.timerEnabled or self.pit.main.quitEmu):
             return
@@ -86,16 +87,16 @@ cdef class PitChannel:
                     #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                     #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                     if (self.localCounterMode == 3):
-                        #i = 2
-                        i = 4 # HACK
+                        i = 2
+                        #i = 4 # HACK
                     else:
-                        #i = 1
-                        i = 2 # HACK
+                        i = 1
+                        #i = 2 # HACK
                     #with gil:
                     #    prctl.set_name("Pit::%u%u_15".format(self.channelId, self.localCounterMode))
                     #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                     #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
-                    while (self.counterValue >= 0 and self.counterValue <= (BITMASK_WORD+1) and self.timerEnabled and not self.pit.main.quitEmu and (self.localCounterMode == 2 or self.localCounterMode == 3)):
+                    while (self.counterValue >= i and self.counterValue <= (BITMASK_WORD+1) and self.timerEnabled and not self.pit.main.quitEmu and (self.localCounterMode == 2 or self.localCounterMode == 3)):
                         #self.main.notice("PitChannel::mode2Func: loop2 begin")
                         #for i in range(60):
                         #    pass
@@ -105,11 +106,11 @@ cdef class PitChannel:
                         #if (not (self.counterValue&0xfff)):
                         #if (not (self.counterValue&0xff)):
                         #if (not (self.counterValue&0x7f)):
-                        #if (not (self.counterValue&0x3f)):
+                        if (not (self.counterValue&0x3f)):
                         #if (not (self.counterValue&0x1f)):
                         #if (not (self.counterValue&0xf)):
                         #if (not (self.counterValue&0x7)):
-                        if (not (self.counterValue&0x3)):
+                        #if (not (self.counterValue&0x3)):
                         #if (not (self.counterValue&0x1)):
                         #IF 1:
                         #IF 0:
@@ -181,14 +182,16 @@ cdef class PitChannel:
         #prctl.set_name("Pit::%u%u_4".format(self.channelId, self.localCounterMode))
     cdef void timerFunc(self): # TODO
         prctl.set_name("Pit::%u%u_0".format(self.channelId, self.localCounterMode))
-        if (self.timerEnabled):
-            if (self.localCounterMode == 0):
-                self.mode0Func()
-            elif (self.localCounterMode in (2, 3)):
-                self.mode2Func()
-            else:
-                self.pit.main.exitError("timerFunc: counterMode %u is unknown.", self.localCounterMode)
-                return
+        #with nogil:
+        IF 1:
+            if (self.timerEnabled):
+                if (self.localCounterMode == 0):
+                    self.mode0Func()
+                elif (self.localCounterMode in (2, 3)):
+                    self.mode2Func()
+                else:
+                    self.pit.main.exitError("timerFunc: counterMode %u is unknown.", self.localCounterMode)
+                    return
         #prctl.set_name("Pit::%u%u_5".format(self.channelId, self.localCounterMode))
         #with nogil:
         #    usleep(3000000)
@@ -215,10 +218,14 @@ cdef class PitChannel:
                     self.pit.main.exitError("runTimer: counterValue is 0")
                     return
             self.counterValue = self.counterStartValue
-            self.tempTimerValue = round(1.0e6/(1193182.0/self.counterValue))
-            #if (self.localCounterMode == 0):
-            #    self.tempTimerValue <<= 4 # TODO: HACK!
-            #    #self.tempTimerValue <<= 6 # TODO: HACK!
+            #with gil:
+            #    self.tempTimerValue = round(1.0e6/(1193182.0/self.counterValue))
+            #self.tempTimerValue = (300000000/(357954600/self.counterValue))
+            self.tempTimerValue = lround(1.0e6/(1193182.0/self.counterValue))
+            if (self.localCounterMode == 0):
+                #self.tempTimerValue <<= 4 # TODO: HACK!
+                self.tempTimerValue <<= 5 # TODO: HACK!
+                #self.tempTimerValue <<= 6 # TODO: HACK!
             #if (self.localCounterMode == 3):
             #    self.tempTimerValue >>= 1
             if (self.localCounterMode not in (0, 2, 3)):

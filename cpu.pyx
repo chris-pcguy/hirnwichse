@@ -283,7 +283,8 @@ cdef class Cpu:
                         self.handleException(exception) # execute exception handler
                     except HirnwichseException as exception: # exception
                         IF COMP_DEBUG:
-                            self.main.notice("Cpu::doCycle: testexc2; repr==%s", repr(exception.args))
+                            #self.main.notice("Cpu::doCycle: testexc2; repr==%s", repr(exception.args))
+                            self.main.notice("Cpu::doCycle: testexc2")
                         try:
                             self.exception(CPU_EXCEPTION_DF, 0) # exec DF double fault
                         except HirnwichseException as exception: # exception

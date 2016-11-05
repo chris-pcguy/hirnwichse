@@ -119,10 +119,6 @@ cdef uint32_t SIZE_128MB = 0x8000000
 cdef uint32_t SIZE_256MB = 0x10000000
 cdef uint64_t SIZE_4GB = 0x100000000
 
-cdef tuple ROM_SIZES = (SIZE_64KB, SIZE_128KB, SIZE_256KB, SIZE_512KB, SIZE_1MB, SIZE_2MB, SIZE_4MB,
-             SIZE_8MB, SIZE_16MB, SIZE_32MB, SIZE_64MB, SIZE_128MB, SIZE_256MB)
-
-
 cdef uint32_t VGA_MEMAREA_ADDR = 0xa0000
 cdef uint16_t VGA_SEQ_INDEX_ADDR = 0x3c4
 cdef uint16_t VGA_SEQ_DATA_ADDR  = 0x3c5
@@ -255,7 +251,7 @@ DEF PORTS_LIST_LEN = 32
 DEF PORTS_LEN = 33
 
 cdef uint16_t PCI_CONTROLLER_PORTS[PORTS_LEN]
-PCI_CONTROLLER_PORTS = (0x4d0, 0x4d1, 0xcf8, 0xcf9, 0xcfc, 0xcfd, 0xcfe, 0xcff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+PCI_CONTROLLER_PORTS = (0x4d0, 0x4d1, 0xcf8, 0xcf9, 0xcfc, 0xcfd, 0xcfe, 0xcff, 0xae0c, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 cdef uint16_t ATA1_PORTS[PORTS_LEN]
 ATA1_PORTS = (0x1f0, 0x1f1, 0x1f2, 0x1f3, 0x1f4, 0x1f5, 0x1f6, 0x1f7, 0x3f6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 cdef uint16_t ATA2_PORTS[PORTS_LEN]

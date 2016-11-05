@@ -124,9 +124,9 @@ cdef class AtaDrive:
         self.senseKey = self.senseAsc = 0
     cdef uint64_t ChsToSector(self, uint32_t cylinder, uint8_t head, uint8_t sector) nogil:
         return (cylinder*HEADS+head)*SPT+(sector-1)
-    cdef inline uint16_t readValue(self, uint8_t index):
+    cdef inline uint16_t readValue(self, uint8_t index) nogil:
         return self.configSpace.csReadValueUnsigned(index << 1, OP_SIZE_WORD)
-    cdef inline void writeValue(self, uint8_t index, uint16_t value):
+    cdef inline void writeValue(self, uint8_t index, uint16_t value) nogil:
         self.configSpace.csWriteValue(index << 1, value, OP_SIZE_WORD)
     cdef void reset(self) nogil:
         pass
@@ -574,14 +574,16 @@ cdef class AtaController:
             self.busmasterAddress += 8
             if (self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM):
                 IF COMP_DEBUG:
-                    self.ata.main.notice("AtaController::handleBusmaster: test1: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u, len(self.result): %u, self.result: %s", self.lba, self.sectorCount, memBase, memSize, len(self.result), repr(self.result))
+                    #self.ata.main.notice("AtaController::handleBusmaster: test1: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u, len(self.result): %u, self.result: %s", self.lba, self.sectorCount, memBase, memSize, len(self.result), repr(self.result))
+                    self.ata.main.notice("AtaController::handleBusmaster: test1: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u", self.lba, self.sectorCount, memBase, memSize)
                 self.ata.main.mm.mmPhyWrite(memBase, self.result[:memSize], memSize)
                 self.result = self.result[memSize:]
             else:
                 tempCharArray = self.ata.main.mm.mmPhyRead(memBase, memSize)
                 tempResult = PyBytes_FromStringAndSize( tempCharArray, <Py_ssize_t>memSize)
                 IF COMP_DEBUG:
-                    self.ata.main.notice("AtaController::handleBusmaster: test2: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u, len(tempResult): %u, tempResult: %s", self.lba, self.sectorCount, memBase, memSize, len(tempResult), repr(tempResult))
+                    #self.ata.main.notice("AtaController::handleBusmaster: test2: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u, len(tempResult): %u, tempResult: %s", self.lba, self.sectorCount, memBase, memSize, len(tempResult), repr(tempResult))
+                    self.ata.main.notice("AtaController::handleBusmaster: test2: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u", self.lba, self.sectorCount, memBase, memSize)
                 (<AtaDrive>self.drive[self.driveId]).writeBytes(self.lba << (<AtaDrive>self.drive[self.driveId]).sectorShift, memSize, tempResult)
             tempSectors = memSize >> (<AtaDrive>self.drive[self.driveId]).sectorShift
             if (self.sectorCount > 0):
@@ -754,7 +756,8 @@ cdef class AtaController:
             elif (self.cmd == COMMAND_PACKET):
                 IF COMP_DEBUG:
                     if (self.ata.main.debugEnabled):
-                        self.ata.main.notice("AtaController::outPort_0: len(self.data) == %u, self.data == %s", len(self.data), repr(self.data))
+                        #self.ata.main.notice("AtaController::outPort_0: len(self.data) == %u, self.data == %s", len(self.data), repr(self.data))
+                        self.ata.main.notice("AtaController::outPort_0")
                 with gil:
                     if (len(self.data) >= 12):
                         self.handlePacket()

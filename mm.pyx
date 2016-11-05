@@ -284,7 +284,7 @@ cdef class ConfigSpace:
                 self.main.notice("ConfigSpace::csRead: offset+size > self.csSize. (offset: 0x%04x, size: %u)", offset, size)
             data += bytes([self.clearByte])*size
         return data
-    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size):
+    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil:
         cdef uint32_t tempSize
         tempSize = min(size, self.csSize-offset)
         #if (offset >= self.csSize):
@@ -300,7 +300,7 @@ cdef class ConfigSpace:
             #if (self.main.debugEnabled):
             IF COMP_DEBUG:
                 self.main.notice("ConfigSpace::csWrite: offset+size > self.csSize. (offset: 0x%04x, size: %u)", offset, size)
-    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) except? BITMASK_BYTE_CONST:
+    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil:
         cdef uint64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: 0x%04x, size: %u)", offset, size)
@@ -318,7 +318,7 @@ cdef class ConfigSpace:
         elif (size == OP_SIZE_DWORD):
             ret = <uint32_t>ret
         return ret
-    cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size) except? BITMASK_BYTE_CONST:
+    cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size) nogil:
         cdef int64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueSigned: test1. (offset: 0x%04x, size: %u)", offset, size)
@@ -336,7 +336,7 @@ cdef class ConfigSpace:
         elif (size == OP_SIZE_DWORD):
             ret = <int32_t>ret
         return ret
-    cdef uint64_t csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) except? BITMASK_BYTE_CONST:
+    cdef uint64_t csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) nogil:
         #if (offset >= self.csSize):
         IF 0:
             #if (self.main.debugEnabled):

@@ -65,6 +65,7 @@ cdef class Vga:
     cdef void refreshScreenFunction(self) nogil
     cdef char *vgaAreaReadHandler(self, uint32_t offset, uint32_t dataSize)
     cdef char *vgaAreaRead(self, uint32_t offset, uint32_t dataSize) nogil
+    cdef void vgaAreaWriteHandler(self, uint32_t offset, uint32_t dataSize)
     cdef void vgaAreaWrite(self, uint32_t offset, uint32_t dataSize) nogil
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil

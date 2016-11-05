@@ -1,12 +1,13 @@
 
 from libc.stdint cimport *
+from libc.math cimport lround
 from cpython.ref cimport PyObject, Py_INCREF
+from posix.unistd cimport usleep
 
 from hirnwichse_main cimport Hirnwichse
 from cmos cimport Cmos
 from pic cimport Pic
 from ps2 cimport PS2
-from posix.unistd cimport usleep
 
 cdef class PitChannel:
     cdef object threadObject

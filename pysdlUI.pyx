@@ -54,7 +54,7 @@ cdef class PysdlUI:
     cdef void clearScreen(self):
         pass
         #self.screen.fill((0, 0, 0))
-    cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors) nogil: # returns rect
+    cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors): # returns rect
         #cdef object newRect, colorObject
         #cdef object colorObject
         cdef uint32_t bgColor
@@ -65,8 +65,8 @@ cdef class PysdlUI:
             # bgColor == RGBA; colors == (A?)RGB
             if (self.msbBlink):
                 colors &= 0x7
-            with gil:
-                self.points[colors].extend((x, y))
+            #with gil:
+            self.points[colors].extend((x, y))
             #bgColor = self.vga.getColor(colors)
             #with gil:
             #    self.points.extend((x, y, bgColor))
@@ -402,25 +402,28 @@ cdef class PysdlUI:
         else:
             self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == %u", <int>event.type)
     cdef void updateScreen(self):
-        cdef object colorObject
+        #cdef object colorObject
         #cdef list pointList
         #cdef uint8_t doRefresh
-        cdef uint16_t x, y
+        #cdef uint16_t x, y
         cdef uint32_t i, bgColor
-        if (self.vga.graphicalMode):
+        #if (self.vga.graphicalMode):
+        IF 1:
             #doRefresh = False
-            if (self.renderer):
+            #if (self.renderer):
+            IF 1:
                 for i in range(256):
                     #pointList = self.points[i]
                     #if (len(pointList) >= 2):
                     if (len(self.points[i]) >= 2):
                         #doRefresh = True
                         bgColor = self.vga.getColor(i)
-                        colorObject = sdl2.ext.ARGB(0xff000000|bgColor)
+                        #colorObject = sdl2.ext.ARGB(0xff000000|bgColor)
                         #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
                         #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
                         #self.renderer.draw_point(pointList, colorObject)
-                        self.renderer.draw_point(self.points[i], colorObject)
+                        #self.renderer.draw_point(self.points[i], colorObject)
+                        self.renderer.draw_point(self.points[i], bgColor)
                         self.points[i] = []
                         #self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
                         #return newRect

@@ -176,7 +176,6 @@ cdef class Registers:
     cdef inline uint8_t getCond(self, uint8_t index) nogil
     cdef inline void setFullFlags(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method) nogil
     cdef inline uint32_t mmGetRealAddr(self, uint32_t mmAddr, uint32_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t written, uint8_t noAddress) except? BITMASK_BYTE_CONST
-    cdef int64_t mmReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST
     cdef inline uint8_t mmReadValueUnsignedByte(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST
     cdef uint16_t mmReadValueUnsignedWord(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST
     cdef uint32_t mmReadValueUnsignedDword(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST

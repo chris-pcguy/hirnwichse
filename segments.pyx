@@ -204,7 +204,7 @@ cdef class Paging: # TODO
             else:
                 self.tlbTables.csResetAddr((i<<12), 0, PAGE_DIRECTORY_LENGTH)
     cdef void invalidateTable(self, uint32_t virtualAddress):
-        cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, i
+        cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry
         pageDirectoryOffset = (virtualAddress>>22) << 2
         pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         pageDirectoryEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|pageDirectoryOffset) # page directory
@@ -213,7 +213,7 @@ cdef class Paging: # TODO
         self.tlbTables.csWriteValue(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTableEntry, OP_SIZE_DWORD)
     cdef void invalidatePage(self, uint32_t virtualAddress):
         cdef uint8_t updateDir
-        cdef uint32_t pageDirectoryEntry, pageTableEntry, pageDirectoryOffset, pageTableOffset, pageDirectoryEntryV, i, j,
+        cdef uint32_t pageDirectoryEntry, pageTableEntry, pageDirectoryOffset, pageTableOffset, pageDirectoryEntryV, i, j
         pageDirectoryOffset = (virtualAddress>>22) << 2
         pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         pageDirectoryEntryV = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|pageDirectoryOffset)&<uint32_t>0xfffff000 # page directory

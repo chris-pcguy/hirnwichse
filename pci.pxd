@@ -52,6 +52,7 @@ cdef class PciBus:
 
 cdef class Pci:
     cdef Hirnwichse main
+    cdef PciAddress pciAddressHandle
     cdef list busList
     cdef uint8_t pciReset, elcr1, elcr2
     cdef uint32_t address

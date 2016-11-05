@@ -18,7 +18,7 @@ cdef class PysdlUI:
     cdef void initPysdl(self)
     cdef void quitFunc(self)
     cdef void clearScreen(self)
-    cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors) nogil # doesn't returns rect
+    cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors) # doesn't returns rect
     cdef void putChar(self, uint16_t x, uint16_t y, uint8_t character, uint8_t colors) # doesn't returns rect
     cdef void setRepeatRate(self, uint16_t delay, uint16_t interval)
     cdef uint8_t keyToScancode(self, uint32_t key)

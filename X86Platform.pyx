@@ -9,6 +9,9 @@ from os.path import join
 from sys import exit
 from traceback import print_exc
 
+cdef tuple ROM_SIZES = (SIZE_64KB, SIZE_128KB, SIZE_256KB, SIZE_512KB, SIZE_1MB, SIZE_2MB, SIZE_4MB,
+             SIZE_8MB, SIZE_16MB, SIZE_32MB, SIZE_64MB, SIZE_128MB, SIZE_256MB)
+
 cdef class PortHandler:
     def __init__(self):
         self.classObject = None

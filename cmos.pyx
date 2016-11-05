@@ -16,7 +16,7 @@ cdef class Cmos:
         self.configSpace = ConfigSpace(128, self.main)
     cdef uint16_t decToBcd(self, uint16_t dec):
         return int(str(dec), 16)
-    cdef inline uint32_t readValue(self, uint8_t index, uint8_t size):
+    cdef inline uint32_t readValue(self, uint8_t index, uint8_t size) nogil:
         cdef uint32_t value
         value = self.configSpace.csReadValueUnsigned(index, size)
         #IF 1:
@@ -24,7 +24,7 @@ cdef class Cmos:
             if (self.main.debugEnabled):
                 self.main.notice("Cmos::readValue: index==0x%02x; value==0x%02x; size==%u", index, value, size)
         return value
-    cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size):
+    cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size) nogil:
         #IF 1:
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
@@ -141,9 +141,10 @@ cdef class Cmos:
         if ((self.statusB & 0x40) != 0):
             self.writeValue(CMOS_STATUS_REGISTER_C, (self.readValue(CMOS_STATUS_REGISTER_C, OP_SIZE_BYTE) | 0xc0), OP_SIZE_BYTE)
             (<Pic>self.main.platform.pic).raiseIrq(CMOS_RTC_IRQ)
-    cdef void makeCheckSum(self):
+    cdef void makeCheckSum(self) nogil:
         cdef uint16_t checkSum
-        checkSum = sum(self.configSpace.csRead(0x10, 0x1e)) # 0x10..0x2d
+        with gil:
+            checkSum = sum(self.configSpace.csRead(0x10, 0x1e)) # 0x10..0x2d
         self.writeValue(CMOS_CHECKSUM_L, <uint8_t>checkSum, OP_SIZE_BYTE)
         self.writeValue(CMOS_CHECKSUM_H, <uint8_t>(checkSum>>8), OP_SIZE_BYTE)
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
@@ -194,7 +195,10 @@ cdef class Cmos:
                             self.main.exitError("CMOS::outPort: RTC selection bits in (1, 2). (data==0x%02x)", data)
                             return
                         else:
-                            self.rtcDelay = round(1.0e6/(65536.0/(1<<selectionBits)))
+                            #with gil:
+                            #    self.rtcDelay = round(1.0e6/(65536.0/(1<<selectionBits)))
+                            #self.rtcDelay = (1000000//(65536//(1<<selectionBits)))
+                            self.rtcDelay = lround(1.0e6/(65536.0/(1<<selectionBits)))
                     elif (tempIndex == CMOS_STATUS_REGISTER_B):
                         data &= 0xf7
                         if ((data & 0x80)!=0):
@@ -206,12 +210,11 @@ cdef class Cmos:
                             self.main.exitError("CMOS::outPort: daylight set. (data==0x%02x)", data)
                             return
                         (<PitChannel>self.rtcChannel).timerEnabled = False
-                        with gil:
-                            if ((<PitChannel>self.rtcChannel).threadObject):
-                                (<PitChannel>self.rtcChannel).threadObject.join()
-                                #(<PitChannel>self.rtcChannel).threadObject.cancel()
-                                #(<PitChannel>self.rtcChannel).threadObject.result()
-                                (<PitChannel>self.rtcChannel).threadObject = None
+                        if ((<PitChannel>self.rtcChannel).threadObject):
+                            (<PitChannel>self.rtcChannel).threadObject.join()
+                            #(<PitChannel>self.rtcChannel).threadObject.cancel()
+                            #(<PitChannel>self.rtcChannel).threadObject.result()
+                            (<PitChannel>self.rtcChannel).threadObject = None
                         if (self.rtcDelay and (data & 0x40)!=0):
                             (<PitChannel>self.rtcChannel).counterMode = 2
                             (<PitChannel>self.rtcChannel).tempTimerValue = self.rtcDelay

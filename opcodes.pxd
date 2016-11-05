@@ -3,6 +3,7 @@ include "globals.pxi"
 include "cpu_globals.pxi"
 
 from libc.stdint cimport *
+from posix.unistd cimport usleep
 
 from hirnwichse_main cimport Hirnwichse
 from misc cimport Misc
@@ -76,7 +77,7 @@ cdef class Opcodes:
     cdef int insFuncDword(self, uint8_t operSize) except BITMASK_BYTE_CONST
     cdef inline int insFunc(self, uint8_t operSize) except BITMASK_BYTE_CONST
     cdef inline int jcxzShort(self) except BITMASK_BYTE_CONST
-    cdef inline int jumpShort(self, uint8_t offsetSize, uint8_t cond) except BITMASK_BYTE_CONST
+    cdef inline int jumpShort(self, int32_t offset, uint8_t cond) except BITMASK_BYTE_CONST
     cdef inline int callNearRel16_32(self) except BITMASK_BYTE_CONST
     cdef inline int callPtr16_32(self) except BITMASK_BYTE_CONST
     cdef int pushaWD(self) except BITMASK_BYTE_CONST
