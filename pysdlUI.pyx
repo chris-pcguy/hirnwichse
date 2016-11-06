@@ -142,7 +142,7 @@ cdef class PysdlUI:
         pass
         #pygame.key.set_repeat(delay, interval)
     cdef uint8_t keyToScancode(self, uint32_t key):
-        #self.vga.main.notice("keyToScancode: test1: keyToScancode. (keyId: %u, keyName: %s)", key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))))
+        self.vga.main.notice("keyToScancode: test1: keyToScancode. (keyId: %u, keyName: %s)", key, <bytes>repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))).encode())
         if (key == sdl2.SDL_SCANCODE_LCTRL):
             return 0x00
         elif (key == sdl2.SDL_SCANCODE_LSHIFT):
@@ -357,7 +357,7 @@ cdef class PysdlUI:
             return 0x69
         #elif (key == sdl2.SDL_SCANCODE_BREAK):
         #    return 0x6a
-        #self.vga.main.notice("keyToScancode: unknown key. (keyId: %u, keyName: %s)", key, repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))))
+        self.vga.main.notice("keyToScancode: unknown key. (keyId: %u, keyName: %s)", key, <bytes>repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))).encode())
         return 0xff
     cdef void handleSingleEvent(self, object event):
         if (event.type == sdl2.SDL_QUIT):
@@ -407,22 +407,24 @@ cdef class PysdlUI:
         #cdef uint8_t doRefresh
         #cdef uint16_t x, y
         cdef uint32_t i, bgColor
-        #if (self.vga.graphicalMode):
-        IF 1:
-            #doRefresh = False
+        if (self.vga.graphicalMode):
+        #IF 1:
+            doRefresh = False
             #if (self.renderer):
             IF 1:
                 for i in range(256):
                     #pointList = self.points[i]
                     #if (len(pointList) >= 2):
                     if (len(self.points[i]) >= 2):
-                        #doRefresh = True
+                        doRefresh = True
+                        #print("points[i]", i, len(self.points[i]), repr(self.points[i]))
                         bgColor = self.vga.getColor(i)
                         #colorObject = sdl2.ext.ARGB(0xff000000|bgColor)
                         #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
                         #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
                         #self.renderer.draw_point(pointList, colorObject)
                         #self.renderer.draw_point(self.points[i], colorObject)
+                        #self.renderer.draw_point(pointList, bgColor)
                         self.renderer.draw_point(self.points[i], bgColor)
                         self.points[i] = []
                         #self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
@@ -433,10 +435,10 @@ cdef class PysdlUI:
                 #        colorObject = sdl2.ext.ARGB(0xff000000|self.points[i+2])
                 #        self.renderer.draw_point((self.points[i], self.points[i+1]), colorObject)
                 #    self.points = []
-        #else:
-        #    doRefresh = True
-        #if (doRefresh and self.window and self.screen):
-        if (self.window and self.screen):
+        else:
+            doRefresh = True
+        if (doRefresh and self.window and self.screen):
+        #if (self.window and self.screen):
             self.window.refresh()
     cdef void handleEventsWithoutWaiting(self):
         cdef object event

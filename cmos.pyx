@@ -216,7 +216,7 @@ cdef class Cmos:
                             #(<PitChannel>self.rtcChannel).threadObject.result()
                             (<PitChannel>self.rtcChannel).threadObject = None
                         if (self.rtcDelay and (data & 0x40)!=0):
-                            (<PitChannel>self.rtcChannel).counterMode = 2
+                            (<PitChannel>self.rtcChannel).counterMode = 0
                             (<PitChannel>self.rtcChannel).tempTimerValue = self.rtcDelay
                             (<PitChannel>self.rtcChannel).runTimer()
                         self.statusB = data

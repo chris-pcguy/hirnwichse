@@ -88,7 +88,6 @@ cdef class Hirnwichse:
         cdef va_list args
         cdef char msgBuf[1024]
         if (self.debugEnabled):
-        #if (self.debugEnabled and self.cpu.savedCs != 0x50):
             va_start(args, msg)
             strcpy(msgBuf, b"DEBUG: ");
             strcat(msgBuf, msg);
