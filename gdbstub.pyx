@@ -9,7 +9,8 @@ from atexit import register
 from socket import error as SocketError, IPPROTO_TCP, TCP_NODELAY
 from socketserver import BaseRequestHandler, ThreadingMixIn, TCPServer
 from traceback import print_exc
-import prctl
+IF SET_THREAD_NAMES:
+    import prctl
 
 # with MUCH help from qemu's gdbstub.c
 
@@ -360,7 +361,8 @@ cdef class GDBStub:
         self.main.quitFunc()
     cdef void serveGDBStub(self):
         try:
-            prctl.set_name("GDBStub::serveGDBStub")
+            IF SET_THREAD_NAMES:
+                prctl.set_name("GDBStub::serveGDBStub")
             if (self.server):
                 self.server.serve_forever()
         except:

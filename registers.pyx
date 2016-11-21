@@ -399,6 +399,9 @@ cdef class Registers:
     cdef void reset(self) nogil:
         self.cpl = self.protectedModeOn = self.pagingOn = self.writeProtectionOn = self.ssInhibit = self.cacheDisabled = self.cpuCacheBase = self.cpuCacheSize = self.cpuCacheIndex = self.ldtr = self.cpuCacheCodeSegChange = self.ignoreExceptions = 0
         self.A20Active = True
+        self.apicBase = <uint32_t>0xfee00000|(1<<8)
+        self.apicBaseReal = self.apicBase&<uint32_t>0xfffff000
+        self.apicBaseRealPlusSize = self.apicBaseReal+SIZE_4KB
         IF CPU_CACHE_SIZE:
             with nogil:
                 memset(self.cpuCache, 0, CPU_CACHE_SIZE<<1)
@@ -410,8 +413,8 @@ cdef class Registers:
             self.fpu.reset(False)
             self.regWriteDword(CPU_REGISTER_EFLAGS, FLAG_REQUIRED)
             self.regWriteDword(CPU_REGISTER_CR0, self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW) | CR0_FLAG_ET)
-            #self.regWriteDword(CPU_REGISTER_DR6, 0xffff1ff0) # why has bochs bit 12 set?
-            self.regWriteDword(CPU_REGISTER_DR6, 0xffff0ff0)
+            #self.regWriteDword(CPU_REGISTER_DR6, <uint32_t>0xffff1ff0) # why has bochs bit 12 set?
+            self.regWriteDword(CPU_REGISTER_DR6, <uint32_t>0xffff0ff0)
             self.regWriteDword(CPU_REGISTER_DR7, 0x400)
             self.segWriteSegment(&self.segments.cs, 0xf000)
             self.regWriteDword(CPU_REGISTER_EIP, 0xfff0)
@@ -668,6 +671,20 @@ cdef class Registers:
                 self.main.notice("Registers::getCurrentOpcodeAddUnsigned: EIP: 0x%08x, ret==0x%02x", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
         self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
         return ret
+    cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size) nogil:
+        ## address is an offset.
+        address += size-1
+        if (not gdtEntry[0].anotherLimit):
+            if (address>gdtEntry[0].limit):
+                IF COMP_DEBUG:
+                    self.main.notice("Registers::isAddressInLimit: test2: not in limit; (addr==0x%08x; size==0x%08x; limit==0x%08x)", address+1, size, gdtEntry[0].limit)
+                return False
+        else:
+            if ((address+1)<gdtEntry[0].limit or (not gdtEntry[0].segSize and (address>BITMASK_WORD))):
+                IF COMP_DEBUG:
+                    self.main.notice("Registers::isAddressInLimit: test1: not in limit; (addr==0x%08x; size==0x%08x; limit==0x%08x)", address+1, size, gdtEntry[0].limit)
+                return False
+        return True
     cdef uint8_t segWrite(self, uint16_t segId, uint16_t segValue) except BITMASK_BYTE_CONST:
         cdef Segment *segment
         if (segId == CPU_SEGMENT_CS):
@@ -765,7 +782,7 @@ cdef class Registers:
             if ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((value>>9)&1)):
                 self.main.cpu.asyncEvent = True
         self.regs[regId]._union.word._union.rx = value
-        if (regId == CPU_REGISTER_EIP and not self.segments.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_BYTE)):
+        if (regId == CPU_REGISTER_EIP and not self.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_BYTE)):
             raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         IF (CPU_CACHE_SIZE):
             if (not self.cacheDisabled and regId == CPU_REGISTER_EIP):
@@ -794,7 +811,7 @@ cdef class Registers:
             if ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((value>>9)&1)):
                 self.main.cpu.asyncEvent = True
         self.regs[regId]._union.dword.erx = value
-        if (regId == CPU_REGISTER_EIP and not self.segments.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_BYTE)):
+        if (regId == CPU_REGISTER_EIP and not self.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_BYTE)):
             raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         IF (CPU_CACHE_SIZE):
             if (not self.cacheDisabled and regId == CPU_REGISTER_EIP):
@@ -1103,7 +1120,7 @@ cdef class Registers:
                     self.main.notice("Registers::mmGetRealAddr_1.1: %s: LIN 0x%08x; dataSize %u; segId %u", b"WR" if (written) else b"RD", origMmAddr, dataSize, segment[0].segId)
             if (self.protectedModeOn and segment[0].segId == CPU_SEGMENT_TSS):
                 (<Paging>(<Segments>self.segments).paging).implicitSV = True
-            addrInLimit = self.segments.isAddressInLimit(&segment[0].gdtEntry, mmAddr, dataSize)
+            addrInLimit = self.isAddressInLimit(&segment[0].gdtEntry, mmAddr, dataSize)
             if (not addrInLimit):
                 if (not self.ignoreExceptions):
                     if (segment[0].segId == CPU_SEGMENT_SS):
@@ -1307,7 +1324,7 @@ cdef class Registers:
     cdef uint8_t switchTSS16(self) except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress
         cdef GdtEntry gdtEntry
-        self.main.notice("Registers::switchTSS16: TODO? (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        #self.main.notice("Registers::switchTSS16: TODO? (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
         baseAddress = self.mmGetRealAddr(0, 1, &self.segments.tss, False, False, False)
         if (((baseAddress&0xfff)+TSS_MIN_16BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::switchTSS16: TSS is over page boundary!")
@@ -1315,7 +1332,7 @@ cdef class Registers:
         self.ldtr = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_16BIT_LDT_SEG_SEL)
         if (self.ldtr):
             if (not self.segments.gdt.getEntry(&gdtEntry, self.ldtr&0xfff8)):
-                self.main.notice("Registers::switchTSS16: gdtEntry is invalid, mark LDTR as invalid.")
+                #self.main.notice("Registers::switchTSS16: gdtEntry is invalid, mark LDTR as invalid.")
                 (<Gdt>self.segments.ldt).loadTablePosition(0, 0)
             else:
                 (<Gdt>self.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
@@ -1340,7 +1357,7 @@ cdef class Registers:
         return True
     cdef uint8_t saveTSS16(self) except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress
-        self.main.notice("Registers::saveTSS16: TODO? (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        #self.main.notice("Registers::saveTSS16: TODO? (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
         baseAddress = self.mmGetRealAddr(0, 1, &self.segments.tss, False, True, False)
         if (((baseAddress&0xfff)+TSS_MIN_16BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::saveTSS16: TSS is over page boundary!")
@@ -1363,9 +1380,9 @@ cdef class Registers:
     cdef uint8_t switchTSS32(self) except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress, temp
         cdef GdtEntry gdtEntry
-        self.main.notice("Registers::switchTSS32: TODO? (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
-        self.main.cpu.cpuDump()
-        self.main.notice("Registers::switchTSS32: TODO? (getCPL(): %u; cpl: %u)", self.getCPL(), self.cpl)
+        #self.main.notice("Registers::switchTSS32: TODO? (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        #self.main.cpu.cpuDump()
+        #self.main.notice("Registers::switchTSS32: TODO? (getCPL(): %u; cpl: %u)", self.getCPL(), self.cpl)
         baseAddress = self.mmGetRealAddr(0, 1, &self.segments.tss, False, False, False)
         if (((baseAddress&0xfff)+TSS_MIN_32BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::switchTSS32: TSS is over page boundary!")
@@ -1378,7 +1395,7 @@ cdef class Registers:
         self.ldtr = self.main.mm.mmPhyReadValueUnsignedWord(baseAddress + TSS_32BIT_LDT_SEG_SEL)
         if (self.ldtr):
             if (not self.segments.gdt.getEntry(&gdtEntry, self.ldtr&0xfff8)):
-                self.main.notice("Registers::switchTSS32: gdtEntry is invalid, mark LDTR as invalid.")
+                #self.main.notice("Registers::switchTSS32: gdtEntry is invalid, mark LDTR as invalid.")
                 (<Gdt>self.segments.ldt).loadTablePosition(0, 0)
             else:
                 (<Gdt>self.segments.ldt).loadTablePosition(gdtEntry.base, gdtEntry.limit)
@@ -1404,17 +1421,17 @@ cdef class Registers:
         self.regs[CPU_REGISTER_CR0]._union.dword.erx |= CR0_FLAG_TS
         #IF (CPU_CACHE_SIZE):
         #    self.reloadCpuCache()
-        self.main.cpu.cpuDump()
-        self.main.notice("Registers::switchTSS32: TODO? (getCPL(): %u; cpl: %u)", self.getCPL(), self.cpl)
+        #self.main.cpu.cpuDump()
+        #self.main.notice("Registers::switchTSS32: TODO? (getCPL(): %u; cpl: %u)", self.getCPL(), self.cpl)
         if ((self.main.mm.mmPhyReadValueUnsignedByte(baseAddress + TSS_32BIT_T_FLAG) & 1) != 0):
             self.main.notice("Registers::switchTSS32: Debug")
             raise HirnwichseException(CPU_EXCEPTION_DB)
         return True
     cdef uint8_t saveTSS32(self) except BITMASK_BYTE_CONST:
         cdef uint32_t baseAddress
-        self.main.notice("Registers::saveTSS32: TODO? (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
-        self.main.cpu.cpuDump()
-        self.main.notice("Registers::saveTSS32: TODO? (getCPL(): %u; cpl: %u)", self.getCPL(), self.cpl)
+        #self.main.notice("Registers::saveTSS32: TODO? (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        #self.main.cpu.cpuDump()
+        #self.main.notice("Registers::saveTSS32: TODO? (getCPL(): %u; cpl: %u)", self.getCPL(), self.cpl)
         baseAddress = self.mmGetRealAddr(0, 1, &self.segments.tss, False, True, False)
         if (((baseAddress&0xfff)+TSS_MIN_32BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::saveTSS32: TSS is over page boundary!")

@@ -93,7 +93,6 @@ cdef class Segments:
     cdef Paging paging
     cdef Registers registers
     cdef Segment cs, ds, es, fs, gs, ss, tss
-    cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size) except BITMASK_BYTE_CONST
     cdef void parseGdtEntryData(self, GdtEntry *gdtEntry, uint64_t entryData) nogil
     cdef uint8_t loadSegment(self, Segment *segment, uint16_t segmentIndex, uint8_t doInit) except BITMASK_BYTE_CONST
     cdef inline uint8_t getEntry(self, GdtEntry *gdtEntry, uint16_t num) except BITMASK_BYTE_CONST

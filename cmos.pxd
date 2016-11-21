@@ -14,6 +14,7 @@ cdef class Cmos:
     cdef Hirnwichse main
     cdef ConfigSpace configSpace
     cdef PyObject *rtcChannel
+    cdef PyObject *apicChannel
     cdef object dt, oldDt
     cdef uint8_t cmosIndex, equipmentDefaultValue, statusB
     cdef uint32_t rtcDelay

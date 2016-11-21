@@ -14,19 +14,20 @@ cdef class Mm:
     cdef char *pciData
     cdef char *romData
     cdef char *tempData
+    cdef char *vgaRomData
     cdef uint8_t ignoreRomWrite
     cdef uint64_t memSizeBytes
     cdef void quitFunc(self)
     cdef void mmClear(self, uint32_t mmAddr, uint8_t clearByte, uint32_t dataSize) nogil
     cdef char *mmPhyRead(self, uint32_t mmAddr, uint32_t dataSize) nogil
-    cdef int64_t mmPhyReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST
-    cdef uint8_t mmPhyReadValueUnsignedByte(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST
-    cdef uint16_t mmPhyReadValueUnsignedWord(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST
-    cdef uint32_t mmPhyReadValueUnsignedDword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST
-    cdef uint64_t mmPhyReadValueUnsignedQword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST
-    cdef uint64_t mmPhyReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST
-    cdef uint8_t mmPhyWrite(self, uint32_t mmAddr, char *data, uint32_t dataSize) nogil except BITMASK_BYTE_CONST
-    cdef uint8_t mmPhyWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize) nogil except BITMASK_BYTE_CONST
+    cdef int64_t mmPhyReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize) nogil
+    cdef uint8_t mmPhyReadValueUnsignedByte(self, uint32_t mmAddr) nogil
+    cdef uint16_t mmPhyReadValueUnsignedWord(self, uint32_t mmAddr) nogil
+    cdef uint32_t mmPhyReadValueUnsignedDword(self, uint32_t mmAddr) nogil
+    cdef uint64_t mmPhyReadValueUnsignedQword(self, uint32_t mmAddr) nogil
+    cdef uint64_t mmPhyReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize) nogil
+    cdef uint8_t mmPhyWrite(self, uint32_t mmAddr, char *data, uint32_t dataSize) nogil
+    cdef uint8_t mmPhyWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize) nogil
 
 cdef class ConfigSpace:
     cdef Hirnwichse main

@@ -56,7 +56,7 @@ cdef class Vga:
     cdef uint8_t latchReg[4]
     cdef uint8_t processVideoMem, needLoadFont, readMap, writeMap, charSelA, charSelB, chain4, chainOddEven, oddEvenReadDisabled, oddEvenWriteDisabled, extMem, readMode, writeMode, bitMask, resetReg, enableResetReg, logicOp, rotateCount, charHeight, graphicalMode, miscReg, palette54, enable8Bit, shift256, colorPlaneEnable, colorSelect, colorCompare, colorDontCare, refreshScreen, retrace, addressSizeShift, alphaDis
     cdef uint16_t vde,
-    cdef uint32_t videoMemBase, startAddress, offset, videoMemSize
+    cdef uint32_t videoMemBase, startAddress, offset, videoMemSize, romBaseReal, romBaseRealPlusSize
     cdef double newTimer, oldTimer
     cdef void setStartAddress(self) nogil
     cdef uint32_t getColor(self, uint16_t color) nogil # RGBA

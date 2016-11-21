@@ -14,20 +14,22 @@ cdef class Mm:
         self.main = main
         self.ignoreRomWrite = False
         self.memSizeBytes = self.main.memSize*1024*1024
-        self.data = self.pciData = self.romData = self.tempData = NULL
+        self.data = self.pciData = self.romData = self.tempData = self.vgaRomData = NULL
         with nogil:
             self.data = <char*>malloc(self.memSizeBytes+OP_SIZE_QWORD)
             self.pciData = <char*>malloc(SIZE_1MB+OP_SIZE_QWORD)
             self.romData = <char*>malloc(SIZE_1MB+OP_SIZE_QWORD)
             self.tempData = <char*>malloc(SIZE_1MB+OP_SIZE_QWORD) # TODO: size
-        if (self.data is NULL or self.pciData is NULL or self.romData is NULL or self.tempData is NULL):
-            self.main.exitError("Mm::init: not self.data or not self.pciData or not self.romData or not self.tempData.")
+            self.vgaRomData = <char*>malloc(SIZE_1MB+OP_SIZE_QWORD)
+        if (self.data is NULL or self.pciData is NULL or self.romData is NULL or self.tempData is NULL or self.vgaRomData is NULL):
+            self.main.exitError("Mm::init: not self.data or not self.pciData or not self.romData or not self.tempData or not self.vgaRomData.")
             return
         with nogil:
             memset(self.data, 0, self.memSizeBytes)
             memset(self.pciData, 0, SIZE_1MB)
             memset(self.romData, 0, SIZE_1MB)
             memset(self.tempData, 0, SIZE_1MB)
+            memset(self.vgaRomData, 0, SIZE_1MB)
         register(self.quitFunc, self)
     cdef void quitFunc(self):
         try:
@@ -44,6 +46,9 @@ cdef class Mm:
             if (self.tempData is not NULL):
                 free(self.tempData)
                 self.tempData = NULL
+            if (self.vgaRomData is not NULL):
+                free(self.vgaRomData)
+                self.vgaRomData = NULL
         except:
             print_exc()
             self.main.exitError('Mm::quitFunc: exception, exiting...')
@@ -51,7 +56,7 @@ cdef class Mm:
         with nogil:
             memset(self.data+offset, clearByte, dataSize)
     cdef char *mmPhyRead(self, uint32_t mmAddr, uint32_t dataSize) nogil:
-        cdef uint32_t tempDataOffset = 0, tempOffset, tempSize
+        cdef uint32_t tempDataOffset = 0, tempOffset, tempSize, tempVal
         if (dataSize >= SIZE_1MB): # TODO: size
             #with gil: # outcommented because of cython. 'gil ensure' at the beginning of every function which contains 'with gil:'
             #    self.main.exitError('Mm::mmPhyRead: dataSize >= SIZE_1MB, exiting...')
@@ -99,9 +104,34 @@ cdef class Mm:
             dataSize -= tempSize
             mmAddr += tempSize
             tempDataOffset += tempSize
-        if (dataSize > 0 and mmAddr >= PCI_MEM_BASE_PLUS_LIMIT and mmAddr < LAST_MEMAREA_BASE_ADDR):
+        if (dataSize > 0 and mmAddr >= PCI_MEM_BASE_PLUS_LIMIT and mmAddr < self.main.cpu.registers.apicBaseReal):
+            tempSize = min(dataSize, self.main.cpu.registers.apicBaseReal-mmAddr)
+            if (mmAddr >= self.main.platform.vga.romBaseReal and mmAddr < self.main.platform.vga.romBaseRealPlusSize): # TODO/HACK
+                tempOffset = mmAddr-self.main.platform.vga.romBaseReal
+                #self.main.notice("Mm::mmPhyRead: filling_test1; 0x%08x", (<uint32_t*>self.vgaRomData)[0])
+                memcpy(self.tempData+tempDataOffset, self.vgaRomData+tempOffset, tempSize)
+            else:
+                memset(self.tempData+tempDataOffset, 0xff, tempSize)
+            if (dataSize <= tempSize):
+                return self.tempData
+            dataSize -= tempSize
+            mmAddr += tempSize
+            tempDataOffset += tempSize
+        if (dataSize > 0 and mmAddr >= self.main.cpu.registers.apicBaseReal and mmAddr < self.main.cpu.registers.apicBaseRealPlusSize):
+            tempOffset = mmAddr-self.main.cpu.registers.apicBaseReal
+            tempSize = min(dataSize, self.main.cpu.registers.apicBaseRealPlusSize-mmAddr)
+            memset(self.tempData+tempDataOffset, 0, tempSize)
+            #tempVal = 0x12345678 # testcase
+            tempVal = (3<<16)|0xf
+            memcpy(self.tempData+tempDataOffset-tempOffset+0x30, &tempVal, OP_SIZE_DWORD)
+            if (dataSize <= tempSize):
+                return self.tempData
+            dataSize -= tempSize
+            mmAddr += tempSize
+            tempDataOffset += tempSize
+        if (dataSize > 0 and mmAddr >= self.main.cpu.registers.apicBaseRealPlusSize and mmAddr < LAST_MEMAREA_BASE_ADDR):
             tempSize = min(dataSize, LAST_MEMAREA_BASE_ADDR-mmAddr)
-            #self.main.notice("Mm::mmPhyRead: filling2; mmAddr==0x%08x; tempSize==%u", mmAddr, tempSize)
+            #self.main.notice("Mm::mmPhyRead: filling4; mmAddr==0x%08x; tempSize==%u", mmAddr, tempSize)
             memset(self.tempData+tempDataOffset, 0xff, tempSize)
             if (dataSize <= tempSize):
                 return self.tempData
@@ -113,7 +143,7 @@ cdef class Mm:
             tempSize = min(dataSize, SIZE_4GB-mmAddr)
             memcpy(self.tempData+tempDataOffset, self.romData+tempOffset, tempSize)
         return self.tempData
-    cdef int64_t mmPhyReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST:
+    cdef int64_t mmPhyReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize) nogil:
         cdef int64_t ret
         ret = self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
@@ -123,23 +153,23 @@ cdef class Mm:
         elif (dataSize == OP_SIZE_DWORD):
             ret = <int32_t>ret
         return ret
-    cdef uint8_t mmPhyReadValueUnsignedByte(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
+    cdef uint8_t mmPhyReadValueUnsignedByte(self, uint32_t mmAddr) nogil:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_BYTE or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_BYTE)):
             return (<uint8_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_BYTE)
-    cdef uint16_t mmPhyReadValueUnsignedWord(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
+    cdef uint16_t mmPhyReadValueUnsignedWord(self, uint32_t mmAddr) nogil:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_WORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_WORD)):
             return (<uint16_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_WORD)
-    cdef uint32_t mmPhyReadValueUnsignedDword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
+    cdef uint32_t mmPhyReadValueUnsignedDword(self, uint32_t mmAddr) nogil:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_DWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_DWORD)):
             return (<uint32_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_DWORD)
-    cdef uint64_t mmPhyReadValueUnsignedQword(self, uint32_t mmAddr) nogil except? BITMASK_BYTE_CONST:
+    cdef uint64_t mmPhyReadValueUnsignedQword(self, uint32_t mmAddr) nogil:
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_QWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_QWORD)):
             return (<uint64_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_QWORD)
-    cdef uint64_t mmPhyReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize) nogil except? BITMASK_BYTE_CONST:
+    cdef uint64_t mmPhyReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize) nogil:
         cdef char *temp
         if (mmAddr <= VGA_MEMAREA_ADDR-dataSize or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-dataSize)):
             temp = self.data+mmAddr
@@ -152,7 +182,7 @@ cdef class Mm:
         elif (dataSize == OP_SIZE_DWORD):
             return (<uint32_t*>temp)[0]
         return (<uint64_t*>temp)[0]
-    cdef uint8_t mmPhyWrite(self, uint32_t mmAddr, char *data, uint32_t dataSize) nogil except BITMASK_BYTE_CONST:
+    cdef uint8_t mmPhyWrite(self, uint32_t mmAddr, char *data, uint32_t dataSize) nogil:
         cdef uint32_t tempOffset, tempSize
         if (dataSize > 0 and mmAddr < SIZE_1MB):
             if (mmAddr < VGA_MEMAREA_ADDR):
@@ -179,6 +209,8 @@ cdef class Mm:
                 if (not self.ignoreRomWrite):
                     with nogil:
                         memcpy(self.data+mmAddr, data, tempSize)
+                        #memcpy(self.vgaRomData+mmAddr-VGA_ROM_BASE, data, tempSize)
+                    #self.main.notice("Mm::mmPhyWrite: vgarom_test1; 0x%08x", (<uint32_t*>self.vgaRomData)[0])
                 if (dataSize <= tempSize):
                     return True
                 dataSize -= tempSize
@@ -211,9 +243,30 @@ cdef class Mm:
             dataSize -= tempSize
             mmAddr += tempSize
             data += tempSize
-        if (dataSize > 0 and mmAddr >= PCI_MEM_BASE_PLUS_LIMIT and mmAddr < LAST_MEMAREA_BASE_ADDR):
+        if (dataSize > 0 and mmAddr >= PCI_MEM_BASE_PLUS_LIMIT and mmAddr < self.main.cpu.registers.apicBaseReal):
+            tempSize = min(dataSize, self.main.cpu.registers.apicBaseReal-mmAddr)
+            self.main.notice("Mm::mmPhyWrite: filling2; mmAddr==0x%08x; tempSize==%u", mmAddr, tempSize)
+            if (mmAddr >= self.main.platform.vga.romBaseReal and mmAddr < self.main.platform.vga.romBaseRealPlusSize): # TODO/HACK
+                tempOffset = mmAddr-self.main.platform.vga.romBaseReal
+                with nogil:
+                    memcpy(self.vgaRomData+tempOffset, data, tempSize)
+            if (dataSize <= tempSize):
+                return True
+            dataSize -= tempSize
+            mmAddr += tempSize
+            data += tempSize
+        if (dataSize > 0 and mmAddr >= self.main.cpu.registers.apicBaseReal and mmAddr < self.main.cpu.registers.apicBaseRealPlusSize):
+            tempOffset = mmAddr-self.main.cpu.registers.apicBaseReal
+            tempSize = min(dataSize, self.main.cpu.registers.apicBaseRealPlusSize-mmAddr)
+            ###
+            if (dataSize <= tempSize):
+                return True
+            dataSize -= tempSize
+            mmAddr += tempSize
+            data += tempSize
+        if (dataSize > 0 and mmAddr >= self.main.cpu.registers.apicBaseRealPlusSize and mmAddr < LAST_MEMAREA_BASE_ADDR):
             tempSize = min(dataSize, LAST_MEMAREA_BASE_ADDR-mmAddr)
-            #self.main.notice("Mm::mmPhyWrite: filling2; mmAddr==0x%08x; tempSize==%u", mmAddr, tempSize)
+            #self.main.notice("Mm::mmPhyWrite: filling3; mmAddr==0x%08x; tempSize==%u", mmAddr, tempSize)
             if (dataSize <= tempSize):
                 return True
             dataSize -= tempSize
@@ -226,7 +279,7 @@ cdef class Mm:
                 with nogil:
                     memcpy(self.romData+tempOffset, data, tempSize)
         return True
-    cdef uint8_t mmPhyWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize) nogil except BITMASK_BYTE_CONST:
+    cdef uint8_t mmPhyWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize) nogil:
         cdef char *temp
         if (dataSize == OP_SIZE_BYTE):
             data = <uint8_t>data

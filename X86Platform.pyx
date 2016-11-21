@@ -152,10 +152,12 @@ cdef class Platform:
                 romMemSize = size
                 mmAddr = SIZE_4GB-romMemSize
         self.loadRomToMem(romFileName, mmAddr, romSize)
-        if (not isRomOptional):
-            with nogil:
-                mmAddr &= SIZE_1MB_MASK
+        with nogil:
+            mmAddr &= SIZE_1MB_MASK
+            if (not isRomOptional):
                 memcpy(self.main.mm.data+mmAddr, self.main.mm.romData+mmAddr, romSize)
+            else:
+                memcpy(self.main.mm.vgaRomData+mmAddr-VGA_ROM_BASE, self.main.mm.data+mmAddr, romSize)
     cdef void initMemory(self):
         cdef uint16_t i
         if (not self.main or not self.main.mm or not self.main.memSize):

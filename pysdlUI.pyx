@@ -7,7 +7,8 @@ from sys import exit, stdout
 from traceback import print_exc
 from atexit import register
 import sdl2, sdl2.ext
-import prctl
+IF SET_THREAD_NAMES:
+    import prctl
 
 
 #DEF EVENT_LIST = ( sdl2.SDL_ACTIVEEVENT, sdl2.SDL_MOUSEMOTION, sdl2.SDL_MOUSEBUTTONDOWN, sdl2.SDL_MOUSEBUTTONUP,\
@@ -359,24 +360,24 @@ cdef class PysdlUI:
         #    return 0x6a
         self.vga.main.notice("keyToScancode: unknown key. (keyId: %u, keyName: %s)", key, <bytes>repr(sdl2.keyboard.SDL_GetKeyName(sdl2.keyboard.SDL_GetKeyFromScancode(key))).encode())
         return 0xff
-    cdef void handleSingleEvent(self, object event):
+    cdef int handleSingleEvent(self, object event) except BITMASK_BYTE_CONST:
         if (event.type == sdl2.SDL_QUIT):
             self.quitFunc()
             exit(1)
         #elif (event.type == sdl2.SDL_VIDEOEXPOSE):
         elif (event.type == 512): # 512 == sdl2.SDL_VIDEOEXPOSE ?
-            self.updateScreen()
+            self.updateScreen(True)
         elif (event.type == sdl2.SDL_KEYDOWN):
             if (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_MINUS):
                 self.vga.main.debugEnabled = not self.vga.main.debugEnabled
                 self.vga.main.debugEnabledTest = not self.vga.main.debugEnabledTest
-                return
+                return True
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_PLUS):
                 #self.vga.refreshScreen = True
                 self.vga.refreshScreenFunction()
-                self.updateScreen()
+                self.updateScreen(True)
                 stdout.flush()
-                return
+                return True
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_RCTRL):
                 #self.vga.main.notice("PysdlUI::ShowCursor_test1: %u", sdl2.SDL_ShowCursor(sdl2.SDL_QUERY))
                 if (sdl2.SDL_ShowCursor(sdl2.SDL_QUERY) == sdl2.SDL_ENABLE):
@@ -389,27 +390,28 @@ cdef class PysdlUI:
                     sdl2.SDL_SetHintWithPriority(sdl2.SDL_HINT_GRAB_KEYBOARD, b"0", sdl2.SDL_HINT_OVERRIDE)
                     sdl2.SDL_SetWindowGrab(self.window.window, sdl2.SDL_FALSE)
                     sdl2.SDL_SetRelativeMouseMode(sdl2.SDL_FALSE)
-                return
+                return True
             (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.scancode), False)
         elif (event.type == sdl2.SDL_KEYUP):
             if (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_MINUS):
-                return
+                return True
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_PLUS):
-                return
+                return True
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_RCTRL):
-                return
+                return True
             (<PS2>self.vga.main.platform.ps2).keySend(self.keyToScancode(event.key.keysym.scancode), True)
         else:
             self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == %u", <int>event.type)
-    cdef void updateScreen(self):
+        return True
+    cdef void updateScreen(self, uint8_t forceUpdate):
         #cdef object colorObject
         #cdef list pointList
-        #cdef uint8_t doRefresh
+        cdef uint8_t doRefresh
         #cdef uint16_t x, y
         cdef uint32_t i, bgColor
         if (self.vga.graphicalMode):
         #IF 1:
-            doRefresh = False
+            doRefresh = forceUpdate
             #if (self.renderer):
             IF 1:
                 for i in range(256):
@@ -453,7 +455,8 @@ cdef class PysdlUI:
             self.vga.main.exitError('handleEventsWithoutWaiting: exception, exiting...')
     cdef void handleEvents(self):
         cdef object event
-        prctl.set_name("PysdlUI::handleEvents")
+        IF SET_THREAD_NAMES:
+            prctl.set_name("PysdlUI::handleEvents")
         event = sdl2.SDL_Event()
         try:
             while (not self.vga.main.quitEmu):

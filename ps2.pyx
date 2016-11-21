@@ -8,7 +8,8 @@ include "kb_scancodes.pxi"
 
 from time import sleep, time
 from traceback import print_exc
-import prctl
+IF SET_THREAD_NAMES:
+    import prctl
 
 DEF KBC_IRQ = 1 # keyboard controller's IRQnum
 DEF MOUSE_IRQ = 12 # mouse IRQnum
@@ -443,7 +444,8 @@ cdef class PS2:
         return retVal
     cdef void timerFunc(self):
         cdef uint8_t retVal
-        prctl.set_name("PS2::timerFunc")
+        IF SET_THREAD_NAMES:
+            prctl.set_name("PS2::timerFunc")
         while (not self.main.quitEmu):
             #self.main.notice("PS2::timerFunc: loop begin")
             if (self.timerPending):

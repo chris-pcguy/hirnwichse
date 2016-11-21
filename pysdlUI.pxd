@@ -1,4 +1,6 @@
 
+include "globals.pxi"
+
 from libc.stdint cimport *
 
 from hirnwichse_main cimport Hirnwichse
@@ -22,8 +24,8 @@ cdef class PysdlUI:
     cdef void putChar(self, uint16_t x, uint16_t y, uint8_t character, uint8_t colors) # doesn't returns rect
     cdef void setRepeatRate(self, uint16_t delay, uint16_t interval)
     cdef uint8_t keyToScancode(self, uint32_t key)
-    cdef void handleSingleEvent(self, object event)
-    cdef void updateScreen(self)
+    cdef int handleSingleEvent(self, object event) except BITMASK_BYTE_CONST
+    cdef void updateScreen(self, uint8_t forceUpdate)
     cdef void handleEventsWithoutWaiting(self)
     cdef void handleEvents(self)
     cdef void run(self)

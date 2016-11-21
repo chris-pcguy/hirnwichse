@@ -3,7 +3,8 @@
 
 include "globals.pxi"
 
-import prctl
+IF SET_THREAD_NAMES:
+    import prctl
 
 DEF READBACK_DONT_LATCH_COUNT  = 0x20
 DEF READBACK_DONT_LATCH_STATUS = 0x10
@@ -202,7 +203,8 @@ cdef class PitChannel:
             #prctl.set_name("Pit::{0:d}{1:d}_3".format(self.channelId, self.localCounterMode))
         #prctl.set_name("Pit::{0:d}{1:d}_4".format(self.channelId, self.localCounterMode))
     cdef void timerFunc(self): # TODO
-        prctl.set_name("Pit::{0:d}{1:d}_0".format(self.channelId, self.localCounterMode))
+        IF SET_THREAD_NAMES:
+            prctl.set_name("Pit::{0:d}{1:d}_0".format(self.channelId, self.localCounterMode))
         #with nogil:
         IF 1:
             if (self.timerEnabled):
@@ -275,20 +277,23 @@ cdef class PitChannel:
 
 cdef class Pit:
     def __init__(self, Hirnwichse main):
-        cdef PitChannel channel0, channel1, channel2, channel3
+        cdef PitChannel channel0, channel1, channel2, channel3, channel4
         self.main = main
         channel0 = PitChannel(self, 0)
         channel1 = PitChannel(self, 1)
         channel2 = PitChannel(self, 2)
         channel3 = PitChannel(self, 3)
+        channel4 = PitChannel(self, 4)
         self.channels[0] = <PyObject*>channel0
         self.channels[1] = <PyObject*>channel1
         self.channels[2] = <PyObject*>channel2
         (<Cmos>self.main.platform.cmos).rtcChannel = <PyObject*>channel3
+        (<Cmos>self.main.platform.cmos).apicChannel = <PyObject*>channel4
         Py_INCREF(channel0)
         Py_INCREF(channel1)
         Py_INCREF(channel2)
         Py_INCREF(channel3)
+        Py_INCREF(channel4)
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
         cdef uint8_t channelId, retVal
         cdef uint32_t temp

@@ -8,8 +8,8 @@ cdef unsigned int TEST_SIZE = OP_SIZE_DWORD
 
 cdef class HirnwichseTest:
     def __init__(self):
-        #self.main = Hirnwichse()
-        #self.main.run(False)
+        self.main = Hirnwichse()
+        self.main.run(False)
         #self.configSpace = ConfigSpace(128, self.main)
         #self.configSpace.csResetData(0)
         pass
@@ -26,12 +26,17 @@ cdef class HirnwichseTest:
                     pass
                 timediff1 = time()-time1
                 print("timediff1: {0:f}".format(timediff1))
-        with gil:
-            operOp1 = 0x66666667
-            operOp2 = 0x03000000
-            operSum = <uint64_t>(<int64_t><int32_t>operOp1*<int32_t>operOp2)
-            print("IMUL DWORD test2 (operSumLow : {0:#018x})".format(operSum))
-            print("IMUL DWORD test2 (operSumHigh: {0:#010x})".format(operSum>>32))
+        IF 0:
+            with gil:
+                operOp1 = 0x66666667
+                operOp2 = 0x03000000
+                operSum = <uint64_t>(<int64_t><int32_t>operOp1*<int32_t>operOp2)
+                print("IMUL DWORD test2 (operSumLow : {0:#018x})".format(operSum))
+                print("IMUL DWORD test2 (operSumHigh: {0:#010x})".format(operSum>>32))
+        IF 1:
+            with gil:
+                operSum = self.main.mm.mmPhyReadValueUnsignedDword(0xfee00030)
+                print("0xfee00030_val == {0:#010x}".format(operSum))
     cpdef void run(self):
         self.func1()
 

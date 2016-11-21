@@ -33,6 +33,7 @@ cdef class PciDevice:
         pass
     cdef uint8_t checkWriteAccess(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil: # return true means allowed
         cdef uint8_t offset, headerType, function, memBarType, barIndex
+        cdef uint16_t deviceClass
         cdef uint32_t origData
         offset = mmAddress&0xff
         function = (mmAddress >> PCI_FUNCTION_SHIFT) & 0x7
@@ -40,15 +41,19 @@ cdef class PciDevice:
             if (self.pci.main.debugEnabled):
                 self.pci.main.notice("PciDevice::checkWriteAccess: function (0x%02x) != 0x00", function)
             return False
-        if (offset == PCI_COMMAND):
+        if (offset == PCI_COMMAND and 0): # TODO?
             headerType = self.getData(PCI_HEADER_TYPE, OP_SIZE_BYTE)
             function = 0
-            headerType = 6 if (headerType == 0) else 2
+            headerType = 7 if (headerType == 0) else 3
             for barIndex in range(headerType):
                 if (self.barSize[barIndex]):
+                    if (barIndex == 6 and headerType == 0):
+                        barIndex = 8
+                    elif (barIndex == 2 and headerType != 0):
+                        barIndex = 10
                     origData = self.configSpace.csReadValueUnsigned((mmAddress & <uint32_t>0xffffff00)+PCI_BASE_ADDRESS_0+(barIndex<<2), OP_SIZE_DWORD)
                     if (origData and ((origData & <uint32_t>0xfffffff0) != <uint32_t>0xfffffff0)):
-                        if (origData & 1):
+                        if (origData & 1 and barIndex < 6):
                             function |= 1
                         else:
                             function |= 2
@@ -61,6 +66,7 @@ cdef class PciDevice:
                 self.pci.main.notice("PciDevice::checkWriteAccess: unaligned access!")
             barIndex = (offset - 0x10) >> 2
             headerType = self.getData(PCI_HEADER_TYPE, OP_SIZE_BYTE)
+            deviceClass = self.getData(PCI_DEVICE_CLASS, OP_SIZE_WORD)
             if (headerType >= 0x02):
                 if (self.pci.main.debugEnabled):
                     self.pci.main.notice("PciDevice::checkWriteAccess: headerType (0x%02x) >= 0x02", headerType)
@@ -94,6 +100,9 @@ cdef class PciDevice:
                 #    data &= ~7
                 #    data |= origData & 7
             elif ((not headerType and offset == PCI_ROM_ADDRESS) or (headerType == 1 and offset == PCI_BRIDGE_ROM_ADDRESS)):
+                if (deviceClass == PCI_CLASS_VGA):
+                    self.pci.main.platform.vga.romBaseReal = data&<uint32_t>0xfffffffe
+                    self.pci.main.platform.vga.romBaseRealPlusSize = self.pci.main.platform.vga.romBaseReal+SIZE_64KB
                 barIndex = 6
                 if (not self.barSize[barIndex]):
                     return False
@@ -115,9 +124,11 @@ cdef class PciDevice:
     cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
         if (not self.checkWriteAccess(mmAddress, data, dataSize)):
             IF COMP_DEBUG:
+            #IF 1:
                 self.pci.main.notice("PciDevice::setData: check says false: mmAddress==0x%08x; data==0x%08x; dataSize==%u", mmAddress, data, dataSize)
             return
         IF COMP_DEBUG:
+        #IF 1:
             self.pci.main.notice("PciDevice::setData: check says true: mmAddress==0x%08x; data==0x%08x; dataSize==%u", mmAddress, data, dataSize)
         self.configSpace.csWriteValue(mmAddress, data, dataSize)
     cdef void setVendorId(self, uint16_t vendorId):

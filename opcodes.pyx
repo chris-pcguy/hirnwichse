@@ -552,8 +552,8 @@ cdef class Opcodes:
                 self.main.exitError("Opcodes::jumpFarDirect: call-gate sysSegType %u isn't supported yet. (segVal 0x%04x; eipVal 0x%08x)", segType, segVal, eipVal)
                 return True
             elif (segType == TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE):
-                #if (self.main.debugEnabled):
-                IF 1:
+                if (self.main.debugEnabled):
+                #IF 1:
                     self.main.notice("Opcodes::jumpFarDirect: task-gates aren't fully implemented yet.")
                 segment = &self.registers.segments.tss
                 if (gdtEntry.segDPL < self.registers.getCPL() or gdtEntry.segDPL < segVal&3):
@@ -584,12 +584,12 @@ cdef class Opcodes:
                     self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.nt = True
                     self.registers.mmWriteValue(TSS_PREVIOUS_TASK_LINK, oldTSSsel, OP_SIZE_WORD, &self.registers.segments.tss, False)
                 self.registers.segments.setSegType(segVal, (segType | 0x2))
-                if (not self.registers.segments.isAddressInLimit(&self.registers.segments.cs.gdtEntry, self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE)):
+                if (not self.registers.isAddressInLimit(&self.registers.segments.cs.gdtEntry, self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 return True
             elif ((segType & TABLE_ENTRY_SYSTEM_TYPE_MASK_WITHOUT_BUSY) in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS)):
-                #if (self.main.debugEnabled):
-                IF 1:
+                if (self.main.debugEnabled):
+                #IF 1:
                     self.main.notice("Opcodes::jumpFarDirect: TSS isn't fully implemented yet.")
                 #self.main.notice("Opcodes::jumpFarDirect: test1: segType1 == 0x%02x; segType2 == 0x%02x!", self.registers.segments.getSegType(0x20), self.registers.segments.getSegType(0x30))
                 segment = &self.registers.segments.tss
@@ -620,7 +620,7 @@ cdef class Opcodes:
                     self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.nt = True
                     self.registers.mmWriteValue(TSS_PREVIOUS_TASK_LINK, oldTSSsel, OP_SIZE_WORD, &self.registers.segments.tss, False)
                 self.registers.segments.setSegType(segVal, (segType | 0x2))
-                if (not self.registers.segments.isAddressInLimit(&self.registers.segments.cs.gdtEntry, self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE)): # TODO
+                if (not self.registers.isAddressInLimit(&self.registers.segments.cs.gdtEntry, self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE)): # TODO
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 #self.main.notice("Opcodes::jumpFarDirect: sysSegType == %u; method == %u (TSS); TODO!", segType, method)
                 #self.main.notice("Opcodes::jumpFarDirect: test2: segType1 == 0x%02x; segType2 == 0x%02x!", self.registers.segments.getSegType(0x20), self.registers.segments.getSegType(0x30))
@@ -1179,7 +1179,7 @@ cdef class Opcodes:
         newEip = (self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx+offset)
         if (self.cpu.operSize == OP_SIZE_WORD):
             newEip = <uint16_t>newEip
-        if (self.registers.protectedModeOn and not self.registers.segments.isAddressInLimit(&self.registers.segments.cs.gdtEntry, newEip, OP_SIZE_BYTE)):
+        if (self.registers.protectedModeOn and not self.registers.isAddressInLimit(&self.registers.segments.cs.gdtEntry, newEip, OP_SIZE_BYTE)):
             raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         self.stackPushRegId(CPU_REGISTER_EIP, self.cpu.operSize)
         self.registers.regWriteDword(CPU_REGISTER_EIP, newEip)
@@ -1290,7 +1290,7 @@ cdef class Opcodes:
         stackAddr = (stackAddr-operSize)
         if (stackAddrSize == OP_SIZE_WORD):
             stackAddr = <uint16_t>stackAddr
-        if (self.registers.protectedModeOn and not self.registers.segments.isAddressInLimit(&self.registers.segments.ss.gdtEntry, stackAddr, operSize)):
+        if (self.registers.protectedModeOn and not self.registers.isAddressInLimit(&self.registers.segments.ss.gdtEntry, stackAddr, operSize)):
             raise HirnwichseException(CPU_EXCEPTION_SS, 0)
         if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
              self.registers.segments.paging.getPhysicalAddress((<Segment>self.registers.segments.ss).gdtEntry.base+stackAddr, operSize, True)
@@ -1819,11 +1819,24 @@ cdef class Opcodes:
             elif (operOpcode == 0x30 and eaxId == 0x10):
                 self.cpu.cycles = self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx
                 self.cpu.cycles = self.cpu.cycles|(<uint64_t>self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx<<32)
-            elif (operOpcode == 0x32 and eaxId in (0x1b, 0x2a, 0x8b)): # apic base, power on configuration bits, no microcode loaded or rather supported.
+            elif (operOpcode == 0x32 and eaxId in (0x2a, 0x8b)): # power on configuration bits, no microcode loaded or rather supported.
                 self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = 0
                 self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
-            elif (operOpcode == 0x30 and eaxId in (0x1b, 0x2a, 0x8b)): # apic base, power on configuration bits, no microcode loaded or rather supported.
+            elif (operOpcode == 0x30 and eaxId in (0x2a, 0x8b)): # power on configuration bits, no microcode loaded or rather supported.
                 pass
+            elif (operOpcode == 0x32 and eaxId == 0x1b): # apic base
+                self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = self.registers.apicBase
+                self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0
+            elif (operOpcode == 0x30 and eaxId == 0x1b): # apic base
+                self.registers.apicBase = self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx
+                self.registers.apicBaseReal = self.registers.apicBase&<uint32_t>0xfffff000
+                self.registers.apicBaseRealPlusSize = self.registers.apicBaseReal+SIZE_4KB
+                if (self.registers.apicBaseReal != <uint32_t>0xfee00000):
+                    self.main.exitError("Opcodes::group0F: apicBaseReal != 0xfee00000 (operOpcode==0x%02x; ECX==0x%08x; apicBase==0x%08x)", operOpcode, eaxId, self.registers.apicBase)
+                if (self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx): # higher 32-bits are set.
+                    self.main.exitError("Opcodes::group0F: MSR: WRMSR apic_base higher 32-bits (EDX) set! (operOpcode==0x%02x; ECX==0x%08x)", operOpcode, eaxId)
+            elif (operOpcode == 0x30 and self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx): # higher 32-bits are set.
+                self.main.exitError("Opcodes::group0F: MSR: WRMSR higher 32-bits (EDX) set! (operOpcode==0x%02x; ECX==0x%08x)", operOpcode, eaxId)
             else:
                 self.main.notice("Opcodes::group0F: MSR: Unimplemented! (operOpcode==0x%02x; ECX==0x%08x)", operOpcode, eaxId)
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
@@ -1908,6 +1921,7 @@ cdef class Opcodes:
                 #self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0xa117
                 #self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0xa11f
                 self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x1800a117
+                #self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x1800a337
             elif (eaxId == 0x2):
                 IF COMP_DEBUG:
                     self.main.notice("Opcodes::opcodeGroup0F: CPUID test5: TODO! (savedEip: 0x%08x, savedCs: 0x%04x; eax; 0x%08x)", self.cpu.savedEip, self.cpu.savedCs, eaxId)
@@ -2627,7 +2641,7 @@ cdef class Opcodes:
                     self.registers.switchTSS16()
                 self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.nt = True
                 self.registers.mmWriteValue(TSS_PREVIOUS_TASK_LINK, oldTSSsel, OP_SIZE_WORD, &self.registers.segments.tss, False)
-                if (not self.registers.segments.isAddressInLimit(&self.registers.segments.cs.gdtEntry, self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE)):
+                if (not self.registers.isAddressInLimit(&self.registers.segments.cs.gdtEntry, self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, not isSoftInt)
                 return True
             elif (entryType not in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_16BIT_TRAP_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)):
@@ -2697,7 +2711,7 @@ cdef class Opcodes:
                     raise HirnwichseException(CPU_EXCEPTION_SS, self.calculateInterruptErrorcode(newSS, 0, not isSoftInt))
                 cpl = gdtEntryCS.segDPL
                 self.registers.cpl = cpl # TODO: HACK!
-                if (not self.registers.segments.isAddressInLimit(&gdtEntryCS, entryEip, OP_SIZE_BYTE)):
+                if (not self.registers.isAddressInLimit(&gdtEntryCS, entryEip, OP_SIZE_BYTE)):
                     raise HirnwichseException(CPU_EXCEPTION_GP, not isSoftInt)
                 if (entryType in (TABLE_ENTRY_SYSTEM_TYPE_16BIT_INTERRUPT_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE)):
                     eflagsClearThis |= FLAG_IF
@@ -2742,7 +2756,7 @@ cdef class Opcodes:
                     else:
                         if ((oldESP - (8 if (errorCode != -1) else 6)) >= oldESP):
                             raise HirnwichseException(CPU_EXCEPTION_SS, not isSoftInt)
-                    if (not self.registers.segments.isAddressInLimit(&gdtEntryCS, entryEip, OP_SIZE_BYTE)):
+                    if (not self.registers.isAddressInLimit(&gdtEntryCS, entryEip, OP_SIZE_BYTE)):
                         raise HirnwichseException(CPU_EXCEPTION_GP, not isSoftInt)
                 else:
                     raise HirnwichseException(CPU_EXCEPTION_GP, self.calculateInterruptErrorcode(entrySegment, 0, not isSoftInt))
@@ -2818,7 +2832,7 @@ cdef class Opcodes:
                     IF COMP_DEBUG:
                         self.main.notice("Opcodes::iret: test1: opl: vm: test1.10 (savedEip: 0x%08x, savedCs: 0x%04x)", self.cpu.savedEip, self.cpu.savedCs)
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
-                #if (not self.registers.segments.isAddressInLimit(&self.registers.segments.cs.gdtEntry, tempEIP, OP_SIZE_BYTE)):
+                #if (not self.registers.isAddressInLimit(&self.registers.segments.cs.gdtEntry, tempEIP, OP_SIZE_BYTE)):
                 #    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 eflagsMask = FLAG_VM | FLAG_IOPL | FLAG_VIP | FLAG_VIF
                 tempEFLAGS &= ~eflagsMask
@@ -2863,7 +2877,7 @@ cdef class Opcodes:
                     self.registers.switchTSS32()
                 else:
                     self.registers.switchTSS16()
-                if (not self.registers.segments.isAddressInLimit(&self.registers.segments.cs.gdtEntry, self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE)):
+                if (not self.registers.isAddressInLimit(&self.registers.segments.cs.gdtEntry, self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx, OP_SIZE_BYTE)):
                     self.main.notice("Opcodes::iret: test1: opl: nt: test1.12 (savedEip: 0x%08x, savedCs: 0x%04x)", self.cpu.savedEip, self.cpu.savedCs)
                     raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                 #self.registers.ssInhibit = True
@@ -2877,7 +2891,7 @@ cdef class Opcodes:
                         self.cpu.cpuDump()
                     if ((oldESP - 24) >= oldESP):
                         raise HirnwichseException(CPU_EXCEPTION_SS, 0)
-                    #if (not self.registers.segments.isAddressInLimit(&self.registers.segments.cs.gdtEntry, tempEIP, OP_SIZE_BYTE)):
+                    #if (not self.registers.isAddressInLimit(&self.registers.segments.cs.gdtEntry, tempEIP, OP_SIZE_BYTE)):
                     #    raise HirnwichseException(CPU_EXCEPTION_GP, 0)
                     tempESP = self.stackPopValue(True)
                     tempSS = self.stackPopValue(True)
@@ -2993,7 +3007,7 @@ cdef class Opcodes:
             self.registers.segWriteSegment(&self.registers.segments.cs, tempCS)
             self.registers.regWriteDword(CPU_REGISTER_EIP, tempEIP)
             #self.cpu.saveCurrentInstPointer() # TODO
-            if (not self.registers.segments.isAddressInLimit(&gdtEntryCS, tempEIP, OP_SIZE_BYTE)):
+            if (not self.registers.isAddressInLimit(&gdtEntryCS, tempEIP, OP_SIZE_BYTE)):
                 self.main.notice("Opcodes::iret: test1: opl: rpl > cpl: test1.8 (savedEip: 0x%08x, savedCs: 0x%04x)", self.cpu.savedEip, self.cpu.savedCs)
                 raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         else:

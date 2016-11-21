@@ -120,7 +120,7 @@ cdef class Registers:
     cdef RegStruct regs[CPU_REGISTERS]
     cdef uint8_t cpl, A20Active, protectedModeOn, pagingOn, writeProtectionOn, ssInhibit, cacheDisabled, cpuCacheCodeSegChange, ignoreExceptions
     cdef uint16_t ldtr
-    cdef uint32_t cpuCacheBase, cpuCacheSize, cpuCacheIndex
+    cdef uint32_t cpuCacheBase, cpuCacheSize, cpuCacheIndex, apicBase, apicBaseReal, apicBaseRealPlusSize
     cdef char *cpuCache
     cdef void quitFunc(self)
     cdef void reset(self) nogil
@@ -152,6 +152,7 @@ cdef class Registers:
     cdef uint32_t getCurrentOpcodeAddUnsignedDword(self) except? BITMASK_BYTE_CONST
     cdef uint64_t getCurrentOpcodeAddUnsignedQword(self) except? BITMASK_BYTE_CONST
     cdef uint64_t getCurrentOpcodeAddUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
+    cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size) nogil
     cdef uint8_t segWrite(self, uint16_t segId, uint16_t segValue) except BITMASK_BYTE_CONST
     cdef uint8_t segWriteSegment(self, Segment *segment, uint16_t segValue) except BITMASK_BYTE_CONST
     cdef uint16_t regWriteWord(self, uint16_t regId, uint16_t value) except? BITMASK_BYTE_CONST

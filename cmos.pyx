@@ -4,7 +4,8 @@
 include "globals.pxi"
 
 from time import gmtime
-import prctl
+IF SET_THREAD_NAMES:
+    import prctl
 
 
 cdef class Cmos:
@@ -116,7 +117,8 @@ cdef class Cmos:
         self.writeValue(CMOS_CENTURY, century, OP_SIZE_BYTE)
     cdef void secondsThreadFunc(self):
         cdef uint8_t statusA
-        prctl.set_name("Cmos::secondsThreadFunc")
+        IF SET_THREAD_NAMES:
+            prctl.set_name("Cmos::secondsThreadFunc")
         with nogil:
             usleep(1000000)
         statusA = self.readValue(CMOS_STATUS_REGISTER_A, OP_SIZE_BYTE)

@@ -2,6 +2,7 @@
 from libc.stdint cimport *
 
 DEF COMP_DEBUG = 0
+DEF SET_THREAD_NAMES = 0
 
 cdef uint8_t OP_SIZE_BYTE  = 1
 cdef uint8_t OP_SIZE_WORD  = 2
@@ -94,8 +95,6 @@ cdef uint8_t BOOT_FROM_HD = 2
 cdef uint8_t BOOT_FROM_CD = 3
 
 cdef uint32_t SIZE_1MB_MASK = 0xfffff
-
-cdef uint32_t LAST_MEMAREA_BASE_ADDR = 0xfff00000
 
 cdef uint32_t SIZE_360K = 368640
 cdef uint32_t SIZE_720K = 737280
@@ -246,6 +245,8 @@ cdef uint32_t PCI_MEM_BASE = 0xc0000000
 cdef uint32_t PCI_MEM_BASE_PLUS_LIMIT = 0xc0100000
 
 cdef uint32_t VGA_ROM_BASE = 0xc0000
+
+cdef uint32_t LAST_MEMAREA_BASE_ADDR = 0xfff00000
 
 DEF PORTS_LIST_LEN = 32
 DEF PORTS_LEN = 33

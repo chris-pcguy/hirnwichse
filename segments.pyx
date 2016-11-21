@@ -435,20 +435,6 @@ cdef class Segments:
     def __init__(self, Registers registers, Hirnwichse main):
         self.registers = registers
         self.main = main
-    cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size) except BITMASK_BYTE_CONST:
-        ## address is an offset.
-        address += size-1
-        if (not gdtEntry[0].anotherLimit):
-            if (address>gdtEntry[0].limit):
-                IF COMP_DEBUG:
-                    self.main.notice("Segments::isAddressInLimit: test2: not in limit; (addr==0x%08x; size==0x%08x; limit==0x%08x)", address+1, size, gdtEntry[0].limit)
-                return False
-        else:
-            if ((address+1)<gdtEntry[0].limit or (not gdtEntry[0].segSize and (address>BITMASK_WORD))):
-                IF COMP_DEBUG:
-                    self.main.notice("Segments::isAddressInLimit: test1: not in limit; (addr==0x%08x; size==0x%08x; limit==0x%08x)", address+1, size, gdtEntry[0].limit)
-                return False
-        return True
     cdef void parseGdtEntryData(self, GdtEntry *gdtEntry, uint64_t entryData) nogil:
         gdtEntry[0].accessByte = <uint8_t>(entryData>>40)
         gdtEntry[0].flags  = (entryData>>52)&0xf

@@ -276,6 +276,8 @@ cdef class Vga:
         self.main = main
         self.videoMemBase = 0xb8000
         self.videoMemSize = 0x08000
+        self.romBaseReal = VGA_ROM_BASE
+        self.romBaseRealPlusSize = self.romBaseReal+SIZE_64KB
         self.needLoadFont = False
         self.readMap = self.writeMap = self.charSelA = self.charSelB = self.chain4 = self.chainOddEven = self.oddEvenReadDisabled = self.oddEvenWriteDisabled = self.extMem = self.readMode = self.logicOp = self.rotateCount = \
             self.graphicalMode = self.palette54 = self.enable8Bit = self.shift256 = self.colorSelect = self.colorCompare = self.startAddress = self.refreshScreen = self.retrace = self.addressSizeShift = self.alphaDis = 0
@@ -297,11 +299,16 @@ cdef class Vga:
         self.plane1 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane2 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane3 = ConfigSpace(VGA_PLANE_SIZE, self.main)
-        #self.pciDevice = self.main.platform.pci.addDevice()
-        #self.pciDevice.setVendorDeviceId(0x1234, 0x1111)
-        #self.pciDevice.setDeviceClass(PCI_CLASS_VGA)
-        #self.pciDevice.setBarSize(6, 16)
-        #self.pciDevice.setData(PCI_ROM_ADDRESS, ((VGA_ROM_BASE << 10) | 0x1), OP_SIZE_DWORD)
+        self.pciDevice = self.main.platform.pci.addDevice()
+        self.pciDevice.setVendorDeviceId(0x1234, 0x1111)
+        self.pciDevice.setDeviceClass(PCI_CLASS_VGA)
+        #self.pciDevice.setBarSize(0, 24)
+        #self.pciDevice.setBarSize(2, 12)
+        self.pciDevice.setBarSize(6, 16)
+        #self.pciDevice.setData(PCI_BASE_ADDRESS_0, 0x8, OP_SIZE_DWORD)
+        self.pciDevice.setData(PCI_ROM_ADDRESS, ((self.romBaseReal << 10) | 0x1), OP_SIZE_DWORD)
+        #self.pciDevice.setData(PCI_COMMAND, 0x3, OP_SIZE_BYTE)
+        self.pciDevice.setData(PCI_COMMAND, 0x0, OP_SIZE_BYTE)
         self.ui = None
         if (not self.main.noUI):
             self.ui = PysdlUI(self)
@@ -490,12 +497,11 @@ cdef class Vga:
                     self.main.exitError("Vga::vgaAreaRead: len(retStr)==%u != dataSize==%u", len(retStr), dataSize)
                     return bytes(dataSize)
             return retStr
-        retStr = PyBytes_FromStringAndSize( self.main.mm.tempData+offset, <Py_ssize_t>dataSize)
+        retStr = PyBytes_FromStringAndSize( self.main.mm.data+offset, <Py_ssize_t>dataSize)
         #if (self.main.debugEnabled):
         #IF 0:
         IF COMP_DEBUG:
-            #self.main.notice("Vga::vgaAreaRead: test1: offset==0x%05x; dataSize==%u; data==%s", offset, dataSize, repr(retStr))
-            self.main.notice("Vga::vgaAreaRead: test1: offset==0x%05x; dataSize==%u", offset, dataSize)
+            self.main.notice("Vga::vgaAreaRead: test1: offset==0x%05x; dataSize==%u; data==%s", offset, dataSize, <bytes>repr(retStr).encode())
         return retStr
     cdef char *vgaAreaRead(self, uint32_t offset, uint32_t dataSize) nogil:
         with gil:
@@ -512,8 +518,7 @@ cdef class Vga:
             #IF 0:
             #IF 1:
             IF COMP_DEBUG:
-                #self.main.notice("Vga::vgaAreaWrite: offset==0x%05x; dataSize==%u; data==%s", offset, dataSize, repr(self.main.mm.data[offset:offset+dataSize]))
-                self.main.notice("Vga::vgaAreaWrite: offset==0x%05x; dataSize==%u", offset, dataSize)
+                self.main.notice("Vga::vgaAreaWrite: offset==0x%05x; dataSize==%u; data==%s", offset, dataSize, <bytes>repr(self.main.mm.data[offset:offset+dataSize]).encode())
             if (self.ui is None):
                 return
         if (not self.processVideoMem or not (self.miscReg&VGA_EXTREG_PROCESS_RAM)):
@@ -640,7 +645,7 @@ cdef class Vga:
             #if (self.newTimer - self.oldTimer >= 0.05):
             if (self.newTimer - self.oldTimer >= 0.075):
                 self.oldTimer = self.newTimer
-                self.ui.updateScreen()
+                self.ui.updateScreen(False)
             return
         if (self.needLoadFont):
             self.readFontData()
@@ -685,7 +690,7 @@ cdef class Vga:
         #if (self.newTimer - self.oldTimer >= 0.05):
         if (self.newTimer - self.oldTimer >= 0.075):
             self.oldTimer = self.newTimer
-            self.ui.updateScreen()
+            self.ui.updateScreen(False)
     cdef void vgaAreaWrite(self, uint32_t offset, uint32_t dataSize) nogil:
         with gil:
             self.vgaAreaWriteHandler(offset, dataSize)
