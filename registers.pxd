@@ -79,6 +79,7 @@ cdef class ModRMClass:
     cdef uint16_t rmName0, rmName1, regName
     cdef uint64_t rmName2
     cdef uint8_t modRMOperands(self, uint8_t regSize, uint8_t modRMflags) except BITMASK_BYTE_CONST
+    cdef uint8_t getRegNameWithFlags(self, uint8_t modRMflags, uint8_t reg, uint8_t operSize) nogil
     cdef uint64_t getRMValueFull(self, uint8_t rmSize) nogil
     cdef int64_t modRMLoadSigned(self, uint8_t regSize) except? BITMASK_BYTE_CONST
     cdef uint64_t modRMLoadUnsigned(self, uint8_t regSize) except? BITMASK_BYTE_CONST
@@ -173,7 +174,6 @@ cdef class Registers:
     cdef inline void setSZP_O(self, uint32_t value, uint8_t regSize) nogil
     cdef inline void setSZP_A(self, uint32_t value, uint8_t regSize) nogil
     cdef inline void setSZP_COA(self, uint32_t value, uint8_t regSize) nogil
-    cdef inline uint8_t getRegNameWithFlags(self, uint8_t modRMflags, uint8_t reg, uint8_t operSize) except BITMASK_BYTE_CONST
     cdef inline uint8_t getCond(self, uint8_t index) nogil
     cdef inline void setFullFlags(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method) nogil
     cdef inline uint32_t mmGetRealAddr(self, uint32_t mmAddr, uint32_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t written, uint8_t noAddress) except? BITMASK_BYTE_CONST

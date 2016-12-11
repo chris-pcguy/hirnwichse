@@ -71,6 +71,11 @@ cdef class Hirnwichse:
         #self.debugEnabled = False
     cdef void quitFunc(self) nogil:
         self.quitEmu = True
+        #with gil:
+        #    fp=open("mmdump_1","wb")
+        #    fp.write(PyBytes_FromStringAndSize( self.mm.data, <Py_ssize_t>4*1024))
+        #    fp.flush()
+        #    fp.close()
     cdef void exitError(self, char *msg, ...) nogil:
         cdef va_list args
         cdef char msgBuf[1024]

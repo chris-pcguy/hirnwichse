@@ -2130,7 +2130,8 @@ cdef class Opcodes:
                 self.cpu.cpuDump()
         elif (operOpcode in (0xb6, 0xbe)): # 0xb6==MOVZX R16_32, R/M8 ;; 0xbe==MOVSX R16_32, R/M8
             self.modRMInstance.modRMOperands(OP_SIZE_BYTE, MODRM_FLAGS_NONE)
-            self.modRMInstance.regName = self.registers.getRegNameWithFlags(MODRM_FLAGS_NONE, self.modRMInstance.reg, self.cpu.operSize)
+            if (not self.modRMInstance.getRegNameWithFlags(MODRM_FLAGS_NONE, self.modRMInstance.reg, self.cpu.operSize)):
+                raise HirnwichseException(CPU_EXCEPTION_UD)
             if (operOpcode == 0xb6): # MOVZX R16_32, R/M8
                 op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_BYTE)
             else: # MOVSX R16_32, R/M8
@@ -2140,7 +2141,8 @@ cdef class Opcodes:
             self.modRMInstance.modRSave(self.cpu.operSize, op2, OPCODE_SAVE)
         elif (operOpcode in (0xb7, 0xbf)): # 0xb7==MOVZX R32, R/M16 ;; 0xbf==MOVSX R32, R/M16
             self.modRMInstance.modRMOperands(OP_SIZE_WORD, MODRM_FLAGS_NONE)
-            self.modRMInstance.regName = self.registers.getRegNameWithFlags(MODRM_FLAGS_NONE, self.modRMInstance.reg, OP_SIZE_DWORD)
+            if (not self.modRMInstance.getRegNameWithFlags(MODRM_FLAGS_NONE, self.modRMInstance.reg, OP_SIZE_DWORD)):
+                raise HirnwichseException(CPU_EXCEPTION_UD)
             if (operOpcode == 0xb7): # MOVZX R32, R/M16
                 op2 = self.modRMInstance.modRMLoadUnsigned(OP_SIZE_WORD)
             else: # MOVSX R32, R/M16

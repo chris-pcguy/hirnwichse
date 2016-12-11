@@ -26,9 +26,9 @@ cdef class PciDevice:
         for i in range(7):
             self.barSize[i] = 0
         self.configSpace = ConfigSpace(PCI_FUNCTION_CONFIG_SIZE, self.pci.main)
-        self.configSpace.csWriteValue(PCI_HEADER_TYPE, PCI_HEADER_TYPE_STANDARD, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(PCI_COMMAND, 0x4, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(PCI_STATUS, 0x200, OP_SIZE_WORD)
+        self.configSpace.csWriteValueByte(PCI_HEADER_TYPE, PCI_HEADER_TYPE_STANDARD)
+        self.configSpace.csWriteValueByte(PCI_COMMAND, 0x4)
+        self.configSpace.csWriteValueWord(PCI_STATUS, 0x200)
     cdef void reset(self):
         pass
     cdef uint8_t checkWriteAccess(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil: # return true means allowed
@@ -51,7 +51,7 @@ cdef class PciDevice:
                         barIndex = 8
                     elif (barIndex == 2 and headerType != 0):
                         barIndex = 10
-                    origData = self.configSpace.csReadValueUnsigned((mmAddress & <uint32_t>0xffffff00)+PCI_BASE_ADDRESS_0+(barIndex<<2), OP_SIZE_DWORD)
+                    origData = self.configSpace.csReadValueUnsignedDword((mmAddress & <uint32_t>0xffffff00)+PCI_BASE_ADDRESS_0+(barIndex<<2))
                     if (origData and ((origData & <uint32_t>0xfffffff0) != <uint32_t>0xfffffff0)):
                         if (origData & 1 and barIndex < 6):
                             function |= 1
@@ -59,7 +59,7 @@ cdef class PciDevice:
                             function |= 2
             data &= 0x404
             data |= function
-            self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_WORD)
+            self.configSpace.csWriteValueWord(mmAddress, data)
             return False
         elif (offset+dataSize > PCI_BASE_ADDRESS_0 and offset < PCI_BRIDGE_ROM_ADDRESS+OP_SIZE_DWORD):
             if (self.pci.main.debugEnabled and (offset & 3) != 0):
@@ -80,7 +80,7 @@ cdef class PciDevice:
             if (offset >= PCI_BASE_ADDRESS_0 and offset <= PCI_BASE_ADDRESS_5):
                 if (not self.barSize[barIndex]):
                     return False
-                origData = self.configSpace.csReadValueUnsigned(offset, OP_SIZE_DWORD)
+                origData = self.configSpace.csReadValueUnsignedDword(offset)
                 memBarType = (origData >> 1) & 0x3
                 if (not (origData & 1) and memBarType != 0): #if (memBarType in (1, 2, 3)):
                     self.pci.main.exitError("PciDevice::checkWriteAccess: unsupported memBarType (%u)", memBarType)
@@ -106,13 +106,13 @@ cdef class PciDevice:
                 barIndex = 6
                 if (not self.barSize[barIndex]):
                     return False
-                origData = self.configSpace.csReadValueUnsigned(offset, OP_SIZE_DWORD)
+                origData = self.configSpace.csReadValueUnsignedDword(offset)
                 if ((data & <uint32_t>0xfffff800) == <uint32_t>0xfffff800):
                     data = (BITMASK_DWORD & (~((1<<self.barSize[barIndex]) - 1))) # TODO: is this correct?
                     #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))
                     #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))>>self.barSize[barIndex]
                 #data = (origData & (~((1<<self.barSize[barIndex]) - 1)))
-            self.configSpace.csWriteValue(mmAddress, data, OP_SIZE_DWORD)
+            self.configSpace.csWriteValueDword(mmAddress, data)
             return False
         return True
     cdef uint32_t getData(self, uint32_t mmAddress, uint8_t dataSize) nogil:
@@ -150,8 +150,8 @@ cdef class PciBridge(PciDevice):
         PciDevice.__init__(self, bus, pci, deviceIndex)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_440FX)
         self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
-        self.configSpace.csWriteValue(PCI_COMMAND, 0x6, OP_SIZE_WORD)
-        self.configSpace.csWriteValue(PCI_STATUS, 0x280, OP_SIZE_WORD)
+        self.configSpace.csWriteValueWord(PCI_COMMAND, 0x6)
+        self.configSpace.csWriteValueWord(PCI_STATUS, 0x280)
     cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
         #cdef uint32_t addr, limit
         PciDevice.setData(self, mmAddress, data, dataSize)
@@ -172,33 +172,33 @@ cdef class Pci2Isa(PciDevice):
         PciDevice.__init__(self, bus, pci, deviceIndex)
         self.setVendorDeviceId(PCI_VENDOR_ID_INTEL, 0x7000)
         self.setDeviceClass(PCI_CLASS_BRIDGE_ISA)
-        self.configSpace.csWriteValue(PCI_COMMAND, 0x7, OP_SIZE_WORD)
-        self.configSpace.csWriteValue(PCI_STATUS, 0x200, OP_SIZE_WORD)
-        self.configSpace.csWriteValue(PCI_HEADER_TYPE, 0x80, OP_SIZE_BYTE)
+        self.configSpace.csWriteValueWord(PCI_COMMAND, 0x7)
+        self.configSpace.csWriteValueWord(PCI_STATUS, 0x200)
+        self.configSpace.csWriteValueByte(PCI_HEADER_TYPE, 0x80)
         self.reset()
     cdef void reset(self):
         cdef uint8_t i
         PciDevice.reset(self)
-        self.configSpace.csWriteValue(0x05, 0x00, OP_SIZE_WORD)
-        self.configSpace.csWriteValue(0x07, 0x02, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x4c, 0x4d, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x4e, 0x03, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x4f, 0x00, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x69, 0x02, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x70, 0x80, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x76, 0x0c, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x77, 0x0c, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x78, 0x02, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x79, 0x00, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x80, 0x00, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0x82, 0x00, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0xa0, 0x08, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0xa2, 0x00, OP_SIZE_WORD)
-        self.configSpace.csWriteValue(0xa4, 0x00, OP_SIZE_DWORD)
-        self.configSpace.csWriteValue(0xa8, 0x0f, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0xaa, 0x00, OP_SIZE_WORD)
-        self.configSpace.csWriteValue(0xac, 0x00, OP_SIZE_BYTE)
-        self.configSpace.csWriteValue(0xae, 0x00, OP_SIZE_BYTE)
+        self.configSpace.csWriteValueWord(0x05, 0x00)
+        self.configSpace.csWriteValueByte(0x07, 0x02)
+        self.configSpace.csWriteValueByte(0x4c, 0x4d)
+        self.configSpace.csWriteValueByte(0x4e, 0x03)
+        self.configSpace.csWriteValueByte(0x4f, 0x00)
+        self.configSpace.csWriteValueByte(0x69, 0x02)
+        self.configSpace.csWriteValueByte(0x70, 0x80)
+        self.configSpace.csWriteValueByte(0x76, 0x0c)
+        self.configSpace.csWriteValueByte(0x77, 0x0c)
+        self.configSpace.csWriteValueByte(0x78, 0x02)
+        self.configSpace.csWriteValueByte(0x79, 0x00)
+        self.configSpace.csWriteValueByte(0x80, 0x00)
+        self.configSpace.csWriteValueByte(0x82, 0x00)
+        self.configSpace.csWriteValueByte(0xa0, 0x08)
+        self.configSpace.csWriteValueWord(0xa2, 0x00)
+        self.configSpace.csWriteValueDword(0xa4, 0x00)
+        self.configSpace.csWriteValueByte(0xa8, 0x0f)
+        self.configSpace.csWriteValueWord(0xaa, 0x00)
+        self.configSpace.csWriteValueByte(0xac, 0x00)
+        self.configSpace.csWriteValueByte(0xae, 0x00)
         for i in range(4):
             #pci_set_irq(0x08, i+1, 0);
             self.pciUnregisterIrq(i, 0x80)

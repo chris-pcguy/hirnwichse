@@ -193,14 +193,14 @@ cdef class Paging: # TODO
         # TODO: handle global flag for non 4KB PDEs
         self.tlbDirectories.csWrite(0, self.segments.main.mm.mmPhyRead(self.pageDirectoryBaseAddress, PAGE_DIRECTORY_LENGTH), PAGE_DIRECTORY_LENGTH)
         for i in range(PAGE_DIRECTORY_ENTRIES):
-            pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(i<<2, OP_SIZE_DWORD) # page directory
+            pageDirectoryEntry = self.tlbDirectories.csReadValueUnsignedDword(i<<2) # page directory
             if (pageDirectoryEntry & PAGE_PRESENT):
                 for j in range(PAGE_DIRECTORY_ENTRIES):
                     j <<= 2
                     pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&<uint32_t>0xfffff000)|j) # page table
                     #if (not noGlobal or not (pageTableEntry & PAGE_GLOBAL)):
                     if (not noGlobal or (self.segments.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_PGE) != 0 and not (pageTableEntry & PAGE_GLOBAL))):
-                        self.tlbTables.csWriteValue((i<<12)|j, pageTableEntry, OP_SIZE_DWORD)
+                        self.tlbTables.csWriteValueDword((i<<12)|j, pageTableEntry)
             else:
                 self.tlbTables.csResetAddr((i<<12), 0, PAGE_DIRECTORY_LENGTH)
     cdef void invalidateTable(self, uint32_t virtualAddress):
@@ -208,9 +208,9 @@ cdef class Paging: # TODO
         pageDirectoryOffset = (virtualAddress>>22) << 2
         pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         pageDirectoryEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|pageDirectoryOffset) # page directory
-        self.tlbDirectories.csWriteValue(pageDirectoryOffset, pageDirectoryEntry, OP_SIZE_DWORD)
+        self.tlbDirectories.csWriteValueDword(pageDirectoryOffset, pageDirectoryEntry)
         pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&<uint32_t>0xfffff000)|pageTableOffset) # page table
-        self.tlbTables.csWriteValue(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTableEntry, OP_SIZE_DWORD)
+        self.tlbTables.csWriteValueDword(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTableEntry)
     cdef void invalidatePage(self, uint32_t virtualAddress):
         cdef uint8_t updateDir
         cdef uint32_t pageDirectoryEntry, pageTableEntry, pageDirectoryOffset, pageTableOffset, pageDirectoryEntryV, i, j
@@ -222,20 +222,20 @@ cdef class Paging: # TODO
             updateDir = False
             pageDirectoryEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|i)
             if (not (pageDirectoryEntry & PAGE_PRESENT)):
-                self.tlbDirectories.csWriteValue(i, 0, OP_SIZE_DWORD)
+                self.tlbDirectories.csWriteValueDword(i, 0)
                 self.tlbTables.csResetAddr(((i>>2)<<12), 0, PAGE_DIRECTORY_LENGTH)
                 continue
             elif ((pageDirectoryEntry&<uint32_t>0xfffff000) == pageDirectoryEntryV):
-                self.tlbDirectories.csWriteValue(i, pageDirectoryEntry, OP_SIZE_DWORD)
+                self.tlbDirectories.csWriteValueDword(i, pageDirectoryEntry)
                 updateDir = True
             for j in range(0, PAGE_DIRECTORY_LENGTH, 4):
                 pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&<uint32_t>0xfffff000)|j) # page table
                 if (not (pageTableEntry & PAGE_PRESENT)):
-                    self.tlbTables.csWriteValue(((i>>2)<<12)|j, 0, OP_SIZE_DWORD)
+                    self.tlbTables.csWriteValueDword(((i>>2)<<12)|j, 0)
                     continue
                 elif (virtualAddress == (pageTableEntry&<uint32_t>0xfffff000) or updateDir):
-                    self.tlbDirectories.csWriteValue(i, pageDirectoryEntry, OP_SIZE_DWORD)
-                    self.tlbTables.csWriteValue(((i>>2)<<12)|j, pageTableEntry, OP_SIZE_DWORD)
+                    self.tlbDirectories.csWriteValueDword(i, pageDirectoryEntry)
+                    self.tlbTables.csWriteValueDword(((i>>2)<<12)|j, pageTableEntry)
     cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) except BITMASK_BYTE_CONST:
         cdef uint32_t errorFlags
         IF COMP_DEBUG:
@@ -269,16 +269,17 @@ cdef class Paging: # TODO
             self.segments.registers.ignoreExceptions = False
         return BITMASK_BYTE
     cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) except BITMASK_BYTE_CONST:
-        cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, pageDirectoryEntryMem, pageTableEntryMem, pageTablesEntryNew, origVirtualAddress
+        cdef uint32_t pageDirectoryOffsetWithoutShift, pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, pageDirectoryEntryMem, pageTableEntryMem, pageTablesEntryNew, origVirtualAddress
         # TODO: for now only handling 4KB pages. (very inefficient)
         if (not dataSize):
             return True
         origVirtualAddress = virtualAddress
         while (dataSize >= 0):
-            pageDirectoryOffset = (virtualAddress>>22) << 2
+            pageDirectoryOffsetWithoutShift = (virtualAddress>>22)
+            pageDirectoryOffset = pageDirectoryOffsetWithoutShift << 2
             pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
-            pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(pageDirectoryOffset, OP_SIZE_DWORD) # page directory
-            pageTableEntry = self.tlbTables.csReadValueUnsigned(((pageDirectoryOffset>>2)<<12)|pageTableOffset, OP_SIZE_DWORD) # page table
+            pageDirectoryEntry = self.tlbDirectories.csReadValueUnsignedDword(pageDirectoryOffset) # page directory
+            pageTableEntry = self.tlbTables.csReadValueUnsignedDword((pageDirectoryOffsetWithoutShift<<12)|pageTableOffset) # page table
             if ((pageDirectoryEntry & PAGE_PRESENT) and ((pageDirectoryEntry & PAGE_SIZE) or (pageTableEntry & PAGE_PRESENT))):
                 #self.segments.main.debug("Paging::setFlags: test3: pdo addr 0x%08x; pto addr 0x%08x", (self.pageDirectoryBaseAddress|pageDirectoryOffset), ((pageDirectoryEntry&<uint32_t>0xfffff000)|pageTableOffset))
                 #self.segments.main.debug("Paging::setFlags: test4: pdo 0x%08x; pto 0x%08x", pageDirectoryEntry, pageTableEntry)
@@ -286,13 +287,13 @@ cdef class Paging: # TODO
                 pageDirectoryEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|pageDirectoryOffset) # page directory
                 if (not (pageDirectoryEntry & PAGE_WAS_USED) or (written and not (pageDirectoryEntry & PAGE_WRITTEN_ON_PAGE))):
                     pageTablesEntryNew = pageDirectoryEntry|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
-                    self.tlbDirectories.csWriteValue(pageDirectoryOffset, pageTablesEntryNew, OP_SIZE_DWORD)
+                    self.tlbDirectories.csWriteValueDword(pageDirectoryOffset, pageTablesEntryNew)
                     if (pageDirectoryEntry&<uint32_t>0xfffff19f == pageDirectoryEntryMem&<uint32_t>0xfffff19f):
                         pageTablesEntryNew = pageDirectoryEntryMem|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
                         self.segments.main.mm.mmPhyWriteValue(self.pageDirectoryBaseAddress|pageDirectoryOffset, pageTablesEntryNew, OP_SIZE_DWORD) # page directory
                 if (not (pageDirectoryEntry & PAGE_SIZE) and (not (pageTableEntry & PAGE_WAS_USED) or (written and not (pageTableEntry & PAGE_WRITTEN_ON_PAGE)))):
                     pageTablesEntryNew = pageTableEntry|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
-                    self.tlbTables.csWriteValue(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTablesEntryNew, OP_SIZE_DWORD)
+                    self.tlbTables.csWriteValueDword((pageDirectoryOffsetWithoutShift<<12)|pageTableOffset, pageTablesEntryNew)
                     pageTableEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntryMem&<uint32_t>0xfffff000)|pageTableOffset) # page table
                     if (pageDirectoryEntry&<uint32_t>0xfffff19f == pageDirectoryEntryMem&<uint32_t>0xfffff19f and pageTableEntry&<uint32_t>0xfffff19f == pageTableEntryMem&<uint32_t>0xfffff19f):
                         pageTablesEntryNew = pageTableEntryMem|(PAGE_WAS_USED | (written and PAGE_WRITTEN_ON_PAGE))
@@ -320,19 +321,19 @@ cdef class Paging: # TODO
         self.pageDirectoryOffset = (virtualAddress>>22) << 2
         self.pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
         self.pageOffset = virtualAddress&0xfff
-        self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
+        self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsignedDword(self.pageDirectoryOffset) # page directory
         if (not self.pageDirectoryEntry):
             IF COMP_DEBUG:
                 if (self.segments.main.debugEnabled):
                     self.segments.main.notice("Paging::getPhysicalAddress: PDE-Entry is zero, reloading. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
-                    self.segments.main.notice("Paging::getPhysicalAddress: PDE-Entry is zero, reloading, PTE. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.tlbTables.csReadValueUnsigned((self.pageDirectoryOffset<<10)|self.pageTableOffset, OP_SIZE_DWORD), (self.pageDirectoryEntry&<uint32_t>0xfffff000)|self.pageTableOffset, virtualAddress)
+                    self.segments.main.notice("Paging::getPhysicalAddress: PDE-Entry is zero, reloading, PTE. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.tlbTables.csReadValueUnsignedDword((self.pageDirectoryOffset<<10)|self.pageTableOffset), (self.pageDirectoryEntry&<uint32_t>0xfffff000)|self.pageTableOffset, virtualAddress)
             #self.invalidateTable(virtualAddress)
             self.invalidatePage(virtualAddress)
-            self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
+            self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsignedDword(self.pageDirectoryOffset) # page directory
             IF COMP_DEBUG:
                 if (self.segments.main.debugEnabled):
                     self.segments.main.notice("Paging::getPhysicalAddress: PDE-Entry was zero, reloaded. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
-                    self.segments.main.notice("Paging::getPhysicalAddress: PDE-Entry was zero, reloaded, PTE. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.tlbTables.csReadValueUnsigned((self.pageDirectoryOffset<<10)|self.pageTableOffset, OP_SIZE_DWORD), (self.pageDirectoryEntry&<uint32_t>0xfffff000)|self.pageTableOffset, virtualAddress)
+                    self.segments.main.notice("Paging::getPhysicalAddress: PDE-Entry was zero, reloaded, PTE. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.tlbTables.csReadValueUnsignedDword((self.pageDirectoryOffset<<10)|self.pageTableOffset), (self.pageDirectoryEntry&<uint32_t>0xfffff000)|self.pageTableOffset, virtualAddress)
         if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
             IF COMP_DEBUG:
                 if (self.segments.main.debugEnabled):
@@ -340,7 +341,7 @@ cdef class Paging: # TODO
                     self.segments.main.notice("Paging::getPhysicalAddress: TODO! (savedEip: 0x%08x, savedCs: 0x%04x)", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
             #self.invalidateTable(virtualAddress)
             self.invalidatePage(virtualAddress)
-            self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
+            self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsignedDword(self.pageDirectoryOffset) # page directory
             if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
                 IF COMP_DEBUG:
                 #IF 1:
@@ -361,14 +362,14 @@ cdef class Paging: # TODO
             self.segments.main.notice("Paging::getPhysicalAddress: 4MB pages are NOT FULLY SUPPORTED yet.")
             self.segments.main.exitError("Paging::getPhysicalAddress: TODO... exiting.")
         else:
-            self.pageTableEntry = self.tlbTables.csReadValueUnsigned((self.pageDirectoryOffset<<10)|self.pageTableOffset, OP_SIZE_DWORD) # page table
+            self.pageTableEntry = self.tlbTables.csReadValueUnsignedDword((self.pageDirectoryOffset<<10)|self.pageTableOffset) # page table
             if (not self.pageTableEntry):
                 IF COMP_DEBUG:
                     if (self.segments.main.debugEnabled):
                         self.segments.main.notice("Paging::getPhysicalAddress: PTE-Entry is zero, reloading. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.pageTableEntry, (self.pageDirectoryEntry&<uint32_t>0xfffff000)|self.pageTableOffset, virtualAddress)
                 #self.invalidateTable(virtualAddress)
                 self.invalidatePage(virtualAddress)
-                self.pageTableEntry = self.tlbTables.csReadValueUnsigned((self.pageDirectoryOffset<<10)|self.pageTableOffset, OP_SIZE_DWORD) # page table
+                self.pageTableEntry = self.tlbTables.csReadValueUnsignedDword((self.pageDirectoryOffset<<10)|self.pageTableOffset) # page table
                 IF COMP_DEBUG:
                     if (self.segments.main.debugEnabled):
                         self.segments.main.notice("Paging::getPhysicalAddress: PTE-Entry was zero, reloaded. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.pageTableEntry, (self.pageDirectoryEntry&<uint32_t>0xfffff000)|self.pageTableOffset, virtualAddress)
@@ -378,7 +379,7 @@ cdef class Paging: # TODO
                         self.segments.main.notice("Paging::getPhysicalAddress: PTE-Entry is not present 1. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.pageTableEntry, (self.pageDirectoryEntry&<uint32_t>0xfffff000)|self.pageTableOffset, virtualAddress)
                 #self.invalidateTable(virtualAddress)
                 self.invalidatePage(virtualAddress)
-                self.pageTableEntry = self.tlbTables.csReadValueUnsigned((self.pageDirectoryOffset<<10)|self.pageTableOffset, OP_SIZE_DWORD) # page table
+                self.pageTableEntry = self.tlbTables.csReadValueUnsignedDword((self.pageDirectoryOffset<<10)|self.pageTableOffset) # page table
                 if (not (self.pageTableEntry & PAGE_PRESENT)):
                     IF COMP_DEBUG:
                     #IF 1:
@@ -405,8 +406,8 @@ cdef class Paging: # TODO
         #IF 1:
         #IF 0:
         IF COMP_DEBUG:
-            #self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsigned(self.pageDirectoryOffset, OP_SIZE_DWORD) # page directory
-            #self.pageTableEntry = self.tlbTables.csReadValueUnsigned((self.pageDirectoryOffset<<10)|self.pageTableOffset, OP_SIZE_DWORD) # page table
+            #self.pageDirectoryEntry = self.tlbDirectories.csReadValueUnsignedDword(self.pageDirectoryOffset) # page directory
+            #self.pageTableEntry = self.tlbTables.csReadValueUnsignedDword((self.pageDirectoryOffset<<10)|self.pageTableOffset) # page table
             pageDirectoryEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword(self.pageDirectoryBaseAddress|self.pageDirectoryOffset) # page directory
             pageTableEntryMem = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntryMem&<uint32_t>0xfffff000)|self.pageTableOffset) # page table
             if (self.segments.main.debugEnabled):

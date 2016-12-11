@@ -180,8 +180,8 @@ cdef class Cpu:
                         self.handleAsyncEvent()
                     else:
                         self.registers.ssInhibit = False
-                        #sleep(0.2)
-                        sleep(0.1) # lowering it to 0.1 because "why not?"
+                        #sleep(0.1) # lowering it to 0.1 because "why not?"
+                        sleep(0.02)
                     if (self.main.platform.vga and self.main.platform.vga.ui): # this "if"-statement needs to be here because of the reactos boot menu
                         self.main.platform.vga.ui.handleEventsWithoutWaiting()
                     continue

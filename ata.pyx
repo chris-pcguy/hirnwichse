@@ -90,6 +90,8 @@ DEF PACKET_COMMAND_READ_12 = 0xa8
 DEF PACKET_COMMAND_READ_SUBCHANNEL = 0x42
 DEF PACKET_COMMAND_READ_TOC = 0x43
 DEF PACKET_COMMAND_MODE_SENSE_10 = 0x5a
+DEF PACKET_COMMAND_MECHANISM_STATUS = 0xbd
+DEF PACKET_COMMAND_READ_CD = 0xbe
 
 DEF FD_HD_SECTOR_SIZE = 512
 DEF FD_HD_SECTOR_SHIFT = 9
@@ -124,10 +126,8 @@ cdef class AtaDrive:
         self.senseKey = self.senseAsc = 0
     cdef uint64_t ChsToSector(self, uint32_t cylinder, uint8_t head, uint8_t sector) nogil:
         return (cylinder*HEADS+head)*SPT+(sector-1)
-    cdef inline uint16_t readValue(self, uint8_t index) nogil:
-        return self.configSpace.csReadValueUnsigned(index << 1, OP_SIZE_WORD)
     cdef inline void writeValue(self, uint8_t index, uint16_t value) nogil:
-        self.configSpace.csWriteValue(index << 1, value, OP_SIZE_WORD)
+        self.configSpace.csWriteValueWord(index << 1, value)
     cdef void reset(self) nogil:
         pass
     cdef void loadDrive(self, bytes filename):
@@ -146,7 +146,6 @@ cdef class AtaDrive:
             self.isLoaded = True
             self.isWriteProtected = True
         else:
-            #self.ataController.ata.main.notice("HD%u: loadDrive: file isn't found/accessable. (filename: %s, access-cmd)", (self.ataController.controllerId << 1)+self.driveId, filename.decode())
             self.ataController.ata.main.notice("HD%u: loadDrive: file isn't found/accessable. (filename: %s, access-cmd)", (self.ataController.controllerId << 1)+self.driveId, filename)
             return
         if (self.driveType == ATA_DRIVE_TYPE_HD):
@@ -208,7 +207,7 @@ cdef class AtaDrive:
             self.writeValue(61, <uint16_t>(self.sectors>>16)) # total number of addressable blocks.
             self.writeValue(47, 0x8010)
             self.writeValue(59, 0x110)
-            self.configSpace.csWriteValue(100 << 1, self.sectors, OP_SIZE_QWORD) # total number of addressable blocks.
+            self.configSpace.csWriteValueQword(100 << 1, self.sectors) # total number of addressable blocks.
         self.writeValue(48, 1) # supports dword access
         self.writeValue(49, ((1 << 9) | (1 << 8))) # supports lba
         self.writeValue(50, 0x4000)
@@ -246,10 +245,10 @@ cdef class AtaDrive:
             (<Cmos>self.ataController.ata.main.platform.cmos).writeValue((CMOS_HD0_SPT if (self.driveId == 0) else CMOS_HD1_SPT), SPT, OP_SIZE_BYTE)
             if (self.driveId == 0):
                 (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(CMOS_HD0_CONTROL_BYTE, 0xc8, OP_SIZE_BYTE) # hardcoded
-                #self.ataController.ata.pciDevice.configSpace.csWriteValue(0x40, 0x8000, OP_SIZE_WORD)
+                #self.ataController.ata.pciDevice.configSpace.csWriteValueWord(0x40, 0x8000)
             else:
                 (<Cmos>self.ataController.ata.main.platform.cmos).writeValue(CMOS_HD1_CONTROL_BYTE, 0x80, OP_SIZE_BYTE) # hardcoded
-                #self.ataController.ata.pciDevice.configSpace.csWriteValue(0x42, 0x8000, OP_SIZE_WORD)
+                #self.ataController.ata.pciDevice.configSpace.csWriteValueWord(0x42, 0x8000)
         elif (self.ataController.controllerId == 1 and self.driveId in (0, 1)):
             #self.writeValue(0, 0x85c0) # word 0 ; atapi; removable drive
             #self.writeValue(0, 0x0580) # word 0 ; atapi; removable drive
@@ -413,12 +412,15 @@ cdef class AtaController:
         self.driveBusy = self.drq = self.err = False
         self.sectorCount = self.sectorCountByte = 3
         self.driveReady = True
+        self.errorRegister = 0
         with gil:
             self.result = self.data = b''
         # TODO: HACK?: sectorCount/interrupt_reason
+        if (self.irq):
+            (<Pic>self.ata.main.platform.pic).raiseIrq(self.irq)
     cdef void handlePacket(self):
         cdef AtaDrive drive
-        cdef uint8_t cmd, dataSize, msf, startingTrack, tocFormat, subQ, PC, pageCode
+        cdef uint8_t cmd, dataSize, msf, startingTrack, tocFormat, subQ, PC, pageCode, transferReq
         cdef uint16_t allocLength
         drive = <AtaDrive>self.drive[self.driveId]
         cmd = self.data[0]
@@ -426,10 +428,12 @@ cdef class AtaController:
         #self.ata.main.notice("AtaController::handlePacket_0: self.data == %s", repr(self.data))
         if (cmd == PACKET_COMMAND_TEST_UNIT_READY):
             if (drive.isLoaded):
-                self.nopCommand()
                 #self.result = bytes(8)
+                self.nopCommand()
+                return
             else:
                 self.errorCommand(0x20)
+                return
         elif (cmd == PACKET_COMMAND_REQUEST_SENSE):
             #self.ata.main.exitError("AtaController::handlePacket_3: test exit! self.data == %s", repr(self.data))
             self.result = b'\xf0'
@@ -449,12 +453,12 @@ cdef class AtaController:
                 #self.ata.main.notice("AtaController::handlePacket_6: allocation length is < 36! self.data == %s", repr(self.data))
                 return
             #if (drive.driveType == ATA_DRIVE_TYPE_CDROM):
-            #    #self.result = drive.readValue(0).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+            #    #self.result = drive.configSpace.csReadValueUnsigned(0, OP_SIZE_WORD).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
             #    self.result = (0x0580).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
             #else:
             #    #self.result = bytes(2)
             #    self.result = (0x4000).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
-            self.result = drive.readValue(0).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+            self.result = drive.configSpace.csReadValueUnsigned(0, OP_SIZE_WORD).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
             self.result += b'\x00\x21'
             self.result += bytes([dataSize-5])
             self.result += bytes(3)
@@ -475,13 +479,39 @@ cdef class AtaController:
                 #self.sectorCount = self.sectorCountByte = 2
             else:
                 self.errorCommand(0x20)
-        elif (cmd in (PACKET_COMMAND_READ_10, PACKET_COMMAND_READ_12)):
-            self.lba = int.from_bytes(self.data[2:2+OP_SIZE_DWORD], byteorder="big", signed=False)
-            if (cmd == PACKET_COMMAND_READ_10):
-                self.sectorCount = self.sectorCountByte = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
+        elif (cmd == PACKET_COMMAND_READ_CD):
+            if (drive.isLoaded):
+                self.lba = int.from_bytes(self.data[2:2+OP_SIZE_DWORD], byteorder="big", signed=False)
+                self.sectorCount = self.sectorCountByte = int.from_bytes(self.data[6:6+3], byteorder="big", signed=False)
+                transferReq = self.data[9]&0xf8
+                #self.ata.main.notice("AtaController::handlePacket: READ_CD! cmd == 0x%02x, self.data == %s", cmd, <bytes>repr(self.data).encode())
+                #self.ata.main.notice("AtaController::handlePacket: transferReq==%u, lba==%u, sectorCount==%u", transferReq, self.lba, self.sectorCount)
+                if (not self.sectorCount or not transferReq):
+                    self.nopCommand()
+                    return
+                else:
+                    if (transferReq == 0xf8):
+                        self.ata.main.exitError("AtaController::handlePacket: transferReq==%u", transferReq)
+                        return
+                    elif (transferReq != 0x10):
+                        self.ata.main.notice("AtaController::handlePacket: transferReq==%u, unknown format", transferReq)
+                        self.errorCommand(0x50)
+                        return
+                    self.result = drive.readSectors(self.lba, self.sectorCount)
             else:
-                self.sectorCount = self.sectorCountByte = int.from_bytes(self.data[6:6+OP_SIZE_DWORD], byteorder="big", signed=False)
-            self.result = drive.readSectors(self.lba, self.sectorCount)
+                self.errorCommand(0x20)
+                return
+        elif (cmd in (PACKET_COMMAND_READ_10, PACKET_COMMAND_READ_12)):
+            if (drive.isLoaded):
+                self.lba = int.from_bytes(self.data[2:2+OP_SIZE_DWORD], byteorder="big", signed=False)
+                if (cmd == PACKET_COMMAND_READ_10):
+                    self.sectorCount = self.sectorCountByte = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
+                else:
+                    self.sectorCount = self.sectorCountByte = int.from_bytes(self.data[6:6+OP_SIZE_DWORD], byteorder="big", signed=False)
+                self.result = drive.readSectors(self.lba, self.sectorCount)
+            else:
+                self.errorCommand(0x20)
+                return
         elif (cmd == PACKET_COMMAND_READ_SUBCHANNEL):
             if (drive.isLoaded):
                 subQ = (self.data[2] >> 6) & 1
@@ -493,6 +523,7 @@ cdef class AtaController:
                 self.result = self.result[0:min(len(self.result),allocLength)]
             else:
                 self.errorCommand(0x20)
+                return
         elif (cmd == PACKET_COMMAND_READ_TOC):
             if (drive.isLoaded):
                 msf = (self.data[1] >> 1) & 1
@@ -519,6 +550,7 @@ cdef class AtaController:
                 self.result = self.result[0:min(len(self.result),allocLength)]
             else:
                 self.errorCommand(0x20)
+                return
         elif (cmd in (PACKET_COMMAND_MODE_SENSE_6, PACKET_COMMAND_MODE_SENSE_10)):
             PC = (self.data[2] >> 6)
             pageCode = (self.data[2] & 0x3f)
@@ -526,13 +558,16 @@ cdef class AtaController:
                 allocLength = int.from_bytes(self.data[7:7+OP_SIZE_WORD], byteorder="big", signed=False)
             else:
                 allocLength = self.data[4]
-            if (PC == 0 and pageCode == 0x2a):
-                self.result = (0x001a).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
-                if (drive.isLoaded):
-                    self.result += (0x12).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
-                else:
-                    self.result += (0x70).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
-                self.result += bytes(7)
+            self.result = (0x001a).to_bytes(length=OP_SIZE_WORD, byteorder="big", signed=False)
+            if (drive.isLoaded):
+                self.result += (0x12).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+            else:
+                self.result += (0x70).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+            self.result += bytes(5)
+            if (PC == 0 and pageCode == 0x01):
+                self.result += (0x01060005).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
+                self.result += bytes(4)
+            elif (PC == 0 and pageCode == 0x2a):
                 self.result += (0x2a120300).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
                 self.result += (0x71602b00).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
                 self.result += (0x0b000002).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
@@ -540,11 +575,17 @@ cdef class AtaController:
                 self.result += (0).to_bytes(length=OP_SIZE_DWORD, byteorder="big", signed=False)
                 self.result = self.result[0:min(len(self.result),allocLength)]
             else:
+                self.result = bytes()
                 self.ata.main.notice("AtaController::handlePacket: PC==%u; pageCode==0x%02x", PC, pageCode)
                 self.errorCommand(0x50)
+                return
+        elif (cmd == PACKET_COMMAND_MECHANISM_STATUS):
+            #self.ata.main.exitError("AtaController::handlePacket_3: test exit! self.data == %s", repr(self.data))
+            self.result = bytes(5)
+            self.result += (1).to_bytes(length=OP_SIZE_BYTE, byteorder="big", signed=False)
+            self.result += bytes(2)
         else:
-            #self.ata.main.exitError("AtaController::handlePacket: cmd is unknown! cmd == 0x%02x, self.data == %s", cmd, repr(self.data))
-            self.ata.main.exitError("AtaController::handlePacket: cmd is unknown! cmd == 0x%02x", cmd)
+            self.ata.main.exitError("AtaController::handlePacket: cmd is unknown! cmd == 0x%02x, self.data == %s", cmd, <bytes>repr(self.data).encode())
             return
         if (not self.err):
             self.driveReady = self.seekComplete = self.drq = len(self.result) != 0
@@ -574,16 +615,14 @@ cdef class AtaController:
             self.busmasterAddress += 8
             if (self.busmasterCommand & ATA_BUSMASTER_CMD_READ_TO_MEM):
                 IF COMP_DEBUG:
-                    #self.ata.main.notice("AtaController::handleBusmaster: test1: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u, len(self.result): %u, self.result: %s", self.lba, self.sectorCount, memBase, memSize, len(self.result), repr(self.result))
-                    self.ata.main.notice("AtaController::handleBusmaster: test1: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u", self.lba, self.sectorCount, memBase, memSize)
+                    self.ata.main.notice("AtaController::handleBusmaster: test1: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u, len(self.result): %u, self.result: %s", self.lba, self.sectorCount, memBase, memSize, len(self.result), <bytes>repr(self.result).encode())
                 self.ata.main.mm.mmPhyWrite(memBase, self.result[:memSize], memSize)
                 self.result = self.result[memSize:]
             else:
                 tempCharArray = self.ata.main.mm.mmPhyRead(memBase, memSize)
                 tempResult = PyBytes_FromStringAndSize( tempCharArray, <Py_ssize_t>memSize)
                 IF COMP_DEBUG:
-                    #self.ata.main.notice("AtaController::handleBusmaster: test2: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u, len(tempResult): %u, tempResult: %s", self.lba, self.sectorCount, memBase, memSize, len(tempResult), repr(tempResult))
-                    self.ata.main.notice("AtaController::handleBusmaster: test2: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u", self.lba, self.sectorCount, memBase, memSize)
+                    self.ata.main.notice("AtaController::handleBusmaster: test2: self.lba: %u; self.sectorCount: %u, memBase: 0x%08x, memSize: %u, len(tempResult): %u, tempResult: %s", self.lba, self.sectorCount, memBase, memSize, len(tempResult), <bytes>repr(tempResult).encode())
                 (<AtaDrive>self.drive[self.driveId]).writeBytes(self.lba << (<AtaDrive>self.drive[self.driveId]).sectorShift, memSize, tempResult)
             tempSectors = memSize >> (<AtaDrive>self.drive[self.driveId]).sectorShift
             if (self.sectorCount > 0):
@@ -756,8 +795,7 @@ cdef class AtaController:
             elif (self.cmd == COMMAND_PACKET):
                 IF COMP_DEBUG:
                     if (self.ata.main.debugEnabled):
-                        #self.ata.main.notice("AtaController::outPort_0: len(self.data) == %u, self.data == %s", len(self.data), repr(self.data))
-                        self.ata.main.notice("AtaController::outPort_0")
+                        self.ata.main.notice("AtaController::outPort_0: len(self.data) == %u, self.data == %s", len(self.data), <bytes>repr(self.data).encode())
                 with gil:
                     if (len(self.data) >= 12):
                         self.handlePacket()
@@ -1069,11 +1107,11 @@ cdef class AtaController:
             self.ata.main.exitError("AtaController::outPort: dataSize %u not supported.", dataSize)
     cdef void run(self):
         if (self.controllerId == 0):
-            self.ata.pciDevice.configSpace.csWriteValue(0x40, 0x8000, OP_SIZE_WORD)
+            self.ata.pciDevice.configSpace.csWriteValueWord(0x40, 0x8000)
             if (self.ata.main.hdaFilename): (<AtaDrive>self.drive[0]).loadDrive(self.ata.main.hdaFilename)
             if (self.ata.main.hdbFilename): (<AtaDrive>self.drive[1]).loadDrive(self.ata.main.hdbFilename)
         elif (self.controllerId == 1):
-            self.ata.pciDevice.configSpace.csWriteValue(0x42, 0x8000, OP_SIZE_WORD)
+            self.ata.pciDevice.configSpace.csWriteValueWord(0x42, 0x8000)
             if (self.ata.main.cdrom1Filename): (<AtaDrive>self.drive[0]).loadDrive(self.ata.main.cdrom1Filename)
             if (self.ata.main.cdrom2Filename): (<AtaDrive>self.drive[1]).loadDrive(self.ata.main.cdrom2Filename)
 
@@ -1097,19 +1135,19 @@ cdef class Ata:
         #self.pciDevice.setBarSize(3, 4) # TODO?
         #self.pciDevice.setBarSize(4, 4) # TODO?
         self.pciDevice.setBarSize(4, 4) # TODO?
-        #self.pciDevice.configSpace.csWriteValue(PCI_COMMAND, 0x5, OP_SIZE_BYTE)
-        self.pciDevice.configSpace.csWriteValue(PCI_COMMAND, 0x1, OP_SIZE_BYTE)
-        self.pciDevice.configSpace.csWriteValue(PCI_STATUS, 0x280, OP_SIZE_WORD)
-        self.pciDevice.configSpace.csWriteValue(PCI_PROG_IF, 0x80, OP_SIZE_BYTE)
-        #self.pciDevice.configSpace.csWriteValue(PCI_PROG_IF, 0x8a, OP_SIZE_BYTE)
-        #self.pciDevice.configSpace.csWriteValue(PCI_INTERRUPT_LINE, 14, OP_SIZE_BYTE)
-        #self.pciDevice.configSpace.csWriteValue(PCI_INTERRUPT_PIN, 1, OP_SIZE_BYTE)
-        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_0, 0x1f1, OP_SIZE_DWORD)
-        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_1, 0x3f5, OP_SIZE_DWORD)
-        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_2, 0x171, OP_SIZE_DWORD)
-        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_3, 0x375, OP_SIZE_DWORD)
-        #self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_4, 0xc001, OP_SIZE_DWORD)
-        self.pciDevice.configSpace.csWriteValue(PCI_BASE_ADDRESS_4, 0x1, OP_SIZE_DWORD)
+        #self.pciDevice.configSpace.csWriteValueByte(PCI_COMMAND, 0x5)
+        self.pciDevice.configSpace.csWriteValueByte(PCI_COMMAND, 0x1)
+        self.pciDevice.configSpace.csWriteValueWord(PCI_STATUS, 0x280)
+        self.pciDevice.configSpace.csWriteValueByte(PCI_PROG_IF, 0x80)
+        #self.pciDevice.configSpace.csWriteValueByte(PCI_PROG_IF, 0x8a)
+        #self.pciDevice.configSpace.csWriteValueByte(PCI_INTERRUPT_LINE, 14)
+        #self.pciDevice.configSpace.csWriteValueByte(PCI_INTERRUPT_PIN, 1)
+        #self.pciDevice.configSpace.csWriteValueDword(PCI_BASE_ADDRESS_0, 0x1f1)
+        #self.pciDevice.configSpace.csWriteValueDword(PCI_BASE_ADDRESS_1, 0x3f5)
+        #self.pciDevice.configSpace.csWriteValueDword(PCI_BASE_ADDRESS_2, 0x171)
+        #self.pciDevice.configSpace.csWriteValueDword(PCI_BASE_ADDRESS_3, 0x375)
+        #self.pciDevice.configSpace.csWriteValueDword(PCI_BASE_ADDRESS_4, 0xc001)
+        self.pciDevice.configSpace.csWriteValueDword(PCI_BASE_ADDRESS_4, 0x1)
         self.base4Addr = 0x0
         Py_INCREF(controller0)
         Py_INCREF(controller1)
