@@ -77,379 +77,374 @@ cdef class Opcodes:
         value = int.from_bytes(bytes=data, byteorder="little")
         return value
     cdef inline int executeOpcode(self, uint8_t opcode) except BITMASK_BYTE_CONST:
-        cdef int retVal = False
         if (opcode == 0x00):
-            retVal = self.opcodeRM_R(OPCODE_ADD, OP_SIZE_BYTE)
+            return self.opcodeRM_R(OPCODE_ADD, OP_SIZE_BYTE)
         elif (opcode == 0x01):
-            retVal = self.opcodeRM_R(OPCODE_ADD, self.cpu.operSize)
+            return self.opcodeRM_R(OPCODE_ADD, self.cpu.operSize)
         elif (opcode == 0x02):
-            retVal = self.opcodeR_RM(OPCODE_ADD, OP_SIZE_BYTE)
+            return self.opcodeR_RM(OPCODE_ADD, OP_SIZE_BYTE)
         elif (opcode == 0x03):
-            retVal = self.opcodeR_RM(OPCODE_ADD, self.cpu.operSize)
+            return self.opcodeR_RM(OPCODE_ADD, self.cpu.operSize)
         elif (opcode == 0x04):
-            retVal = self.opcodeAxEaxImm(OPCODE_ADD, OP_SIZE_BYTE)
+            return self.opcodeAxEaxImm(OPCODE_ADD, OP_SIZE_BYTE)
         elif (opcode == 0x05):
-            retVal = self.opcodeAxEaxImm(OPCODE_ADD, self.cpu.operSize)
+            return self.opcodeAxEaxImm(OPCODE_ADD, self.cpu.operSize)
         elif (opcode == 0x06):
-            retVal = self.pushSeg(PUSH_ES)
+            return self.pushSeg(PUSH_ES)
         elif (opcode == 0x07):
-            retVal = self.popSeg(POP_ES)
+            return self.popSeg(POP_ES)
         elif (opcode == 0x08):
-            retVal = self.opcodeRM_R(OPCODE_OR, OP_SIZE_BYTE)
+            return self.opcodeRM_R(OPCODE_OR, OP_SIZE_BYTE)
         elif (opcode == 0x09):
-            retVal = self.opcodeRM_R(OPCODE_OR, self.cpu.operSize)
+            return self.opcodeRM_R(OPCODE_OR, self.cpu.operSize)
         elif (opcode == 0x0a):
-            retVal = self.opcodeR_RM(OPCODE_OR, OP_SIZE_BYTE)
+            return self.opcodeR_RM(OPCODE_OR, OP_SIZE_BYTE)
         elif (opcode == 0x0b):
-            retVal = self.opcodeR_RM(OPCODE_OR, self.cpu.operSize)
+            return self.opcodeR_RM(OPCODE_OR, self.cpu.operSize)
         elif (opcode == 0x0c):
-            retVal = self.opcodeAxEaxImm(OPCODE_OR, OP_SIZE_BYTE)
+            return self.opcodeAxEaxImm(OPCODE_OR, OP_SIZE_BYTE)
         elif (opcode == 0x0d):
-            retVal = self.opcodeAxEaxImm(OPCODE_OR, self.cpu.operSize)
+            return self.opcodeAxEaxImm(OPCODE_OR, self.cpu.operSize)
         elif (opcode == 0x0e):
-            retVal = self.pushSeg(PUSH_CS)
+            return self.pushSeg(PUSH_CS)
         elif (opcode == 0x0f):
-            retVal = self.opcodeGroup0F()
+            return self.opcodeGroup0F()
         elif (opcode == 0x10):
-            retVal = self.opcodeRM_R(OPCODE_ADC, OP_SIZE_BYTE)
+            return self.opcodeRM_R(OPCODE_ADC, OP_SIZE_BYTE)
         elif (opcode == 0x11):
-            retVal = self.opcodeRM_R(OPCODE_ADC, self.cpu.operSize)
+            return self.opcodeRM_R(OPCODE_ADC, self.cpu.operSize)
         elif (opcode == 0x12):
-            retVal = self.opcodeR_RM(OPCODE_ADC, OP_SIZE_BYTE)
+            return self.opcodeR_RM(OPCODE_ADC, OP_SIZE_BYTE)
         elif (opcode == 0x13):
-            retVal = self.opcodeR_RM(OPCODE_ADC, self.cpu.operSize)
+            return self.opcodeR_RM(OPCODE_ADC, self.cpu.operSize)
         elif (opcode == 0x14):
-            retVal = self.opcodeAxEaxImm(OPCODE_ADC, OP_SIZE_BYTE)
+            return self.opcodeAxEaxImm(OPCODE_ADC, OP_SIZE_BYTE)
         elif (opcode == 0x15):
-            retVal = self.opcodeAxEaxImm(OPCODE_ADC, self.cpu.operSize)
+            return self.opcodeAxEaxImm(OPCODE_ADC, self.cpu.operSize)
         elif (opcode == 0x16):
-            retVal = self.pushSeg(PUSH_SS)
+            return self.pushSeg(PUSH_SS)
         elif (opcode == 0x17):
-            retVal = self.popSeg(POP_SS)
+            return self.popSeg(POP_SS)
         elif (opcode == 0x18):
-            retVal = self.opcodeRM_R(OPCODE_SBB, OP_SIZE_BYTE)
+            return self.opcodeRM_R(OPCODE_SBB, OP_SIZE_BYTE)
         elif (opcode == 0x19):
-            retVal = self.opcodeRM_R(OPCODE_SBB, self.cpu.operSize)
+            return self.opcodeRM_R(OPCODE_SBB, self.cpu.operSize)
         elif (opcode == 0x1a):
-            retVal = self.opcodeR_RM(OPCODE_SBB, OP_SIZE_BYTE)
+            return self.opcodeR_RM(OPCODE_SBB, OP_SIZE_BYTE)
         elif (opcode == 0x1b):
-            retVal = self.opcodeR_RM(OPCODE_SBB, self.cpu.operSize)
+            return self.opcodeR_RM(OPCODE_SBB, self.cpu.operSize)
         elif (opcode == 0x1c):
-            retVal = self.opcodeAxEaxImm(OPCODE_SBB, OP_SIZE_BYTE)
+            return self.opcodeAxEaxImm(OPCODE_SBB, OP_SIZE_BYTE)
         elif (opcode == 0x1d):
-            retVal = self.opcodeAxEaxImm(OPCODE_SBB, self.cpu.operSize)
+            return self.opcodeAxEaxImm(OPCODE_SBB, self.cpu.operSize)
         elif (opcode == 0x1e):
-            retVal = self.pushSeg(PUSH_DS)
+            return self.pushSeg(PUSH_DS)
         elif (opcode == 0x1f):
-            retVal = self.popSeg(POP_DS)
+            return self.popSeg(POP_DS)
         elif (opcode == 0x20):
-            retVal = self.opcodeRM_R(OPCODE_AND, OP_SIZE_BYTE)
+            return self.opcodeRM_R(OPCODE_AND, OP_SIZE_BYTE)
         elif (opcode == 0x21):
-            retVal = self.opcodeRM_R(OPCODE_AND, self.cpu.operSize)
+            return self.opcodeRM_R(OPCODE_AND, self.cpu.operSize)
         elif (opcode == 0x22):
-            retVal = self.opcodeR_RM(OPCODE_AND, OP_SIZE_BYTE)
+            return self.opcodeR_RM(OPCODE_AND, OP_SIZE_BYTE)
         elif (opcode == 0x23):
-            retVal = self.opcodeR_RM(OPCODE_AND, self.cpu.operSize)
+            return self.opcodeR_RM(OPCODE_AND, self.cpu.operSize)
         elif (opcode == 0x24):
-            retVal = self.opcodeAxEaxImm(OPCODE_AND, OP_SIZE_BYTE)
+            return self.opcodeAxEaxImm(OPCODE_AND, OP_SIZE_BYTE)
         elif (opcode == 0x25):
-            retVal = self.opcodeAxEaxImm(OPCODE_AND, self.cpu.operSize)
+            return self.opcodeAxEaxImm(OPCODE_AND, self.cpu.operSize)
         elif (opcode == 0x27):
-            retVal = self.daa()
+            return self.daa()
         elif (opcode == 0x28):
-            retVal = self.opcodeRM_R(OPCODE_SUB, OP_SIZE_BYTE)
+            return self.opcodeRM_R(OPCODE_SUB, OP_SIZE_BYTE)
         elif (opcode == 0x29):
-            retVal = self.opcodeRM_R(OPCODE_SUB, self.cpu.operSize)
+            return self.opcodeRM_R(OPCODE_SUB, self.cpu.operSize)
         elif (opcode == 0x2a):
-            retVal = self.opcodeR_RM(OPCODE_SUB, OP_SIZE_BYTE)
+            return self.opcodeR_RM(OPCODE_SUB, OP_SIZE_BYTE)
         elif (opcode == 0x2b):
-            retVal = self.opcodeR_RM(OPCODE_SUB, self.cpu.operSize)
+            return self.opcodeR_RM(OPCODE_SUB, self.cpu.operSize)
         elif (opcode == 0x2c):
-            retVal = self.opcodeAxEaxImm(OPCODE_SUB, OP_SIZE_BYTE)
+            return self.opcodeAxEaxImm(OPCODE_SUB, OP_SIZE_BYTE)
         elif (opcode == 0x2d):
-            retVal = self.opcodeAxEaxImm(OPCODE_SUB, self.cpu.operSize)
+            return self.opcodeAxEaxImm(OPCODE_SUB, self.cpu.operSize)
         elif (opcode == 0x2f):
-            retVal = self.das()
+            return self.das()
         elif (opcode == 0x30):
-            retVal = self.opcodeRM_R(OPCODE_XOR, OP_SIZE_BYTE)
+            return self.opcodeRM_R(OPCODE_XOR, OP_SIZE_BYTE)
         elif (opcode == 0x31):
-            retVal = self.opcodeRM_R(OPCODE_XOR, self.cpu.operSize)
+            return self.opcodeRM_R(OPCODE_XOR, self.cpu.operSize)
         elif (opcode == 0x32):
-            retVal = self.opcodeR_RM(OPCODE_XOR, OP_SIZE_BYTE)
+            return self.opcodeR_RM(OPCODE_XOR, OP_SIZE_BYTE)
         elif (opcode == 0x33):
-            retVal = self.opcodeR_RM(OPCODE_XOR, self.cpu.operSize)
+            return self.opcodeR_RM(OPCODE_XOR, self.cpu.operSize)
         elif (opcode == 0x34):
-            retVal = self.opcodeAxEaxImm(OPCODE_XOR, OP_SIZE_BYTE)
+            return self.opcodeAxEaxImm(OPCODE_XOR, OP_SIZE_BYTE)
         elif (opcode == 0x35):
-            retVal = self.opcodeAxEaxImm(OPCODE_XOR, self.cpu.operSize)
+            return self.opcodeAxEaxImm(OPCODE_XOR, self.cpu.operSize)
         elif (opcode == 0x37):
-            retVal = self.aaa()
+            return self.aaa()
         elif (opcode == 0x38):
-            retVal = self.opcodeRM_R(OPCODE_CMP, OP_SIZE_BYTE)
+            return self.opcodeRM_R(OPCODE_CMP, OP_SIZE_BYTE)
         elif (opcode == 0x39):
-            retVal = self.opcodeRM_R(OPCODE_CMP, self.cpu.operSize)
+            return self.opcodeRM_R(OPCODE_CMP, self.cpu.operSize)
         elif (opcode == 0x3a):
-            retVal = self.opcodeR_RM(OPCODE_CMP, OP_SIZE_BYTE)
+            return self.opcodeR_RM(OPCODE_CMP, OP_SIZE_BYTE)
         elif (opcode == 0x3b):
-            retVal = self.opcodeR_RM(OPCODE_CMP, self.cpu.operSize)
+            return self.opcodeR_RM(OPCODE_CMP, self.cpu.operSize)
         elif (opcode == 0x3c):
-            retVal = self.opcodeAxEaxImm(OPCODE_CMP, OP_SIZE_BYTE)
+            return self.opcodeAxEaxImm(OPCODE_CMP, OP_SIZE_BYTE)
         elif (opcode == 0x3d):
-            retVal = self.opcodeAxEaxImm(OPCODE_CMP, self.cpu.operSize)
+            return self.opcodeAxEaxImm(OPCODE_CMP, self.cpu.operSize)
         elif (opcode == 0x3f):
-            retVal = self.aas()
-        elif ((opcode & 0xf0) == 0x40):
-            if (not (opcode & 0x8)): # 0x40 .. 0x47
-                retVal = self.incReg()
-            else: # 0x48 .. 0x4f
-                retVal = self.decReg()
-        elif ((opcode & 0xf0) == 0x50):
-            if (not (opcode & 0x8)): # 0x50 .. 0x57
-                retVal = self.pushReg()
-            else: # 0x58 .. 0x5f
-                retVal = self.popReg()
+            return self.aas()
+        elif ((opcode & 0xf8) == 0x40): # 0x40 .. 0x47
+            return self.incReg()
+        elif ((opcode & 0xf8) == 0x48): # 0x48 .. 0x4f
+            return self.decReg()
+        elif ((opcode & 0xf8) == 0x50): # 0x50 .. 0x57
+            return self.pushReg()
+        elif ((opcode & 0xf8) == 0x58): # 0x58 .. 0x5f
+            return self.popReg()
         elif (opcode == 0x60):
-            retVal = self.pushaWD()
+            return self.pushaWD()
         elif (opcode == 0x61):
-            retVal = self.popaWD()
+            return self.popaWD()
         elif (opcode == 0x62):
-            retVal = self.bound()
+            return self.bound()
         elif (opcode == 0x63):
-            retVal = self.arpl()
+            return self.arpl()
         elif (opcode == 0x68):
-            retVal = self.pushIMM(False)
+            return self.pushIMM(False)
         elif (opcode == 0x69):
-            retVal = self.imulR_RM_ImmFunc(False)
+            return self.imulR_RM_ImmFunc(False)
         elif (opcode == 0x6a):
-            retVal = self.pushIMM(True)
+            return self.pushIMM(True)
         elif (opcode == 0x6b):
-            retVal = self.imulR_RM_ImmFunc(True)
+            return self.imulR_RM_ImmFunc(True)
         elif (opcode == 0x6c):
-            retVal = self.insFunc(OP_SIZE_BYTE)
+            return self.insFunc(OP_SIZE_BYTE)
         elif (opcode == 0x6d):
-            retVal = self.insFunc(self.cpu.operSize)
+            return self.insFunc(self.cpu.operSize)
         elif (opcode == 0x6e):
-            retVal = self.outsFunc(OP_SIZE_BYTE)
+            return self.outsFunc(OP_SIZE_BYTE)
         elif (opcode == 0x6f):
-            retVal = self.outsFunc(self.cpu.operSize)
+            return self.outsFunc(self.cpu.operSize)
         elif ((opcode & 0xf0) == 0x70):
-            retVal = self.jumpShort(OP_SIZE_BYTE, self.registers.getCond(opcode&0xf))
+            return self.jumpShort(OP_SIZE_BYTE, self.registers.getCond(opcode&0xf))
         elif (opcode in (0x80, 0x82)):
-            retVal = self.opcodeGroup1_RM_ImmFunc(OP_SIZE_BYTE, True)
+            return self.opcodeGroup1_RM_ImmFunc(OP_SIZE_BYTE, True)
         elif (opcode == 0x81):
-            retVal = self.opcodeGroup1_RM_ImmFunc(self.cpu.operSize, False)
+            return self.opcodeGroup1_RM_ImmFunc(self.cpu.operSize, False)
         elif (opcode == 0x83):
-            retVal = self.opcodeGroup1_RM_ImmFunc(self.cpu.operSize, True)
+            return self.opcodeGroup1_RM_ImmFunc(self.cpu.operSize, True)
         elif (opcode == 0x84):
-            retVal = self.opcodeRM_R(OPCODE_TEST, OP_SIZE_BYTE)
+            return self.opcodeRM_R(OPCODE_TEST, OP_SIZE_BYTE)
         elif (opcode == 0x85):
-            retVal = self.opcodeRM_R(OPCODE_TEST, self.cpu.operSize)
+            return self.opcodeRM_R(OPCODE_TEST, self.cpu.operSize)
         elif (opcode == 0x86):
-            retVal = self.xchgR_RM(OP_SIZE_BYTE)
+            return self.xchgR_RM(OP_SIZE_BYTE)
         elif (opcode == 0x87):
-            retVal = self.xchgR_RM(self.cpu.operSize)
+            return self.xchgR_RM(self.cpu.operSize)
         elif (opcode == 0x88):
-            retVal = self.movRM_R(OP_SIZE_BYTE)
+            return self.movRM_R(OP_SIZE_BYTE)
         elif (opcode == 0x89):
-            retVal = self.movRM_R(self.cpu.operSize)
+            return self.movRM_R(self.cpu.operSize)
         elif (opcode == 0x8a):
-            retVal = self.movR_RM(OP_SIZE_BYTE, True)
+            return self.movR_RM(OP_SIZE_BYTE, True)
         elif (opcode == 0x8b):
-            retVal = self.movR_RM(self.cpu.operSize, True)
+            return self.movR_RM(self.cpu.operSize, True)
         elif (opcode == 0x8c):
-            retVal = self.movRM16_SREG()
+            return self.movRM16_SREG()
         elif (opcode == 0x8d):
-            retVal = self.lea()
+            return self.lea()
         elif (opcode == 0x8e):
-            retVal = self.movSREG_RM16()
+            return self.movSREG_RM16()
         elif (opcode == 0x8f):
-            retVal = self.popRM16_32()
+            return self.popRM16_32()
         elif (opcode == 0x90):
             if (self.cpu.repPrefix == OPCODE_PREFIX_REPE): # PAUSE-Opcode (F3 90 / REPE NOP)
                 with nogil:
                     usleep(0)
-            retVal = True
+            return True
         elif ((opcode & 0xf8) == 0x90): # this won't match 0x90 because of the upper if
-            retVal = self.xchgReg()
+            return self.xchgReg()
         elif (opcode == 0x98):
-            retVal = self.cbw_cwde()
+            return self.cbw_cwde()
         elif (opcode == 0x99):
-            retVal = self.cwd_cdq()
+            return self.cwd_cdq()
         elif (opcode == 0x9a):
-            retVal = self.callPtr16_32()
+            return self.callPtr16_32()
         elif (opcode == 0x9b): # WAIT/FWAIT
-            retVal = self.fwait()
+            return self.fwait()
         elif (opcode == 0x9c):
-            retVal = self.pushfWD()
+            return self.pushfWD()
         elif (opcode == 0x9d):
-            retVal = self.popfWD()
+            return self.popfWD()
         elif (opcode == 0x9e):
-            retVal = self.sahf()
+            return self.sahf()
         elif (opcode == 0x9f):
-            retVal = self.lahf()
-        elif (opcode >= 0xa0 and opcode <= 0xa3):
-            if (opcode == 0xa0):
-                retVal = self.movAxMoffs(OP_SIZE_BYTE)
-            elif (opcode == 0xa1):
-                retVal = self.movAxMoffs(self.cpu.operSize)
-            elif (opcode == 0xa2):
-                retVal = self.movMoffsAx(OP_SIZE_BYTE)
-            elif (opcode == 0xa3):
-                retVal = self.movMoffsAx(self.cpu.operSize)
+            return self.lahf()
+        elif (opcode == 0xa0):
+            return self.movAxMoffs(OP_SIZE_BYTE)
+        elif (opcode == 0xa1):
+            return self.movAxMoffs(self.cpu.operSize)
+        elif (opcode == 0xa2):
+            return self.movMoffsAx(OP_SIZE_BYTE)
+        elif (opcode == 0xa3):
+            return self.movMoffsAx(self.cpu.operSize)
         elif (opcode == 0xa4):
-            retVal = self.movsFunc(OP_SIZE_BYTE)
+            return self.movsFunc(OP_SIZE_BYTE)
         elif (opcode == 0xa5):
-            retVal = self.movsFunc(self.cpu.operSize)
+            return self.movsFunc(self.cpu.operSize)
         elif (opcode == 0xa6):
-            retVal = self.cmpsFunc(OP_SIZE_BYTE)
+            return self.cmpsFunc(OP_SIZE_BYTE)
         elif (opcode == 0xa7):
-            retVal = self.cmpsFunc(self.cpu.operSize)
+            return self.cmpsFunc(self.cpu.operSize)
         elif (opcode == 0xa8):
-            retVal = self.opcodeAxEaxImm(OPCODE_TEST, OP_SIZE_BYTE)
+            return self.opcodeAxEaxImm(OPCODE_TEST, OP_SIZE_BYTE)
         elif (opcode == 0xa9):
-            retVal = self.opcodeAxEaxImm(OPCODE_TEST, self.cpu.operSize)
+            return self.opcodeAxEaxImm(OPCODE_TEST, self.cpu.operSize)
         elif (opcode == 0xaa):
-            retVal = self.stosFunc(OP_SIZE_BYTE)
+            return self.stosFunc(OP_SIZE_BYTE)
         elif (opcode == 0xab):
-            retVal = self.stosFunc(self.cpu.operSize)
+            return self.stosFunc(self.cpu.operSize)
         elif (opcode == 0xac):
-            retVal = self.lodsFunc(OP_SIZE_BYTE)
+            return self.lodsFunc(OP_SIZE_BYTE)
         elif (opcode == 0xad):
-            retVal = self.lodsFunc(self.cpu.operSize)
+            return self.lodsFunc(self.cpu.operSize)
         elif (opcode == 0xae):
-            retVal = self.scasFunc(OP_SIZE_BYTE)
+            return self.scasFunc(OP_SIZE_BYTE)
         elif (opcode == 0xaf):
-            retVal = self.scasFunc(self.cpu.operSize)
-        elif ((opcode & 0xf0) == 0xb0):
-            if (not (opcode & 0x8)): # 0xb0 .. 0xb7
-                retVal = self.movImmToR(OP_SIZE_BYTE)
-            else: # 0xb8 .. 0xbf
-                retVal = self.movImmToR(self.cpu.operSize)
+            return self.scasFunc(self.cpu.operSize)
+        elif ((opcode & 0xf8) == 0xb0): # 0xb0 .. 0xb7
+            return self.movImmToR(OP_SIZE_BYTE)
+        elif ((opcode & 0xf8) == 0xb8): # 0xb8 .. 0xbf
+            return self.movImmToR(self.cpu.operSize)
         elif (opcode == 0xc0):
-            retVal = self.opcodeGroup4_RM(OP_SIZE_BYTE, GROUP4_IMM8)
+            return self.opcodeGroup4_RM(OP_SIZE_BYTE, GROUP4_IMM8)
         elif (opcode == 0xc1):
-            retVal = self.opcodeGroup4_RM(self.cpu.operSize, GROUP4_IMM8)
+            return self.opcodeGroup4_RM(self.cpu.operSize, GROUP4_IMM8)
         elif (opcode == 0xc2):
-            retVal = self.retNearImm()
+            return self.retNearImm()
         elif (opcode == 0xc3):
-            retVal = self.retNear(0)
+            return self.retNear(0)
         elif (opcode == 0xc4):
-            retVal = self.lfpFunc(&self.registers.segments.es) # LES
+            return self.lfpFunc(&self.registers.segments.es) # LES
         elif (opcode == 0xc5):
-            retVal = self.lfpFunc(&self.registers.segments.ds) # LDS
+            return self.lfpFunc(&self.registers.segments.ds) # LDS
         elif (opcode == 0xc6):
-            retVal = self.opcodeGroup3_RM_ImmFunc(OP_SIZE_BYTE)
+            return self.opcodeGroup3_RM_ImmFunc(OP_SIZE_BYTE)
         elif (opcode == 0xc7):
-            retVal = self.opcodeGroup3_RM_ImmFunc(self.cpu.operSize)
+            return self.opcodeGroup3_RM_ImmFunc(self.cpu.operSize)
         elif (opcode == 0xc8):
-            retVal = self.enter()
+            return self.enter()
         elif (opcode == 0xc9):
-            retVal = self.leave()
+            return self.leave()
         elif (opcode == 0xca):
-            retVal = self.retFarImm()
+            return self.retFarImm()
         elif (opcode == 0xcb):
-            retVal = self.retFar(0)
+            return self.retFar(0)
         elif (opcode == 0xcc):
             self.main.notice("Opcodes::executeOpcode: INT3 (Opcode 0xcc): TODO!")
-            retVal = True
             raise HirnwichseException(CPU_EXCEPTION_BP)
         elif (opcode == 0xcd):
-            retVal = self.interrupt()
+            return self.interrupt()
         elif (opcode == 0xce):
-            retVal = self.into()
+            return self.into()
         elif (opcode == 0xcf):
-            retVal = self.iret()
+            return self.iret()
         elif (opcode == 0xd0):
-            retVal = self.opcodeGroup4_RM(OP_SIZE_BYTE, GROUP4_1)
+            return self.opcodeGroup4_RM(OP_SIZE_BYTE, GROUP4_1)
         elif (opcode == 0xd1):
-            retVal = self.opcodeGroup4_RM(self.cpu.operSize, GROUP4_1)
+            return self.opcodeGroup4_RM(self.cpu.operSize, GROUP4_1)
         elif (opcode == 0xd2):
-            retVal = self.opcodeGroup4_RM(OP_SIZE_BYTE, GROUP4_CL)
+            return self.opcodeGroup4_RM(OP_SIZE_BYTE, GROUP4_CL)
         elif (opcode == 0xd3):
-            retVal = self.opcodeGroup4_RM(self.cpu.operSize, GROUP4_CL)
+            return self.opcodeGroup4_RM(self.cpu.operSize, GROUP4_CL)
         elif (opcode == 0xd4):
-            retVal = self.aam()
+            return self.aam()
         elif (opcode == 0xd5):
-            retVal = self.aad()
+            return self.aad()
         elif (opcode == 0xd6):
             self.main.notice("Opcodes::executeOpcode: undef_no_UD! (Opcode 0xd6)")
             pass ### undefNoUD
-            retVal = True
+            return True
         elif (opcode == 0xd7):
-            retVal = self.xlatb()
+            return self.xlatb()
         elif ((opcode & 0xf8) == 0xd8):
-            retVal = self.fpuOpcodes(opcode-FPU_BASE_OPCODE)
+            return self.fpuOpcodes(opcode-FPU_BASE_OPCODE)
         elif (opcode == 0xe0):
-            retVal = self.loopFunc(OPCODE_LOOPNE)
+            return self.loopFunc(OPCODE_LOOPNE)
         elif (opcode == 0xe1):
-            retVal = self.loopFunc(OPCODE_LOOPE)
+            return self.loopFunc(OPCODE_LOOPE)
         elif (opcode == 0xe2):
-            retVal = self.loopFunc(OPCODE_LOOP)
+            return self.loopFunc(OPCODE_LOOP)
         elif (opcode == 0xe3):
-            retVal = self.jcxzShort()
+            return self.jcxzShort()
         elif (opcode == 0xe4):
-            retVal = self.inAxImm8(OP_SIZE_BYTE)
+            return self.inAxImm8(OP_SIZE_BYTE)
         elif (opcode == 0xe5):
-            retVal = self.inAxImm8(self.cpu.operSize)
+            return self.inAxImm8(self.cpu.operSize)
         elif (opcode == 0xe6):
-            retVal = self.outImm8Ax(OP_SIZE_BYTE)
+            return self.outImm8Ax(OP_SIZE_BYTE)
         elif (opcode == 0xe7):
-            retVal = self.outImm8Ax(self.cpu.operSize)
+            return self.outImm8Ax(self.cpu.operSize)
         elif (opcode == 0xe8):
-            retVal = self.callNearRel16_32()
+            return self.callNearRel16_32()
         elif (opcode == 0xe9):
-            retVal = self.jumpShort(self.cpu.operSize, True)
+            return self.jumpShort(self.cpu.operSize, True)
         elif (opcode == 0xea):
-            retVal = self.jumpFarAbsolutePtr()
+            return self.jumpFarAbsolutePtr()
         elif (opcode == 0xeb):
-            retVal = self.jumpShort(OP_SIZE_BYTE, True)
+            return self.jumpShort(OP_SIZE_BYTE, True)
         elif (opcode == 0xec):
-            retVal = self.inAxDx(OP_SIZE_BYTE)
+            return self.inAxDx(OP_SIZE_BYTE)
         elif (opcode == 0xed):
-            retVal = self.inAxDx(self.cpu.operSize)
+            return self.inAxDx(self.cpu.operSize)
         elif (opcode == 0xee):
-            retVal = self.outDxAx(OP_SIZE_BYTE)
+            return self.outDxAx(OP_SIZE_BYTE)
         elif (opcode == 0xef):
-            retVal = self.outDxAx(self.cpu.operSize)
+            return self.outDxAx(self.cpu.operSize)
         elif (opcode == 0xf1):
             self.main.notice("Opcodes::executeOpcode: undef_no_UD! (Opcode 0xf1)")
             pass ### undefNoUD
-            retVal = True
+            return True
         elif (opcode == 0xf4):
-            retVal = self.hlt()
+            return self.hlt()
         elif (opcode == 0xf5):
             self.cmc()
-            retVal = True
+            return True
         elif (opcode == 0xf6):
-            retVal = self.opcodeGroup2_RM(OP_SIZE_BYTE)
+            return self.opcodeGroup2_RM(OP_SIZE_BYTE)
         elif (opcode == 0xf7):
-            retVal = self.opcodeGroup2_RM(self.cpu.operSize)
+            return self.opcodeGroup2_RM(self.cpu.operSize)
         elif (opcode == 0xf8):
             self.clc()
-            retVal = True
+            return True
         elif (opcode == 0xf9):
             self.stc()
-            retVal = True
+            return True
         elif (opcode == 0xfa):
             self.cli()
-            retVal = True
+            return True
         elif (opcode == 0xfb):
             self.sti()
-            retVal = True
+            return True
         elif (opcode == 0xfc):
             self.cld()
-            retVal = True
+            return True
         elif (opcode == 0xfd):
             self.std()
-            retVal = True
+            return True
         elif (opcode == 0xfe):
-            retVal = self.opcodeGroupFE()
+            return self.opcodeGroupFE()
         elif (opcode == 0xff):
-            retVal = self.opcodeGroupFF()
+            return self.opcodeGroupFF()
         else:
             self.main.notice("handler for opcode 0x%02x wasn't found.", opcode)
-            raise HirnwichseException(CPU_EXCEPTION_UD) # if opcode wasn't found.
-        return retVal
+            #raise HirnwichseException(CPU_EXCEPTION_UD) # if opcode wasn't found.
+            return False
+        #return False
     cdef int cli(self) except BITMASK_BYTE_CONST:
         if (self.registers.protectedModeOn):
             if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):

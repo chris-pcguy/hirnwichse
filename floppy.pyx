@@ -237,7 +237,8 @@ cdef class FloppyController:
         if (toFloppy):
             (<FloppyDrive>self.drive[drive]).writeSectors(sector, count, data)
             return
-        self.main.notice("FloppyController::floppyXfer: sector==%u; count==%u", sector, count)
+        IF COMP_DEBUG:
+            self.main.notice("FloppyController::floppyXfer: sector==%u; count==%u", sector, count)
         return (<FloppyDrive>self.drive[drive]).readSectors(sector, count)
     cdef void addCommand(self, uint8_t command):
         cdef uint8_t cmdLength, cmd
@@ -745,13 +746,15 @@ cdef class Floppy:
                     ret = (<FloppyController>self.controller[1]).inPort(ioPortAddr-FDC_SECOND_PORTBASE, dataSize)
             else:
                 self.main.exitError("Floppy::inPort: port 0x%04x not supported. (dataSize byte)", ioPortAddr)
-            self.main.notice("Floppy::inPort: port 0x%04x; data: 0x%02x, dataSize byte", ioPortAddr, ret)
+            IF COMP_DEBUG:
+                self.main.notice("Floppy::inPort: port 0x%04x; data: 0x%02x, dataSize byte", ioPortAddr, ret)
         else:
             self.main.exitError("Floppy::inPort: port 0x%04x with dataSize %u not supported.", ioPortAddr, dataSize)
         return ret
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         if (dataSize == OP_SIZE_BYTE):
-            self.main.notice("Floppy::outPort: port 0x%04x; data: 0x%02x, dataSize byte", ioPortAddr, data)
+            IF COMP_DEBUG:
+                self.main.notice("Floppy::outPort: port 0x%04x; data: 0x%02x, dataSize byte", ioPortAddr, data)
             if (ioPortAddr >= FDC_FIRST_PORTBASE and ioPortAddr <= FDC_FIRST_PORTBASE+FDC_PORTCOUNT):
                 with gil:
                     (<FloppyController>self.controller[0]).outPort(ioPortAddr-FDC_FIRST_PORTBASE, data, dataSize)

@@ -107,6 +107,7 @@ cdef class Cmos:
             month   = self.decToBcd(month)
             year    = self.decToBcd(year)
             century = self.decToBcd(century)
+        #self.main.notice("CMOS::updateTime: second==0x%02x, minute==0x%02x, hour==0x%02x", second, minute, hour)
         self.writeValue(CMOS_CURRENT_SECOND, second, OP_SIZE_BYTE)
         self.writeValue(CMOS_CURRENT_MINUTE, minute, OP_SIZE_BYTE)
         self.writeValue(CMOS_CURRENT_HOUR, hour, OP_SIZE_BYTE)
@@ -156,13 +157,13 @@ cdef class Cmos:
                 ret = self.cmosIndex
             elif (ioPortAddr == 0x71):
                 tempIndex = self.cmosIndex&0x7f
-                with gil:
-                    if (tempIndex <= 0x9 or tempIndex == CMOS_CENTURY):
+                if (tempIndex <= 0x9 or tempIndex == CMOS_CENTURY):
+                    with gil:
                         self.updateTime()
-                    ret = self.readValue(tempIndex, OP_SIZE_BYTE)
-                    if (tempIndex == CMOS_STATUS_REGISTER_C):
-                        self.writeValue(tempIndex, 0, OP_SIZE_BYTE)
-                        (<Pic>self.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
+                ret = self.readValue(tempIndex, OP_SIZE_BYTE)
+                if (tempIndex == CMOS_STATUS_REGISTER_C):
+                    self.writeValue(tempIndex, 0, OP_SIZE_BYTE)
+                    (<Pic>self.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
             else:
                 self.main.exitError("CMOS::inPort: port 0x%04x not supported. (dataSize byte)", ioPortAddr)
         else:

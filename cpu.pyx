@@ -199,9 +199,10 @@ cdef class Cpu:
                 self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>5))):
-                if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
+                #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>8))):
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>16))):
+                if (not (self.cycles&<unsigned int>0xffffff)):
                     #temptime = ttime(NULL)*100
                     #if (temptime - self.lasttime >= 20):
                     temptime = ttime(NULL)

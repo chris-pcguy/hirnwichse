@@ -795,7 +795,8 @@ cdef class AtaController:
             elif (self.cmd == COMMAND_PACKET):
                 IF COMP_DEBUG:
                     if (self.ata.main.debugEnabled):
-                        self.ata.main.notice("AtaController::outPort_0: len(self.data) == %u, self.data == %s", len(self.data), <bytes>repr(self.data).encode())
+                        with gil:
+                            self.ata.main.notice("AtaController::outPort_0: len(self.data) == %u, self.data == %s", len(self.data), <bytes>repr(self.data).encode())
                 with gil:
                     if (len(self.data) >= 12):
                         self.handlePacket()
