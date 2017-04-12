@@ -804,12 +804,12 @@ cdef class Registers:
             if ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((value>>9)&1)):
                 self.main.cpu.asyncEvent = True
         self.regs[regId]._union.word._union.rx = value
-        if (regId == CPU_REGISTER_EIP and not self.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_BYTE)):
+        if (regId == CPU_REGISTER_EIP and not self.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_WORD)):
             raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         IF (CPU_CACHE_SIZE):
             if (not self.cacheDisabled and regId == CPU_REGISTER_EIP):
                 realNewEip = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
-                if (not self.cpuCacheCodeSegChange and realNewEip >= self.cpuCacheBase and realNewEip+OP_SIZE_BYTE <= self.cpuCacheBase+self.cpuCacheSize):
+                if (not self.cpuCacheCodeSegChange and realNewEip >= self.cpuCacheBase and realNewEip+OP_SIZE_WORD <= self.cpuCacheBase+self.cpuCacheSize):
                     self.cpuCacheIndex = realNewEip - self.cpuCacheBase
                 else:
                 #IF 1: # TODO: HACK
@@ -833,12 +833,12 @@ cdef class Registers:
             if ((not self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag) and ((value>>9)&1)):
                 self.main.cpu.asyncEvent = True
         self.regs[regId]._union.dword.erx = value
-        if (regId == CPU_REGISTER_EIP and not self.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_BYTE)):
+        if (regId == CPU_REGISTER_EIP and not self.isAddressInLimit(&self.segments.cs.gdtEntry, value, OP_SIZE_DWORD)):
             raise HirnwichseException(CPU_EXCEPTION_GP, 0)
         IF (CPU_CACHE_SIZE):
             if (not self.cacheDisabled and regId == CPU_REGISTER_EIP):
                 realNewEip = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
-                if (not self.cpuCacheCodeSegChange and realNewEip >= self.cpuCacheBase and realNewEip+OP_SIZE_BYTE <= self.cpuCacheBase+self.cpuCacheSize):
+                if (not self.cpuCacheCodeSegChange and realNewEip >= self.cpuCacheBase and realNewEip+OP_SIZE_DWORD <= self.cpuCacheBase+self.cpuCacheSize):
                     self.cpuCacheIndex = realNewEip - self.cpuCacheBase
                 else:
                 #IF 1: # TODO: HACK
