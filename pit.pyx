@@ -205,6 +205,7 @@ cdef class PitChannel:
     cdef void timerFunc(self): # TODO
         IF SET_THREAD_NAMES:
             prctl.set_name("Pit::{0:d}{1:d}_0".format(self.channelId, self.localCounterMode))
+        self.pit.main.notice("timerFunc: channelId %u, counterMode %u", self.channelId, self.localCounterMode)
         #with nogil:
         IF 1:
             if (self.timerEnabled):
@@ -273,6 +274,8 @@ cdef class PitChannel:
         if (not self.pit.main.quitEmu):
             self.timerEnabled = True
             self.pit.main.notice("runTimer: channelId %u, counterMode %u, counterStartValue 0x%04x, tempTimerValue %u", self.channelId, self.counterMode, self.counterStartValue, self.tempTimerValue)
+            #if (self.counterMode == 3):
+            #    self.pit.main.debugEnabled = True
             self.threadObject = self.pit.main.misc.createThread(self.timerFunc, self)
 
 cdef class Pit:

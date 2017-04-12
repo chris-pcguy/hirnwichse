@@ -355,6 +355,8 @@ cdef class Paging: # TODO
                 self.segments.main.exitError("Paging::getPhysicalAddress: CR4/PAE is set.")
                 return False
             elif (not self.segments.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_PSE)):
+                self.segments.main.notice("Paging::getPhysicalAddress: not PSE. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
+                self.segments.main.notice("Paging::getPhysicalAddress: TODO! (savedEip: 0x%08x, savedCs: 0x%04x)", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)
                 self.segments.main.exitError("Paging::getPhysicalAddress: CR4/PSE isn't set.")
                 return False
             self.segments.main.notice("Paging::getPhysicalAddress: EIP: 0x%08x, CS: 0x%04x", self.segments.main.cpu.savedEip, self.segments.main.cpu.savedCs)

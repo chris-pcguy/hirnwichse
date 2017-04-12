@@ -1766,9 +1766,9 @@ cdef class Opcodes:
                 self.registers.pagingOn = (op2 & CR0_FLAG_PG)!=0
                 self.registers.writeProtectionOn = (op2 & CR0_FLAG_WP)!=0
                 self.registers.cacheDisabled = (op2 & CR0_FLAG_CD)!=0
-                if (((op1 & (CR0_FLAG_PG | CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_WP)) != (op2 & (CR0_FLAG_PG | CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_WP))) and self.registers.pagingOn):
-                    #if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
-                    (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regs[CPU_REGISTER_CR3]._union.dword.erx, False)
+                if ((op1 & (CR0_FLAG_PG | CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_WP)) != (op2 & (CR0_FLAG_PG | CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_WP))):
+                    if (self.registers.protectedModeOn and self.registers.pagingOn): # TODO: HACK
+                        (<Paging>self.registers.segments.paging).invalidateTables(self.registers.regs[CPU_REGISTER_CR3]._union.dword.erx, False)
                     IF (CPU_CACHE_SIZE):
                         self.registers.reloadCpuCache()
                 #self.registers.syncCR0State()
@@ -2196,6 +2196,7 @@ cdef class Opcodes:
             raise HirnwichseException(CPU_EXCEPTION_UD)
         else:
             self.main.exitError("opcodeGroup0F: invalid operOpcode. 0x%02x", operOpcode)
+            return False
         return True
     cdef int opcodeGroupFE(self) except BITMASK_BYTE_CONST:
         cdef uint8_t operOpcodeId

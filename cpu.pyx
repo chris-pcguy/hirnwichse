@@ -271,7 +271,7 @@ cdef class Cpu:
                     #if (self.main.debugEnabled or self.main.debugEnabledTest):
                     #IF 1:
                         self.main.notice("Current Opcode: 0x%02x; It's EIP: 0x%02x, CS: 0x%02x", self.opcode, self.savedEip, self.savedCs)
-                        self.cpuDump()
+                        #self.cpuDump()
                     if (not self.opcodes.executeOpcode(self.opcode)):
                         self.main.notice("Opcode not found. (opcode: 0x%02x; EIP: 0x%02x, CS: 0x%02x)", self.opcode, self.savedEip, self.savedCs)
                         raise HirnwichseException(CPU_EXCEPTION_UD)

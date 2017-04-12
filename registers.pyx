@@ -404,7 +404,7 @@ cdef class Registers:
                 self.main.exitError("Registers::init: not self.cpuCache.")
                 return
             with nogil:
-                memset(self.cpuCache, 0, CPU_CACHE_SIZE<<1)
+                memset(self.cpuCache, 0, (CPU_CACHE_SIZE<<1)+OP_SIZE_QWORD)
         self.regWriteDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_ET)
         register(self.quitFunc, self)
     cdef void quitFunc(self):
@@ -426,7 +426,7 @@ cdef class Registers:
         self.apicBaseRealPlusSize = self.apicBaseReal+SIZE_4KB
         IF CPU_CACHE_SIZE:
             with nogil:
-                memset(self.cpuCache, 0, CPU_CACHE_SIZE<<1)
+                memset(self.cpuCache, 0, (CPU_CACHE_SIZE<<1)+OP_SIZE_QWORD)
         #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x521
         #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x611
         #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x631

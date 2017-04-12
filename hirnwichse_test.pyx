@@ -11,9 +11,9 @@ cdef unsigned int TEST_SIZE = OP_SIZE_DWORD
 cdef class HirnwichseTest:
     def __init__(self):
         self.main = Hirnwichse()
-        #self.main.run(False)
-        self.configSpace = ConfigSpace(128, self.main)
-        self.configSpace.csResetData(0)
+        self.main.run(False)
+        #self.configSpace = ConfigSpace(128, self.main)
+        #self.configSpace.csResetData(0)
         #pass
     cdef void func1(self):
         cdef double time1, timediff1
@@ -36,13 +36,19 @@ cdef class HirnwichseTest:
         IF 0:
             operSumDword = self.main.mm.mmPhyReadValueUnsignedDword(0xfee00030)
             print("0xfee00030_val == {0:#010x}".format(operSumDword))
-        IF 1:
+        IF 0:
             operSumDword = self.configSpace.csReadValueUnsignedDword(0x24)
             print("cmos_0x24_dword_1 == {0:#010x}".format(operSumDword))
             #self.configSpace.csWriteValue(0x24, 0x12345678, OP_SIZE_DWORD)
             self.configSpace.csWriteValueDword(0x24, 0x12345678)
             operSumDword = self.configSpace.csReadValueUnsignedDword(0x24)
             print("cmos_0x24_dword_2 == {0:#010x}".format(operSumDword))
+        IF 1:
+            print("val0: {0:#010x}".format(self.main.cpu.registers.readFromCacheUnsigned(OP_SIZE_DWORD)))
+            print("val1: {0:#010x}".format(self.main.cpu.registers.readFromCacheAddUnsigned(OP_SIZE_BYTE)))
+            print("val2: {0:#010x}".format(self.main.cpu.registers.readFromCacheAddUnsigned(OP_SIZE_BYTE)))
+            print("val3: {0:#010x}".format(self.main.cpu.registers.readFromCacheAddUnsigned(OP_SIZE_BYTE)))
+            print("val4: {0:#010x}".format(self.main.cpu.registers.readFromCacheAddUnsigned(OP_SIZE_BYTE)))
     cpdef void run(self):
         self.func1()
 
