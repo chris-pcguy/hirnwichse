@@ -399,12 +399,13 @@ cdef class Registers:
         self.fpu = Fpu(self, self.main)
         IF CPU_CACHE_SIZE:
             with nogil:
-                self.cpuCache = <char*>malloc((CPU_CACHE_SIZE<<1)+OP_SIZE_QWORD)
+                self.cpuCache = <char*>malloc(CPU_CACHE_SIZE+OP_SIZE_QWORD)
             if (self.cpuCache is NULL):
                 self.main.exitError("Registers::init: not self.cpuCache.")
                 return
             with nogil:
-                memset(self.cpuCache, 0, (CPU_CACHE_SIZE<<1)+OP_SIZE_QWORD)
+                memset(self.cpuCache, 0, CPU_CACHE_SIZE+OP_SIZE_QWORD)
+        self.A20Active = False
         self.regWriteDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW | CR0_FLAG_ET)
         register(self.quitFunc, self)
     cdef void quitFunc(self):
@@ -420,13 +421,12 @@ cdef class Registers:
             self.main.exitError('Registers::quitFunc: exception, exiting...')
     cdef void reset(self) nogil:
         self.cpl = self.protectedModeOn = self.pagingOn = self.writeProtectionOn = self.ssInhibit = self.cacheDisabled = self.cpuCacheBase = self.cpuCacheSize = self.cpuCacheIndex = self.ldtr = self.cpuCacheCodeSegChange = self.ignoreExceptions = 0
-        self.A20Active = True
         self.apicBase = <uint32_t>0xfee00000|(1<<8)
         self.apicBaseReal = self.apicBase&<uint32_t>0xfffff000
         self.apicBaseRealPlusSize = self.apicBaseReal+SIZE_4KB
         IF CPU_CACHE_SIZE:
             with nogil:
-                memset(self.cpuCache, 0, (CPU_CACHE_SIZE<<1)+OP_SIZE_QWORD)
+                memset(self.cpuCache, 0, CPU_CACHE_SIZE+OP_SIZE_QWORD)
         #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x521
         #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x611
         #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x631
@@ -455,31 +455,38 @@ cdef class Registers:
         return True
     cdef uint8_t reloadCpuCache(self) except BITMASK_BYTE_CONST:
         IF CPU_CACHE_SIZE:
-            cdef uint32_t mmAddr, mmAddr2, temp, offset=0, tempSize=0
+            cdef uint32_t mmAddr, mmAddr2, temp, tempSize=0
             cdef char *tempMmArea
             IF COMP_DEBUG:
                 if (self.main.debugEnabled):
                     self.main.notice("Registers::reloadCpuCache: EIP: 0x%08x", self.regs[CPU_REGISTER_EIP]._union.dword.erx)
             mmAddr = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, 1, &self.segments.cs, False, False, False)
             if (self.protectedModeOn and self.pagingOn):
-                while (offset < CPU_CACHE_SIZE):
-                    temp = SIZE_4KB-((self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx+offset)&0xfff)
+                while (tempSize < CPU_CACHE_SIZE):
+                    temp = SIZE_4KB-((self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx+tempSize)&0xfff)
+                    if (tempSize+temp > CPU_CACHE_SIZE):
+                        temp = CPU_CACHE_SIZE-tempSize
+                    #self.main.notice("Registers::reloadCpuCache: temp==%d", temp)
                     self.ignoreExceptions = True
-                    mmAddr2 = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx+offset, temp, &self.segments.cs, False, False, False)
+                    mmAddr2 = self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx+tempSize, temp, &self.segments.cs, False, False, False)
                     if (not self.ignoreExceptions):
                         break
                     else:
                         self.ignoreExceptions = False
                     tempMmArea = self.main.mm.mmPhyRead(mmAddr2, temp)
                     with nogil:
-                        memcpy(self.cpuCache+offset, tempMmArea, temp)
-                    offset += temp
+                        memcpy(self.cpuCache+tempSize, tempMmArea, temp)
                     tempSize += temp
+                #self.main.notice("Registers::reloadCpuCache: tempSize==%d; CPU_CACHE_SIZE==%d", tempSize, CPU_CACHE_SIZE)
+                with nogil:
+                    memset(self.cpuCache+tempSize, 0, CPU_CACHE_SIZE-tempSize)
             else:
                 tempMmArea = self.main.mm.mmPhyRead(mmAddr, CPU_CACHE_SIZE)
                 with nogil:
                     memcpy(self.cpuCache, tempMmArea, CPU_CACHE_SIZE)
                 tempSize = CPU_CACHE_SIZE
+            with nogil:
+                memset(self.cpuCache+CPU_CACHE_SIZE, 0, OP_SIZE_QWORD)
             self.cpuCacheBase = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
             self.cpuCacheSize = tempSize
             self.cpuCacheIndex = self.cpuCacheCodeSegChange = 0

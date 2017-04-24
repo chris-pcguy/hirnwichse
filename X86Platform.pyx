@@ -103,6 +103,9 @@ cdef class Platform:
             return retVal
         self.main.notice("inPort: Port 0x%02x doesn't exist! (dataSize: %u)", ioPortAddr, dataSize)
         self.main.notice("inPort: TODO! (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        #with gil:
+        #    if (ioPortAddr == 0x16c and self.main.cpu.savedEip == 0x804041c0):
+        #        self.main.debugEnabled = True
         return bitMask
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         cdef uint8_t i, j
