@@ -186,8 +186,7 @@ cdef class Pic:
     cdef uint8_t isClear(self, uint8_t irq) nogil:
         cdef uint8_t temp1, temp2, temp3, ma_sl = False
         if (irq > 15):
-            IF COMP_DEBUG:
-                self.main.exitError("isClear: invalid irq! (irq: %u)", irq)
+            self.main.exitError("isClear: invalid irq! (irq: %u)", irq)
             return 0
         if (irq >= 8):
             ma_sl = True
@@ -249,6 +248,9 @@ cdef class Pic:
             channel = 0
         elif (ioPortAddr in PIC_PIC2_PORTS):
             channel = 1
+        else: # wrong ioPortAddr
+            self.main.exitError("inPort: ioPortAddr 0x%02x not supported.", ioPortAddr)
+            return 0
         if (dataSize == OP_SIZE_BYTE):
             if ((<PicChannel>self.channels[channel]).polled):
                 (<PicChannel>self.channels[channel]).clearHighestInterrupt()

@@ -16,10 +16,11 @@ cdef class HirnwichseTest:
         #self.configSpace.csResetData(0)
         #pass
     cdef void func1(self):
-        cdef double time1, timediff1
-        cdef uint32_t i
-        cdef uint32_t operOp1, operOp2, operSumDword
-        cdef uint64_t operSum
+        IF 0:
+            cdef double time1, timediff1
+            cdef uint32_t i
+            cdef uint32_t operOp1, operOp2, operSumDword
+            cdef uint64_t operSum
         IF 0:
             time1 = time()
             for i in range(100000000):

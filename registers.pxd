@@ -154,15 +154,12 @@ cdef class Registers:
     cdef uint64_t getCurrentOpcodeAddUnsignedQword(self) except? BITMASK_BYTE_CONST
     cdef uint64_t getCurrentOpcodeAddUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
     cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size) nogil
-    cdef uint8_t segWrite(self, uint16_t segId, uint16_t segValue) except BITMASK_BYTE_CONST
     cdef uint8_t segWriteSegment(self, Segment *segment, uint16_t segValue) except BITMASK_BYTE_CONST
     cdef uint16_t regWriteWord(self, uint16_t regId, uint16_t value) except? BITMASK_BYTE_CONST
     cdef uint32_t regWriteDword(self, uint16_t regId, uint32_t value) except? BITMASK_BYTE_CONST
     cdef uint64_t regWriteQword(self, uint16_t regId, uint64_t value)
     cdef uint64_t regReadUnsigned(self, uint16_t regId, uint8_t regSize) nogil
     cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil
-    cdef inline uint64_t regAdd(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil
-    cdef inline uint64_t regSub(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil
     cdef inline uint8_t regWriteWithOpLowByte(self, uint16_t regId, uint8_t value, uint8_t valueOp) nogil
     cdef inline uint8_t regWriteWithOpHighByte(self, uint16_t regId, uint8_t value, uint8_t valueOp) nogil
     cdef inline uint16_t regWriteWithOpWord(self, uint16_t regId, uint16_t value, uint8_t valueOp) nogil
@@ -176,7 +173,7 @@ cdef class Registers:
     cdef inline void setSZP_COA(self, uint32_t value, uint8_t regSize) nogil
     cdef inline uint8_t getCond(self, uint8_t index) nogil
     cdef inline void setFullFlags(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method) nogil
-    cdef inline uint32_t mmGetRealAddr(self, uint32_t mmAddr, uint32_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t written, uint8_t noAddress) except? BITMASK_BYTE_CONST
+    cdef inline uint32_t mmGetRealAddr(self, uint32_t mmAddr, uint32_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t written, uint8_t noAddress) nogil except? BITMASK_BYTE_CONST with gil
     cdef inline uint8_t mmReadValueUnsignedByte(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST
     cdef uint16_t mmReadValueUnsignedWord(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST
     cdef uint32_t mmReadValueUnsignedDword(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST

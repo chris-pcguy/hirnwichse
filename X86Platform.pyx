@@ -103,6 +103,9 @@ cdef class Platform:
             return retVal
         self.main.notice("inPort: Port 0x%02x doesn't exist! (dataSize: %u)", ioPortAddr, dataSize)
         self.main.notice("inPort: TODO! (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
+        #with gil:
+        #    if (ioPortAddr == 0x16c and self.main.cpu.savedEip == 0x804041c0):
+        #        self.main.debugEnabled = True
         return bitMask
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         cdef uint8_t i, j
@@ -132,7 +135,7 @@ cdef class Platform:
     cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         self.pic.lowerIrq(FPU_IRQ)
     cdef void loadRomToMem(self, bytes romFileName, uint64_t mmAddr, uint64_t romSize):
-        cdef object romFp
+        cdef object romFp = None
         cdef bytes romData
         try:
             romFp = open(romFileName, "rb")
@@ -159,7 +162,6 @@ cdef class Platform:
             else:
                 memcpy(self.main.mm.vgaRomData+mmAddr-VGA_ROM_BASE, self.main.mm.data+mmAddr, romSize)
     cdef void initMemory(self):
-        cdef uint16_t i
         if (not self.main or not self.main.mm or not self.main.memSize):
             self.main.exitError("X86Platform::initMemory: not self.main or not self.main.mm or not self.main.memSize")
             return

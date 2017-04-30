@@ -181,7 +181,7 @@ cdef class Paging: # TODO
         self.tlbDirectories = ConfigSpace(PAGE_DIRECTORY_LENGTH, self.segments.main)
         self.tlbTables = ConfigSpace(TLB_SIZE, self.segments.main)
         self.pageDirectoryBaseAddress = self.pageDirectoryOffset = self.pageTableOffset = self.pageDirectoryEntry = self.pageTableEntry = 0
-    cdef void invalidateTables(self, uint32_t pageDirectoryBaseAddress, uint8_t noGlobal):
+    cdef void invalidateTables(self, uint32_t pageDirectoryBaseAddress, uint8_t noGlobal) nogil:
         cdef uint32_t pageDirectoryEntry, pageTableEntry, i, j
         if (pageDirectoryBaseAddress&0xfff):
             if (pageDirectoryBaseAddress&0xfff == 0x18):
@@ -203,7 +203,7 @@ cdef class Paging: # TODO
                         self.tlbTables.csWriteValueDword((i<<12)|j, pageTableEntry)
             else:
                 self.tlbTables.csResetAddr((i<<12), 0, PAGE_DIRECTORY_LENGTH)
-    cdef void invalidateTable(self, uint32_t virtualAddress):
+    cdef void invalidateTable(self, uint32_t virtualAddress) nogil:
         cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry
         pageDirectoryOffset = (virtualAddress>>22) << 2
         pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
@@ -211,7 +211,7 @@ cdef class Paging: # TODO
         self.tlbDirectories.csWriteValueDword(pageDirectoryOffset, pageDirectoryEntry)
         pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&<uint32_t>0xfffff000)|pageTableOffset) # page table
         self.tlbTables.csWriteValueDword(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTableEntry)
-    cdef void invalidatePage(self, uint32_t virtualAddress):
+    cdef void invalidatePage(self, uint32_t virtualAddress) nogil:
         cdef uint8_t updateDir
         cdef uint32_t pageDirectoryEntry, pageTableEntry, pageDirectoryOffset, pageTableOffset, pageDirectoryEntryV, i, j
         pageDirectoryOffset = (virtualAddress>>22) << 2
@@ -236,7 +236,7 @@ cdef class Paging: # TODO
                 elif (virtualAddress == (pageTableEntry&<uint32_t>0xfffff000) or updateDir):
                     self.tlbDirectories.csWriteValueDword(i, pageDirectoryEntry)
                     self.tlbTables.csWriteValueDword(((i>>2)<<12)|j, pageTableEntry)
-    cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) except BITMASK_BYTE_CONST:
+    cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) nogil except BITMASK_BYTE_CONST:
         cdef uint32_t errorFlags
         IF COMP_DEBUG:
             cdef uint32_t pageDirectoryEntryMem, pageTableEntryMem
@@ -264,16 +264,16 @@ cdef class Paging: # TODO
                 self.segments.main.notice("Paging::doPF: PDO==0x%04x, PTO==0x%04x, PO==0x%04x", self.pageDirectoryOffset, self.pageTableOffset, self.pageOffset)
             self.segments.registers.regs[CPU_REGISTER_CR2]._union.dword.erx = virtualAddress
             self.instrFetch = self.implicitSV = False
-            raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
+            with gil:
+                raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
         else:
             self.segments.registers.ignoreExceptions = False
         return BITMASK_BYTE
-    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) except BITMASK_BYTE_CONST:
-        cdef uint32_t pageDirectoryOffsetWithoutShift, pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, pageDirectoryEntryMem, pageTableEntryMem, pageTablesEntryNew, origVirtualAddress
+    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) nogil:
+        cdef uint32_t pageDirectoryOffsetWithoutShift, pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, pageDirectoryEntryMem, pageTableEntryMem, pageTablesEntryNew
         # TODO: for now only handling 4KB pages. (very inefficient)
         if (not dataSize):
             return True
-        origVirtualAddress = virtualAddress
         while (dataSize >= 0):
             pageDirectoryOffsetWithoutShift = (virtualAddress>>22)
             pageDirectoryOffset = pageDirectoryOffsetWithoutShift << 2
@@ -308,7 +308,7 @@ cdef class Paging: # TODO
                 virtualAddress += PAGE_DIRECTORY_LENGTH
                 dataSize -= PAGE_DIRECTORY_LENGTH
         return True
-    cdef uint32_t getPhysicalAddress(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) except? BITMASK_BYTE_CONST:
+    cdef uint32_t getPhysicalAddress(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) nogil except? BITMASK_BYTE_CONST:
         #IF 0:
         cdef uint8_t cpl
         IF COMP_DEBUG:
@@ -345,7 +345,7 @@ cdef class Paging: # TODO
             if (not (self.pageDirectoryEntry & PAGE_PRESENT)):
                 IF COMP_DEBUG:
                 #IF 1:
-                    self.segments.main.notice("Paging::getPhysicalAddress: PDE-Entry is not present 2. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
+                    self.segments.main.notice("Paging::getPhysicalAddress: PDE-Entry is not present 2. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.pageDirectoryEntry, self.pageDirectoryBaseAddress|self.pageDirectoryOffset, virtualAddress)
                 return self.doPF(virtualAddress, written)
         if (self.pageDirectoryEntry & PAGE_SIZE): # it's a 4MB page
             # size is 4MB if CR4/PSE is set
@@ -383,6 +383,8 @@ cdef class Paging: # TODO
                 self.invalidatePage(virtualAddress)
                 self.pageTableEntry = self.tlbTables.csReadValueUnsignedDword((self.pageDirectoryOffset<<10)|self.pageTableOffset) # page table
                 if (not (self.pageTableEntry & PAGE_PRESENT)):
+                    #if (virtualAddress == <uint32_t>0xe1005000):
+                    #   self.main.debugEnabledTest = self.main.debugEnabled = True
                     IF COMP_DEBUG:
                     #IF 1:
                         self.segments.main.notice("Paging::getPhysicalAddress: PTE-Entry is not present 2. (entry: 0x%08x; addr: 0x%08x; vaddr: 0x%08x)", self.pageTableEntry, (self.pageDirectoryEntry&<uint32_t>0xfffff000)|self.pageTableOffset, virtualAddress)
@@ -462,7 +464,7 @@ cdef class Segments:
         #    self.main.notice("GdtEntry::parseEntryData: TODO: expand-down data segment may not supported yet!")
         #if (gdtEntry[0].flags & GDT_FLAG_LONGMODE): # TODO: int-mode isn't implemented yet...
         #    self.main.notice("GdtEntry::parseEntryData: WTF: Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades... (long-mode; AMD64)")
-    cdef uint8_t loadSegment(self, Segment *segment, uint16_t segmentIndex, uint8_t doInit) except BITMASK_BYTE_CONST:
+    cdef uint8_t loadSegment(self, Segment *segment, uint16_t segmentIndex, uint8_t doInit) nogil except BITMASK_BYTE_CONST:
         cdef GdtEntry gdtEntry
         cdef uint8_t protectedModeOn
         if (segment[0].segId == CPU_SEGMENT_CS):
@@ -491,11 +493,12 @@ cdef class Segments:
                 if (segment[0].segId == CPU_SEGMENT_CS):
                     segment[0].gdtEntry.segIsCodeSeg = True
             return True
-        if (not segmentIndex or not self.getEntry(&gdtEntry, segmentIndex)):
-            segment[0].useGDT = segment[0].gdtEntry.base = segment[0].gdtEntry.limit = segment[0].gdtEntry.accessByte = segment[0].gdtEntry.flags = segment[0].gdtEntry.segSize = segment[0].isValid = \
-            segment[0].gdtEntry.segPresent = segment[0].gdtEntry.segIsCodeSeg = segment[0].gdtEntry.segIsRW = segment[0].gdtEntry.segIsConforming = segment[0].gdtEntry.segIsNormal = \
-            segment[0].gdtEntry.segUse4K = segment[0].gdtEntry.segDPL = segment[0].gdtEntry.anotherLimit = segment[0].segIsGDTandNormal = 0
-            return False
+        with gil:
+            if (not segmentIndex or not self.getEntry(&gdtEntry, segmentIndex)):
+                segment[0].useGDT = segment[0].gdtEntry.base = segment[0].gdtEntry.limit = segment[0].gdtEntry.accessByte = segment[0].gdtEntry.flags = segment[0].gdtEntry.segSize = segment[0].isValid = \
+                segment[0].gdtEntry.segPresent = segment[0].gdtEntry.segIsCodeSeg = segment[0].gdtEntry.segIsRW = segment[0].gdtEntry.segIsConforming = segment[0].gdtEntry.segIsNormal = \
+                segment[0].gdtEntry.segUse4K = segment[0].gdtEntry.segDPL = segment[0].gdtEntry.anotherLimit = segment[0].segIsGDTandNormal = 0
+                return False
         segment[0].useGDT = True
         segment[0].isValid = True
         segment[0].gdtEntry.base = gdtEntry.base

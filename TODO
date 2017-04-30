@@ -13,10 +13,7 @@ RS232(?)
 
 timing issues, which are resulting into some heavy bugs.
 
-when "F7 /5 IMUL r/m32" is defective:
-hang on reactos boot: e.g. between kbdclass and mouclass
-"vm_page_physrehash: WARNING: could not grow page hash table" warning on openbsd25 hda boot
-
+race condition @ ReactOS r74406 (bug @ opcodes.pyx?) (Doesn't occur when COMP_DEBUG == 1)
 
 
 Somewhen in a few centuries:

@@ -206,7 +206,9 @@ cdef class PS2:
             self.main.exitError("inPort: port 0x%02x with dataSize %u not supported.", ioPortAddr, dataSize)
         return 0
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+        cdef uint8_t oldNeedWriteBytes
         if (dataSize == OP_SIZE_BYTE):
+            oldNeedWriteBytes = self.needWriteBytes
             IF COMP_DEBUG:
                 self.main.notice("PS2: outPort: port 0x%02x ; data 0x%02x; savedCs==0x%04x; savedEip==0x%04x", ioPortAddr, data, (<Cpu>self.main.cpu).savedCs, (<Cpu>self.main.cpu).savedEip)
             if (ioPortAddr == 0x60):
@@ -261,7 +263,7 @@ cdef class PS2:
                         self.appendToOutBytes(b'\xfe')
                     else:
                         self.main.notice("outPort: data 0x%02x is not supported. (port 0x%02x)", data, ioPortAddr)
-                    if (self.needWriteBytes > 0):
+                    if (not oldNeedWriteBytes and self.needWriteBytes > 0):
                         self.lastUsedPort = ioPortAddr
                         self.lastUsedCmd = data
                 else:
@@ -387,7 +389,7 @@ cdef class PS2:
                     ##self.main.debug("outPort: ignoring useless command 0x%02x. (port 0x%02x)", data, ioPortAddr)
                 else:
                     self.main.notice("outPort: data 0x%02x is not supported. (port 0x%02x)", data, ioPortAddr)
-                if (self.needWriteBytes > 0):
+                if (not oldNeedWriteBytes and self.needWriteBytes > 0):
                     self.lastUsedPort = ioPortAddr
                     self.lastUsedCmd = data
                 else:
@@ -409,11 +411,11 @@ cdef class PS2:
             self.main.exitError("outPort: port 0x%02x with dataSize %u not supported. (data: 0x%04x)", ioPortAddr, dataSize, data)
         return
     cdef void setKbdClockEnable(self, uint8_t value) nogil:
-        cdef uint8_t prevKbdClockEnabled
+        #cdef uint8_t prevKbdClockEnabled
         if (not value):
             self.kbdClockEnabled = False
         else:
-            prevKbdClockEnabled = self.kbdClockEnabled
+            #prevKbdClockEnabled = self.kbdClockEnabled
             self.kbdClockEnabled = True
             #if (not prevKbdClockEnabled and not self.outb):
             self.activateTimer()

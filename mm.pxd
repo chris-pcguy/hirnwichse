@@ -40,6 +40,7 @@ cdef class ConfigSpace:
     cdef bytes csRead(self, uint32_t offset, uint32_t size)
     cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil
     cdef uint8_t csReadValueUnsignedByte(self, uint32_t offset) nogil
+    cdef uint16_t csReadValueUnsignedWord(self, uint32_t offset) nogil
     cdef uint32_t csReadValueUnsignedDword(self, uint32_t offset) nogil
     cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil
     cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size) nogil

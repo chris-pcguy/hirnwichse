@@ -196,7 +196,7 @@ cdef class FloppyDrive:
             data += bytes(size-len(data))
         oldPos = self.fp.tell()
         self.fp.seek(offset)
-        retData = self.fp.write(data)
+        self.fp.write(data)
         self.fp.seek(oldPos)
         self.fp.flush()
     cdef void writeSectors(self, uint32_t sector, uint32_t count, bytes data):
@@ -321,7 +321,7 @@ cdef class FloppyController:
             if ((<FloppyDrive>self.drive[drive]).cylinder >= (<FloppyDrive>self.drive[drive]).media.tracks):
                 (<FloppyDrive>self.drive[drive]).cylinder = (<FloppyDrive>self.drive[drive]).media.tracks
     cdef uint8_t getTC(self):
-        cdef uint8_t drive, TC
+        cdef uint8_t TC
         if (self.msr & FDC_MSR_NODMA):
             self.main.exitError("FDC::getTC: PIO mode isn't fully supported yet.")
             return False
@@ -476,7 +476,7 @@ cdef class FloppyController:
             (<FloppyDrive>self.drive[drive]).eot = eot
 
             if (self.msr & FDC_MSR_NODMA):
-                self.main.exitError("FDC_CTRL::handleCommand: PIO mode isn't supported!")
+                self.main.exitError("FDC_CTRL::handleCommand: PIO mode isn't fully supported yet.")
                 return
             if ((cmd & 0x1f) == 0x5): # write
                 (<IsaDma>self.main.platform.isadma).setDRQ(FDC_DMA_CHANNEL, True)
@@ -563,7 +563,7 @@ cdef class FloppyController:
         cdef uint8_t drive
         cdef uint32_t logicalSector
         if (self.msr & FDC_MSR_NODMA):
-            self.main.exitError("FDC_CTRL::readFromMem: PIO mode isn't supported!")
+            self.main.exitError("FDC_CTRL::readFromMem: PIO mode isn't fully supported yet!")
             return
         drive = self.DOR & 0x3
         if (self.fdcBufferIndex == 0):
@@ -595,7 +595,7 @@ cdef class FloppyController:
         cdef uint8_t drive, data
         cdef uint32_t logicalSector
         if (self.msr & FDC_MSR_NODMA):
-            self.main.exitError("FDC_CTRL::writeToMem: PIO mode isn't supported!")
+            self.main.exitError("FDC_CTRL::writeToMem: PIO mode isn't fully supported yet.")
             return 0
         drive = self.DOR & 0x3
         data = 0
@@ -628,7 +628,7 @@ cdef class FloppyController:
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
         cdef uint8_t drive, value
         if (self.msr & FDC_MSR_NODMA):
-            self.main.exitError("FDC_CTRL::inPort: PIO mode isn't supported!")
+            self.main.exitError("FDC_CTRL::inPort: PIO mode isn't fully supported yet.")
             return BITMASK_BYTE
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x2): # read dor
@@ -683,7 +683,7 @@ cdef class FloppyController:
         return BITMASK_BYTE
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
         if (self.msr & FDC_MSR_NODMA):
-            self.main.exitError("FDC_CTRL::outPort: PIO mode isn't supported!")
+            self.main.exitError("FDC_CTRL::outPort: PIO mode isn't fully supported yet.")
             return
         elif (dataSize == OP_SIZE_BYTE):
             if (ioPortAddr == 0x2): # set dor

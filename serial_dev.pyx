@@ -46,7 +46,8 @@ cdef class SerialPort:
                 self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                 self.sock.bind(self.serialFilename)
                 self.sock.listen(1)
-                self.fp, addr = self.sock.accept()
+                #self.fp, addr = self.sock.accept()
+                self.fp = self.sock.accept()[0]
             elif (self.serialFilename.startswith(b"serial:")):
                 self.serialFilename = self.serialFilename[7:]
                 self.isDev = True
@@ -155,6 +156,7 @@ cdef class SerialPort:
                     self.main.notice("SerialPort%u::writeData: write string", self.serialIndex)
                 if (self.modemControlRegister & 0x10):
                     self.data += data
+                    retlen = len(self.data)
                 else:
                     if (self.sock is not None):
                         retlen = self.fp.send(data)

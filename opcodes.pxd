@@ -136,10 +136,10 @@ cdef class Opcodes:
     cdef int rorFunc(self, uint8_t operSize, uint8_t count) except BITMASK_BYTE_CONST
     cdef int opcodeGroup4_RM(self, uint8_t operSize, uint8_t method) except BITMASK_BYTE_CONST
     cdef int sahf(self) except BITMASK_BYTE_CONST
-    cdef int lahf(self) nogil except BITMASK_BYTE_CONST
-    cdef int xchgFuncRegWord(self, uint16_t regName, uint16_t regName2) nogil except BITMASK_BYTE_CONST
-    cdef int xchgFuncRegDword(self, uint16_t regName, uint16_t regName2) nogil except BITMASK_BYTE_CONST
-    cdef int xchgReg(self) nogil except BITMASK_BYTE_CONST
+    cdef int lahf(self) nogil
+    cdef int xchgFuncRegWord(self, uint16_t regName, uint16_t regName2) nogil
+    cdef int xchgFuncRegDword(self, uint16_t regName, uint16_t regName2) nogil
+    cdef int xchgReg(self) nogil
     cdef int xchgR_RM(self, uint8_t operSize) except BITMASK_BYTE_CONST
     cdef int enter(self) except BITMASK_BYTE_CONST
     cdef int leave(self) except BITMASK_BYTE_CONST

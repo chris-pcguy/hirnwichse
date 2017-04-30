@@ -366,6 +366,7 @@ cdef class Pci:
                         IF 1:
                             #self.main.notice("Pci::writeRegister: test1")
                             self.main.platform.ata.base4Addr = deviceHandle.getData((self.pciAddressHandle.getMmAddress()&<uint32_t>0xffffff00)|PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
+                            self.main.platform.ata.base4AddrMasked = self.main.platform.ata.base4Addr & 0xfffc
                             #self.main.notice("Pci::writeRegister: test2")
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
         cdef uint32_t ret = BITMASK_DWORD
@@ -423,7 +424,6 @@ cdef class Pci:
             self.main.exitError("PCI::outPort: dataSize %u not supported.", dataSize)
         return
     cdef void run(self):
-        cdef uint8_t busIndex
         cdef PciBus busHandle
         for busHandle in self.busList:
             if (busHandle):

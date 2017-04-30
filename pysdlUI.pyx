@@ -58,7 +58,7 @@ cdef class PysdlUI:
     cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors): # returns rect
         #cdef object newRect, colorObject
         #cdef object colorObject
-        cdef uint32_t bgColor
+        #cdef uint32_t bgColor
         #try:
         IF 1:
             #newRect = sdl2.rect.SDL_Rect(x, y, 1, 1)
@@ -102,10 +102,8 @@ cdef class PysdlUI:
             #if 1:
                 #charArray = sdl2.ext.pixels2d(newChar)
                 i = character*VGA_FONTAREA_CHAR_HEIGHT
-                if (colors & 8):
-                    charData = self.fontDataA[i:i+self.charSize[1]]
-                else:
-                    charData = self.fontDataB[i:i+self.charSize[1]]
+                charData = self.fontDataA if (colors & 8) else self.fontDataB
+                charData = charData[i:i+self.charSize[1]]
                 fgColor = self.vga.getColor(colors & 0xf)
                 for i in range(len(charData)):
                     j = charData[i]

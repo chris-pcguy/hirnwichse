@@ -197,16 +197,22 @@ cdef class Cpu:
                 self.savedEip = self.registers.regs[CPU_REGISTER_EIP]._union.dword.erx
                 self.savedSs  = self.registers.regs[CPU_SEGMENT_BASE+CPU_SEGMENT_SS]._union.word._union.rx
                 self.savedEsp = self.registers.regs[CPU_REGISTER_ESP]._union.dword.erx
+                #if (not (<uint16_t>self.cycles)):
+                #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>1))):
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>4))):
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>5))):
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>6))):
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>8))):
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>16))):
-                if (not (self.cycles&<unsigned int>0xffffff)):
+                #if (not (self.cycles&<unsigned int>0xffffff)):
+                if (not (self.cycles&<unsigned int>0xffffff) or (self.INTR and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag)):
+                    if (self.main.platform.vga and self.main.platform.vga.ui):
+                        self.main.platform.vga.ui.handleEventsWithoutWaiting()
                     #temptime = ttime(NULL)*100
                     #if (temptime - self.lasttime >= 20):
                     temptime = ttime(NULL)
                     if (temptime - self.lasttime >= 1):
+                    #IF 1:
                         #self.main.notice("CPU::doCycle: cycles: 0x%08x", self.cycles)
                         if (self.main.platform.vga and self.main.platform.vga.ui):
                             self.main.platform.vga.ui.handleEventsWithoutWaiting()

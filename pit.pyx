@@ -30,7 +30,7 @@ cdef class PitChannel:
         self.readBackStatusValue |= self.counterMode<<1
         self.readBackStatusValue |= self.counterWriteMode<<4
     cdef void mode0Func(self):
-        cdef uint8_t clear
+        cdef uint8_t clear = False # this assignment shouldn't be needed
         if (self.channelId == 0): # just raise IRQ on channel0
             clear = (<Pic>self.pit.main.platform.pic).isClear(0)
             if (clear):
@@ -59,7 +59,7 @@ cdef class PitChannel:
         else:
             self.pit.main.notice("PitChannel::mode0Func: counterMode %u used channelId %u.", self.localCounterMode, self.channelId)
     cdef void mode2Func(self): # TODO
-        cdef uint8_t clear
+        cdef uint8_t clear = False
         cdef uint64_t i, j
         #prctl.set_name("Pit::{0:d}{1:d}_1".format(self.channelId, self.localCounterMode))
         while (self.timerEnabled and not self.pit.main.quitEmu and self.localCounterMode in (2,3)):
@@ -329,6 +329,7 @@ cdef class Pit:
                     (<PitChannel>self.channels[channelId]).counterFlipFlop = not (<PitChannel>self.channels[channelId]).counterFlipFlop
                 else:
                     self.main.exitError("inPort: unknown counterWriteMode: %u.", (<PitChannel>self.channels[channelId]).counterWriteMode)
+                    return 0
                 IF COMP_DEBUG:
                 #IF 1:
                     if (self.main.debugEnabled):

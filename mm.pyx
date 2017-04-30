@@ -10,7 +10,6 @@ from atexit import register
 
 cdef class Mm:
     def __init__(self, Hirnwichse main):
-        cdef uint16_t i
         self.main = main
         self.ignoreRomWrite = False
         self.memSizeBytes = self.main.memSize*1024*1024
@@ -356,6 +355,10 @@ cdef class ConfigSpace:
     cdef uint8_t csReadValueUnsignedByte(self, uint32_t offset) nogil:
         cdef uint8_t ret
         ret = (<uint8_t*>(self.csData+offset))[0]
+        return ret
+    cdef uint16_t csReadValueUnsignedWord(self, uint32_t offset) nogil:
+        cdef uint16_t ret
+        ret = (<uint16_t*>(self.csData+offset))[0]
         return ret
     cdef uint32_t csReadValueUnsignedDword(self, uint32_t offset) nogil:
         cdef uint32_t ret

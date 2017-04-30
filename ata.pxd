@@ -56,7 +56,7 @@ cdef class Ata:
     cdef Hirnwichse main
     cdef PyObject *controller[2]
     cdef PciDevice pciDevice
-    cdef uint32_t base4Addr
+    cdef uint32_t base4Addr, base4AddrMasked
     cdef void reset(self) nogil
     cdef uint8_t isBusmaster(self, uint16_t ioPortAddr) nogil
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil

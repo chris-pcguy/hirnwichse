@@ -160,9 +160,9 @@ cdef class GDBStubHandler:
         self.putPacket(bytes())
     cdef void handleCommand(self, bytes data):
         cdef uint32_t memAddr, memLength, sizeAddr, sizeLength, blockSize, regVal
-        cdef int32_t threadNum, res_signal, res_thread, signal = 0, thread
-        cdef uint16_t regOffset, maxRegNum, currRegNum
-        cdef uint8_t cpuType, singleStepOn, res
+        cdef int32_t signal = 0 #, thread, threadNum, res_signal, res_thread
+        cdef uint16_t maxRegNum, currRegNum #, regOffset
+        cdef uint8_t singleStepOn, res #, cpuType
         cdef list memList, actionList, sizeList
         cdef bytes currData, hexToSend, action
         if (not len(data)):
@@ -192,8 +192,8 @@ cdef class GDBStubHandler:
                 self.gdbStub.main.notice("INFO: GDBStubHandler: unhandledCmd_1.")
                 self.unhandledCmd(data, False)
         elif (data.startswith(b'H')):
-            cpuType = data[1]
-            threadNum = int(data[2:], 16)
+            #cpuType = data[1]
+            #threadNum = int(data[2:], 16)
             self.putPacket(b'OK')
         elif (data == b'?'):
             self.sendInit(GDB_SIGNAL_TRAP)
@@ -254,7 +254,8 @@ cdef class GDBStubHandler:
                     self.putPacket(b'vCont;c;C;s;S')
                     return
                 actionList = data[6:].split(b';')
-                res, res_signal, res_thread, thread = 0, 0, 0, 0
+                #res, res_signal, res_thread, thread = 0, 0, 0, 0
+                res = 0
                 for action in actionList:
                     signal = 0
                     if (not action):
@@ -267,14 +268,15 @@ cdef class GDBStubHandler:
                         return
                     if (len(action)>1 and action[1] == ord(b':')):
                         if (len(action)>2):
-                            thread = int(action[2:], 16)
+                            #thread = int(action[2:], 16)
+                            pass
                         else:
                             self.gdbStub.main.notice('GDBStubHandler::handleCommand: v: action isn\'t int enough for threadnum')
                     action = action.lower()
                     if (not res or (res == ord(b'c') and action == ord(b's'))):
                         res = action[0]
-                        res_signal = signal
-                        res_thread = thread
+                        #res_signal = signal
+                        #res_thread = thread
                 if (res):
                     if (signal):
                         self.gdbStub.main.notice('GDBStubHandler::handleCommand: v: signal not implemented')
