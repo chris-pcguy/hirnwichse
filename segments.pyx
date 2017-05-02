@@ -27,7 +27,29 @@ cdef class Gdt:
         #self.segments.main.debug("Gdt::getEntry: tableBase==0x%08x; tableLimit==0x%04x; num==0x%04x", self.tableBase, self.tableLimit, num)
         entryData = self.tableBase+num
         entryData = self.segments.registers.mmReadValueUnsignedQword(entryData, NULL, False)
-        self.segments.parseGdtEntryData(gdtEntry, entryData)
+        gdtEntry[0].accessByte = <uint8_t>(entryData>>40)
+        gdtEntry[0].flags  = (entryData>>52)&0xf
+        gdtEntry[0].base  = (entryData>>16)&0xffffff
+        gdtEntry[0].limit = entryData&0xffff
+        gdtEntry[0].base  |= (<uint8_t>(entryData>>56))<<24
+        gdtEntry[0].limit |= ((entryData>>48)&0xf)<<16
+        # segment size: 1==32bit; 0==16bit; segSize is 4 for 32bit and 2 for 16bit
+        gdtEntry[0].segSize = OP_SIZE_DWORD if (gdtEntry[0].flags & GDT_FLAG_SIZE) else OP_SIZE_WORD
+        gdtEntry[0].segPresent = (gdtEntry[0].accessByte & GDT_ACCESS_PRESENT)!=0
+        gdtEntry[0].segIsCodeSeg = (gdtEntry[0].accessByte & GDT_ACCESS_EXECUTABLE)!=0
+        gdtEntry[0].segIsRW = (gdtEntry[0].accessByte & GDT_ACCESS_READABLE_WRITABLE)!=0
+        gdtEntry[0].segIsConforming = (gdtEntry[0].accessByte & GDT_ACCESS_CONFORMING)!=0
+        gdtEntry[0].segIsNormal = (gdtEntry[0].accessByte & GDT_ACCESS_NORMAL_SEGMENT)!=0
+        gdtEntry[0].segUse4K = (gdtEntry[0].flags & GDT_FLAG_USE_4K)!=0
+        gdtEntry[0].segDPL = ((gdtEntry[0].accessByte & GDT_ACCESS_DPL)>>5)&3
+        gdtEntry[0].anotherLimit = gdtEntry[0].segIsNormal and not gdtEntry[0].segIsCodeSeg and gdtEntry[0].segIsConforming
+        if (gdtEntry[0].segUse4K):
+            gdtEntry[0].limit <<= 12
+            gdtEntry[0].limit |= 0xfff
+        #if (not gdtEntry[0].segIsCodeSeg and gdtEntry[0].segIsConforming and self.main.debugEnabled):
+        #    self.main.notice("GdtEntry::parseEntryData: TODO: expand-down data segment may not supported yet!")
+        #if (gdtEntry[0].flags & GDT_FLAG_LONGMODE): # TODO: int-mode isn't implemented yet...
+        #    self.main.notice("GdtEntry::parseEntryData: WTF: Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades... (long-mode; AMD64)")
         return True
     cdef uint8_t getSegType(self, uint16_t num) except? BITMASK_BYTE_CONST: # access byte
         self.segments.paging.implicitSV = True
@@ -134,7 +156,18 @@ cdef class Idt:
               tableLimit, IDT_HARD_LIMIT)
             return
         self.tableBase, self.tableLimit = tableBase, tableLimit
-    cdef void parseIdtEntryData(self, IdtEntry *idtEntry, uint64_t entryData) nogil:
+    cdef uint8_t getEntry(self, IdtEntry *idtEntry, uint8_t num) except BITMASK_BYTE_CONST:
+        cdef uint64_t entryData
+        self.segments.paging.implicitSV = True
+        if (not self.tableLimit):
+            #self.segments.main.notice("Idt::getEntry: tableLimit is zero.")
+            return False
+        entryData = (num<<3)
+        if (entryData >= self.tableLimit):
+            #self.segments.main.notice("Idt::getEntry: tableLimit is too small.")
+            return False
+        entryData += self.tableBase
+        entryData = self.segments.registers.mmReadValueUnsignedQword(entryData, NULL, False)
         idtEntry[0].entryEip = entryData&0xffff # interrupt eip: lower word
         idtEntry[0].entryEip |= ((entryData>>48)&0xffff)<<16 # interrupt eip: upper word
         idtEntry[0].entrySegment = (entryData>>16)&0xffff # interrupt segment
@@ -145,19 +178,6 @@ cdef class Idt:
           TABLE_ENTRY_SYSTEM_TYPE_TASK_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY, \
           TABLE_ENTRY_SYSTEM_TYPE_32BIT_CALL_GATE, TABLE_ENTRY_SYSTEM_TYPE_32BIT_INTERRUPT_GATE, \
           TABLE_ENTRY_SYSTEM_TYPE_32BIT_TRAP_GATE)) else OP_SIZE_WORD
-    cdef uint8_t getEntry(self, IdtEntry *idtEntry, uint8_t num) except BITMASK_BYTE_CONST:
-        cdef uint64_t address
-        self.segments.paging.implicitSV = True
-        if (not self.tableLimit):
-            #self.segments.main.notice("Idt::getEntry: tableLimit is zero.")
-            return False
-        address = (num<<3)
-        if (address >= self.tableLimit):
-            #self.segments.main.notice("Idt::getEntry: tableLimit is too small.")
-            return False
-        address += self.tableBase
-        address = self.segments.registers.mmReadValueUnsignedQword(address, NULL, False)
-        self.parseIdtEntryData(idtEntry, address)
         if (idtEntry[0].entryType in (TABLE_ENTRY_SYSTEM_TYPE_LDT, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS, TABLE_ENTRY_SYSTEM_TYPE_32BIT_TSS_BUSY)):
             #self.segments.main.notice("Idt::getEntry: entryType is LDT or TSS. (is this allowed?)")
             return False
@@ -165,11 +185,6 @@ cdef class Idt:
             #self.segments.main.notice("Idt::getEntry: idtEntry is not present.")
             return False
         return True
-    cdef void getEntryRealMode(self, uint8_t num, uint16_t *entrySegment, uint16_t *entryEip) nogil:
-        cdef uint16_t offset
-        offset = num<<2 # Don't use ConfigSpace here.
-        entryEip[0] = self.segments.main.mm.mmPhyReadValueUnsignedWord(offset)
-        entrySegment[0] = self.segments.main.mm.mmPhyReadValueUnsignedWord(offset+2)
 
 
 
@@ -181,7 +196,7 @@ cdef class Paging: # TODO
         self.tlbDirectories = ConfigSpace(PAGE_DIRECTORY_LENGTH, self.segments.main)
         self.tlbTables = ConfigSpace(TLB_SIZE, self.segments.main)
         self.pageDirectoryBaseAddress = self.pageDirectoryOffset = self.pageTableOffset = self.pageDirectoryEntry = self.pageTableEntry = 0
-    cdef void invalidateTables(self, uint32_t pageDirectoryBaseAddress, uint8_t noGlobal) nogil:
+    cdef void invalidateTables(self, uint32_t pageDirectoryBaseAddress, uint8_t noGlobal):
         cdef uint32_t pageDirectoryEntry, pageTableEntry, i, j
         if (pageDirectoryBaseAddress&0xfff):
             if (pageDirectoryBaseAddress&0xfff == 0x18):
@@ -203,7 +218,7 @@ cdef class Paging: # TODO
                         self.tlbTables.csWriteValueDword((i<<12)|j, pageTableEntry)
             else:
                 self.tlbTables.csResetAddr((i<<12), 0, PAGE_DIRECTORY_LENGTH)
-    cdef void invalidateTable(self, uint32_t virtualAddress) nogil:
+    cdef void invalidateTable(self, uint32_t virtualAddress):
         cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry
         pageDirectoryOffset = (virtualAddress>>22) << 2
         pageTableOffset = ((virtualAddress>>12)&0x3ff) << 2
@@ -211,7 +226,7 @@ cdef class Paging: # TODO
         self.tlbDirectories.csWriteValueDword(pageDirectoryOffset, pageDirectoryEntry)
         pageTableEntry = self.segments.main.mm.mmPhyReadValueUnsignedDword((pageDirectoryEntry&<uint32_t>0xfffff000)|pageTableOffset) # page table
         self.tlbTables.csWriteValueDword(((pageDirectoryOffset>>2)<<12)|pageTableOffset, pageTableEntry)
-    cdef void invalidatePage(self, uint32_t virtualAddress) nogil:
+    cdef void invalidatePage(self, uint32_t virtualAddress):
         cdef uint8_t updateDir
         cdef uint32_t pageDirectoryEntry, pageTableEntry, pageDirectoryOffset, pageTableOffset, pageDirectoryEntryV, i, j
         pageDirectoryOffset = (virtualAddress>>22) << 2
@@ -236,7 +251,7 @@ cdef class Paging: # TODO
                 elif (virtualAddress == (pageTableEntry&<uint32_t>0xfffff000) or updateDir):
                     self.tlbDirectories.csWriteValueDword(i, pageDirectoryEntry)
                     self.tlbTables.csWriteValueDword(((i>>2)<<12)|j, pageTableEntry)
-    cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) nogil except BITMASK_BYTE_CONST:
+    cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) except BITMASK_BYTE_CONST:
         cdef uint32_t errorFlags
         IF COMP_DEBUG:
             cdef uint32_t pageDirectoryEntryMem, pageTableEntryMem
@@ -264,12 +279,11 @@ cdef class Paging: # TODO
                 self.segments.main.notice("Paging::doPF: PDO==0x%04x, PTO==0x%04x, PO==0x%04x", self.pageDirectoryOffset, self.pageTableOffset, self.pageOffset)
             self.segments.registers.regs[CPU_REGISTER_CR2]._union.dword.erx = virtualAddress
             self.instrFetch = self.implicitSV = False
-            with gil:
-                raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
+            raise HirnwichseException(CPU_EXCEPTION_PF, errorFlags)
         else:
             self.segments.registers.ignoreExceptions = False
         return BITMASK_BYTE
-    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) nogil:
+    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written):
         cdef uint32_t pageDirectoryOffsetWithoutShift, pageDirectoryOffset, pageTableOffset, pageDirectoryEntry, pageTableEntry, pageDirectoryEntryMem, pageTableEntryMem, pageTablesEntryNew
         # TODO: for now only handling 4KB pages. (very inefficient)
         if (not dataSize):
@@ -308,7 +322,7 @@ cdef class Paging: # TODO
                 virtualAddress += PAGE_DIRECTORY_LENGTH
                 dataSize -= PAGE_DIRECTORY_LENGTH
         return True
-    cdef uint32_t getPhysicalAddress(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) nogil except? BITMASK_BYTE_CONST:
+    cdef uint32_t getPhysicalAddress(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) except? BITMASK_BYTE_CONST:
         #IF 0:
         cdef uint8_t cpl
         IF COMP_DEBUG:
@@ -440,31 +454,7 @@ cdef class Segments:
     def __init__(self, Registers registers, Hirnwichse main):
         self.registers = registers
         self.main = main
-    cdef void parseGdtEntryData(self, GdtEntry *gdtEntry, uint64_t entryData) nogil:
-        gdtEntry[0].accessByte = <uint8_t>(entryData>>40)
-        gdtEntry[0].flags  = (entryData>>52)&0xf
-        gdtEntry[0].base  = (entryData>>16)&0xffffff
-        gdtEntry[0].limit = entryData&0xffff
-        gdtEntry[0].base  |= (<uint8_t>(entryData>>56))<<24
-        gdtEntry[0].limit |= ((entryData>>48)&0xf)<<16
-        # segment size: 1==32bit; 0==16bit; segSize is 4 for 32bit and 2 for 16bit
-        gdtEntry[0].segSize = OP_SIZE_DWORD if (gdtEntry[0].flags & GDT_FLAG_SIZE) else OP_SIZE_WORD
-        gdtEntry[0].segPresent = (gdtEntry[0].accessByte & GDT_ACCESS_PRESENT)!=0
-        gdtEntry[0].segIsCodeSeg = (gdtEntry[0].accessByte & GDT_ACCESS_EXECUTABLE)!=0
-        gdtEntry[0].segIsRW = (gdtEntry[0].accessByte & GDT_ACCESS_READABLE_WRITABLE)!=0
-        gdtEntry[0].segIsConforming = (gdtEntry[0].accessByte & GDT_ACCESS_CONFORMING)!=0
-        gdtEntry[0].segIsNormal = (gdtEntry[0].accessByte & GDT_ACCESS_NORMAL_SEGMENT)!=0
-        gdtEntry[0].segUse4K = (gdtEntry[0].flags & GDT_FLAG_USE_4K)!=0
-        gdtEntry[0].segDPL = ((gdtEntry[0].accessByte & GDT_ACCESS_DPL)>>5)&3
-        gdtEntry[0].anotherLimit = gdtEntry[0].segIsNormal and not gdtEntry[0].segIsCodeSeg and gdtEntry[0].segIsConforming
-        if (gdtEntry[0].segUse4K):
-            gdtEntry[0].limit <<= 12
-            gdtEntry[0].limit |= 0xfff
-        #if (not gdtEntry[0].segIsCodeSeg and gdtEntry[0].segIsConforming and self.main.debugEnabled):
-        #    self.main.notice("GdtEntry::parseEntryData: TODO: expand-down data segment may not supported yet!")
-        #if (gdtEntry[0].flags & GDT_FLAG_LONGMODE): # TODO: int-mode isn't implemented yet...
-        #    self.main.notice("GdtEntry::parseEntryData: WTF: Did you just tried to use int-mode?!? Maybe I'll implement it in a few decades... (long-mode; AMD64)")
-    cdef uint8_t loadSegment(self, Segment *segment, uint16_t segmentIndex, uint8_t doInit) nogil except BITMASK_BYTE_CONST:
+    cdef uint8_t loadSegment(self, Segment *segment, uint16_t segmentIndex, uint8_t doInit) except BITMASK_BYTE_CONST:
         cdef GdtEntry gdtEntry
         cdef uint8_t protectedModeOn
         if (segment[0].segId == CPU_SEGMENT_CS):
@@ -493,12 +483,11 @@ cdef class Segments:
                 if (segment[0].segId == CPU_SEGMENT_CS):
                     segment[0].gdtEntry.segIsCodeSeg = True
             return True
-        with gil:
-            if (not segmentIndex or not self.getEntry(&gdtEntry, segmentIndex)):
-                segment[0].useGDT = segment[0].gdtEntry.base = segment[0].gdtEntry.limit = segment[0].gdtEntry.accessByte = segment[0].gdtEntry.flags = segment[0].gdtEntry.segSize = segment[0].isValid = \
-                segment[0].gdtEntry.segPresent = segment[0].gdtEntry.segIsCodeSeg = segment[0].gdtEntry.segIsRW = segment[0].gdtEntry.segIsConforming = segment[0].gdtEntry.segIsNormal = \
-                segment[0].gdtEntry.segUse4K = segment[0].gdtEntry.segDPL = segment[0].gdtEntry.anotherLimit = segment[0].segIsGDTandNormal = 0
-                return False
+        if (not segmentIndex or not self.getEntry(&gdtEntry, segmentIndex)):
+            segment[0].useGDT = segment[0].gdtEntry.base = segment[0].gdtEntry.limit = segment[0].gdtEntry.accessByte = segment[0].gdtEntry.flags = segment[0].gdtEntry.segSize = segment[0].isValid = \
+            segment[0].gdtEntry.segPresent = segment[0].gdtEntry.segIsCodeSeg = segment[0].gdtEntry.segIsRW = segment[0].gdtEntry.segIsConforming = segment[0].gdtEntry.segIsNormal = \
+            segment[0].gdtEntry.segUse4K = segment[0].gdtEntry.segDPL = segment[0].gdtEntry.anotherLimit = segment[0].segIsGDTandNormal = 0
+            return False
         segment[0].useGDT = True
         segment[0].isValid = True
         segment[0].gdtEntry.base = gdtEntry.base
@@ -544,7 +533,7 @@ cdef class Segments:
         if (num & SELECTOR_USE_LDT):
             return self.ldt.checkSegmentLoadAllowed(num, segId)
         return self.gdt.checkSegmentLoadAllowed(num, segId)
-    cdef inline uint8_t inLimit(self, uint16_t num) nogil:
+    cdef inline uint8_t inLimit(self, uint16_t num):
         if (num & SELECTOR_USE_LDT):
             return ((num&0xfff8) <= self.ldt.tableLimit)
         return ((num&0xfff8) <= self.gdt.tableLimit)

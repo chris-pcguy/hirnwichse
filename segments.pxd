@@ -50,9 +50,6 @@ cdef class Gdt:
     cdef uint16_t tableLimit
     cdef uint32_t tableBase
     cdef void loadTablePosition(self, uint32_t tableBase, uint16_t tableLimit)
-    cdef inline void getBaseLimit(self, uint32_t *retTableBase, uint16_t *retTableLimit) nogil:
-        retTableBase[0] = self.tableBase
-        retTableLimit[0] = self.tableLimit
     cdef uint8_t getEntry(self, GdtEntry *gdtEntry, uint16_t num) except BITMASK_BYTE_CONST
     cdef uint8_t getSegType(self, uint16_t num) except? BITMASK_BYTE_CONST
     cdef uint8_t setSegType(self, uint16_t num, uint8_t segmentType) except BITMASK_BYTE_CONST
@@ -66,12 +63,7 @@ cdef class Idt:
     cdef uint16_t tableLimit
     cdef uint32_t tableBase
     cdef void loadTable(self, uint32_t tableBase, uint16_t tableLimit)
-    cdef inline void getBaseLimit(self, uint32_t *retTableBase, uint16_t *retTableLimit) nogil:
-        retTableBase[0] = self.tableBase
-        retTableLimit[0] = self.tableLimit
-    cdef void parseIdtEntryData(self, IdtEntry *idtEntry, uint64_t entryData) nogil
     cdef uint8_t getEntry(self, IdtEntry *idtEntry, uint8_t num) except BITMASK_BYTE_CONST
-    cdef void getEntryRealMode(self, uint8_t num, uint16_t *entrySegment, uint16_t *entryEip) nogil
 
 cdef class Paging:
     cdef Segments segments
@@ -79,12 +71,12 @@ cdef class Paging:
     cdef uint8_t instrFetch, implicitSV
     cdef uint16_t pageOffset
     cdef uint32_t pageDirectoryOffset, pageTableOffset, pageDirectoryBaseAddress, pageDirectoryEntry, pageTableEntry
-    cdef void invalidateTables(self, uint32_t pageDirectoryBaseAddress, uint8_t noGlobal) nogil
-    cdef void invalidateTable(self, uint32_t virtualAddress) nogil
-    cdef void invalidatePage(self, uint32_t virtualAddress) nogil
-    cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) nogil except BITMASK_BYTE_CONST
-    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written)  nogil
-    cdef uint32_t getPhysicalAddress(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) nogil except? BITMASK_BYTE_CONST
+    cdef void invalidateTables(self, uint32_t pageDirectoryBaseAddress, uint8_t noGlobal)
+    cdef void invalidateTable(self, uint32_t virtualAddress)
+    cdef void invalidatePage(self, uint32_t virtualAddress)
+    cdef uint8_t doPF(self, uint32_t virtualAddress, uint8_t written) except BITMASK_BYTE_CONST
+    cdef uint8_t setFlags(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written)
+    cdef uint32_t getPhysicalAddress(self, uint32_t virtualAddress, uint32_t dataSize, uint8_t written) except? BITMASK_BYTE_CONST
     
 cdef class Segments:
     cdef Hirnwichse main
@@ -93,8 +85,7 @@ cdef class Segments:
     cdef Paging paging
     cdef Registers registers
     cdef Segment cs, ds, es, fs, gs, ss, tss
-    cdef void parseGdtEntryData(self, GdtEntry *gdtEntry, uint64_t entryData) nogil
-    cdef uint8_t loadSegment(self, Segment *segment, uint16_t segmentIndex, uint8_t doInit) nogil except BITMASK_BYTE_CONST
+    cdef uint8_t loadSegment(self, Segment *segment, uint16_t segmentIndex, uint8_t doInit) except BITMASK_BYTE_CONST
     cdef inline uint8_t getEntry(self, GdtEntry *gdtEntry, uint16_t num) except BITMASK_BYTE_CONST
     cdef inline uint8_t getSegType(self, uint16_t num) except? BITMASK_BYTE_CONST
     cdef inline uint8_t setSegType(self, uint16_t num, uint8_t segmentType) except BITMASK_BYTE_CONST
@@ -102,7 +93,7 @@ cdef class Segments:
     cdef inline uint8_t checkReadAllowed(self, uint16_t num) except BITMASK_BYTE_CONST
     cdef inline uint8_t checkWriteAllowed(self, uint16_t num) except BITMASK_BYTE_CONST
     cdef inline uint8_t checkSegmentLoadAllowed(self, uint16_t num, uint16_t segId) except BITMASK_BYTE_CONST
-    cdef inline uint8_t inLimit(self, uint16_t num) nogil
+    cdef inline uint8_t inLimit(self, uint16_t num)
     cdef void run(self)
 
 

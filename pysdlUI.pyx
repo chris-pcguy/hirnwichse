@@ -22,7 +22,7 @@ cdef tuple EVENT_LIST = ( sdl2.SDL_MOUSEMOTION, sdl2.SDL_MOUSEBUTTONDOWN, sdl2.S
 
 cdef class PysdlUI:
     def __init__(self, Vga vga):
-        #cdef uint32_t i
+        cdef uint32_t i
         self.vga  = vga
         self.window = self.screen = self.renderer = None
         self.replicate8Bit = self.mode9Bit = self.msbBlink = True

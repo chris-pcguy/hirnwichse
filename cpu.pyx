@@ -5,7 +5,7 @@ include "globals.pxi"
 include "cpu_globals.pxi"
 
 from sys import exit #, stdout, stderr
-from time import sleep, time
+from time import sleep #, time
 from traceback import print_exc
 
 
@@ -160,9 +160,10 @@ cdef class Cpu:
         self.main.notice("Opcode: 0x%02x\n\n", self.opcode)
     cdef int doInfiniteCycles(self) except BITMASK_BYTE_CONST:
         cdef uint8_t count
-        cdef uint64_t temptime
+        cdef uint64_t oldCycles = 0, temptime
         try:
             while (not self.main.quitEmu):
+            #while (not self.main.quitEmu and ((self.cycles>>CPU_CLOCK_TICK_SHIFT) < 22000000)):
                 if (self.cpuHalted and self.main.exitIfCpuHalted):
                     self.main.quitFunc()
                     exit(1)
@@ -214,9 +215,11 @@ cdef class Cpu:
                     if (temptime - self.lasttime >= 1):
                     #IF 1:
                         #self.main.notice("CPU::doCycle: cycles: 0x%08x", self.cycles)
+                        self.main.notice("CPU::doCycle: Thousand IPS: %u", (((self.cycles-oldCycles)>>CPU_CLOCK_TICK_SHIFT)/(temptime - self.lasttime))/1000)
                         if (self.main.platform.vga and self.main.platform.vga.ui):
                             self.main.platform.vga.ui.handleEventsWithoutWaiting()
                         self.lasttime = temptime
+                        oldCycles = self.cycles
                 try:
                     #if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df):
                     #    self.main.notice("CPU::doCycle: DF-flag isn't fully supported yet!")
@@ -312,6 +315,7 @@ cdef class Cpu:
                 except:
                     print_exc()
                     self.main.exitError('doCycle: exception3 while handling opcode, exiting... (opcode: 0x%02x)', self.opcode)
+            #exit(0)
         except:
             print_exc()
             self.main.exitError('doInfiniteCycles: exception, exiting...')

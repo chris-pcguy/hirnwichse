@@ -97,8 +97,6 @@ cdef class Opcodes:
     cdef int opcodeGroup0F(self) except BITMASK_BYTE_CONST
     cdef int opcodeGroupFE(self) except BITMASK_BYTE_CONST
     cdef int opcodeGroupFF(self) except BITMASK_BYTE_CONST
-    cdef int incFuncReg(self, uint16_t regId, uint8_t regSize) nogil except BITMASK_BYTE_CONST
-    cdef int decFuncReg(self, uint16_t regId, uint8_t regSize) nogil except BITMASK_BYTE_CONST
     cdef int incFuncRM(self, uint8_t rmSize) except BITMASK_BYTE_CONST
     cdef int decFuncRM(self, uint8_t rmSize) except BITMASK_BYTE_CONST
     cdef int incReg(self) nogil except BITMASK_BYTE_CONST
