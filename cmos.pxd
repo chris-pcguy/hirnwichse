@@ -23,16 +23,16 @@ cdef class Cmos:
     cdef inline uint8_t getEquipmentDefaultValue(self):
         return self.equipmentDefaultValue
     cdef uint16_t decToBcd(self, uint16_t dec)
-    cdef inline uint32_t readValue(self, uint8_t index, uint8_t size) nogil
-    cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size) nogil
+    cdef inline uint32_t readValue(self, uint8_t index, uint8_t size)
+    cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size)
     cdef void reset(self)
     cdef void updateTime(self)
     cdef void secondsThreadFunc(self)
     cdef void uipThreadFunc(self)
     cdef void periodicFunc(self)
-    cdef void makeCheckSum(self) nogil
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef void makeCheckSum(self)
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize)
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
     cdef void run(self)
 
 

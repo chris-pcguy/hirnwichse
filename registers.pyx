@@ -106,7 +106,7 @@ cdef class ModRMClass:
             else:
                 self.rmNameSeg = &self.registers.segments.ds
         return True
-    cdef uint8_t getRegNameWithFlags(self, uint8_t modRMflags, uint8_t reg, uint8_t operSize) nogil:
+    cdef uint8_t getRegNameWithFlags(self, uint8_t modRMflags, uint8_t reg, uint8_t operSize):
         if (modRMflags == MODRM_FLAGS_SREG):
             reg = CPU_REGISTER_SREG[reg]
             if (reg == CPU_REGISTER_NONE):
@@ -126,7 +126,7 @@ cdef class ModRMClass:
             reg &= 3
         self.regName = reg
         return True
-    cdef uint64_t getRMValueFull(self, uint8_t rmSize) nogil:
+    cdef uint64_t getRMValueFull(self, uint8_t rmSize):
         cdef uint64_t retAddr = 0
         if (self.rmName0 != CPU_REGISTER_NONE):
             if (self.regSize == OP_SIZE_BYTE):
@@ -233,7 +233,7 @@ cdef class ModRMClass:
                 self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, True, valueOp)
         #self.registers.main.exitError("ModRMClass::modRMSave: if; else.")
         return True
-    cdef int64_t modRLoadSigned(self, uint8_t regSize) nogil:
+    cdef int64_t modRLoadSigned(self, uint8_t regSize):
         if (regSize == OP_SIZE_BYTE):
             if (self.reg <= 3):
                 return <int8_t>self.registers.regs[self.regName]._union.word._union.byte.rl
@@ -245,7 +245,7 @@ cdef class ModRMClass:
             return <int32_t>self.registers.regs[self.regName]._union.dword.erx
         #else: #elif (regSize == OP_SIZE_QWORD):
         return <int64_t>self.registers.regs[self.regName]._union.rrx
-    cdef uint64_t modRLoadUnsigned(self, uint8_t regSize) nogil:
+    cdef uint64_t modRLoadUnsigned(self, uint8_t regSize):
         if (regSize == OP_SIZE_BYTE):
             if (self.reg <= 3):
                 return self.registers.regs[self.regName]._union.word._union.byte.rl
@@ -257,7 +257,7 @@ cdef class ModRMClass:
             return self.registers.regs[self.regName]._union.dword.erx
         #else: #elif (regSize == OP_SIZE_QWORD):
         return self.registers.regs[self.regName]._union.rrx
-    cdef void modRSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp) nogil:
+    cdef void modRSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp):
         if (regSize == OP_SIZE_BYTE):
             if (self.reg <= 3):
                 self.registers.regWriteWithOpLowByte(self.regName, value, valueOp)
@@ -424,7 +424,7 @@ cdef class Registers:
         except:
             print_exc()
             self.main.exitError('Registers::quitFunc: exception, exiting...')
-    cdef void reset(self) nogil:
+    cdef void reset(self):
         self.cpl = self.protectedModeOn = self.pagingOn = self.writeProtectionOn = self.ssInhibit = self.cacheDisabled = self.cpuCacheBase = self.cpuCacheSize = self.cpuCacheIndex = self.ldtr = self.cpuCacheCodeSegChange = self.ignoreExceptions = 0
         self.apicBase = <uint32_t>0xfee00000|(1<<8)
         self.apicBaseReal = self.apicBase&<uint32_t>0xfffff000
@@ -436,7 +436,8 @@ cdef class Registers:
         #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x611
         #self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x631
         self.regs[CPU_REGISTER_EDX]._union.dword.erx = 0x635
-        with gil:
+        #with gil:
+        IF 1:
             self.fpu.reset(False)
             self.regWriteDword(CPU_REGISTER_EFLAGS, FLAG_REQUIRED)
             self.regWriteDword(CPU_REGISTER_CR0, self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_CD | CR0_FLAG_NW) | CR0_FLAG_ET)
@@ -705,7 +706,7 @@ cdef class Registers:
                 self.main.notice("Registers::getCurrentOpcodeAddUnsigned: EIP: 0x%08x, ret==0x%02x", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
         self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
         return ret
-    cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size) nogil:
+    cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size):
         ## address is an offset.
         address += size-1
         if (not gdtEntry[0].anotherLimit):
@@ -762,7 +763,7 @@ cdef class Registers:
             self.ssInhibit = True
         self.regs[CPU_SEGMENT_BASE+segId]._union.word._union.rx = segValue
         return True
-    cdef uint64_t regReadUnsigned(self, uint16_t regId, uint8_t regSize) nogil:
+    cdef uint64_t regReadUnsigned(self, uint16_t regId, uint8_t regSize):
         if (regSize == OP_SIZE_BYTE):
             return self.regs[regId]._union.word._union.byte.rl
         elif (regSize == OP_SIZE_WORD):
@@ -777,7 +778,7 @@ cdef class Registers:
         #if (regId == CPU_REGISTER_RFLAGS): # this isn't used yet.
         #    return self.readFlags()
         return self.regs[regId]._union.rrx
-    cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil:
+    cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize):
         if (regSize == OP_SIZE_BYTE):
             self.regs[regId]._union.word._union.byte.rl = value
         elif (regSize == OP_SIZE_WORD):
@@ -843,7 +844,7 @@ cdef class Registers:
                 self.main.cpu.asyncEvent = True
         self.regs[regId]._union.rrx = value
         return True
-    cdef inline void regWriteWithOpLowByte(self, uint16_t regId, uint8_t value, uint8_t valueOp) nogil:
+    cdef inline void regWriteWithOpLowByte(self, uint16_t regId, uint8_t value, uint8_t valueOp):
         if (valueOp == OPCODE_SAVE):
             self.regs[regId]._union.word._union.byte.rl = value
         elif (valueOp == OPCODE_ADD):
@@ -866,7 +867,7 @@ cdef class Registers:
             self.regs[regId]._union.word._union.byte.rl = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpLowByte: unknown valueOp %u.", valueOp)
-    cdef inline void regWriteWithOpHighByte(self, uint16_t regId, uint8_t value, uint8_t valueOp) nogil:
+    cdef inline void regWriteWithOpHighByte(self, uint16_t regId, uint8_t value, uint8_t valueOp):
         if (valueOp == OPCODE_SAVE):
             self.regs[regId]._union.word._union.byte.rh = value
         elif (valueOp == OPCODE_ADD):
@@ -889,7 +890,7 @@ cdef class Registers:
             self.regs[regId]._union.word._union.byte.rh = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpHighByte: unknown valueOp %u.", valueOp)
-    cdef inline void regWriteWithOpWord(self, uint16_t regId, uint16_t value, uint8_t valueOp) nogil:
+    cdef inline void regWriteWithOpWord(self, uint16_t regId, uint16_t value, uint8_t valueOp):
         if (valueOp == OPCODE_SAVE):
             self.regs[regId]._union.word._union.rx = value
         elif (valueOp == OPCODE_ADD):
@@ -912,7 +913,7 @@ cdef class Registers:
             self.regs[regId]._union.word._union.rx = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpWord: unknown valueOp %u.", valueOp)
-    cdef inline void regWriteWithOpDword(self, uint16_t regId, uint32_t value, uint8_t valueOp) nogil:
+    cdef inline void regWriteWithOpDword(self, uint16_t regId, uint32_t value, uint8_t valueOp):
         if (valueOp == OPCODE_SAVE):
             self.regs[regId]._union.dword.erx = value
         elif (valueOp == OPCODE_ADD):
@@ -935,7 +936,7 @@ cdef class Registers:
             self.regs[regId]._union.dword.erx = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpDword: unknown valueOp %u.", valueOp)
-    cdef inline void regWriteWithOpQword(self, uint16_t regId, uint64_t value, uint8_t valueOp) nogil:
+    cdef inline void regWriteWithOpQword(self, uint16_t regId, uint64_t value, uint8_t valueOp):
         if (valueOp == OPCODE_SAVE):
             self.regs[regId]._union.rrx = value
         elif (valueOp == OPCODE_ADD):
@@ -958,20 +959,20 @@ cdef class Registers:
             self.regs[regId]._union.rrx = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp %u.", valueOp)
-    cdef inline void setSZP(self, uint32_t value, uint8_t regSize) nogil:
+    cdef inline void setSZP(self, uint32_t value, uint8_t regSize):
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>((regSize<<3)-1))!=0
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = value==0
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<uint8_t>value]
-    cdef inline void setSZP_O(self, uint32_t value, uint8_t regSize) nogil:
+    cdef inline void setSZP_O(self, uint32_t value, uint8_t regSize):
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = False
-    cdef inline void setSZP_A(self, uint32_t value, uint8_t regSize) nogil:
+    cdef inline void setSZP_A(self, uint32_t value, uint8_t regSize):
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
-    cdef inline void setSZP_COA(self, uint32_t value, uint8_t regSize) nogil:
+    cdef inline void setSZP_COA(self, uint32_t value, uint8_t regSize):
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
-    cdef inline uint8_t getCond(self, uint8_t index) nogil:
+    cdef inline uint8_t getCond(self, uint8_t index):
         cdef uint8_t negateCheck, ret = 0
         negateCheck = index & 1
         index >>= 1
@@ -996,7 +997,7 @@ cdef class Registers:
         if (negateCheck):
             ret = not ret
         return ret
-    cdef inline void setFullFlags(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method) nogil:
+    cdef inline void setFullFlags(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method):
         cdef uint8_t unsignedOverflow = False, reg0Nibble, regSumuNibble, regShift, carried = False
         cdef uint64_t regSumu = 0
         if (method in (OPCODE_ADD, OPCODE_ADC, OPCODE_SUB, OPCODE_SBB, OPCODE_MUL, OPCODE_IMUL, OPCODE_CMP)):

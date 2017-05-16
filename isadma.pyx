@@ -33,8 +33,9 @@ cdef class IsaDmaChannel:
         self.transferMode = 0
         self.DRQ = False
         self.DACK = False
-    cdef void run(self) nogil:
-        with gil:
+    cdef void run(self):
+        #with gil:
+        IF 1:
             self.dmaMemActionInstance = None
         self.readFromMem = self.writeToMem = NULL
 
@@ -62,22 +63,22 @@ cdef class IsaDmaController:
         Py_INCREF(channel1)
         Py_INCREF(channel2)
         Py_INCREF(channel3)
-    cdef void reset(self) nogil:
+    cdef void reset(self):
         self.flipFlop = False
-    cdef void doCommand(self, uint8_t data) nogil:
+    cdef void doCommand(self, uint8_t data):
         self.cmdReg = data
         self.ctrlDisabled = (data & DMA_CMD_DISABLE)!=0
         self.controlHRQ()
-    cdef void doManualRequest(self, uint8_t data) nogil:
+    cdef void doManualRequest(self, uint8_t data):
         cdef uint8_t channel = data & 3
         if ((data & DMA_REQREG_REQUEST) != 0): # set request bit
             self.statusReg |= (1 << (channel+4))
         else: # clear it
             self.statusReg &= ~(1 << (channel+4))
         self.controlHRQ()
-    cdef void setFlipFlop(self, uint8_t flipFlop) nogil:
+    cdef void setFlipFlop(self, uint8_t flipFlop):
         self.flipFlop = flipFlop
-    cdef void setTransferMode(self, uint8_t transferModeByte) nogil:
+    cdef void setTransferMode(self, uint8_t transferModeByte):
         cdef uint8_t channel = transferModeByte&3
         (<IsaDmaChannel>self.channel[channel]).transferDirection = (transferModeByte>>2)&3
         (<IsaDmaChannel>self.channel[channel]).autoInit = (transferModeByte&0x10)!=0
@@ -87,25 +88,25 @@ cdef class IsaDmaController:
             self.main.notice("IsaDmaController::setTransferMode: maybe TODO: addressDecrement is set.")
         if ((self.master or (not self.master and channel != 0)) and (<IsaDmaChannel>self.channel[channel]).transferMode != DMA_MODE_SINGLE):
             self.main.exitError("ISADMA::setTransferMode: transferMode: %u not supported yet.", (<IsaDmaChannel>self.channel[channel]).transferMode)
-    cdef void maskChannel(self, uint8_t channel, uint8_t maskIt) nogil:
+    cdef void maskChannel(self, uint8_t channel, uint8_t maskIt):
         (<IsaDmaChannel>self.channel[channel]).channelMasked = (maskIt!=False)
         self.controlHRQ()
-    cdef void maskChannels(self, uint8_t maskByte) nogil:
+    cdef void maskChannels(self, uint8_t maskByte):
         (<IsaDmaChannel>self.channel[0]).channelMasked = (maskByte&1)!=0
         (<IsaDmaChannel>self.channel[1]).channelMasked = (maskByte&2)!=0
         (<IsaDmaChannel>self.channel[2]).channelMasked = (maskByte&4)!=0
         (<IsaDmaChannel>self.channel[3]).channelMasked = (maskByte&8)!=0
         self.controlHRQ()
-    cdef uint8_t getChannelMasks(self) nogil:
+    cdef uint8_t getChannelMasks(self):
         cdef uint8_t retVal
         retVal = ((<IsaDmaChannel>self.channel[0]).channelMasked!=0)
         retVal |= ((<IsaDmaChannel>self.channel[1]).channelMasked!=0)<<1
         retVal |= ((<IsaDmaChannel>self.channel[2]).channelMasked!=0)<<2
         retVal |= ((<IsaDmaChannel>self.channel[3]).channelMasked!=0)<<3
         return retVal
-    cdef void setPageByte(self, uint8_t channel, uint8_t data) nogil:
+    cdef void setPageByte(self, uint8_t channel, uint8_t data):
         (<IsaDmaChannel>self.channel[channel]).page = data
-    cdef void setAddrByte(self, uint8_t channel, uint8_t data) nogil:
+    cdef void setAddrByte(self, uint8_t channel, uint8_t data):
         if (self.flipFlop):
             (<IsaDmaChannel>self.channel[channel]).baseAddress = (<uint8_t>((<IsaDmaChannel>self.channel[channel]).baseAddress) | (data<<8))
             (<IsaDmaChannel>self.channel[channel]).currentAddress = (<IsaDmaChannel>self.channel[channel]).baseAddress
@@ -113,7 +114,7 @@ cdef class IsaDmaController:
             (<IsaDmaChannel>self.channel[channel]).baseAddress = ((<IsaDmaChannel>self.channel[channel]).baseAddress&0xff00) | data
             (<IsaDmaChannel>self.channel[channel]).currentAddress = (<IsaDmaChannel>self.channel[channel]).baseAddress
         self.setFlipFlop(not self.flipFlop)
-    cdef void setCountByte(self, uint8_t channel, uint8_t data) nogil:
+    cdef void setCountByte(self, uint8_t channel, uint8_t data):
         if (self.flipFlop):
             (<IsaDmaChannel>self.channel[channel]).baseCount = (<uint8_t>((<IsaDmaChannel>self.channel[channel]).baseCount) | (data<<8))
             (<IsaDmaChannel>self.channel[channel]).currentCount = (<IsaDmaChannel>self.channel[channel]).baseCount
@@ -121,9 +122,9 @@ cdef class IsaDmaController:
             (<IsaDmaChannel>self.channel[channel]).baseCount = ((<IsaDmaChannel>self.channel[channel]).baseCount&0xff00) | data
             (<IsaDmaChannel>self.channel[channel]).currentCount = (<IsaDmaChannel>self.channel[channel]).baseCount
         self.setFlipFlop(not self.flipFlop)
-    cdef uint8_t getPageByte(self, uint8_t channel) nogil:
+    cdef uint8_t getPageByte(self, uint8_t channel):
         return (<IsaDmaChannel>self.channel[channel]).page
-    cdef uint8_t getAddrByte(self, uint8_t channel) nogil:
+    cdef uint8_t getAddrByte(self, uint8_t channel):
         cdef uint8_t retVal
         if (self.flipFlop):
             retVal = <uint8_t>((<IsaDmaChannel>self.channel[channel]).currentAddress>>8)
@@ -131,7 +132,7 @@ cdef class IsaDmaController:
             retVal = <uint8_t>((<IsaDmaChannel>self.channel[channel]).currentAddress)
         self.setFlipFlop(not self.flipFlop)
         return retVal
-    cdef uint8_t getCountByte(self, uint8_t channel) nogil:
+    cdef uint8_t getCountByte(self, uint8_t channel):
         cdef uint8_t retVal
         if (self.flipFlop):
             retVal = <uint8_t>((<IsaDmaChannel>self.channel[channel]).currentCount>>8)
@@ -139,12 +140,12 @@ cdef class IsaDmaController:
             retVal = <uint8_t>((<IsaDmaChannel>self.channel[channel]).currentCount)
         self.setFlipFlop(not self.flipFlop)
         return retVal
-    cdef uint8_t getStatus(self) nogil:
+    cdef uint8_t getStatus(self):
         cdef uint8_t status
         status = self.statusReg
         self.statusReg &= 0xf0
         return status
-    cdef void controlHRQ(self) nogil:
+    cdef void controlHRQ(self):
         cdef uint8_t channel
         if (self.ctrlDisabled):
             return
@@ -152,7 +153,8 @@ cdef class IsaDmaController:
             if (not self.master):
                 self.isadma.main.cpu.setHRQ(False)
             else:
-                with gil:
+                #with gil:
+                IF 1:
                     self.isadma.setDRQ(4, False)
             return
         for channel in range(4):
@@ -160,10 +162,11 @@ cdef class IsaDmaController:
                 if (not self.master):
                     self.isadma.main.cpu.setHRQ(True)
                 else:
-                    with gil:
+                    #with gil:
+                    IF 1:
                         self.isadma.setDRQ(4, True)
                 return
-    cdef void run(self) nogil:
+    cdef void run(self):
         (<IsaDmaChannel>self.channel[0]).run()
         (<IsaDmaChannel>self.channel[1]).run()
         (<IsaDmaChannel>self.channel[2]).run()
@@ -181,7 +184,7 @@ cdef class IsaDma:
         self.HLDA = self.TC = False
         Py_INCREF(master)
         Py_INCREF(slave)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize):
         cdef uint8_t ma_sl, channelNum
         cdef uint32_t retVal
         ma_sl = (ioPortAddr>=0xc0)
@@ -214,7 +217,7 @@ cdef class IsaDma:
         else:
             self.main.exitError("ISADma::inPort: unknown ioPortAddr. (ioPortAddr: 0x%04x, dataSize: %u)", ioPortAddr, dataSize)
         return 0
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         cdef uint8_t ma_sl, channelNum
         ma_sl = (ioPortAddr>=0xc0)
         channelNum = (ioPortAddr>>(1+ma_sl))&3
@@ -255,7 +258,7 @@ cdef class IsaDma:
             self.extPageReg[ioPortAddr&0xf] = <uint8_t>data
         else:
             self.main.exitError("ISADma::outPort: unknown ioPortAddr. (ioPortAddr: 0x%04x, data: 0x%04x, dataSize: %u)", ioPortAddr, data, dataSize)
-    cdef uint8_t getTC(self) nogil:
+    cdef uint8_t getTC(self):
         return self.TC
     cdef void setDRQ(self, uint8_t channel, uint8_t val):
         cdef uint32_t dmaBase, dmaRoof

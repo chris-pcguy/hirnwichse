@@ -19,9 +19,9 @@ cdef class PciDevice:
     cdef uint8_t deviceIndex
     cdef uint8_t barSize[7] # size in bits
     cdef void reset(self)
-    cdef uint8_t checkWriteAccess(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil
-    cdef uint32_t getData(self, uint32_t mmAddress, uint8_t dataSize) nogil
-    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil
+    cdef uint8_t checkWriteAccess(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize)
+    cdef uint32_t getData(self, uint32_t mmAddress, uint8_t dataSize)
+    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize)
     cdef void setVendorId(self, uint16_t vendorId)
     cdef void setDeviceId(self, uint16_t deviceId)
     cdef void setDeviceClass(self, uint16_t deviceClass)
@@ -30,16 +30,16 @@ cdef class PciDevice:
     cdef void run(self)
 
 cdef class PciBridge(PciDevice):
-    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil
+    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize)
     cdef void run(self)
 
 cdef class Pci2Isa(PciDevice):
     cdef uint8_t irqRegistry[16]
     cdef uint8_t irqLevel[4][16]
     cdef void reset(self)
-    cdef void pciRegisterIrq(self, uint8_t pirq, uint8_t irq) nogil
-    cdef void pciUnregisterIrq(self, uint8_t pirq, uint8_t irq) nogil
-    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil
+    cdef void pciRegisterIrq(self, uint8_t pirq, uint8_t irq)
+    cdef void pciUnregisterIrq(self, uint8_t pirq, uint8_t irq)
+    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize)
     cdef void run(self)
 
 cdef class PciBus:
@@ -60,8 +60,8 @@ cdef class Pci:
     cdef PciDevice getDevice(self, uint8_t bus, uint8_t device)
     cdef uint32_t readRegister(self, uint32_t address, uint8_t dataSize)
     cdef void writeRegister(self, uint32_t address, uint32_t data, uint8_t dataSize)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize)
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
     cdef void run(self)
 
 

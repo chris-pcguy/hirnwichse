@@ -23,9 +23,9 @@ cdef class PitChannel:
         self.threadObject = None
     cdef uint16_t bcdToDec(self, uint16_t bcd):
         return int(hex(bcd)[2:], 10)
-    cdef void readBackCount(self) nogil:
+    cdef void readBackCount(self):
         self.counterLatchValue = self.counterValue
-    cdef void readBackStatus(self) nogil:
+    cdef void readBackStatus(self):
         self.readBackStatusValue = self.bcdMode
         self.readBackStatusValue |= self.counterMode<<1
         self.readBackStatusValue |= self.counterWriteMode<<4
@@ -65,8 +65,8 @@ cdef class PitChannel:
         while (self.timerEnabled and not self.pit.main.quitEmu and self.localCounterMode in (2,3)):
             #prctl.set_name("Pit::{0:d}{1:d}_2".format(self.channelId, self.localCounterMode))
             #self.main.notice("PitChannel::mode2Func: loop1 begin")
-            with nogil:
-            #IF 1:
+            #with nogil:
+            IF 1:
                 if (self.channelId == 0): # just raise IRQ on channel0
                     clear = (<Pic>self.pit.main.platform.pic).isClear(0)
                     #self.pit.main.notice("PitChannel::mode2Func: lowerIrq(0)")
@@ -81,106 +81,107 @@ cdef class PitChannel:
                         (<Pic>self.pit.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
                 #with gil:
                 #    prctl.set_name("Pit::{0:d}{1:d}_10".format(self.channelId, self.localCounterMode))
-                if (self.channelId != 3):
-                    #with gil:
-                    #    prctl.set_name("Pit::{0:d}{1:d}_14".format(self.channelId, self.localCounterMode))
-                    #self.pit.main.notice("PitChannel::mode2Func: before while")
-                    #self.pit.main.notice("PitChannel::mode2Func(%u): counterValue==%u", self.channelId, self.counterStartValue)
-                    #self.counterValue = self.counterStartValue&0xffffe
-                    #with nogil:
-                    #    #usleep(self.tempTimerValue)
-                    #    usleep(0)
-                    #    #usleep(1)
-                    #    #usleep(100)
-                    #    #usleep(3000)
-                    #if (self.localCounterMode == 3 and self.counterValue&0x1):
-                    #    self.counterValue -= 1
-                    #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
-                    #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
-                    if (self.localCounterMode == 3):
-                        i = 2
-                        #i = 4 # HACK
-                        #i = 8
+                with nogil:
+                    if (self.channelId != 3):
+                        #with gil:
+                        #    prctl.set_name("Pit::{0:d}{1:d}_14".format(self.channelId, self.localCounterMode))
+                        #self.pit.main.notice("PitChannel::mode2Func: before while")
+                        #self.pit.main.notice("PitChannel::mode2Func(%u): counterValue==%u", self.channelId, self.counterStartValue)
+                        #self.counterValue = self.counterStartValue&0xffffe
+                        #with nogil:
+                        #    #usleep(self.tempTimerValue)
+                        #    usleep(0)
+                        #    #usleep(1)
+                        #    #usleep(100)
+                        #    #usleep(3000)
+                        #if (self.localCounterMode == 3 and self.counterValue&0x1):
+                        #    self.counterValue -= 1
+                        #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
+                        #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
+                        if (self.localCounterMode == 3):
+                            i = 2
+                            #i = 4 # HACK
+                            #i = 8
+                        else:
+                            i = 1
+                            #i = 2 # HACK
+                            #i = 4
+                        ##j = i-1
+                        ##j = (i<<1)-1
+                        j = (i<<2)-1
+                        ##j = (i<<4)-1
+                        ##j = (i<<3)-1
+                        ##j = (i<<5)-1
+                        ##j = (i<<8)-1
+                        self.counterValue = self.counterStartValue&(~j&0xfffff)
+                        #with gil:
+                        #    prctl.set_name("Pit::{0:d}{1:d}_15".format(self.channelId, self.localCounterMode))
+                        #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
+                        #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
+                        while (self.counterValue >= i and self.counterValue <= (BITMASK_WORD+1) and self.timerEnabled and not self.pit.main.quitEmu and (self.localCounterMode == 2 or self.localCounterMode == 3)):
+                            #self.main.notice("PitChannel::mode2Func: loop2 begin")
+                            #for i in range(60):
+                            #    pass
+                            self.counterValue -= i
+                            #self.pit.main.notice("PitChannel::mode2Func: in while")
+                            #if (not (self.counterValue&0x1fff)):
+                            #if (not (self.counterValue&0xfff)):
+                            #if (not (self.counterValue&0xff)):
+                            #if (not (self.counterValue&0x7f)):
+                            #if (not (self.counterValue&0x3f)):
+                            #if (not (self.counterValue&0x1f)):
+                            #if (not (self.counterValue&0xf)):
+                            #if (not (self.counterValue&0x7)):
+                            #if (not (self.counterValue&0x3)):
+                            #if (not (self.counterValue&0x1)):
+                            if (not (self.counterValue&j)):
+                            #IF 1:
+                            #IF 0:
+                                #with gil:
+                                #    prctl.set_name("Pit::{0:d}{1:d}_16_{2:#04x}".format(self.channelId, self.localCounterMode, self.counterValue))
+                                #usleep(self.tempTimerValue)
+                                #with nogil:
+                                usleep(0)
+                                #usleep(1)
+                                #usleep(5)
+                                #usleep(10)
+                                #usleep(25)
+                                #usleep(50)
+                                #usleep(100)
+                                #with gil:
+                                #    prctl.set_name("Pit::{0:d}{1:d}_17".format(self.channelId, self.localCounterMode))
+                            #for i in range(1000000):
+                            #for i in range(50000):
+                            #for i in range(30000):
+                            #for i in range(10000):
+                            #for i in range(5000):
+                            #for i in range(4000):
+                            #for i in range(2500):
+                            #for i in range(2000):
+                            #for i in range(1000):
+                            #for i in range(250):
+                            #for i in range(100):
+                            #for i in range(60):
+                            #for i in range(1):
+                            #    pass
+                        #with gil:
+                        #    prctl.set_name("Pit::{0:d}{1:d}_18".format(self.channelId, self.localCounterMode))
+                        if (not self.timerEnabled or self.pit.main.quitEmu):
+                            break
+                        #self.counterValue = 1 # to be sure
+                        #self.pit.main.notice("PitChannel::mode2Func(%u): after while", self.channelId)
+                        #with gil:
+                        #    prctl.set_name("Pit::{0:d}{1:d}_19".format(self.channelId, self.localCounterMode))
                     else:
-                        i = 1
-                        #i = 2 # HACK
-                        #i = 4
-                    ##j = i-1
-                    ##j = (i<<1)-1
-                    j = (i<<2)-1
-                    ##j = (i<<4)-1
-                    ##j = (i<<3)-1
-                    ##j = (i<<5)-1
-                    ##j = (i<<8)-1
-                    self.counterValue = self.counterStartValue&(~j&0xfffff)
-                    #with gil:
-                    #    prctl.set_name("Pit::{0:d}{1:d}_15".format(self.channelId, self.localCounterMode))
-                    #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
-                    #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
-                    while (self.counterValue >= i and self.counterValue <= (BITMASK_WORD+1) and self.timerEnabled and not self.pit.main.quitEmu and (self.localCounterMode == 2 or self.localCounterMode == 3)):
-                        #self.main.notice("PitChannel::mode2Func: loop2 begin")
-                        #for i in range(60):
-                        #    pass
-                        self.counterValue -= i
-                        #self.pit.main.notice("PitChannel::mode2Func: in while")
-                        #if (not (self.counterValue&0x1fff)):
-                        #if (not (self.counterValue&0xfff)):
-                        #if (not (self.counterValue&0xff)):
-                        #if (not (self.counterValue&0x7f)):
-                        #if (not (self.counterValue&0x3f)):
-                        #if (not (self.counterValue&0x1f)):
-                        #if (not (self.counterValue&0xf)):
-                        #if (not (self.counterValue&0x7)):
-                        #if (not (self.counterValue&0x3)):
-                        #if (not (self.counterValue&0x1)):
-                        if (not (self.counterValue&j)):
-                        #IF 1:
-                        #IF 0:
-                            #with gil:
-                            #    prctl.set_name("Pit::{0:d}{1:d}_16_{2:#04x}".format(self.channelId, self.localCounterMode, self.counterValue))
-                            #usleep(self.tempTimerValue)
-                            #with nogil:
-                            usleep(0)
-                            #usleep(1)
-                            #usleep(5)
-                            #usleep(10)
-                            #usleep(25)
-                            #usleep(50)
-                            #usleep(100)
-                            #with gil:
-                            #    prctl.set_name("Pit::{0:d}{1:d}_17".format(self.channelId, self.localCounterMode))
-                        #for i in range(1000000):
-                        #for i in range(50000):
-                        #for i in range(30000):
-                        #for i in range(10000):
-                        #for i in range(5000):
-                        #for i in range(4000):
-                        #for i in range(2500):
-                        #for i in range(2000):
-                        #for i in range(1000):
-                        #for i in range(250):
-                        #for i in range(100):
-                        #for i in range(60):
-                        #for i in range(1):
-                        #    pass
-                    #with gil:
-                    #    prctl.set_name("Pit::{0:d}{1:d}_18".format(self.channelId, self.localCounterMode))
-                    if (not self.timerEnabled or self.pit.main.quitEmu):
-                        break
-                    #self.counterValue = 1 # to be sure
-                    #self.pit.main.notice("PitChannel::mode2Func(%u): after while", self.channelId)
-                    #with gil:
-                    #    prctl.set_name("Pit::{0:d}{1:d}_19".format(self.channelId, self.localCounterMode))
-                else:
-                    #with gil:
-                    #    prctl.set_name("Pit::{0:d}{1:d}_12".format(self.channelId, self.localCounterMode))
-                    #usleep(self.tempTimerValue)
-                    usleep(0)
-                    #usleep(1)
-                    #usleep(100)
-                    #usleep(3000)
-                    #with gil:
-                    #    prctl.set_name("Pit::{0:d}{1:d}_13".format(self.channelId, self.localCounterMode))
+                        #with gil:
+                        #    prctl.set_name("Pit::{0:d}{1:d}_12".format(self.channelId, self.localCounterMode))
+                        #usleep(self.tempTimerValue)
+                        usleep(0)
+                        #usleep(1)
+                        #usleep(100)
+                        #usleep(3000)
+                        #with gil:
+                        #    prctl.set_name("Pit::{0:d}{1:d}_13".format(self.channelId, self.localCounterMode))
                 #with gil:
                 #    prctl.set_name("Pit::{0:d}{1:d}_11".format(self.channelId, self.localCounterMode))
                 if (self.channelId == 0): # just raise IRQ on channel0
@@ -195,7 +196,8 @@ cdef class PitChannel:
                 elif (self.channelId == 3):
                     if (clear):
                         #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(CMOS_RTC_IRQ): clear")
-                        with gil:
+                        #with gil:
+                        IF 1:
                             (<Cmos>self.pit.main.platform.cmos).periodicFunc()
                 else:
                     IF COMP_DEBUG:
@@ -297,7 +299,7 @@ cdef class Pit:
         Py_INCREF(channel2)
         Py_INCREF(channel3)
         Py_INCREF(channel4)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize):
         cdef uint8_t channelId, retVal
         cdef uint32_t temp
         IF COMP_DEBUG:
@@ -343,7 +345,7 @@ cdef class Pit:
         else:
             self.main.exitError("inPort: port 0x%02x with dataSize %u not supported.", ioPortAddr, dataSize)
         return 0
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         cdef uint8_t channelId, bcd, modeNumber, counterWriteMode, i
         IF COMP_DEBUG:
         #IF 1:
@@ -364,7 +366,8 @@ cdef class Pit:
                         (<PitChannel>self.channels[channelId]).counterStartValue = (<PitChannel>self.channels[channelId]).counterStartValue<<8
                     (<PitChannel>self.channels[channelId]).counterFlipFlop = False
                 if (not (<PitChannel>self.channels[channelId]).counterFlipFlop and (<PitChannel>self.channels[channelId]).resetChannel):
-                    with gil:
+                    #with gil:
+                    IF 1:
                         (<PitChannel>self.channels[channelId]).runTimer()
             elif (ioPortAddr == 0x43):
                 bcd = data&1

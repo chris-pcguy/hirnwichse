@@ -79,14 +79,14 @@ cdef class ModRMClass:
     cdef uint16_t rmName0, rmName1, regName
     cdef uint64_t rmName2
     cdef uint8_t modRMOperands(self, uint8_t regSize, uint8_t modRMflags) except BITMASK_BYTE_CONST
-    cdef uint8_t getRegNameWithFlags(self, uint8_t modRMflags, uint8_t reg, uint8_t operSize) nogil
-    cdef uint64_t getRMValueFull(self, uint8_t rmSize) nogil
+    cdef uint8_t getRegNameWithFlags(self, uint8_t modRMflags, uint8_t reg, uint8_t operSize)
+    cdef uint64_t getRMValueFull(self, uint8_t rmSize)
     cdef int64_t modRMLoadSigned(self, uint8_t regSize) except? BITMASK_BYTE_CONST
     cdef uint64_t modRMLoadUnsigned(self, uint8_t regSize) except? BITMASK_BYTE_CONST
     cdef uint8_t modRMSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp) except BITMASK_BYTE_CONST # stdValueOp==OPCODE_SAVE
-    cdef int64_t modRLoadSigned(self, uint8_t regSize) nogil
-    cdef uint64_t modRLoadUnsigned(self, uint8_t regSize) nogil
-    cdef void modRSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp) nogil
+    cdef int64_t modRLoadSigned(self, uint8_t regSize)
+    cdef uint64_t modRLoadUnsigned(self, uint8_t regSize)
+    cdef void modRSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp)
 
 
 cdef class Fpu:
@@ -124,27 +124,26 @@ cdef class Registers:
     cdef uint32_t cpuCacheBase, cpuCacheSize, cpuCacheIndex, apicBase, apicBaseReal, apicBaseRealPlusSize
     cdef char *cpuCache
     cdef void quitFunc(self)
-    cdef void reset(self) nogil
+    cdef void reset(self)
     cdef inline uint8_t checkCache(self, uint32_t mmAddr, uint8_t dataSize) except BITMASK_BYTE_CONST # called on a memory write; reload cache for self-modifying-code
-    cdef inline uint8_t setA20Active(self, uint8_t A20Active) nogil except BITMASK_BYTE_CONST:
+    cdef inline uint8_t setA20Active(self, uint8_t A20Active) except BITMASK_BYTE_CONST:
         self.A20Active = A20Active
         IF CPU_CACHE_SIZE:
-            with gil:
-                self.reloadCpuCache()
+            self.reloadCpuCache()
         return True
     cdef uint8_t reloadCpuCache(self) except BITMASK_BYTE_CONST
     cdef int64_t readFromCacheAddSigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
     cdef uint64_t readFromCacheAddUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
     cdef uint64_t readFromCacheUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
-    cdef inline uint32_t readFlags(self) nogil:
+    cdef inline uint32_t readFlags(self):
         return ((self.regs[CPU_REGISTER_EFLAGS]._union.dword.erx & (~RESERVED_FLAGS_BITMASK)) | FLAG_REQUIRED)
-    cdef inline uint8_t getCPL(self) nogil:
+    cdef inline uint8_t getCPL(self):
         if (not self.protectedModeOn):
             return 0
         elif (self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.vm):
             return 3
         return self.cpl
-    cdef inline void syncCR0State(self) nogil:
+    cdef inline void syncCR0State(self):
         self.protectedModeOn = self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE) != 0
     cdef uint8_t getCurrentOpcodeUnsignedByte(self) except? BITMASK_BYTE_CONST
     cdef int64_t getCurrentOpcodeAddSigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
@@ -153,26 +152,26 @@ cdef class Registers:
     cdef uint32_t getCurrentOpcodeAddUnsignedDword(self) except? BITMASK_BYTE_CONST
     cdef uint64_t getCurrentOpcodeAddUnsignedQword(self) except? BITMASK_BYTE_CONST
     cdef uint64_t getCurrentOpcodeAddUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
-    cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size) nogil
+    cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size)
     cdef uint8_t segWriteSegment(self, Segment *segment, uint16_t segValue) except BITMASK_BYTE_CONST
     cdef uint8_t regWriteWord(self, uint16_t regId, uint16_t value) except BITMASK_BYTE_CONST
     cdef uint8_t regWriteDword(self, uint16_t regId, uint32_t value) except BITMASK_BYTE_CONST
     cdef uint8_t regWriteQword(self, uint16_t regId, uint64_t value) except BITMASK_BYTE_CONST
-    cdef uint64_t regReadUnsigned(self, uint16_t regId, uint8_t regSize) nogil
-    cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize) nogil
-    cdef inline void regWriteWithOpLowByte(self, uint16_t regId, uint8_t value, uint8_t valueOp) nogil
-    cdef inline void regWriteWithOpHighByte(self, uint16_t regId, uint8_t value, uint8_t valueOp) nogil
-    cdef inline void regWriteWithOpWord(self, uint16_t regId, uint16_t value, uint8_t valueOp) nogil
-    cdef inline void regWriteWithOpDword(self, uint16_t regId, uint32_t value, uint8_t valueOp) nogil
-    cdef inline void regWriteWithOpQword(self, uint16_t regId, uint64_t value, uint8_t valueOp) nogil
-    cdef inline uint32_t getFlagDword(self, uint16_t regId, uint32_t flags) nogil:
+    cdef uint64_t regReadUnsigned(self, uint16_t regId, uint8_t regSize)
+    cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize)
+    cdef inline void regWriteWithOpLowByte(self, uint16_t regId, uint8_t value, uint8_t valueOp)
+    cdef inline void regWriteWithOpHighByte(self, uint16_t regId, uint8_t value, uint8_t valueOp)
+    cdef inline void regWriteWithOpWord(self, uint16_t regId, uint16_t value, uint8_t valueOp)
+    cdef inline void regWriteWithOpDword(self, uint16_t regId, uint32_t value, uint8_t valueOp)
+    cdef inline void regWriteWithOpQword(self, uint16_t regId, uint64_t value, uint8_t valueOp)
+    cdef inline uint32_t getFlagDword(self, uint16_t regId, uint32_t flags):
         return (self.regs[regId]._union.dword.erx&flags)
-    cdef inline void setSZP(self, uint32_t value, uint8_t regSize) nogil
-    cdef inline void setSZP_O(self, uint32_t value, uint8_t regSize) nogil
-    cdef inline void setSZP_A(self, uint32_t value, uint8_t regSize) nogil
-    cdef inline void setSZP_COA(self, uint32_t value, uint8_t regSize) nogil
-    cdef inline uint8_t getCond(self, uint8_t index) nogil
-    cdef inline void setFullFlags(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method) nogil
+    cdef inline void setSZP(self, uint32_t value, uint8_t regSize)
+    cdef inline void setSZP_O(self, uint32_t value, uint8_t regSize)
+    cdef inline void setSZP_A(self, uint32_t value, uint8_t regSize)
+    cdef inline void setSZP_COA(self, uint32_t value, uint8_t regSize)
+    cdef inline uint8_t getCond(self, uint8_t index)
+    cdef inline void setFullFlags(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method)
     cdef inline uint32_t mmGetRealAddr(self, uint32_t mmAddr, uint32_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t written, uint8_t noAddress) except? BITMASK_BYTE_CONST
     cdef inline uint8_t mmReadValueUnsignedByte(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST
     cdef uint16_t mmReadValueUnsignedWord(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST

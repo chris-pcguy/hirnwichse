@@ -9,13 +9,13 @@ cdef class Parallel:
         self.main = main
     cdef void reset(self):
         pass
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize):
         if (dataSize == OP_SIZE_BYTE):
             pass
         else:
             self.main.exitError("inPort: port 0x%02x with dataSize %u not supported.", ioPortAddr, dataSize)
         return BITMASK_BYTE
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         if (dataSize == OP_SIZE_BYTE):
             pass
         else:

@@ -21,7 +21,7 @@ cdef class FloppyDrive:
     cdef bytes filename
     cdef uint8_t driveId, isLoaded, isWriteProtected, DIR, cylinder, head, sector, eot
     cdef void reset(self)
-    cdef uint32_t ChsToSector(self, uint8_t cylinder, uint8_t head, uint8_t sector) nogil
+    cdef uint32_t ChsToSector(self, uint8_t cylinder, uint8_t head, uint8_t sector)
     cdef uint8_t getDiskType(self, uint32_t size)
     cdef void loadDrive(self, bytes filename)
     cdef bytes readBytes(self, uint32_t offset, uint32_t size)
@@ -43,9 +43,9 @@ cdef class FloppyController:
     cdef inline void addToResult(self, uint8_t result)
     cdef inline void clearCommand(self)
     cdef inline void clearResult(self)
-    cdef void setDor(self, uint8_t data) nogil
-    cdef inline void setMsr(self, uint8_t data) nogil
-    cdef void doCmdReset(self) nogil
+    cdef void setDor(self, uint8_t data)
+    cdef inline void setMsr(self, uint8_t data)
+    cdef void doCmdReset(self)
     cdef void resetChangeline(self)
     cdef void incrementSector(self)
     cdef uint8_t getTC(self)
@@ -54,18 +54,18 @@ cdef class FloppyController:
     cdef void handleCommand(self)
     cdef void readFromMem(self, uint8_t data)
     cdef uint8_t writeToMem(self)
-    cdef void raiseFloppyIrq(self) nogil
-    cdef void lowerFloppyIrq(self) nogil
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef void raiseFloppyIrq(self)
+    cdef void lowerFloppyIrq(self)
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize)
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
     cdef void run(self)
 
 cdef class Floppy:
     cdef Hirnwichse main
     cdef tuple controller
     cdef void setupDMATransfer(self, FloppyController classInstance)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize)
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
     cdef void run(self)
 
 

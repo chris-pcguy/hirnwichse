@@ -22,8 +22,9 @@ DEF PS2_CMDBYTE_IRQ1 = 0x01
 cdef class PS2:
     def __init__(self, Hirnwichse main):
         self.main = main
-    cdef void resetInternals(self, uint8_t powerUp) nogil:
-        with gil:
+    cdef void resetInternals(self, uint8_t powerUp):
+        #with gil:
+        IF 1:
             self.outBuffer  = bytes() # KBC -> CPU
             self.mouseBuffer = bytes() # CPU -> MOUSE
         self.needWriteBytes = 0 # need to write $N bytes to 0x60
@@ -31,7 +32,7 @@ cdef class PS2:
         self.currentScancodesSet = 1 # MF2
         ##if (powerUp):
         ##    self.setKeyboardRepeatRate(0x2a) # do this in pygameUI.pyx instead!!
-    cdef void initDevice(self) nogil:
+    cdef void initDevice(self):
         self.resetInternals(True)
         self.lastUsedPort = self.lastUsedCmd = 0
         self.lastUsedController = True # 0x64
@@ -42,32 +43,34 @@ cdef class PS2:
         self.translateScancodes = self.scanningEnabled = True
         self.timerPending = 0
         self.allowIrq12 = False
-    cdef void appendToOutBytesJustAppend(self, bytes data) nogil:
-        with gil:
+    cdef void appendToOutBytesJustAppend(self, bytes data):
+        #with gil:
+        IF 1:
             self.outBuffer += data
         self.outb = True
-    cdef void appendToOutBytesMouse(self, bytes data) nogil:
-        with gil:
+    cdef void appendToOutBytesMouse(self, bytes data):
+        #with gil:
+        IF 1:
             self.mouseBuffer += data
         self.auxb = self.outb = True
-    cdef void appendToOutBytes(self, bytes data) nogil:
+    cdef void appendToOutBytes(self, bytes data):
         self.appendToOutBytesJustAppend(data)
         #if (not self.outb and self.kbdClockEnabled):
         if (self.kbdClockEnabled):
             self.activateTimer()
-    cdef void appendToOutBytesImm(self, bytes data) nogil:
+    cdef void appendToOutBytesImm(self, bytes data):
         #self.appendToOutBytesJustAppend(data)
         self.appendToOutBytes(data)
         self.outb = True
         if (self.allowIrq1):
             self.irq1Requested = True
             (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
-    cdef void appendToOutBytesDoIrq(self, bytes data) nogil:
+    cdef void appendToOutBytesDoIrq(self, bytes data):
         if (self.outb):
             self.main.notice("KBC::appendToOutBytesDoIrq: self.outb!=0")
             return
         self.appendToOutBytesImm(data)
-    cdef void setKeyboardRepeatRate(self, uint8_t data) nogil: # input is data from cmd 0xf3
+    cdef void setKeyboardRepeatRate(self, uint8_t data): # input is data from cmd 0xf3
         cdef uint16_t delay, interval
         interval = data&0x1f
         delay = ((data&0x60)>>5)&3
@@ -86,7 +89,8 @@ cdef class PS2:
             self.main.exitError("setKeyboardRepeatRate: interval %u unknown.", interval)
         # TODO: Set the repeat-rate properly.
         if (self.main.platform.vga.ui is not None):
-            with gil:
+            #with gil:
+            IF 1:
                 self.main.platform.vga.ui.setRepeatRate(delay, interval)
     cdef void keySend(self, uint8_t keyId, uint8_t keyUp):
         cdef uint8_t sc, escaped
@@ -113,7 +117,7 @@ cdef class PS2:
         ##    self.irq1Requested = True
         ##    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
         #self.activateTimer()
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize):
         cdef uint8_t retByte
         retByte = 0
         if (dataSize == OP_SIZE_BYTE):
@@ -129,7 +133,8 @@ cdef class PS2:
                 #    #if (self.allowIrq1): # TODO: delete this again!?!
                 #    #    self.irq1Requested = True
                 #    #    (<Pic>self.main.platform.pic).raiseIrq(KBC_IRQ)
-                with gil:
+                #with gil:
+                IF 1:
                     self.auxb = len(self.mouseBuffer)!=0 # TODO: HACK
                     self.outb = len(self.outBuffer)!=0 or len(self.mouseBuffer)!=0 # TODO: HACK
                     # TODO?: self.inb
@@ -156,7 +161,8 @@ cdef class PS2:
                 (<Pic>self.main.platform.pic).lowerIrq(KBC_IRQ)
                 #with nogil:
                 #    usleep(50)
-                with gil:
+                #with gil:
+                IF 1:
                     if (len(self.mouseBuffer)):
                         retByte = self.mouseBuffer[0]
                         if (len(self.mouseBuffer) > 1):
@@ -190,7 +196,8 @@ cdef class PS2:
                     self.main.notice("PS2: inPort_3: port 0x%02x; retByte 0x%02x", ioPortAddr, retByte)
                 return retByte
             elif (ioPortAddr == 0x61):
-                with gil:
+                #with gil:
+                IF 1:
                     retByte = ((((int(time()*1e7) & 0xf) == 0) << 4) | \
                         (self.ppcbT2Gate and PPCB_T2_GATE) | \
                         (self.ppcbT2Spkr and PPCB_T2_SPKR) | \
@@ -205,7 +212,7 @@ cdef class PS2:
         else:
             self.main.exitError("inPort: port 0x%02x with dataSize %u not supported.", ioPortAddr, dataSize)
         return 0
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         cdef uint8_t oldNeedWriteBytes
         if (dataSize == OP_SIZE_BYTE):
             oldNeedWriteBytes = self.needWriteBytes
@@ -271,13 +278,16 @@ cdef class PS2:
                         if (self.lastUsedCmd == 0xd1): # port 0x64
                             (<Registers>(<Cpu>self.main.cpu).registers).setA20Active( (data & PS2_A20) != 0 )
                             if (not (data & PS2_CPU_RESET)):
-                                with gil:
+                                #with gil:
+                                IF 1:
                                     (<Cpu>self.main.cpu).reset()
                         elif (self.lastUsedCmd == 0xd2): # port 0x64
-                            with gil:
+                            #with gil:
+                            IF 1:
                                 self.appendToOutBytesImm(bytes([data]))
                         elif (self.lastUsedCmd == 0xd3): # port 0x64
-                            with gil:
+                            #with gil:
+                            IF 1:
                                 self.appendToOutBytesMouse(bytes([data]))
                         elif (self.lastUsedCmd == 0xd4): # port 0x64
                             #if (self.main.debugEnabled):
@@ -311,7 +321,8 @@ cdef class PS2:
                     elif (self.lastUsedPort == 0x60):
                         if (self.lastUsedCmd == 0xf0): # port 0x60
                             if (data == 0x00): # get scancodes
-                                with gil:
+                                #with gil:
+                                IF 1:
                                     self.appendToOutBytes(bytes([ 0xfa, self.currentScancodesSet+1 ]))
                             elif (data in (0x01, 0x02, 0x03)):
                                 self.currentScancodesSet = data-1
@@ -336,7 +347,8 @@ cdef class PS2:
                     if (self.outb):
                         self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0x20: outb is set.")
                         return
-                    with gil:
+                    #with gil:
+                    IF 1:
                         self.appendToOutBytes(bytes([( \
                             (self.translateScancodes << 6) | \
                             (1 << 5) | \
@@ -352,7 +364,8 @@ cdef class PS2:
                     if (data == 0xa9):
                         self.appendToOutBytes(b'\x00') # return success anyway
                 elif (data == 0xaa):
-                    with gil:
+                    #with gil:
+                    IF 1:
                         self.outBuffer = bytes()
                         self.mouseBuffer = bytes()
                     self.outb = False
@@ -373,7 +386,8 @@ cdef class PS2:
                         self.main.exitError("ERROR: KBC::outPort: Port 0x64, data 0xd0: outb is set.")
                         return
                     outputByte = ((self.irq1Requested << 4) | ((<Registers>(<Cpu>self.main.cpu).registers).A20Active << 1) | 0x01)
-                    with gil:
+                    #with gil:
+                    IF 1:
                         self.appendToOutBytesImm(bytes([outputByte]))
                 elif (data >= 0xd1 and data <= 0xd4):
                     self.needWriteBytes = 1
@@ -382,7 +396,8 @@ cdef class PS2:
                 elif (data == 0xdf):
                     (<Registers>(<Cpu>self.main.cpu).registers).setA20Active(True)
                 elif (data == 0xfe): # reset cpu
-                    with gil:
+                    #with gil:
+                    IF 1:
                         (<Cpu>self.main.cpu).reset()
                 elif ((data >= 0xf0 and data <= 0xfd) or data == 0xff):
                     pass
@@ -410,7 +425,7 @@ cdef class PS2:
         else:
             self.main.exitError("outPort: port 0x%02x with dataSize %u not supported. (data: 0x%04x)", ioPortAddr, dataSize, data)
         return
-    cdef void setKbdClockEnable(self, uint8_t value) nogil:
+    cdef void setKbdClockEnable(self, uint8_t value):
         #cdef uint8_t prevKbdClockEnabled
         if (not value):
             self.kbdClockEnabled = False
@@ -419,7 +434,7 @@ cdef class PS2:
             self.kbdClockEnabled = True
             #if (not prevKbdClockEnabled and not self.outb):
             self.activateTimer()
-    cdef void activateTimer(self) nogil:
+    cdef void activateTimer(self):
         if (not self.timerPending):
             self.timerPending = 1
     cdef uint8_t periodic(self, uint8_t usecDelta):

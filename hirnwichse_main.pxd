@@ -14,10 +14,10 @@ cdef extern from "stdarg.h":
         pass
     ctypedef struct fake_type:
         pass
-    void va_start(va_list, void* arg) nogil
-    void* va_arg(va_list, fake_type) nogil
-    void va_end(va_list) nogil
-    int vprintf(const char *format, va_list ap) nogil
+    void va_start(va_list, void* arg)
+    void* va_arg(va_list, fake_type)
+    void va_end(va_list)
+    int vprintf(const char *format, va_list ap)
     fake_type int_type "int"
 
 cdef class Hirnwichse:
@@ -30,10 +30,10 @@ cdef class Hirnwichse:
     cdef uint32_t memSize
     cdef bytes romPath, biosFilename, vgaBiosFilename, fdaFilename, fdbFilename, hdaFilename, hdbFilename, cdrom1Filename, cdrom2Filename, serial1Filename, serial2Filename, serial3Filename, serial4Filename
     cdef void parseArgs(self)
-    cdef void quitFunc(self) nogil
-    cdef void exitError(self, char *msg, ...) nogil
-    cdef void debug(self, char *msg, ...) nogil
-    cdef void notice(self, char *msg, ...) nogil
+    cdef void quitFunc(self)
+    cdef void exitError(self, char *msg, ...)
+    cdef void debug(self, char *msg, ...)
+    cdef void notice(self, char *msg, ...)
     cdef void reset(self, uint8_t resetHardware)
     cpdef void run(self, uint8_t infiniteCycles)
 

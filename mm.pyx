@@ -51,10 +51,10 @@ cdef class Mm:
         except:
             print_exc()
             self.main.exitError('Mm::quitFunc: exception, exiting...')
-    cdef void mmClear(self, uint32_t offset, uint8_t clearByte, uint32_t dataSize) nogil:
+    cdef void mmClear(self, uint32_t offset, uint8_t clearByte, uint32_t dataSize):
         with nogil:
             memset(self.data+offset, clearByte, dataSize)
-    cdef char *mmPhyRead(self, uint32_t mmAddr, uint32_t dataSize) nogil:
+    cdef char *mmPhyRead(self, uint32_t mmAddr, uint32_t dataSize):
         cdef uint32_t tempDataOffset = 0, tempOffset, tempSize, tempVal
         if (dataSize >= SIZE_1MB): # TODO: size
             #with gil: # outcommented because of cython. 'gil ensure' at the beginning of every function which contains 'with gil:'
@@ -142,7 +142,7 @@ cdef class Mm:
             tempSize = min(dataSize, SIZE_4GB-mmAddr)
             memcpy(self.tempData+tempDataOffset, self.romData+tempOffset, tempSize)
         return self.tempData
-    cdef int64_t mmPhyReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize) nogil:
+    cdef int64_t mmPhyReadValueSigned(self, uint32_t mmAddr, uint8_t dataSize):
         cdef int64_t ret
         ret = self.mmPhyReadValueUnsigned(mmAddr, dataSize)
         if (dataSize == OP_SIZE_BYTE):
@@ -152,23 +152,23 @@ cdef class Mm:
         elif (dataSize == OP_SIZE_DWORD):
             ret = <int32_t>ret
         return ret
-    cdef uint8_t mmPhyReadValueUnsignedByte(self, uint32_t mmAddr) nogil:
+    cdef uint8_t mmPhyReadValueUnsignedByte(self, uint32_t mmAddr):
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_BYTE or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_BYTE)):
             return (<uint8_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_BYTE)
-    cdef uint16_t mmPhyReadValueUnsignedWord(self, uint32_t mmAddr) nogil:
+    cdef uint16_t mmPhyReadValueUnsignedWord(self, uint32_t mmAddr):
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_WORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_WORD)):
             return (<uint16_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_WORD)
-    cdef uint32_t mmPhyReadValueUnsignedDword(self, uint32_t mmAddr) nogil:
+    cdef uint32_t mmPhyReadValueUnsignedDword(self, uint32_t mmAddr):
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_DWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_DWORD)):
             return (<uint32_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_DWORD)
-    cdef uint64_t mmPhyReadValueUnsignedQword(self, uint32_t mmAddr) nogil:
+    cdef uint64_t mmPhyReadValueUnsignedQword(self, uint32_t mmAddr):
         if (mmAddr <= VGA_MEMAREA_ADDR-OP_SIZE_QWORD or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-OP_SIZE_QWORD)):
             return (<uint64_t*>(self.data+mmAddr))[0]
         return self.mmPhyReadValueUnsigned(mmAddr, OP_SIZE_QWORD)
-    cdef uint64_t mmPhyReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize) nogil:
+    cdef uint64_t mmPhyReadValueUnsigned(self, uint32_t mmAddr, uint8_t dataSize):
         cdef char *temp
         if (mmAddr <= VGA_MEMAREA_ADDR-dataSize or (mmAddr >= VGA_ROM_BASE and mmAddr <= self.memSizeBytes-dataSize)):
             temp = self.data+mmAddr
@@ -181,7 +181,7 @@ cdef class Mm:
         elif (dataSize == OP_SIZE_DWORD):
             return (<uint32_t*>temp)[0]
         return (<uint64_t*>temp)[0]
-    cdef uint8_t mmPhyWrite(self, uint32_t mmAddr, char *data, uint32_t dataSize) nogil:
+    cdef uint8_t mmPhyWrite(self, uint32_t mmAddr, char *data, uint32_t dataSize):
         cdef uint32_t tempOffset, tempSize
         if (dataSize > 0 and mmAddr < SIZE_1MB):
             if (mmAddr < VGA_MEMAREA_ADDR):
@@ -278,7 +278,7 @@ cdef class Mm:
                 with nogil:
                     memcpy(self.romData+tempOffset, data, tempSize)
         return True
-    cdef uint8_t mmPhyWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize) nogil:
+    cdef uint8_t mmPhyWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize):
         cdef char *temp
         if (dataSize == OP_SIZE_BYTE):
             data = <uint8_t>data
@@ -311,11 +311,11 @@ cdef class ConfigSpace:
         except:
             print_exc()
             self.main.exitError('ConfigSpace::quitFunc: exception, exiting...')
-    cdef void csResetData(self, uint8_t clearByte) nogil:
+    cdef void csResetData(self, uint8_t clearByte):
         self.clearByte = clearByte
         with nogil:
             memset(self.csData, clearByte, self.csSize)
-    cdef void csResetAddr(self, uint32_t offset, uint8_t clearByte, uint8_t size) nogil:
+    cdef void csResetAddr(self, uint32_t offset, uint8_t clearByte, uint8_t size):
         with nogil:
             memset(self.csData+offset, clearByte, size)
     cdef bytes csRead(self, uint32_t offset, uint32_t size):
@@ -336,7 +336,7 @@ cdef class ConfigSpace:
                 self.main.notice("ConfigSpace::csRead: offset+size > self.csSize. (offset: 0x%04x, size: %u)", offset, size)
             data += bytes([self.clearByte])*size
         return data
-    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil:
+    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size):
         cdef uint32_t tempSize
         tempSize = min(size, self.csSize-offset)
         #if (offset >= self.csSize):
@@ -352,19 +352,19 @@ cdef class ConfigSpace:
             #if (self.main.debugEnabled):
             IF COMP_DEBUG:
                 self.main.notice("ConfigSpace::csWrite: offset+size > self.csSize. (offset: 0x%04x, size: %u)", offset, size)
-    cdef uint8_t csReadValueUnsignedByte(self, uint32_t offset) nogil:
+    cdef uint8_t csReadValueUnsignedByte(self, uint32_t offset):
         cdef uint8_t ret
         ret = (<uint8_t*>(self.csData+offset))[0]
         return ret
-    cdef uint16_t csReadValueUnsignedWord(self, uint32_t offset) nogil:
+    cdef uint16_t csReadValueUnsignedWord(self, uint32_t offset):
         cdef uint16_t ret
         ret = (<uint16_t*>(self.csData+offset))[0]
         return ret
-    cdef uint32_t csReadValueUnsignedDword(self, uint32_t offset) nogil:
+    cdef uint32_t csReadValueUnsignedDword(self, uint32_t offset):
         cdef uint32_t ret
         ret = (<uint32_t*>(self.csData+offset))[0]
         return ret
-    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil:
+    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size):
         cdef uint64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: 0x%04x, size: %u)", offset, size)
@@ -382,7 +382,7 @@ cdef class ConfigSpace:
         elif (size == OP_SIZE_DWORD):
             ret = <uint32_t>ret
         return ret
-    cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size) nogil:
+    cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size):
         cdef int64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueSigned: test1. (offset: 0x%04x, size: %u)", offset, size)
@@ -400,15 +400,15 @@ cdef class ConfigSpace:
         elif (size == OP_SIZE_DWORD):
             ret = <int32_t>ret
         return ret
-    cdef void csWriteValueByte(self, uint32_t offset, uint8_t data) nogil:
+    cdef void csWriteValueByte(self, uint32_t offset, uint8_t data):
         memcpy(self.csData+offset, &data, OP_SIZE_BYTE)
-    cdef void csWriteValueWord(self, uint32_t offset, uint16_t data) nogil:
+    cdef void csWriteValueWord(self, uint32_t offset, uint16_t data):
         memcpy(self.csData+offset, &data, OP_SIZE_WORD)
-    cdef void csWriteValueDword(self, uint32_t offset, uint32_t data) nogil:
+    cdef void csWriteValueDword(self, uint32_t offset, uint32_t data):
         memcpy(self.csData+offset, &data, OP_SIZE_DWORD)
-    cdef void csWriteValueQword(self, uint32_t offset, uint64_t data) nogil:
+    cdef void csWriteValueQword(self, uint32_t offset, uint64_t data):
         memcpy(self.csData+offset, &data, OP_SIZE_QWORD)
-    cdef void csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) nogil:
+    cdef void csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size):
         #if (offset >= self.csSize):
         IF 0:
             #if (self.main.debugEnabled):

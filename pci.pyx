@@ -31,7 +31,7 @@ cdef class PciDevice:
         self.configSpace.csWriteValueWord(PCI_STATUS, 0x200)
     cdef void reset(self):
         pass
-    cdef uint8_t checkWriteAccess(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil: # return true means allowed
+    cdef uint8_t checkWriteAccess(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize): # return true means allowed
         cdef uint8_t offset, headerType, function, memBarType, barIndex
         cdef uint16_t deviceClass
         cdef uint32_t origData
@@ -115,13 +115,13 @@ cdef class PciDevice:
             self.configSpace.csWriteValueDword(mmAddress, data)
             return False
         return True
-    cdef uint32_t getData(self, uint32_t mmAddress, uint8_t dataSize) nogil:
+    cdef uint32_t getData(self, uint32_t mmAddress, uint8_t dataSize):
         cdef uint32_t data
         data = self.configSpace.csReadValueUnsigned(mmAddress, dataSize)
         IF COMP_DEBUG:
             self.pci.main.notice("PciDevice::getData: mmAddress==0x%08x; data==0x%08x; dataSize==%u", mmAddress, data, dataSize)
         return data
-    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize):
         if (not self.checkWriteAccess(mmAddress, data, dataSize)):
             IF COMP_DEBUG:
             #IF 1:
@@ -152,7 +152,7 @@ cdef class PciBridge(PciDevice):
         self.setDeviceClass(PCI_CLASS_BRIDGE_HOST)
         self.configSpace.csWriteValueWord(PCI_COMMAND, 0x6)
         self.configSpace.csWriteValueWord(PCI_STATUS, 0x280)
-    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize):
         #cdef uint32_t addr, limit
         PciDevice.setData(self, mmAddress, data, dataSize)
         #if (((mmAddress&0xff) == PCI_BRIDGE_MEM_LIMIT and dataSize == 2) or ((mmAddress&0xff) == PCI_BRIDGE_MEM_BASE and dataSize == 4)):
@@ -202,7 +202,7 @@ cdef class Pci2Isa(PciDevice):
         for i in range(4):
             #pci_set_irq(0x08, i+1, 0);
             self.pciUnregisterIrq(i, 0x80)
-    cdef void pciRegisterIrq(self, uint8_t pirq, uint8_t irq) nogil:
+    cdef void pciRegisterIrq(self, uint8_t pirq, uint8_t irq):
         if ((irq < 16) and (((1 << irq) & 0xdef8) != 0)):
             if (PciDevice.getData(self, 0x60+pirq, OP_SIZE_BYTE) < 16):
                 self.pciUnregisterIrq(pirq, irq)
@@ -211,7 +211,7 @@ cdef class Pci2Isa(PciDevice):
                 pass
                 #DEV_register_irq(irq, "PIIX3 IRQ routing");
             self.irqRegistry[irq] |= (1 << pirq)
-    cdef void pciUnregisterIrq(self, uint8_t pirq, uint8_t irq) nogil:
+    cdef void pciUnregisterIrq(self, uint8_t pirq, uint8_t irq):
         cdef uint8_t oldData = PciDevice.getData(self, 0x60+pirq, OP_SIZE_BYTE)
         if (oldData < 16):
             self.irqRegistry[oldData] &= ~(1 << pirq)
@@ -220,7 +220,7 @@ cdef class Pci2Isa(PciDevice):
                 #BX_P2I_THIS pci_set_irq(0x08, pirq+1, 0);
                 #DEV_unregister_irq(oldirq, "PIIX3 IRQ routing");
             PciDevice.setData(self, 0x60+pirq, irq, OP_SIZE_BYTE)
-    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setData(self, uint32_t mmAddress, uint32_t data, uint8_t dataSize):
         cdef uint32_t oldData
         if (mmAddress == 0x6 or (mmAddress >= 0x10 and mmAddress < 0x34)):
             return
@@ -368,7 +368,7 @@ cdef class Pci:
                             self.main.platform.ata.base4Addr = deviceHandle.getData((self.pciAddressHandle.getMmAddress()&<uint32_t>0xffffff00)|PCI_BASE_ADDRESS_4, OP_SIZE_DWORD)
                             self.main.platform.ata.base4AddrMasked = self.main.platform.ata.base4Addr & 0xfffc
                             #self.main.notice("Pci::writeRegister: test2")
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize):
         cdef uint32_t ret = BITMASK_DWORD
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
             if (ioPortAddr == 0x4d0):
@@ -380,7 +380,8 @@ cdef class Pci:
             elif (ioPortAddr == 0xcf9):
                 ret = (self.pciReset and PCI_RESET_VALUE)
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
-                with gil:
+                #with gil:
+                IF 1:
                     ret = self.readRegister((self.address&<uint32_t>0xfffffffc)+(ioPortAddr&3), dataSize)
             elif (ioPortAddr == 0xae0c):
                 ret = 0
@@ -391,7 +392,7 @@ cdef class Pci:
         if (self.main.debugEnabled):
             self.main.notice("PCI::inPort: port 0x%04x. (dataSize %u; ret 0x%04x)", ioPortAddr, dataSize, ret)
         return ret
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         if (self.main.debugEnabled):
             self.main.notice("PCI::outPort: port 0x%04x. (dataSize %u; data 0x%04x)", ioPortAddr, dataSize, data)
         if (dataSize in (OP_SIZE_BYTE, OP_SIZE_WORD, OP_SIZE_DWORD)):
@@ -410,13 +411,15 @@ cdef class Pci:
             elif (ioPortAddr == 0xcf9):
                 self.pciReset = (data & PCI_RESET_VALUE) != 0
                 if (data & 0x04):
-                    with gil:
+                    #with gil:
+                    IF 1:
                         if (self.pciReset):
                             self.main.reset(True)
                         else:
                             self.main.reset(False)
             elif (ioPortAddr in (0xcfc, 0xcfd, 0xcfe, 0xcff)):
-                with gil:
+                #with gil:
+                IF 1:
                     self.writeRegister((self.address&<uint32_t>0xfffffffc)+(ioPortAddr&3), data, dataSize)
             else:
                 self.main.exitError("PCI::outPort: port 0x%04x is not supported. (data == 0x%02x, dataSize %u)", ioPortAddr, data, dataSize)

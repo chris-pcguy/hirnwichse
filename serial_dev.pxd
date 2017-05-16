@@ -20,16 +20,16 @@ cdef class SerialPort:
     cdef void raiseIrq(self)
     cdef void readData(self)
     cdef void writeData(self, bytes data)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize)
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
     cdef void run(self)
 
 cdef class Serial:
     cdef Hirnwichse main
     cdef tuple ports
     cdef void reset(self)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize)
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
     cdef void run(self)
 
 

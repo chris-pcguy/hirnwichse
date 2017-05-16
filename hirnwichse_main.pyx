@@ -69,14 +69,14 @@ cdef class Hirnwichse:
         self.memSize = self.cmdArgs.memSize
         #self.debugEnabledTest = False
         #self.debugEnabled = False
-    cdef void quitFunc(self) nogil:
+    cdef void quitFunc(self):
         self.quitEmu = True
         #with gil:
         #    fp=open("mmdump_1","wb")
         #    fp.write(PyBytes_FromStringAndSize( self.mm.data, <Py_ssize_t>4*1024))
         #    fp.flush()
         #    fp.close()
-    cdef void exitError(self, char *msg, ...) nogil:
+    cdef void exitError(self, char *msg, ...):
         cdef va_list args
         cdef char msgBuf[1024]
         va_start(args, msg)
@@ -89,7 +89,7 @@ cdef class Hirnwichse:
         self.cpu.cpuDump()
         self.quitFunc()
         exitt(1)
-    cdef void debug(self, char *msg, ...) nogil:
+    cdef void debug(self, char *msg, ...):
         cdef va_list args
         cdef char msgBuf[1024]
         if (self.debugEnabled):
@@ -99,7 +99,7 @@ cdef class Hirnwichse:
             strcat(msgBuf, b"\n");
             vprintf(msgBuf, args)
             va_end(args)
-    cdef void notice(self, char *msg, ...) nogil:
+    cdef void notice(self, char *msg, ...):
         cdef va_list args
         cdef char msgBuf[1024]
         va_start(args, msg)

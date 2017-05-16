@@ -79,7 +79,7 @@ cdef class Platform:
         self.ports[self.portsIndex] = <PyObject*>port
         self.portsIndex += 1
         Py_INCREF(port)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize):
         cdef uint8_t i, j
         cdef uint32_t retVal, bitMask
         bitMask = BITMASKS_FF[dataSize]
@@ -107,7 +107,7 @@ cdef class Platform:
         #    if (ioPortAddr == 0x16c and self.main.cpu.savedEip == 0x804041c0):
         #        self.main.debugEnabled = True
         return bitMask
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         cdef uint8_t i, j
         if (dataSize == OP_SIZE_BYTE):
             data = <uint8_t>data
@@ -132,7 +132,7 @@ cdef class Platform:
             return
         self.main.notice("outPort: Port 0x%02x doesn't exist! (data: 0x%02x; dataSize: %u)", ioPortAddr, data, dataSize)
         self.main.notice("outPort: TODO! (savedEip: 0x%08x, savedCs: 0x%04x)", self.main.cpu.savedEip, self.main.cpu.savedCs)
-    cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+    cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         self.pic.lowerIrq(FPU_IRQ)
     cdef void loadRomToMem(self, bytes romFileName, uint64_t mmAddr, uint64_t romSize):
         cdef object romFp = None

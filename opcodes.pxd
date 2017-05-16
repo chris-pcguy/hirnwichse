@@ -19,7 +19,7 @@ cdef class Opcodes:
     cdef Cpu cpu
     cdef Registers registers
     cdef ModRMClass modRMInstance
-    cdef inline uint16_t calculateInterruptErrorcode(self, uint8_t num, uint8_t idt, uint8_t ext) nogil:
+    cdef inline uint16_t calculateInterruptErrorcode(self, uint8_t num, uint8_t idt, uint8_t ext):
         if (idt):
             return (num << 3)|2|ext
         return (num & 0xfc)|ext
@@ -28,13 +28,13 @@ cdef class Opcodes:
     cdef int cli(self) except BITMASK_BYTE_CONST
     cdef int sti(self) except BITMASK_BYTE_CONST
     cdef inline int hlt(self) except BITMASK_BYTE_CONST
-    cdef inline void cld(self) nogil
-    cdef inline void std(self) nogil
-    cdef inline void clc(self) nogil
-    cdef inline void stc(self) nogil
-    cdef inline void cmc(self) nogil
-    cdef inline void clac(self) nogil
-    cdef inline void stac(self) nogil
+    cdef inline void cld(self)
+    cdef inline void std(self)
+    cdef inline void clc(self)
+    cdef inline void stc(self)
+    cdef inline void cmc(self)
+    cdef inline void clac(self)
+    cdef inline void stac(self)
     cdef int checkIOPL(self, uint16_t ioPortAddr, uint8_t dataSize) except BITMASK_BYTE_CONST
     cdef long int inPort(self, uint16_t ioPortAddr, uint8_t dataSize) except? BITMASK_BYTE_CONST
     cdef int outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) except BITMASK_BYTE_CONST
@@ -99,8 +99,8 @@ cdef class Opcodes:
     cdef int opcodeGroupFF(self) except BITMASK_BYTE_CONST
     cdef int incFuncRM(self, uint8_t rmSize) except BITMASK_BYTE_CONST
     cdef int decFuncRM(self, uint8_t rmSize) except BITMASK_BYTE_CONST
-    cdef int incReg(self) nogil except BITMASK_BYTE_CONST
-    cdef int decReg(self) nogil except BITMASK_BYTE_CONST
+    cdef int incReg(self) except BITMASK_BYTE_CONST
+    cdef int decReg(self) except BITMASK_BYTE_CONST
     cdef int pushReg(self) except BITMASK_BYTE_CONST
     cdef int popReg(self) except BITMASK_BYTE_CONST
     cdef int pushSeg(self, uint8_t opcode) except BITMASK_BYTE_CONST
@@ -119,12 +119,12 @@ cdef class Opcodes:
     cdef int iret(self) except BITMASK_BYTE_CONST
     cdef int aad(self) except BITMASK_BYTE_CONST
     cdef int aam(self) except BITMASK_BYTE_CONST
-    cdef int aaa(self) nogil except BITMASK_BYTE_CONST
-    cdef int aas(self) nogil except BITMASK_BYTE_CONST
-    cdef int daa(self) nogil except BITMASK_BYTE_CONST
-    cdef int das(self) nogil except BITMASK_BYTE_CONST
-    cdef int cbw_cwde(self) nogil except BITMASK_BYTE_CONST
-    cdef int cwd_cdq(self) nogil except BITMASK_BYTE_CONST
+    cdef int aaa(self) except BITMASK_BYTE_CONST
+    cdef int aas(self) except BITMASK_BYTE_CONST
+    cdef int daa(self) except BITMASK_BYTE_CONST
+    cdef int das(self) except BITMASK_BYTE_CONST
+    cdef int cbw_cwde(self) except BITMASK_BYTE_CONST
+    cdef int cwd_cdq(self) except BITMASK_BYTE_CONST
     cdef int shlFunc(self, uint8_t operSize, uint8_t count) except BITMASK_BYTE_CONST
     cdef int sarFunc(self, uint8_t operSize, uint8_t count) except BITMASK_BYTE_CONST
     cdef int shrFunc(self, uint8_t operSize, uint8_t count) except BITMASK_BYTE_CONST
@@ -134,10 +134,10 @@ cdef class Opcodes:
     cdef int rorFunc(self, uint8_t operSize, uint8_t count) except BITMASK_BYTE_CONST
     cdef int opcodeGroup4_RM(self, uint8_t operSize, uint8_t method) except BITMASK_BYTE_CONST
     cdef int sahf(self) except BITMASK_BYTE_CONST
-    cdef int lahf(self) nogil
-    cdef int xchgFuncRegWord(self, uint16_t regName, uint16_t regName2) nogil
-    cdef int xchgFuncRegDword(self, uint16_t regName, uint16_t regName2) nogil
-    cdef int xchgReg(self) nogil
+    cdef int lahf(self)
+    cdef int xchgFuncRegWord(self, uint16_t regName, uint16_t regName2)
+    cdef int xchgFuncRegDword(self, uint16_t regName, uint16_t regName2)
+    cdef int xchgReg(self)
     cdef int xchgR_RM(self, uint8_t operSize) except BITMASK_BYTE_CONST
     cdef int enter(self) except BITMASK_BYTE_CONST
     cdef int leave(self) except BITMASK_BYTE_CONST

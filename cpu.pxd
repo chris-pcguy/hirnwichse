@@ -24,20 +24,20 @@ cdef class Cpu:
     cdef uint32_t savedEip, savedEsp
     cdef uint64_t cycles, lasttime
     cdef inline void reset(self)
-    cdef inline void setINTR(self, uint8_t state) nogil:
+    cdef inline void setINTR(self, uint8_t state):
         self.INTR = state
         if (state):
             self.asyncEvent = True
             self.cpuHalted = False
-    cdef inline void setHRQ(self, uint8_t state) nogil:
+    cdef inline void setHRQ(self, uint8_t state):
         self.HRQ = state
         if (state):
             self.asyncEvent = True
-    #cdef inline void saveCurrentInstPointer(self) nogil
+    #cdef inline void saveCurrentInstPointer(self)
     cdef void handleAsyncEvent(self)
     cdef int exception(self, uint8_t exceptionId, int32_t errorCode=?) except BITMASK_BYTE_CONST
     cdef int handleException(self, object exception) except BITMASK_BYTE_CONST
-    cdef void cpuDump(self) nogil
+    cdef void cpuDump(self)
     cdef int doInfiniteCycles(self) except BITMASK_BYTE_CONST
     cdef int run(self, uint8_t infiniteCycles) except BITMASK_BYTE_CONST
 

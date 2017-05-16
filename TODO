@@ -15,6 +15,7 @@ timing issues, which are resulting into some heavy bugs.
 
 race condition @ ReactOS r74406 (bug @ opcodes.pyx?) (Doesn't occur when COMP_DEBUG == 1)
 
+HDD boot on SeaBIOS. (bug @ ata.pyx?, done?)
 
 Somewhen in a few centuries:
 ACPI (win2k, ...)

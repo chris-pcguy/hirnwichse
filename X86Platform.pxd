@@ -19,8 +19,8 @@ from parallel cimport Parallel
 from gdbstub cimport GDBStub
 from libc.string cimport memcpy
 
-ctypedef uint32_t (*InPort)(self, uint16_t, uint8_t) nogil
-ctypedef void (*OutPort)(self, uint16_t, uint32_t, uint8_t) nogil
+ctypedef uint32_t (*InPort)(self, uint16_t, uint8_t)
+ctypedef void (*OutPort)(self, uint16_t, uint32_t, uint8_t)
 
 cdef class PortHandler:
     cdef uint16_t[PORTS_LEN] ports
@@ -50,9 +50,9 @@ cdef class Platform:
     cdef void addReadHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject)
     cdef void addWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, OutPort outObject)
     cdef void addReadWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject, OutPort outObject)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
-    cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize)
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
+    cdef void fpuLowerIrq(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
     cdef void loadRomToMem(self, bytes romFileName, uint64_t mmAddr, uint64_t romSize)
     cdef void loadRom(self, bytes romFileName, uint64_t mmAddr, uint8_t isRomOptional)
     cdef void initMemory(self)

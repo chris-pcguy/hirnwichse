@@ -481,19 +481,19 @@ cdef class Opcodes:
         #if (self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag and self.main.debugEnabled):
         #    self.main.debug("Opcodes::hlt: HLT was called with IF on.")
         return True
-    cdef inline void cld(self) nogil:
+    cdef inline void cld(self):
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df = False
-    cdef inline void std(self) nogil:
+    cdef inline void std(self):
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.df = True
-    cdef inline void clc(self) nogil:
+    cdef inline void clc(self):
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = False
-    cdef inline void stc(self) nogil:
+    cdef inline void stc(self):
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = True
-    cdef inline void cmc(self) nogil:
+    cdef inline void cmc(self):
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = not self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
-    cdef inline void clac(self) nogil:
+    cdef inline void clac(self):
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.ac = False
-    cdef inline void stac(self) nogil:
+    cdef inline void stac(self):
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.ac = True
     cdef int checkIOPL(self, uint16_t ioPortAddr, uint8_t dataSize) except BITMASK_BYTE_CONST: # return True if protected
         cdef uint8_t res
@@ -2274,7 +2274,7 @@ cdef class Opcodes:
         self.registers.setFullFlags(origValue, 1, rmSize, OPCODE_SUB)
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = origCF
         return True
-    cdef int incReg(self) nogil except BITMASK_BYTE_CONST:
+    cdef int incReg(self) except BITMASK_BYTE_CONST:
         cdef uint8_t origCF
         cdef uint16_t regId
         cdef uint32_t origValue
@@ -2285,7 +2285,7 @@ cdef class Opcodes:
         self.registers.setFullFlags(origValue, 1, self.cpu.operSize, OPCODE_ADD)
         self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = origCF
         return True
-    cdef int decReg(self) nogil except BITMASK_BYTE_CONST:
+    cdef int decReg(self) except BITMASK_BYTE_CONST:
         cdef uint8_t origCF
         cdef uint16_t regId
         cdef uint32_t origValue
@@ -3057,7 +3057,7 @@ cdef class Opcodes:
         self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = ALmod
         self.registers.setSZP_COA(ALmod, OP_SIZE_BYTE)
         return True
-    cdef int aaa(self) nogil except BITMASK_BYTE_CONST:
+    cdef int aaa(self) except BITMASK_BYTE_CONST:
         cdef uint8_t AFflag, tempAL #, tempAH
         cdef uint16_t tempAX
         tempAX = self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx
@@ -3074,7 +3074,7 @@ cdef class Opcodes:
             self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
         self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = tempAL
         return True
-    cdef int aas(self) nogil except BITMASK_BYTE_CONST:
+    cdef int aas(self) except BITMASK_BYTE_CONST:
         cdef uint8_t AFflag, tempAL #, tempAH
         cdef uint16_t tempAX
         tempAX = self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx
@@ -3091,7 +3091,7 @@ cdef class Opcodes:
             self.registers.setSZP_COA(tempAL, OP_SIZE_BYTE)
         self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl = tempAL
         return True
-    cdef int daa(self) nogil except BITMASK_BYTE_CONST:
+    cdef int daa(self) except BITMASK_BYTE_CONST:
         cdef uint8_t old_AL, old_AF, old_CF
         old_AL = self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl
         old_AF = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af
@@ -3110,7 +3110,7 @@ cdef class Opcodes:
             self.clc()
         self.registers.setSZP_O(self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl, OP_SIZE_BYTE)
         return True
-    cdef int das(self) nogil except BITMASK_BYTE_CONST:
+    cdef int das(self) except BITMASK_BYTE_CONST:
         cdef uint8_t old_AL, old_AF, old_CF
         old_AL = self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl
         old_AF = self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af
@@ -3127,7 +3127,7 @@ cdef class Opcodes:
             self.stc()
         self.registers.setSZP_O(self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl, OP_SIZE_BYTE)
         return True
-    cdef int cbw_cwde(self) nogil except BITMASK_BYTE_CONST:
+    cdef int cbw_cwde(self) except BITMASK_BYTE_CONST:
         cdef uint32_t op2
         if (self.cpu.operSize == OP_SIZE_WORD): # CBW
             op2 = <uint16_t><int8_t>self.registers.regs[CPU_REGISTER_AL]._union.word._union.byte.rl
@@ -3136,7 +3136,7 @@ cdef class Opcodes:
             op2 = <int16_t>self.registers.regs[CPU_REGISTER_AX]._union.word._union.rx
             self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx = op2
         return True
-    cdef int cwd_cdq(self) nogil except BITMASK_BYTE_CONST:
+    cdef int cwd_cdq(self) except BITMASK_BYTE_CONST:
         cdef uint32_t bitMask, bitMaskHalf, op2
         bitMask = BITMASKS_FF[self.cpu.operSize]
         bitMaskHalf = BITMASKS_80[self.cpu.operSize]
@@ -3329,25 +3329,25 @@ cdef class Opcodes:
         flagsVal |= self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh & (FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_CF)
         self.registers.regWriteWord(CPU_REGISTER_FLAGS, flagsVal)
         return True
-    cdef int lahf(self) nogil:
+    cdef int lahf(self):
         cdef uint8_t flagsVal
         flagsVal = self.registers.readFlags() & (FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_REQUIRED | FLAG_CF)
         self.registers.regs[CPU_REGISTER_AH]._union.word._union.byte.rh = flagsVal
         return True
-    cdef int xchgFuncRegWord(self, uint16_t regName, uint16_t regName2) nogil:
+    cdef int xchgFuncRegWord(self, uint16_t regName, uint16_t regName2):
         cdef uint16_t regValue, regValue2
         regValue, regValue2 = self.registers.regs[regName]._union.word._union.rx, self.registers.regs[regName2]._union.word._union.rx
         self.registers.regs[regName]._union.word._union.rx = regValue2
         self.registers.regs[regName2]._union.word._union.rx = regValue
         return True
-    cdef int xchgFuncRegDword(self, uint16_t regName, uint16_t regName2) nogil:
+    cdef int xchgFuncRegDword(self, uint16_t regName, uint16_t regName2):
         cdef uint32_t regValue, regValue2
         regValue, regValue2 = self.registers.regs[regName]._union.dword.erx, self.registers.regs[regName2]._union.dword.erx
         self.registers.regs[regName]._union.dword.erx = regValue2
         self.registers.regs[regName2]._union.dword.erx = regValue
         return True
     ##### DON'T USE XCHG AX, AX FOR OPCODE 0x90, use NOP instead!!
-    cdef int xchgReg(self) nogil:
+    cdef int xchgReg(self):
         if (self.cpu.operSize == OP_SIZE_WORD):
             self.xchgFuncRegWord(CPU_REGISTER_AX, self.cpu.opcode&7)
         elif (self.cpu.operSize == OP_SIZE_DWORD):

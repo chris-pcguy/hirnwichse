@@ -18,7 +18,7 @@ cdef class IsaDmaChannel:
     cdef IsaDma isadma
     cdef uint8_t channelNum, channelMasked, transferDirection, autoInit, addressDecrement, transferMode, page, DRQ, DACK
     cdef uint16_t baseAddress, baseCount, currentAddress, currentCount
-    cdef void run(self) nogil
+    cdef void run(self)
     ###
 
 cdef class IsaDmaController:
@@ -26,32 +26,32 @@ cdef class IsaDmaController:
     cdef IsaDma isadma
     cdef PyObject *channel[4]
     cdef uint8_t flipFlop, firstChannel, master, ctrlDisabled, cmdReg, statusReg
-    cdef void reset(self) nogil
-    cdef void doCommand(self, uint8_t data) nogil
-    cdef void doManualRequest(self, uint8_t data) nogil
-    cdef void setFlipFlop(self, uint8_t flipFlop) nogil
-    cdef void setTransferMode(self, uint8_t transferModeByte) nogil
-    cdef void maskChannel(self, uint8_t channel, uint8_t maskIt) nogil
-    cdef void maskChannels(self, uint8_t maskByte) nogil
-    cdef uint8_t getChannelMasks(self) nogil
-    cdef void setPageByte(self, uint8_t channel, uint8_t data) nogil
-    cdef void setAddrByte(self, uint8_t channel, uint8_t data) nogil
-    cdef void setCountByte(self, uint8_t channel, uint8_t data) nogil
-    cdef uint8_t getPageByte(self, uint8_t channel) nogil
-    cdef uint8_t getAddrByte(self, uint8_t channel) nogil
-    cdef uint8_t getCountByte(self, uint8_t channel) nogil
-    cdef uint8_t getStatus(self) nogil
-    cdef void controlHRQ(self) nogil
-    cdef void run(self) nogil
+    cdef void reset(self)
+    cdef void doCommand(self, uint8_t data)
+    cdef void doManualRequest(self, uint8_t data)
+    cdef void setFlipFlop(self, uint8_t flipFlop)
+    cdef void setTransferMode(self, uint8_t transferModeByte)
+    cdef void maskChannel(self, uint8_t channel, uint8_t maskIt)
+    cdef void maskChannels(self, uint8_t maskByte)
+    cdef uint8_t getChannelMasks(self)
+    cdef void setPageByte(self, uint8_t channel, uint8_t data)
+    cdef void setAddrByte(self, uint8_t channel, uint8_t data)
+    cdef void setCountByte(self, uint8_t channel, uint8_t data)
+    cdef uint8_t getPageByte(self, uint8_t channel)
+    cdef uint8_t getAddrByte(self, uint8_t channel)
+    cdef uint8_t getCountByte(self, uint8_t channel)
+    cdef uint8_t getStatus(self)
+    cdef void controlHRQ(self)
+    cdef void run(self)
 
 cdef class IsaDma:
     cdef Hirnwichse main
     cdef PyObject *controller[2]
     cdef uint8_t extPageReg[16]
     cdef uint8_t HLDA, TC # extPageReg is unused.
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil
-    cdef uint8_t getTC(self) nogil
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize)
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)
+    cdef uint8_t getTC(self)
     cdef void setDRQ(self, uint8_t channel, uint8_t val)
     cdef void raiseHLDA(self)
     cdef void setDmaMemActions(self, uint8_t controllerId, uint8_t channelId, object classInstance, ReadFromMem readFromMem, WriteToMem writeToMem)

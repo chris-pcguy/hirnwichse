@@ -37,22 +37,22 @@ cdef class VGA_REGISTER_RAW:
         self.vga  = vga
         self.index = 0
         self.configSpace = ConfigSpace(registerSize, self.vga.main)
-    cdef void reset(self) nogil:
+    cdef void reset(self):
         self.configSpace.csResetData(0)
         self.index = 0
-    cdef uint16_t getIndex(self) nogil:
+    cdef uint16_t getIndex(self):
         return self.index
-    cdef void setIndex(self, uint16_t index) nogil:
+    cdef void setIndex(self, uint16_t index):
         self.index = index
-    cdef void indexAdd(self, uint16_t n) nogil:
+    cdef void indexAdd(self, uint16_t n):
         self.index += n
-    cdef void indexSub(self, uint16_t n) nogil:
+    cdef void indexSub(self, uint16_t n):
         self.index -= n
-    cdef uint32_t getData(self, uint8_t dataSize) nogil:
+    cdef uint32_t getData(self, uint8_t dataSize):
         if (self.index >= self.configSpace.csSize):
             return 0
         return self.configSpace.csReadValueUnsigned(self.index, dataSize)
-    cdef void setData(self, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setData(self, uint32_t data, uint8_t dataSize):
         if (self.index >= self.configSpace.csSize):
             return
         self.configSpace.csWriteValue(self.index, data, dataSize)
@@ -61,7 +61,7 @@ cdef class CRT(VGA_REGISTER_RAW):
     def __init__(self, Vga vga):
         VGA_REGISTER_RAW.__init__(self, VGA_CRT_AREA_SIZE, vga)
         self.protectRegisters = False
-    cdef void setData(self, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setData(self, uint32_t data, uint8_t dataSize):
         cdef uint16_t index = self.getIndex()
         if (self.protectRegisters):
             if (index >= 0x00 and index <= 0x06):
@@ -100,17 +100,17 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
         self.readCycle = self.writeCycle = 0
         self.mask = 0xff
         self.state = 0x01
-    cdef uint8_t getWriteIndex(self) nogil:
+    cdef uint8_t getWriteIndex(self):
         return self.writeIndex
-    cdef void setReadIndex(self, uint8_t index) nogil:
+    cdef void setReadIndex(self, uint8_t index):
         self.readIndex = index
         self.readCycle = 0
         self.state = 0x03
-    cdef void setWriteIndex(self, uint8_t index) nogil:
+    cdef void setWriteIndex(self, uint8_t index):
         self.writeIndex = index
         self.writeCycle = 0
         self.state = 0x00
-    cdef uint32_t getData(self, uint8_t dataSize) nogil:
+    cdef uint32_t getData(self, uint8_t dataSize):
         cdef uint32_t retData = 0x3f
         if (dataSize != 1):
             self.vga.main.exitError("DAC::getData: dataSize != 1 (dataSize: %u)", dataSize)
@@ -122,7 +122,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
                 self.readCycle = 0
                 self.readIndex += 1
         return retData
-    cdef void setData(self, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setData(self, uint32_t data, uint8_t dataSize):
         if (dataSize != 1):
             self.vga.main.exitError("DAC::setData: dataSize != 1 (dataSize: %u)", dataSize)
             return
@@ -134,11 +134,11 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
             self.writeCycle = 0
             self.writeIndex += 1
             #self.vga.refreshScreen = True
-    cdef uint8_t getMask(self) nogil:
+    cdef uint8_t getMask(self):
         return self.mask
-    cdef uint8_t getState(self) nogil:
+    cdef uint8_t getState(self):
         return self.state
-    cdef void setMask(self, uint8_t value) nogil:
+    cdef void setMask(self, uint8_t value):
         self.mask = value
         IF COMP_DEBUG:
             if (self.mask != 0xff):
@@ -148,7 +148,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
 cdef class GDC(VGA_REGISTER_RAW):
     def __init__(self, Vga vga):
         VGA_REGISTER_RAW.__init__(self, VGA_GDC_AREA_SIZE, vga)
-    cdef void setData(self, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setData(self, uint32_t data, uint8_t dataSize):
         cdef uint16_t index
         #cdef uint32_t temp1, temp2
         index = self.getIndex()
@@ -208,7 +208,7 @@ cdef class GDC(VGA_REGISTER_RAW):
 cdef class Sequencer(VGA_REGISTER_RAW):
     def __init__(self, Vga vga):
         VGA_REGISTER_RAW.__init__(self, VGA_SEQ_AREA_SIZE, vga)
-    cdef void setData(self, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setData(self, uint32_t data, uint8_t dataSize):
         cdef uint8_t charSelA, charSelB
         cdef uint16_t index = self.getIndex()
         VGA_REGISTER_RAW.setData(self, data, dataSize)
@@ -242,23 +242,24 @@ cdef class AttrCtrlReg(VGA_REGISTER_RAW):
         self.configSpace.csWriteValueByte(VGA_ATTRCTRLREG_CONTROL_REG_INDEX, VGA_ATTRCTRLREG_CONTROL_REG_LGE)
         self.setFlipFlop(False)
         self.setIndex(0)
-    cdef void setIndex(self, uint16_t index) nogil:
+    cdef void setIndex(self, uint16_t index):
         VGA_REGISTER_RAW.setIndex(self, index)
         self.paletteEnabled = (index & VGA_ATTRCTRLREG_PALETTE_ENABLED) == 0
-    cdef void setFlipFlop(self, uint8_t flipFlop) nogil:
+    cdef void setFlipFlop(self, uint8_t flipFlop):
         self.flipFlop = flipFlop
-    cdef void setIndexData(self, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setIndexData(self, uint32_t data, uint8_t dataSize):
         if (not self.flipFlop):
             self.setIndex(data)
         else:
             self.setData(data, dataSize)
         self.setFlipFlop(not self.flipFlop)
-    cdef void setData(self, uint32_t data, uint8_t dataSize) nogil:
+    cdef void setData(self, uint32_t data, uint8_t dataSize):
         cdef uint16_t index = self.getIndex()
         if (index < 0x10 and not self.paletteEnabled):
             return
         VGA_REGISTER_RAW.setData(self, data, dataSize)
-        with gil:
+        #with gil:
+        IF 1:
             if (self.vga.ui and index == VGA_ATTRCTRLREG_CONTROL_REG_INDEX):
                 self.vga.ui.replicate8Bit = (data&VGA_ATTRCTRLREG_CONTROL_REG_LGE) != 0
                 self.vga.ui.msbBlink = (data&VGA_ATTRCTRLREG_CONTROL_REG_BLINK) != 0
@@ -302,7 +303,7 @@ cdef class Vga:
         self.plane1 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane2 = ConfigSpace(VGA_PLANE_SIZE, self.main)
         self.plane3 = ConfigSpace(VGA_PLANE_SIZE, self.main)
-        IF 0:
+        IF 1: # needed for SeaBIOS
             self.pciDevice = self.main.platform.pci.addDevice()
             self.pciDevice.setVendorDeviceId(0x1234, 0x1111)
             self.pciDevice.setDeviceClass(PCI_CLASS_VGA)
@@ -316,7 +317,7 @@ cdef class Vga:
         self.ui = None
         if (not self.main.noUI):
             self.ui = PysdlUI(self)
-    cdef void setStartAddress(self) nogil:
+    cdef void setStartAddress(self):
         cdef uint32_t temp
         temp = self.startAddress
         self.startAddress = self.crt.configSpace.csReadValueUnsignedByte(0xc)<<8
@@ -327,7 +328,7 @@ cdef class Vga:
         if (temp != self.startAddress):
             #self.refreshScreenFunction()
             self.refreshScreen = True
-    cdef uint32_t getColor(self, uint16_t color) nogil: # RGBA
+    cdef uint32_t getColor(self, uint16_t color): # RGBA
         cdef uint8_t red, green, blue
         if (not self.enable8Bit):
             if (color >= 0x10):
@@ -352,9 +353,10 @@ cdef class Vga:
         #    red, green, blue = self.dac.configSpace.csData[color:color+3]
         #red, green, blue = red << 2, green << 2, blue << 2
         return ((red << 16) | (green << 8) | blue)
-    cdef void readFontData(self) nogil: # TODO
+    cdef void readFontData(self): # TODO
         cdef uint16_t fontDataAddressA, fontDataAddressB
-        with gil:
+        #with gil:
+        IF 1:
             if (not self.ui or not self.needLoadFont):
                 return
         if (not self.extMem):
@@ -367,12 +369,13 @@ cdef class Vga:
         #IF 1:
         fontDataAddressB =  (self.charSelB&3)<<14
         fontDataAddressB |= VGA_FONTAREA_SIZE if (self.charSelB&4) else 0
-        with gil:
+        #with gil:
+        IF 1:
             self.ui.charSize = (9 if (self.ui.mode9Bit) else 8, self.charHeight)
             self.ui.fontDataA = self.plane2.csRead(fontDataAddressA, VGA_FONTAREA_SIZE)
             self.ui.fontDataB = self.plane2.csRead(fontDataAddressB, VGA_FONTAREA_SIZE)
         self.needLoadFont = False
-    cdef uint32_t translateBytes(self, uint32_t data) nogil: # this function is 'inspired'/stolen from the ReactOS project. Thanks! :-)
+    cdef uint32_t translateBytes(self, uint32_t data): # this function is 'inspired'/stolen from the ReactOS project. Thanks! :-)
         cdef uint32_t bitMask, temp
         bitMask = (self.bitMask<<24)|(self.bitMask<<16)|(self.bitMask<<8)|self.bitMask
         if (self.writeMode == 1):
@@ -428,7 +431,7 @@ cdef class Vga:
         temp = (self.latchReg[0]<<24)|(self.latchReg[1]<<16)|(self.latchReg[2]<<8)|self.latchReg[3]
         data = ((data & bitMask) | (temp & (~bitMask)))
         return data
-    cdef void refreshScreenFunction(self) nogil:
+    cdef void refreshScreenFunction(self):
         cdef uint8_t temp
         cdef uint32_t size
         #with gil:
@@ -515,8 +518,9 @@ cdef class Vga:
         IF COMP_DEBUG:
             self.main.notice("Vga::vgaAreaRead: test1: offset==0x%05x; dataSize==%u; data==%s", offset, dataSize, <bytes>repr(retStr).encode())
         return retStr
-    cdef char *vgaAreaRead(self, uint32_t offset, uint32_t dataSize) nogil:
-        with gil:
+    cdef char *vgaAreaRead(self, uint32_t offset, uint32_t dataSize):
+        #with gil:
+        IF 1:
             return self.vgaAreaReadHandler(offset, dataSize)
     cdef void vgaAreaWriteHandler(self, uint32_t offset, uint32_t dataSize):
         #cdef list rectList
@@ -719,10 +723,11 @@ cdef class Vga:
         if (self.newTimer - self.oldTimer >= 0.075):
             self.oldTimer = self.newTimer
             self.ui.updateScreen(False)
-    cdef void vgaAreaWrite(self, uint32_t offset, uint32_t dataSize) nogil:
-        with gil:
+    cdef void vgaAreaWrite(self, uint32_t offset, uint32_t dataSize):
+        #with gil:
+        IF 1:
             self.vgaAreaWriteHandler(offset, dataSize)
-    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize) nogil:
+    cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize):
         cdef uint32_t retVal
         retVal = BITMASK_BYTE
         IF COMP_DEBUG:
@@ -780,7 +785,7 @@ cdef class Vga:
         IF COMP_DEBUG:
             self.main.notice("Vga::inPort_2: port 0x%04x with dataSize %u and retVal 0x%02x.", ioPortAddr, dataSize, retVal)
         return <uint8_t>retVal
-    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize) nogil:
+    cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize):
         #self.refreshScreen = True
         if (ioPortAddr not in (0x400, 0x401, 0x402, 0x403, 0x500, 0x504)):
             IF COMP_DEBUG:
@@ -823,19 +828,23 @@ cdef class Vga:
             elif (ioPortAddr in (0x3ba, 0x3ca, 0x3da)):
                 return
             elif (ioPortAddr == 0x400): # Bochs' Panic Port
-                with gil:
+                #with gil:
+                IF 1:
                     stdout.write(chr(data))
                     stdout.flush()
             elif (ioPortAddr == 0x401): # Bochs' Panic Port2
-                with gil:
+                #with gil:
+                IF 1:
                     stdout.write(chr(data))
                     stdout.flush()
             elif (ioPortAddr in (0x402,0x500,0x504)): # Bochs' Info Port
-                with gil:
+                #with gil:
+                IF 1:
                     stdout.write(chr(data))
                     stdout.flush()
             elif (ioPortAddr == 0x403): # Bochs' Debug Port
-                with gil:
+                #with gil:
+                IF 1:
                     stdout.write(chr(data))
                     stdout.flush()
             elif (ioPortAddr == 0x8900):
