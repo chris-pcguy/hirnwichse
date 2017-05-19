@@ -7,7 +7,6 @@ from sys import argv, exit
 from argparse import ArgumentParser
 from atexit import register
 from traceback import print_exc
-#import concurrent.futures
 
 cdef extern from "Python.h":
     bytes PyBytes_FromStringAndSize(char *, Py_ssize_t)
@@ -17,7 +16,6 @@ cdef class Hirnwichse:
     def __init__(self):
         self.quitEmu = False
         self.exitOnTripleFault = True
-        #self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=100)
         register(self.quitFunc, self)
         #self.run(True)
     cdef void parseArgs(self):
@@ -69,14 +67,14 @@ cdef class Hirnwichse:
         self.memSize = self.cmdArgs.memSize
         #self.debugEnabledTest = False
         #self.debugEnabled = False
-    cdef void quitFunc(self):
+    cdef void quitFunc(self) nogil:
         self.quitEmu = True
         #with gil:
         #    fp=open("mmdump_1","wb")
         #    fp.write(PyBytes_FromStringAndSize( self.mm.data, <Py_ssize_t>4*1024))
         #    fp.flush()
         #    fp.close()
-    cdef void exitError(self, char *msg, ...):
+    cdef void exitError(self, char *msg, ...) nogil:
         cdef va_list args
         cdef char msgBuf[1024]
         va_start(args, msg)
@@ -89,7 +87,7 @@ cdef class Hirnwichse:
         self.cpu.cpuDump()
         self.quitFunc()
         exitt(1)
-    cdef void debug(self, char *msg, ...):
+    cdef void debug(self, char *msg, ...) nogil:
         cdef va_list args
         cdef char msgBuf[1024]
         if (self.debugEnabled):
@@ -99,7 +97,7 @@ cdef class Hirnwichse:
             strcat(msgBuf, b"\n");
             vprintf(msgBuf, args)
             va_end(args)
-    cdef void notice(self, char *msg, ...):
+    cdef void notice(self, char *msg, ...) nogil:
         cdef va_list args
         cdef char msgBuf[1024]
         va_start(args, msg)

@@ -61,7 +61,7 @@ cdef class SerialPort:
                     self.main.exitError("SerialPort::__init__: \"serial:serialFilename\" doesn't exist. (self.serialFilename: %s)", self.serialFilename)
             else:
                 self.fp = open(self.serialFilename, "w+b")
-    cdef void reset(self):
+    cdef void reset(self) nogil:
         pass
     cdef void setFlags(self):
         self.lineStatusRegister &= ~0x1
@@ -333,12 +333,29 @@ cdef class SerialPort:
 
 cdef class Serial:
     def __init__(self, Hirnwichse main):
+        cdef SerialPort port0, port1, port2, port3
         self.main = main
-        self.ports = (SerialPort(self, 0), SerialPort(self, 1), SerialPort(self, 2), SerialPort(self, 3))
-    cdef void reset(self):
-        cdef SerialPort port
-        for port in self.ports:
-            port.reset()
+        port0 = SerialPort(self, 0)
+        self.ports[0] = <PyObject*>port0
+        port1 = SerialPort(self, 1)
+        self.ports[1] = <PyObject*>port1
+        port2 = SerialPort(self, 2)
+        self.ports[2] = <PyObject*>port2
+        port3 = SerialPort(self, 3)
+        self.ports[3] = <PyObject*>port3
+        Py_INCREF(port0)
+        Py_INCREF(port1)
+        Py_INCREF(port2)
+        Py_INCREF(port3)
+    cdef void reset(self) nogil:
+        if (self.ports[0]):
+            (<SerialPort>self.ports[0]).reset()
+        if (self.ports[1]):
+            (<SerialPort>self.ports[1]).reset()
+        if (self.ports[2]):
+            (<SerialPort>self.ports[2]).reset()
+        if (self.ports[3]):
+            (<SerialPort>self.ports[3]).reset()
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize):
         cdef uint32_t ret = BITMASK_BYTE
         #IF COMP_DEBUG:
@@ -406,8 +423,14 @@ cdef class Serial:
             self.main.exitError("Serial::outPort_3: port 0x%02x with dataSize %u not supported. (data: 0x%04x)", ioPortAddr, dataSize, data)
         return
     cdef void run(self):
-        cdef SerialPort port
-        for port in self.ports:
-            port.run()
+        self.reset()
+        if (self.ports[0]):
+            (<SerialPort>self.ports[0]).run()
+        if (self.ports[1]):
+            (<SerialPort>self.ports[1]).run()
+        if (self.ports[2]):
+            (<SerialPort>self.ports[2]).run()
+        if (self.ports[3]):
+            (<SerialPort>self.ports[3]).run()
 
 

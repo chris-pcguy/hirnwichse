@@ -70,7 +70,7 @@ cdef class PicChannel:
                 irq = 0
             if (irq == highestPriority):
                 break
-    cdef void servicePicChannel(self):
+    cdef void servicePicChannel(self) nogil:
         cdef uint8_t highestPriority, irq, maxIrq, unmaskedRequests
         if (self.intr):
             return
@@ -105,7 +105,7 @@ cdef class PicChannel:
                     irq = 0
                 if (irq == maxIrq):
                     break
-    cdef void raiseIrq(self, uint8_t irq):
+    cdef void raiseIrq(self, uint8_t irq) nogil:
         cdef uint8_t mask
         mask = (1 << (irq&7))
         if (not (self.IRQ_in & mask)):
@@ -113,7 +113,7 @@ cdef class PicChannel:
             self.IRQ_in |= mask
             self.irr |= mask
             self.servicePicChannel()
-    cdef void lowerIrq(self, uint8_t irq):
+    cdef void lowerIrq(self, uint8_t irq) nogil:
         cdef uint8_t mask
         mask = (1 << (irq&7))
         if (self.IRQ_in & mask):
@@ -163,7 +163,7 @@ cdef class Pic:
         Py_INCREF(slave)
     cdef void setMode(self, uint8_t channel, uint8_t edgeLevel):
         (<PicChannel>self.channels[channel]).edgeLevel = edgeLevel
-    cdef void raiseIrq(self, uint8_t irq):
+    cdef void raiseIrq(self, uint8_t irq) nogil:
         cdef uint8_t ma_sl = False
         #self.main.notice("Pic::raiseIrq: irq==%u", irq)
         if (irq > 15):
@@ -173,7 +173,7 @@ cdef class Pic:
             ma_sl = True
             irq -= 8
         (<PicChannel>self.channels[ma_sl]).raiseIrq(irq)
-    cdef void lowerIrq(self, uint8_t irq):
+    cdef void lowerIrq(self, uint8_t irq) nogil:
         cdef uint8_t ma_sl = False
         #self.main.notice("Pic::lowerIrq: irq==%u", irq)
         if (irq > 15):
@@ -183,7 +183,7 @@ cdef class Pic:
             ma_sl = True
             irq -= 8
         (<PicChannel>self.channels[ma_sl]).lowerIrq(irq)
-    cdef uint8_t isClear(self, uint8_t irq):
+    cdef uint8_t isClear(self, uint8_t irq) nogil:
         cdef uint8_t temp1, temp2, temp3, ma_sl = False
         if (irq > 15):
             self.main.exitError("isClear: invalid irq! (irq: %u)", irq)

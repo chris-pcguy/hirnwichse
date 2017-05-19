@@ -24,7 +24,7 @@ cdef class Cpu:
     cdef uint32_t savedEip, savedEsp
     cdef uint64_t cycles, lasttime
     cdef inline void reset(self)
-    cdef inline void setINTR(self, uint8_t state):
+    cdef inline void setINTR(self, uint8_t state) nogil:
         self.INTR = state
         if (state):
             self.asyncEvent = True
@@ -37,7 +37,7 @@ cdef class Cpu:
     cdef void handleAsyncEvent(self)
     cdef int exception(self, uint8_t exceptionId, int32_t errorCode=?) except BITMASK_BYTE_CONST
     cdef int handleException(self, object exception) except BITMASK_BYTE_CONST
-    cdef void cpuDump(self)
+    cdef void cpuDump(self) nogil
     cdef int doInfiniteCycles(self) except BITMASK_BYTE_CONST
     cdef int run(self, uint8_t infiniteCycles) except BITMASK_BYTE_CONST
 

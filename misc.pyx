@@ -11,7 +11,6 @@ cdef class Misc:
         cdef object threadObject
         threadObject = Thread(target=threadFunc, args=(classObject,))
         threadObject.start()
-        #threadObject = self.main.executor.submit(threadFunc)
         return threadObject
 
 

@@ -23,7 +23,7 @@ cdef class CRT(VGA_REGISTER_RAW):
     cdef uint8_t protectRegisters
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
-    cdef uint8_t mask, state, readCycle, writeCycle, readIndex, writeIndex
+    cdef uint8_t mask, dacState, readCycle, writeCycle, readIndex, writeIndex
     cdef uint8_t getWriteIndex(self)
     cdef void setReadIndex(self, uint8_t index)
     cdef void setWriteIndex(self, uint8_t index)

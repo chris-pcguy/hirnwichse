@@ -18,7 +18,7 @@ cdef class PitChannel:
     cdef uint16_t bcdToDec(self, uint16_t bcd)
     cdef void readBackCount(self)
     cdef void readBackStatus(self)
-    cdef void mode0Func(self)
+    cdef void mode0Func(self) nogil
     cdef void mode2Func(self)
     cdef void timerFunc(self)
     cdef void runTimer(self)

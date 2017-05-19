@@ -17,7 +17,7 @@ cdef class Cmos:
         self.configSpace = ConfigSpace(128, self.main)
     cdef uint16_t decToBcd(self, uint16_t dec):
         return int(str(dec), 16)
-    cdef inline uint32_t readValue(self, uint8_t index, uint8_t size):
+    cdef inline uint32_t readValue(self, uint8_t index, uint8_t size) nogil:
         cdef uint32_t value
         value = self.configSpace.csReadValueUnsigned(index, size)
         #IF 1:
@@ -25,13 +25,13 @@ cdef class Cmos:
             if (self.main.debugEnabled):
                 self.main.notice("Cmos::readValue: index==0x%02x; value==0x%02x; size==%u", index, value, size)
         return value
-    cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size):
+    cdef inline void writeValue(self, uint8_t index, uint32_t value, uint8_t size) nogil:
         #IF 1:
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
                 self.main.notice("Cmos::writeValue: index==0x%02x; value==0x%02x; size==%u", index, value, size)
         self.configSpace.csWriteValue(index, value, size)
-    cdef void reset(self):
+    cdef void reset(self) nogil:
         cdef uint32_t memSizeInK, extMemSizeInK, extMemSizeIn64K
         memSizeInK = extMemSizeInK = extMemSizeIn64K = 0
         self.configSpace.csResetData(0)
@@ -140,7 +140,7 @@ cdef class Cmos:
             self.writeValue(CMOS_STATUS_REGISTER_C, (self.readValue(CMOS_STATUS_REGISTER_C, OP_SIZE_BYTE) | 0x90), OP_SIZE_BYTE)
             (<Pic>self.main.platform.pic).raiseIrq(CMOS_RTC_IRQ)
         self.writeValue(CMOS_STATUS_REGISTER_A, (self.readValue(CMOS_STATUS_REGISTER_A, OP_SIZE_BYTE) & 0x7f), OP_SIZE_BYTE)
-    cdef void periodicFunc(self):
+    cdef void periodicFunc(self) nogil:
         if ((self.statusB & 0x40) != 0):
             self.writeValue(CMOS_STATUS_REGISTER_C, (self.readValue(CMOS_STATUS_REGISTER_C, OP_SIZE_BYTE) | 0xc0), OP_SIZE_BYTE)
             (<Pic>self.main.platform.pic).raiseIrq(CMOS_RTC_IRQ)
@@ -165,7 +165,8 @@ cdef class Cmos:
                 ret = self.readValue(tempIndex, OP_SIZE_BYTE)
                 if (tempIndex == CMOS_STATUS_REGISTER_C):
                     self.writeValue(tempIndex, 0, OP_SIZE_BYTE)
-                    (<Pic>self.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
+                    if ((<Pic>self.main.platform.pic).isClear(CMOS_RTC_IRQ)):
+                        (<Pic>self.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
             else:
                 self.main.exitError("CMOS::inPort: port 0x%04x not supported. (dataSize byte)", ioPortAddr)
         else:

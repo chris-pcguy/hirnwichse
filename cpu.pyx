@@ -121,7 +121,7 @@ cdef class Cpu:
             return True
         exceptionId = exception.args[0]
         return self.exception(exceptionId, errorCode)
-    cdef void cpuDump(self):
+    cdef void cpuDump(self) nogil:
         self.main.notice("EAX: 0x%08x, ECX: 0x%08x", self.registers.regs[CPU_REGISTER_EAX]._union.dword.erx, \
           self.registers.regs[CPU_REGISTER_ECX]._union.dword.erx)
         self.main.notice("EDX: 0x%08x, EBX: 0x%08x", self.registers.regs[CPU_REGISTER_EDX]._union.dword.erx, \
@@ -206,7 +206,8 @@ cdef class Cpu:
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>8))):
                 #if (not (<uint16_t>self.cycles) and not (<uint16_t>(self.cycles>>16))):
                 #if (not (self.cycles&<unsigned int>0xffffff)):
-                if (not (self.cycles&<unsigned int>0xffffff) or (self.INTR and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag)):
+                if (not (self.cycles&<unsigned int>0xffff) or (self.INTR and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag)):
+                #if (not (self.cycles&<unsigned int>0xffffff) or (self.INTR and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag)):
                 #if (not (self.cycles&<unsigned int>0x1ffffff) or (self.INTR and self.registers.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.if_flag)):
                     if (self.main.platform.vga and self.main.platform.vga.ui):
                         self.main.platform.vga.ui.handleEventsWithoutWaiting()

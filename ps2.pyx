@@ -371,12 +371,14 @@ cdef class PS2:
                     self.outb = False
                     self.auxb = False
                     self.sysf = True
-                    self.appendToOutBytesImm(b'\x55')
+                    #self.appendToOutBytesImm(b'\x55')
+                    self.appendToOutBytes(b'\x55')
                 elif (data == 0xab):
                     if (self.outb):
                         self.main.notice("ERROR: KBC::outPort: Port 0x64, data 0xab: outb is set.")
                         return
-                    self.appendToOutBytesImm(b'\x00')
+                    #self.appendToOutBytesImm(b'\x00')
+                    self.appendToOutBytes(b'\x00')
                 elif (data == 0xad): # disable keyboard
                     self.setKbdClockEnable(False)
                 elif (data == 0xae): # enable keyboard

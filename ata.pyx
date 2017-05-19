@@ -325,7 +325,7 @@ cdef class AtaController:
         self.cylinder = (<AtaDrive>self.drive[driveId]).driveCode
         IF COMP_DEBUG:
             self.ata.main.notice("AtaController::setSignature: cylinder: 0x%04x", self.cylinder)
-    cdef void reset(self, uint8_t swReset):
+    cdef void reset(self, uint8_t swReset) nogil:
         #cdef AtaDrive drive
         self.drq = self.err = self.useLBA = self.useLBA48 = self.HOB = False
         self.seekComplete = self.irqEnabled = True
@@ -1255,7 +1255,7 @@ cdef class Ata:
         Py_INCREF(controller1)
         #Py_INCREF(controller2)
         #Py_INCREF(controller3)
-    cdef void reset(self):
+    cdef void reset(self) nogil:
         if (self.controller[0]):
             (<AtaController>self.controller[0]).reset(False)
         if (self.controller[1]):

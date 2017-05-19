@@ -29,7 +29,7 @@ cdef class PitChannel:
         self.readBackStatusValue = self.bcdMode
         self.readBackStatusValue |= self.counterMode<<1
         self.readBackStatusValue |= self.counterWriteMode<<4
-    cdef void mode0Func(self):
+    cdef void mode0Func(self) nogil:
         cdef uint8_t clear = False # this assignment shouldn't be needed
         if (self.channelId == 0): # just raise IRQ on channel0
             clear = (<Pic>self.pit.main.platform.pic).isClear(0)
@@ -42,11 +42,13 @@ cdef class PitChannel:
             if (clear):
                 (<Pic>self.pit.main.platform.pic).lowerIrq(CMOS_RTC_IRQ)
         #self.pit.main.notice("PitChannel::mode0Func: self.tempTimerValue %u", self.tempTimerValue)
+        #self.pit.main.notice("PitChannel::mode0Func: cpuCycles_1: %u", self.pit.main.cpu.cycles)
         with nogil:
         #IF 1:
             usleep(self.tempTimerValue)
-        if (not self.timerEnabled or self.pit.main.quitEmu):
-            return
+        #self.pit.main.notice("PitChannel::mode0Func: cpuCycles_2: %u", self.pit.main.cpu.cycles)
+        #if (not self.timerEnabled or self.pit.main.quitEmu):
+        #    return
         self.counterValue = 0
         if (self.channelId == 0): # just raise IRQ on channel0
             if (clear):
@@ -82,22 +84,12 @@ cdef class PitChannel:
                 #with gil:
                 #    prctl.set_name("Pit::{0:d}{1:d}_10".format(self.channelId, self.localCounterMode))
                 with nogil:
+                #IF 1:
                     if (self.channelId != 3):
                         #with gil:
                         #    prctl.set_name("Pit::{0:d}{1:d}_14".format(self.channelId, self.localCounterMode))
                         #self.pit.main.notice("PitChannel::mode2Func: before while")
                         #self.pit.main.notice("PitChannel::mode2Func(%u): counterValue==%u", self.channelId, self.counterStartValue)
-                        #self.counterValue = self.counterStartValue&0xffffe
-                        #with nogil:
-                        #    #usleep(self.tempTimerValue)
-                        #    usleep(0)
-                        #    #usleep(1)
-                        #    #usleep(100)
-                        #    #usleep(3000)
-                        #if (self.localCounterMode == 3 and self.counterValue&0x1):
-                        #    self.counterValue -= 1
-                        #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
-                        #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
                         if (self.localCounterMode == 3):
                             i = 2
                             #i = 4 # HACK
@@ -109,61 +101,26 @@ cdef class PitChannel:
                         ##j = i-1
                         ##j = (i<<1)-1
                         j = (i<<2)-1
-                        ##j = (i<<4)-1
-                        ##j = (i<<3)-1
-                        ##j = (i<<5)-1
-                        ##j = (i<<8)-1
                         self.counterValue = self.counterStartValue&(~j&0xfffff)
+                        #self.counterValue = self.counterStartValue
                         #with gil:
                         #    prctl.set_name("Pit::{0:d}{1:d}_15".format(self.channelId, self.localCounterMode))
-                        #while ((((self.localCounterMode == 3 and self.counterValue >= 3) or (self.localCounterMode != 3 and self.counterValue >= 2)) and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
-                        #while ((self.counterValue >= 4 and self.counterValue <= (BITMASK_WORD+1)) and self.timerEnabled and (not self.pit.main.quitEmu)):
-                        while (self.counterValue >= i and self.counterValue <= (BITMASK_WORD+1) and self.timerEnabled and not self.pit.main.quitEmu and (self.localCounterMode == 2 or self.localCounterMode == 3)):
+                        #while (self.counterValue >= i and self.counterValue <= (BITMASK_WORD+1) and self.timerEnabled and not self.pit.main.quitEmu and (self.localCounterMode == 2 or self.localCounterMode == 3)):
+                        while (self.counterValue >= i and self.counterValue <= (BITMASK_WORD+1)):
                             #self.main.notice("PitChannel::mode2Func: loop2 begin")
-                            #for i in range(60):
-                            #    pass
                             self.counterValue -= i
                             #self.pit.main.notice("PitChannel::mode2Func: in while")
-                            #if (not (self.counterValue&0x1fff)):
-                            #if (not (self.counterValue&0xfff)):
-                            #if (not (self.counterValue&0xff)):
-                            #if (not (self.counterValue&0x7f)):
-                            #if (not (self.counterValue&0x3f)):
-                            #if (not (self.counterValue&0x1f)):
-                            #if (not (self.counterValue&0xf)):
-                            #if (not (self.counterValue&0x7)):
-                            #if (not (self.counterValue&0x3)):
-                            #if (not (self.counterValue&0x1)):
                             if (not (self.counterValue&j)):
                             #IF 1:
                             #IF 0:
                                 #with gil:
                                 #    prctl.set_name("Pit::{0:d}{1:d}_16_{2:#04x}".format(self.channelId, self.localCounterMode, self.counterValue))
-                                #usleep(self.tempTimerValue)
                                 #with nogil:
                                 usleep(0)
                                 #usleep(1)
                                 #usleep(5)
-                                #usleep(10)
-                                #usleep(25)
-                                #usleep(50)
-                                #usleep(100)
                                 #with gil:
                                 #    prctl.set_name("Pit::{0:d}{1:d}_17".format(self.channelId, self.localCounterMode))
-                            #for i in range(1000000):
-                            #for i in range(50000):
-                            #for i in range(30000):
-                            #for i in range(10000):
-                            #for i in range(5000):
-                            #for i in range(4000):
-                            #for i in range(2500):
-                            #for i in range(2000):
-                            #for i in range(1000):
-                            #for i in range(250):
-                            #for i in range(100):
-                            #for i in range(60):
-                            #for i in range(1):
-                            #    pass
                         #with gil:
                         #    prctl.set_name("Pit::{0:d}{1:d}_18".format(self.channelId, self.localCounterMode))
                         if (not self.timerEnabled or self.pit.main.quitEmu):
@@ -178,8 +135,6 @@ cdef class PitChannel:
                         #usleep(self.tempTimerValue)
                         usleep(0)
                         #usleep(1)
-                        #usleep(100)
-                        #usleep(3000)
                         #with gil:
                         #    prctl.set_name("Pit::{0:d}{1:d}_13".format(self.channelId, self.localCounterMode))
                 #with gil:
@@ -188,7 +143,6 @@ cdef class PitChannel:
                     #clear = (<Pic>self.pit.main.platform.pic).isClear(0)
                     #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0)")
                     if (clear):
-                    #if (clear and self.pit.main.cpu.savedCs != 0x0028):
                         #self.pit.main.notice("PitChannel::mode2Func: raiseIrq(0): clear")
                         (<Pic>self.pit.main.platform.pic).raiseIrq(0)
                 elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
@@ -207,7 +161,7 @@ cdef class PitChannel:
     cdef void timerFunc(self): # TODO
         IF SET_THREAD_NAMES:
             prctl.set_name("Pit::{0:d}{1:d}_0".format(self.channelId, self.localCounterMode))
-        self.pit.main.notice("timerFunc: channelId %u, counterMode %u", self.channelId, self.localCounterMode)
+        #self.pit.main.notice("timerFunc: channelId %u, counterMode %u", self.channelId, self.localCounterMode)
         #with nogil:
         IF 1:
             if (self.timerEnabled):
@@ -223,9 +177,6 @@ cdef class PitChannel:
                     return
                 self.timerEnabled = False
         #prctl.set_name("Pit::{0:d}{1:d}_5".format(self.channelId, self.localCounterMode))
-        #with nogil:
-        #    usleep(3000000)
-        #prctl.set_name("Pit::{0:d}{1:d}_6".format(self.channelId, self.localCounterMode))
     cdef void runTimer(self):
         self.resetChannel = False
         self.localCounterMode = self.counterMode
@@ -241,20 +192,16 @@ cdef class PitChannel:
                 self.pit.main.notice("PitChannel::runTimer: WARNING: TODO: bcdMode may not work!")
                 self.counterStartValue = self.bcdToDec(self.counterStartValue)
             if (self.localCounterMode == 3):
-                #self.counterStartValue &= 0xffffe
-                #self.counterStartValue &= 0xfffe
-                #self.counterStartValue &= 0xfffffffe
                 if (self.counterStartValue == 0):
                     self.pit.main.exitError("runTimer: counterValue is 0")
                     return
             self.counterValue = self.counterStartValue
             if (self.localCounterMode == 0):
                 #with gil:
-                #    self.tempTimerValue = round(1.0e6/(1193182.0/self.counterValue))
-                #self.tempTimerValue = (300000000/(357954600/self.counterValue))
+                #self.tempTimerValue = round(1.0e6/(1193182.0/self.counterValue))
                 self.tempTimerValue = lround(1.0e6/(1193182.0/self.counterValue))
                 ###self.tempTimerValue <<= 4 # TODO: HACK!
-                self.tempTimerValue <<= 5 # TODO: HACK!
+                ###self.tempTimerValue <<= 5 # TODO: HACK!
                 ###self.tempTimerValue <<= 3 # TODO: HACK!
                 ###self.tempTimerValue <<= 6 # TODO: HACK!
             #if (self.localCounterMode == 3):
@@ -265,19 +212,16 @@ cdef class PitChannel:
             elif (self.localCounterMode == 2 and self.channelId == 2):
                 self.pit.main.exitError("runTimer: is it ok to use mode-%u with channelId-%u and cpu clock measures?", self.localCounterMode, self.channelId)
                 return
-            elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
-                (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
+            #elif (self.channelId == 2 and (<PS2>self.pit.main.platform.ps2).ppcbT2Gate):
+            #    (<PS2>self.pit.main.platform.ps2).ppcbT2Out = False
         self.timerEnabled = False
         if (self.threadObject):
+            #self.pit.main.notice("runTimer: threadObject.join()")
             self.threadObject.join()
-            #self.threadObject.cancel()
-            #self.threadObject.result()
             self.threadObject = None
         if (not self.pit.main.quitEmu):
             self.timerEnabled = True
-            self.pit.main.notice("runTimer: channelId %u, counterMode %u, counterStartValue 0x%04x, tempTimerValue %u", self.channelId, self.counterMode, self.counterStartValue, self.tempTimerValue)
-            #if (self.counterMode == 3):
-            #    self.pit.main.debugEnabled = True
+            #self.pit.main.notice("runTimer: channelId %u, counterMode %u, counterStartValue 0x%04x, tempTimerValue %u", self.channelId, self.counterMode, self.counterStartValue, self.tempTimerValue)
             self.threadObject = self.pit.main.misc.createThread(self.timerFunc, self)
 
 cdef class Pit:

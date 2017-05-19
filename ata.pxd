@@ -37,7 +37,7 @@ cdef class AtaController:
     cdef uint32_t sectorCount, cylinder, busmasterAddress
     cdef uint64_t lba
     cdef void setSignature(self, uint8_t driveId)
-    cdef void reset(self, uint8_t swReset)
+    cdef void reset(self, uint8_t swReset) nogil
     cdef inline void LbaToCHS(self)
     cdef void convertToLBA28(self)
     cdef void raiseAtaIrq(self, uint8_t withDRQ, uint8_t doIRQ)
@@ -57,7 +57,7 @@ cdef class Ata:
     cdef PyObject *controller[2]
     cdef PciDevice pciDevice
     cdef uint32_t base4Addr, base4AddrMasked
-    cdef void reset(self)
+    cdef void reset(self) nogil
     cdef uint8_t isBusmaster(self, uint16_t ioPortAddr)
     cdef uint32_t inPort(self, uint16_t ioPortAddr, uint8_t dataSize)
     cdef void outPort(self, uint16_t ioPortAddr, uint32_t data, uint8_t dataSize)

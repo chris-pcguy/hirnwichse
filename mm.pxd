@@ -35,19 +35,19 @@ cdef class ConfigSpace:
     cdef uint8_t clearByte
     cdef uint32_t csSize
     cdef void quitFunc(self)
-    cdef void csResetData(self, uint8_t clearByte)
+    cdef void csResetData(self, uint8_t clearByte) nogil
     cdef void csResetAddr(self, uint32_t offset, uint8_t clearByte, uint8_t size)
     cdef bytes csRead(self, uint32_t offset, uint32_t size)
-    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size)
+    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil
     cdef uint8_t csReadValueUnsignedByte(self, uint32_t offset)
     cdef uint16_t csReadValueUnsignedWord(self, uint32_t offset)
     cdef uint32_t csReadValueUnsignedDword(self, uint32_t offset)
-    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size)
+    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil
     cdef int64_t csReadValueSigned(self, uint32_t offset, uint8_t size)
     cdef void csWriteValueByte(self, uint32_t offset, uint8_t data)
     cdef void csWriteValueWord(self, uint32_t offset, uint16_t data)
     cdef void csWriteValueDword(self, uint32_t offset, uint32_t data)
     cdef void csWriteValueQword(self, uint32_t offset, uint64_t data)
-    cdef void csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size)
+    cdef void csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) nogil
 
 

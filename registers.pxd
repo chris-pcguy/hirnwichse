@@ -132,7 +132,6 @@ cdef class Registers:
             self.reloadCpuCache()
         return True
     cdef uint8_t reloadCpuCache(self) except BITMASK_BYTE_CONST
-    cdef int64_t readFromCacheAddSigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
     cdef uint64_t readFromCacheAddUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
     cdef uint64_t readFromCacheUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
     cdef inline uint32_t readFlags(self):
@@ -146,7 +145,6 @@ cdef class Registers:
     cdef inline void syncCR0State(self):
         self.protectedModeOn = self.getFlagDword(CPU_REGISTER_CR0, CR0_FLAG_PE) != 0
     cdef uint8_t getCurrentOpcodeUnsignedByte(self) except? BITMASK_BYTE_CONST
-    cdef int64_t getCurrentOpcodeAddSigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST
     cdef uint8_t getCurrentOpcodeAddUnsignedByte(self) except? BITMASK_BYTE_CONST
     cdef uint16_t getCurrentOpcodeAddUnsignedWord(self) except? BITMASK_BYTE_CONST
     cdef uint32_t getCurrentOpcodeAddUnsignedDword(self) except? BITMASK_BYTE_CONST
@@ -164,7 +162,7 @@ cdef class Registers:
     cdef inline void regWriteWithOpWord(self, uint16_t regId, uint16_t value, uint8_t valueOp)
     cdef inline void regWriteWithOpDword(self, uint16_t regId, uint32_t value, uint8_t valueOp)
     cdef inline void regWriteWithOpQword(self, uint16_t regId, uint64_t value, uint8_t valueOp)
-    cdef inline uint32_t getFlagDword(self, uint16_t regId, uint32_t flags):
+    cdef inline uint32_t getFlagDword(self, uint16_t regId, uint32_t flags) nogil:
         return (self.regs[regId]._union.dword.erx&flags)
     cdef inline void setSZP(self, uint32_t value, uint8_t regSize)
     cdef inline void setSZP_O(self, uint32_t value, uint8_t regSize)

@@ -36,7 +36,7 @@ cdef class Platform:
         self.parallel = Parallel(self.main)
         self.serial   = Serial(self.main)
         self.gdbstub  = GDBStub(self.main)
-    cdef void resetDevices(self):
+    cdef void resetDevices(self) nogil:
         self.cmos.reset()
         #self.pic.reset()
         #self.isadma.reset()

@@ -497,23 +497,6 @@ cdef class Registers:
             self.cpuCacheSize = tempSize
             self.cpuCacheIndex = self.cpuCacheCodeSegChange = 0
         return True
-    cdef int64_t readFromCacheAddSigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST:
-        IF CPU_CACHE_SIZE:
-            cdef int64_t *retVal
-            if (self.cpuCacheIndex+numBytes > self.cpuCacheSize):
-                self.reloadCpuCache()
-            retVal = <int64_t*>(self.cpuCache+self.cpuCacheIndex)
-            self.cpuCacheIndex += numBytes
-            if (numBytes == OP_SIZE_BYTE):
-                return <int8_t>retVal[0]
-            elif (numBytes == OP_SIZE_WORD):
-                return <int16_t>retVal[0]
-            elif (numBytes == OP_SIZE_DWORD):
-                return <int32_t>retVal[0]
-            #else:
-            return retVal[0]
-        ELSE:
-            return 0
     cdef uint64_t readFromCacheAddUnsigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST:
         IF CPU_CACHE_SIZE:
             cdef uint64_t *retVal
@@ -569,37 +552,6 @@ cdef class Registers:
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
                 self.main.notice("Registers::getCurrentOpcodeUnsignedByte: EIP: 0x%08x, ret==0x%02x", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
-        return ret
-    cdef int64_t getCurrentOpcodeAddSigned(self, uint8_t numBytes) except? BITMASK_BYTE_CONST:
-        cdef int64_t ret = 0
-        IF (CPU_CACHE_SIZE):
-            cdef uint32_t physAddr
-        (<Paging>(<Segments>self.segments).paging).instrFetch = True
-        IF (CPU_CACHE_SIZE):
-            if (self.cacheDisabled):
-                if (numBytes == OP_SIZE_BYTE):
-                    ret = <int8_t>self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
-                elif (numBytes == OP_SIZE_WORD):
-                    ret = <int16_t>self.mmReadValueUnsignedWord(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
-                elif (numBytes == OP_SIZE_DWORD):
-                    ret = <int32_t>self.mmReadValueUnsignedDword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
-            else:
-                self.mmGetRealAddr(self.regs[CPU_REGISTER_EIP]._union.dword.erx, numBytes, &self.segments.cs, False, False, True)
-                physAddr = self.segments.cs.gdtEntry.base+self.regs[CPU_REGISTER_EIP]._union.dword.erx
-                if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < numBytes):
-                    self.reloadCpuCache()
-                ret = self.readFromCacheAddSigned(numBytes)
-        ELSE:
-            if (numBytes == OP_SIZE_BYTE):
-                ret = <int8_t>self.mmReadValueUnsignedByte(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
-            elif (numBytes == OP_SIZE_WORD):
-                ret = <int16_t>self.mmReadValueUnsignedWord(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
-            elif (numBytes == OP_SIZE_DWORD):
-                ret = <int32_t>self.mmReadValueUnsignedDword(self.regs[CPU_REGISTER_EIP]._union.dword.erx, &self.segments.cs, False)
-        IF COMP_DEBUG:
-            if (self.main.debugEnabled):
-                self.main.notice("Registers::getCurrentOpcodeAddSigned: EIP: 0x%08x, ret==0x%02x", self.regs[CPU_REGISTER_EIP]._union.dword.erx, ret)
-        self.regs[CPU_REGISTER_EIP]._union.dword.erx += numBytes
         return ret
     cdef uint8_t getCurrentOpcodeAddUnsignedByte(self) except? BITMASK_BYTE_CONST:
         cdef uint8_t ret
@@ -708,16 +660,19 @@ cdef class Registers:
         return ret
     cdef inline uint8_t isAddressInLimit(self, GdtEntry *gdtEntry, uint32_t address, uint32_t size):
         ## address is an offset.
-        address += size-1
         if (not gdtEntry[0].anotherLimit):
-            if (address>gdtEntry[0].limit):
+            if (gdtEntry[0].limit == BITMASK_DWORD):
+                return True
+            address += size-1
+            if (address > gdtEntry[0].limit):
                 IF COMP_DEBUG:
-                    self.main.notice("Registers::isAddressInLimit: test2: not in limit; (addr==0x%08x; size==0x%08x; limit==0x%08x)", address+1, size, gdtEntry[0].limit)
+                    self.main.notice("Registers::isAddressInLimit: expand-up: not in limit; (addr==0x%08x; size==0x%08x; limit==0x%08x)", address, size, gdtEntry[0].limit)
                 return False
-        else:
-            if ((address+1)<gdtEntry[0].limit or (not gdtEntry[0].segSize and (address>BITMASK_WORD))):
+        elif (gdtEntry[0].limit):
+            address += size-1
+            if (address <= gdtEntry[0].limit or (gdtEntry[0].segSize == OP_SIZE_WORD and (address >= BITMASK_WORD))):
                 IF COMP_DEBUG:
-                    self.main.notice("Registers::isAddressInLimit: test1: not in limit; (addr==0x%08x; size==0x%08x; limit==0x%08x)", address+1, size, gdtEntry[0].limit)
+                    self.main.notice("Registers::isAddressInLimit: expand-down: not in limit; (addr==0x%08x; size==0x%08x; limit==0x%08x)", address, size, gdtEntry[0].limit)
                 return False
         return True
     cdef uint8_t segWriteSegment(self, Segment *segment, uint16_t segValue) except BITMASK_BYTE_CONST:
@@ -1355,8 +1310,12 @@ cdef class Registers:
         if (((baseAddress&0xfff)+TSS_MIN_32BIT_HARD_LIMIT) > 0xfff):
             self.main.exitError("Registers::switchTSS32: TSS is over page boundary!")
             return False
+        temp = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_LDT_SEG_SEL)
+        if (not (temp & GDT_USE_LDT) or not self.registers.segments.inLimit(temp)):
+            raise HirnwichseException(CPU_EXCEPTION_TS, temp)
+        # TODO: add the missing checks
         if (self.protectedModeOn and self.pagingOn):
-            temp = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_CR3)
+            temp = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_CR3) # intel manual (7.3 Task Switching) says to read it without writing it afterwards if paging is disabled. does doing so make any sense with the current design of the emulator?
             self.regs[CPU_REGISTER_CR3]._union.dword.erx = temp
             #(<Paging>self.segments.paging).invalidateTables(temp, True)
             (<Paging>self.segments.paging).invalidateTables(temp, False)

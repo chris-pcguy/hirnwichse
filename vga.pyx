@@ -99,23 +99,23 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
         self.readIndex = self.writeIndex = 0
         self.readCycle = self.writeCycle = 0
         self.mask = 0xff
-        self.state = 0x01
+        self.dacState = 0x01
     cdef uint8_t getWriteIndex(self):
         return self.writeIndex
     cdef void setReadIndex(self, uint8_t index):
         self.readIndex = index
         self.readCycle = 0
-        self.state = 0x03
+        self.dacState = 0x03
     cdef void setWriteIndex(self, uint8_t index):
         self.writeIndex = index
         self.writeCycle = 0
-        self.state = 0x00
+        self.dacState = 0x00
     cdef uint32_t getData(self, uint8_t dataSize):
         cdef uint32_t retData = 0x3f
         if (dataSize != 1):
             self.vga.main.exitError("DAC::getData: dataSize != 1 (dataSize: %u)", dataSize)
             return retData
-        if (self.state == 0x03):
+        if (self.dacState == 0x03):
             retData = self.configSpace.csReadValueUnsignedByte((self.readIndex*3)+self.readCycle)&0x3f
             self.readCycle += 1
             if (self.readCycle >= 3):
@@ -126,7 +126,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
         if (dataSize != 1):
             self.vga.main.exitError("DAC::setData: dataSize != 1 (dataSize: %u)", dataSize)
             return
-        if (self.state != 0x00):
+        if (self.dacState != 0x00):
             return
         self.configSpace.csWriteValueByte((self.writeIndex*3)+self.writeCycle, data&0x3f)
         self.writeCycle += 1
@@ -137,7 +137,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
     cdef uint8_t getMask(self):
         return self.mask
     cdef uint8_t getState(self):
-        return self.state
+        return self.dacState
     cdef void setMask(self, uint8_t value):
         self.mask = value
         IF COMP_DEBUG:

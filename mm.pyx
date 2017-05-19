@@ -311,7 +311,7 @@ cdef class ConfigSpace:
         except:
             print_exc()
             self.main.exitError('ConfigSpace::quitFunc: exception, exiting...')
-    cdef void csResetData(self, uint8_t clearByte):
+    cdef void csResetData(self, uint8_t clearByte) nogil:
         self.clearByte = clearByte
         with nogil:
             memset(self.csData, clearByte, self.csSize)
@@ -336,7 +336,7 @@ cdef class ConfigSpace:
                 self.main.notice("ConfigSpace::csRead: offset+size > self.csSize. (offset: 0x%04x, size: %u)", offset, size)
             data += bytes([self.clearByte])*size
         return data
-    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size):
+    cdef void csWrite(self, uint32_t offset, char *data, uint32_t size) nogil:
         cdef uint32_t tempSize
         tempSize = min(size, self.csSize-offset)
         #if (offset >= self.csSize):
@@ -364,7 +364,7 @@ cdef class ConfigSpace:
         cdef uint32_t ret
         ret = (<uint32_t*>(self.csData+offset))[0]
         return ret
-    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size):
+    cdef uint64_t csReadValueUnsigned(self, uint32_t offset, uint8_t size) nogil:
         cdef uint64_t ret
         #if (self.main.debugEnabled):
         #    self.main.debug("ConfigSpace::csReadValueUnsigned: test1. (offset: 0x%04x, size: %u)", offset, size)
@@ -408,7 +408,7 @@ cdef class ConfigSpace:
         memcpy(self.csData+offset, &data, OP_SIZE_DWORD)
     cdef void csWriteValueQword(self, uint32_t offset, uint64_t data):
         memcpy(self.csData+offset, &data, OP_SIZE_QWORD)
-    cdef void csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size):
+    cdef void csWriteValue(self, uint32_t offset, uint64_t data, uint8_t size) nogil:
         #if (offset >= self.csSize):
         IF 0:
             #if (self.main.debugEnabled):

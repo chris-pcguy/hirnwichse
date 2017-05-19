@@ -46,7 +46,7 @@ cdef class Platform:
     cdef PyObject *ports[PORTS_LIST_LEN]
     cdef uint8_t portsIndex
     cdef void initDevices(self)
-    cdef void resetDevices(self)
+    cdef void resetDevices(self) nogil
     cdef void addReadHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject)
     cdef void addWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, OutPort outObject)
     cdef void addReadWriteHandlers(self, uint16_t[PORTS_LEN] portNums, object classObject, InPort inObject, OutPort outObject)
