@@ -21,4 +21,21 @@ Somewhen in a few centuries:
 ACPI (win2k, ...)
 AMD64
 
+if CPUID eax input is too high, return values from CPUID eax input (CPUID[0]'s eax)
+if e.g. CPUID[0] eax == 0x14:
+    CPUID[0x15] == CPUID[0x16] == CPUID[0x17] == CPUID[0x18] == ... == CPUID[0x14]
+
+handling NOP differently?
+
+VGA:
+don't malloc DAC data, do union {uchar[0x300+0x100];uint[0x100];} instead.
+move the shifts of 2 from getColor to getData/setData.
+use uint in getColor instead of ORing uchar's.
+
+ATA:
+Use a more C-like way of reading data
+
+PIT:
+Win9x boot only works on some machines.
+
 

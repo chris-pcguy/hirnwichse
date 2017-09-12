@@ -95,11 +95,15 @@ cdef class CRT(VGA_REGISTER_RAW):
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
     def __init__(self, Vga vga):
-        VGA_REGISTER_RAW.__init__(self, VGA_DAC_AREA_SIZE, vga)
+        self.vga = vga
         self.readIndex = self.writeIndex = 0
         self.readCycle = self.writeCycle = 0
         self.mask = 0xff
         self.dacState = 0x01
+        self.reset()
+    cdef void reset(self):
+        self.index = 0
+        memset(self.data.b, 0, 0x400)
     cdef uint8_t getWriteIndex(self):
         return self.writeIndex
     cdef void setReadIndex(self, uint8_t index):
@@ -116,7 +120,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
             self.vga.main.exitError("DAC::getData: dataSize != 1 (dataSize: %u)", dataSize)
             return retData
         if (self.dacState == 0x03):
-            retData = self.configSpace.csReadValueUnsignedByte((self.readIndex*3)+self.readCycle)&0x3f
+            retData = (self.data.b[((self.readIndex*4)+self.readCycle)])>>2 # &0x3f # there's no need to do "&0x3f" because the data won't get changed anywhere except in setData().
             self.readCycle += 1
             if (self.readCycle >= 3):
                 self.readCycle = 0
@@ -128,7 +132,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
             return
         if (self.dacState != 0x00):
             return
-        self.configSpace.csWriteValueByte((self.writeIndex*3)+self.writeCycle, data&0x3f)
+        self.data.b[((self.writeIndex*4)+self.writeCycle)] = (data&0x3f)<<2
         self.writeCycle += 1
         if (self.writeCycle >= 3):
             self.writeCycle = 0
@@ -328,8 +332,8 @@ cdef class Vga:
         if (temp != self.startAddress):
             #self.refreshScreenFunction()
             self.refreshScreen = True
-    cdef uint32_t getColor(self, uint16_t color): # RGBA
-        cdef uint8_t red, green, blue
+    cdef uint32_t getColor(self, uint16_t color):
+        cdef uint32_t retData
         if (not self.enable8Bit):
             if (color >= 0x10):
                 self.main.notice("Vga::getColor: color_1 >= 0x10 (color_1==0x%02x)", color)
@@ -344,15 +348,9 @@ cdef class Vga:
             else:
                 color = (color & 0x3f) | ((self.colorSelect & 0xc) << 4)
         color &= self.dac.mask
-        color *= 3
-        red = (<uint8_t>self.dac.configSpace.csData[color]) << 2
-        green = (<uint8_t>self.dac.configSpace.csData[color+1]) << 2
-        blue = (<uint8_t>self.dac.configSpace.csData[color+2]) << 2
-        #with gil:
-        #    #red, green, blue = self.dac.configSpace.csRead(color, 3)
-        #    red, green, blue = self.dac.configSpace.csData[color:color+3]
-        #red, green, blue = red << 2, green << 2, blue << 2
-        return ((red << 16) | (green << 8) | blue)
+        retData = self.dac.data.w[color]
+        retData =  (((retData&0xff)<<16) | (retData&0x00ff00) | (retData>>16))
+        return retData
     cdef void readFontData(self): # TODO
         cdef uint16_t fontDataAddressA, fontDataAddressB
         #with gil:

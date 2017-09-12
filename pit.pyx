@@ -91,13 +91,13 @@ cdef class PitChannel:
                         #self.pit.main.notice("PitChannel::mode2Func: before while")
                         #self.pit.main.notice("PitChannel::mode2Func(%u): counterValue==%u", self.channelId, self.counterStartValue)
                         if (self.localCounterMode == 3):
-                            i = 2
+                            #i = 2
                             #i = 4 # HACK
-                            #i = 8
+                            i = 8
                         else:
-                            i = 1
+                            #i = 1
                             #i = 2 # HACK
-                            #i = 4
+                            i = 4
                         ##j = i-1
                         ##j = (i<<1)-1
                         j = (i<<2)-1
@@ -109,6 +109,7 @@ cdef class PitChannel:
                         while (self.counterValue >= i and self.counterValue <= (BITMASK_WORD+1)):
                             #self.main.notice("PitChannel::mode2Func: loop2 begin")
                             self.counterValue -= i
+                            #self.counterValue -= i<<1
                             #self.pit.main.notice("PitChannel::mode2Func: in while")
                             if (not (self.counterValue&j)):
                             #IF 1:

@@ -5,7 +5,12 @@ from hirnwichse_main cimport Hirnwichse
 from mm cimport ConfigSpace
 from pci cimport PciDevice
 from pysdlUI cimport PysdlUI
+from libc.string cimport memset
 
+cdef:
+    ctypedef union dataUnion:
+        uint8_t b[0x300+0x100]
+        uint32_t w[0x100]
 
 cdef class VGA_REGISTER_RAW:
     cdef ConfigSpace configSpace
@@ -24,6 +29,8 @@ cdef class CRT(VGA_REGISTER_RAW):
 
 cdef class DAC(VGA_REGISTER_RAW): # PEL
     cdef uint8_t mask, dacState, readCycle, writeCycle, readIndex, writeIndex
+    cdef dataUnion data
+    cdef void reset(self)
     cdef uint8_t getWriteIndex(self)
     cdef void setReadIndex(self, uint8_t index)
     cdef void setWriteIndex(self, uint8_t index)
@@ -59,7 +66,7 @@ cdef class Vga:
     cdef uint32_t videoMemBase, startAddress, offset, videoMemSize, romBaseReal, romBaseRealPlusSize
     cdef double newTimer, oldTimer
     cdef void setStartAddress(self)
-    cdef uint32_t getColor(self, uint16_t color) # RGBA
+    cdef uint32_t getColor(self, uint16_t color)
     cdef void readFontData(self)
     cdef uint32_t translateBytes(self, uint32_t data)
     cdef void refreshScreenFunction(self)

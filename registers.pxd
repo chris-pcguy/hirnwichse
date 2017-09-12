@@ -71,6 +71,22 @@ cdef:
     struct RegStruct:
         qwordUnion _union
 
+    ctypedef fused uint8_t_uint16_t_uint32_t:
+        uint8_t
+        uint16_t
+        uint32_t
+
+    ctypedef fused uint8_t_uint16_t_uint32_t_uint64_t:
+        uint8_t
+        uint16_t
+        uint32_t
+        uint64_t
+
+    ctypedef fused int8_t_int16_t_int32_t_int64_t:
+        int8_t
+        int16_t
+        int32_t
+        int64_t
 
 cdef class ModRMClass:
     cdef Registers registers
@@ -86,7 +102,7 @@ cdef class ModRMClass:
     cdef uint8_t modRMSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp) except BITMASK_BYTE_CONST # stdValueOp==OPCODE_SAVE
     cdef int64_t modRLoadSigned(self, uint8_t regSize)
     cdef uint64_t modRLoadUnsigned(self, uint8_t regSize)
-    cdef void modRSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp)
+    cdef void modRSave(self, uint8_t_uint16_t_uint32_t_uint64_t value, uint8_t valueOp)
 
 
 cdef class Fpu:
@@ -164,12 +180,13 @@ cdef class Registers:
     cdef inline void regWriteWithOpQword(self, uint16_t regId, uint64_t value, uint8_t valueOp)
     cdef inline uint32_t getFlagDword(self, uint16_t regId, uint32_t flags) nogil:
         return (self.regs[regId]._union.dword.erx&flags)
-    cdef inline void setSZP(self, uint32_t value, uint8_t regSize)
-    cdef inline void setSZP_O(self, uint32_t value, uint8_t regSize)
-    cdef inline void setSZP_A(self, uint32_t value, uint8_t regSize)
-    cdef inline void setSZP_COA(self, uint32_t value, uint8_t regSize)
+    cdef void setSZP(self, uint32_t value, uint8_t regSize)
+    cdef void setSZP_O(self, uint32_t value, uint8_t regSize)
+    cdef void setSZP_A(self, uint32_t value, uint8_t regSize)
+    cdef void setSZP_COA(self, uint32_t value, uint8_t regSize)
     cdef inline uint8_t getCond(self, uint8_t index)
-    cdef inline void setFullFlags(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method)
+    #cdef void setFullFlags_(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method)
+    cdef void setFullFlags(self, uint8_t_uint16_t_uint32_t reg0, uint8_t_uint16_t_uint32_t reg1, uint8_t method)
     cdef inline uint32_t mmGetRealAddr(self, uint32_t mmAddr, uint32_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t written, uint8_t noAddress) except? BITMASK_BYTE_CONST
     cdef inline uint8_t mmReadValueUnsignedByte(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST
     cdef uint16_t mmReadValueUnsignedWord(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST

@@ -257,17 +257,17 @@ cdef class ModRMClass:
             return self.registers.regs[self.regName]._union.dword.erx
         #else: #elif (regSize == OP_SIZE_QWORD):
         return self.registers.regs[self.regName]._union.rrx
-    cdef void modRSave(self, uint8_t regSize, uint64_t value, uint8_t valueOp):
-        if (regSize == OP_SIZE_BYTE):
+    cdef void modRSave(self, uint8_t_uint16_t_uint32_t_uint64_t value, uint8_t valueOp):
+        if (uint8_t_uint16_t_uint32_t_uint64_t is uint8_t):
             if (self.reg <= 3):
                 self.registers.regWriteWithOpLowByte(self.regName, value, valueOp)
             else: #elif (self.reg >= 4):
                 self.registers.regWriteWithOpHighByte(self.regName, value, valueOp)
-        elif (regSize == OP_SIZE_WORD):
+        elif (uint8_t_uint16_t_uint32_t_uint64_t is uint16_t):
             self.registers.regWriteWithOpWord(self.regName, value, valueOp)
-        elif (regSize == OP_SIZE_DWORD):
+        elif (uint8_t_uint16_t_uint32_t_uint64_t is uint32_t):
             self.registers.regWriteWithOpDword(self.regName, value, valueOp)
-        else: #elif (regSize == OP_SIZE_QWORD):
+        else: #elif (uint8_t_uint16_t_uint32_t_uint64_t is uint64_t):
             self.registers.regWriteWithOpQword(self.regName, value, valueOp)
 
 
@@ -914,17 +914,27 @@ cdef class Registers:
             self.regs[regId]._union.rrx = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp %u.", valueOp)
-    cdef inline void setSZP(self, uint32_t value, uint8_t regSize):
-        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>((regSize<<3)-1))!=0
+    cdef void setSZP(self, uint32_t value, uint8_t regSize): # ((regSize<<3)-1) # FIXME: TODO: templating is broken with setSZP* for some reason.
+        #if (uint8_t_uint16_t_uint32_t is uint8_t):
+        #    #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>7)!=0
+        #    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>7)&1
+        #elif (uint8_t_uint16_t_uint32_t is uint16_t):
+        #    #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>15)!=0
+        #    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>15)&1
+        #else:
+        #    #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>31)!=0
+        #    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>31)&1
+        #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>((regSize<<3)-1))!=0
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>((regSize<<3)-1))&1
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = value==0
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<uint8_t>value]
-    cdef inline void setSZP_O(self, uint32_t value, uint8_t regSize):
+    cdef void setSZP_O(self, uint32_t value, uint8_t regSize):
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = False
-    cdef inline void setSZP_A(self, uint32_t value, uint8_t regSize):
+    cdef void setSZP_A(self, uint32_t value, uint8_t regSize):
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
-    cdef inline void setSZP_COA(self, uint32_t value, uint8_t regSize):
+    cdef void setSZP_COA(self, uint32_t value, uint8_t regSize):
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
     cdef inline uint8_t getCond(self, uint8_t index):
@@ -952,82 +962,144 @@ cdef class Registers:
         if (negateCheck):
             ret = not ret
         return ret
-    cdef inline void setFullFlags(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method):
-        cdef uint8_t unsignedOverflow = False, reg0Nibble, regSumuNibble, regShift, carried = False
+    #cdef void setFullFlags_(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method):
+    #    cdef uint8_t unsignedOverflow = False, reg0Nibble, regSumuNibble, regShift, carried = False
+    #    cdef uint64_t regSumu = 0
+    #    if (method in (OPCODE_ADD, OPCODE_ADC, OPCODE_SUB, OPCODE_SBB, OPCODE_MUL, OPCODE_IMUL, OPCODE_CMP)):
+    #        if (method in (OPCODE_MUL, OPCODE_IMUL)):
+    #            if (regSize == OP_SIZE_BYTE):
+    #                if (method == OPCODE_MUL):
+    #                    regSumu = (<uint8_t>reg0*<uint8_t>reg1)
+    #                    unsignedOverflow = (<uint16_t>regSumu)!=(<uint8_t>regSumu)
+    #                else:
+    #                    regSumu = (<int8_t>reg0*<uint8_t>reg1)
+    #                    unsignedOverflow = (<int16_t>regSumu)!=(<int8_t>regSumu)
+    #                regSumu = <uint8_t>regSumu
+    #            elif (regSize == OP_SIZE_WORD):
+    #                if (method == OPCODE_MUL):
+    #                    regSumu = (<uint16_t>reg0*<uint16_t>reg1)
+    #                    unsignedOverflow = (<uint32_t>regSumu)!=(<uint16_t>regSumu)
+    #                else:
+    #                    regSumu = (<int16_t>reg0*<uint16_t>reg1)
+    #                    unsignedOverflow = (<int32_t>regSumu)!=(<int16_t>regSumu)
+    #                regSumu = <uint16_t>regSumu
+    #            elif (regSize == OP_SIZE_DWORD):
+    #                if (method == OPCODE_MUL):
+    #                    regSumu = (<uint32_t>reg0*<uint32_t>reg1)
+    #                    unsignedOverflow = (<uint64_t>regSumu)!=(<uint32_t>regSumu)
+    #                else:
+    #                    regSumu = (<int32_t>reg0*<uint32_t>reg1)
+    #                    unsignedOverflow = (<int64_t>regSumu)!=(<int32_t>regSumu)
+    #                regSumu = <uint32_t>regSumu
+    #        else:
+    #            if (regSize == OP_SIZE_BYTE):
+    #                reg0 = <uint8_t>reg0
+    #                reg1 = <uint8_t>reg1
+    #            elif (regSize == OP_SIZE_WORD):
+    #                reg0 = <uint16_t>reg0
+    #                reg1 = <uint16_t>reg1
+    #            elif (regSize == OP_SIZE_DWORD):
+    #                reg0 = <uint32_t>reg0
+    #                reg1 = <uint32_t>reg1
+    #            if (method in (OPCODE_ADC, OPCODE_SBB) and self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf):
+    #                carried = True
+    #                reg1 += 1
+    #            if (method in (OPCODE_ADD, OPCODE_ADC)):
+    #                regSumu = (reg0+reg1)
+    #            elif (method in (OPCODE_SUB, OPCODE_SBB, OPCODE_CMP)):
+    #                regSumu = (reg0-reg1)
+    #            if (regSize == OP_SIZE_BYTE):
+    #                unsignedOverflow = regSumu!=(<uint8_t>regSumu)
+    #                regSumu = <uint8_t>regSumu
+    #            elif (regSize == OP_SIZE_WORD):
+    #                unsignedOverflow = regSumu!=(<uint16_t>regSumu)
+    #                regSumu = <uint16_t>regSumu
+    #            elif (regSize == OP_SIZE_DWORD):
+    #                unsignedOverflow = regSumu!=(<uint32_t>regSumu)
+    #                regSumu = <uint32_t>regSumu
+    #        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<uint8_t>regSumu]
+    #        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not regSumu
+    #        regShift = (regSize<<3)-1
+    #        if (method in (OPCODE_MUL, OPCODE_IMUL)):
+    #            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
+    #            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = unsignedOverflow
+    #            regSumu >>= regShift
+    #        else:
+    #            reg0Nibble = reg0&0xf
+    #            regSumuNibble = regSumu&0xf
+    #            reg0 >>= regShift
+    #            reg1 >>= regShift
+    #            regSumu >>= regShift
+    #            if (method in (OPCODE_ADD, OPCODE_ADC)):
+    #                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = (regSumuNibble<(reg0Nibble+carried))
+    #                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = regSumu not in (reg0, reg1)
+    #            elif (method in (OPCODE_SUB, OPCODE_SBB, OPCODE_CMP)):
+    #                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = ((regSumuNibble+carried)>reg0Nibble)
+    #                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (reg0!=reg1 and reg0!=regSumu and reg1==regSumu)
+    #        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = unsignedOverflow
+    #        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = regSumu
+    cdef void setFullFlags(self, uint8_t_uint16_t_uint32_t reg0, uint8_t_uint16_t_uint32_t reg1, uint8_t method):
+        cdef uint8_t unsignedOverflow, reg0Nibble, regSumuNibble, regShift, carried = False
         cdef uint64_t regSumu = 0
-        if (method in (OPCODE_ADD, OPCODE_ADC, OPCODE_SUB, OPCODE_SBB, OPCODE_MUL, OPCODE_IMUL, OPCODE_CMP)):
-            if (method in (OPCODE_MUL, OPCODE_IMUL)):
-                if (regSize == OP_SIZE_BYTE):
-                    if (method == OPCODE_MUL):
-                        regSumu = (<uint8_t>reg0*<uint8_t>reg1)
-                        unsignedOverflow = (<uint16_t>regSumu)!=(<uint8_t>regSumu)
-                    else:
-                        regSumu = (<int8_t>reg0*<uint8_t>reg1)
-                        unsignedOverflow = (<int16_t>regSumu)!=(<int8_t>regSumu)
-                    regSumu = <uint8_t>regSumu
-                elif (regSize == OP_SIZE_WORD):
-                    if (method == OPCODE_MUL):
-                        regSumu = (<uint16_t>reg0*<uint16_t>reg1)
-                        unsignedOverflow = (<uint32_t>regSumu)!=(<uint16_t>regSumu)
-                    else:
-                        regSumu = (<int16_t>reg0*<uint16_t>reg1)
-                        unsignedOverflow = (<int32_t>regSumu)!=(<int16_t>regSumu)
-                    regSumu = <uint16_t>regSumu
-                elif (regSize == OP_SIZE_DWORD):
-                    if (method == OPCODE_MUL):
-                        regSumu = (<uint32_t>reg0*<uint32_t>reg1)
-                        unsignedOverflow = (<uint64_t>regSumu)!=(<uint32_t>regSumu)
-                    else:
-                        regSumu = (<int32_t>reg0*<uint32_t>reg1)
-                        unsignedOverflow = (<int64_t>regSumu)!=(<int32_t>regSumu)
-                    regSumu = <uint32_t>regSumu
+        if (uint8_t_uint16_t_uint32_t is uint8_t):
+            regShift = OP_SIZE_BYTE
+        elif (uint8_t_uint16_t_uint32_t is uint16_t):
+            regShift = OP_SIZE_WORD
+        elif (uint8_t_uint16_t_uint32_t is uint32_t):
+            regShift = OP_SIZE_DWORD
+        if (method in (OPCODE_MUL, OPCODE_IMUL)):
+            if (method == OPCODE_MUL):
+                regSumu = (reg0*reg1)
+            if (uint8_t_uint16_t_uint32_t is uint8_t):
+                if (method == OPCODE_MUL):
+                    unsignedOverflow = (<uint16_t>regSumu)!=(<uint8_t_uint16_t_uint32_t>regSumu)
+                else:
+                    regSumu = (<int8_t>reg0*reg1)
+                    unsignedOverflow = (<int16_t>regSumu)!=(<int8_t>regSumu)
+            elif (uint8_t_uint16_t_uint32_t is uint16_t):
+                if (method == OPCODE_MUL):
+                    unsignedOverflow = (<uint32_t>regSumu)!=(<uint8_t_uint16_t_uint32_t>regSumu)
+                else:
+                    regSumu = (<int16_t>reg0*reg1)
+                    unsignedOverflow = (<int32_t>regSumu)!=(<int16_t>regSumu)
+            #elif (uint8_t_uint16_t_uint32_t is uint32_t):
             else:
-                if (regSize == OP_SIZE_BYTE):
-                    reg0 = <uint8_t>reg0
-                    reg1 = <uint8_t>reg1
-                elif (regSize == OP_SIZE_WORD):
-                    reg0 = <uint16_t>reg0
-                    reg1 = <uint16_t>reg1
-                elif (regSize == OP_SIZE_DWORD):
-                    reg0 = <uint32_t>reg0
-                    reg1 = <uint32_t>reg1
-                if (method in (OPCODE_ADC, OPCODE_SBB) and self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf):
-                    carried = True
-                    reg1 += 1
-                if (method in (OPCODE_ADD, OPCODE_ADC)):
-                    regSumu = (reg0+reg1)
-                elif (method in (OPCODE_SUB, OPCODE_SBB, OPCODE_CMP)):
-                    regSumu = (reg0-reg1)
-                if (regSize == OP_SIZE_BYTE):
-                    unsignedOverflow = regSumu!=(<uint8_t>regSumu)
-                    regSumu = <uint8_t>regSumu
-                elif (regSize == OP_SIZE_WORD):
-                    unsignedOverflow = regSumu!=(<uint16_t>regSumu)
-                    regSumu = <uint16_t>regSumu
-                elif (regSize == OP_SIZE_DWORD):
-                    unsignedOverflow = regSumu!=(<uint32_t>regSumu)
-                    regSumu = <uint32_t>regSumu
-            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<uint8_t>regSumu]
-            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not regSumu
-            regShift = (regSize<<3)-1
-            if (method in (OPCODE_MUL, OPCODE_IMUL)):
-                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
-                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = unsignedOverflow
-                regSumu >>= regShift
-            else:
-                reg0Nibble = reg0&0xf
-                regSumuNibble = regSumu&0xf
-                reg0 >>= regShift
-                reg1 >>= regShift
-                regSumu >>= regShift
-                if (method in (OPCODE_ADD, OPCODE_ADC)):
-                    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = (regSumuNibble<(reg0Nibble+carried))
-                    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = regSumu not in (reg0, reg1)
-                elif (method in (OPCODE_SUB, OPCODE_SBB, OPCODE_CMP)):
-                    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = ((regSumuNibble+carried)>reg0Nibble)
-                    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (reg0!=reg1 and reg0!=regSumu and reg1==regSumu)
-            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = unsignedOverflow
-            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = regSumu
+                if (method == OPCODE_MUL):
+                    unsignedOverflow = (<uint64_t>regSumu)!=(<uint8_t_uint16_t_uint32_t>regSumu)
+                else:
+                    regSumu = (<int32_t>reg0*reg1)
+                    unsignedOverflow = (<int64_t>regSumu)!=(<int32_t>regSumu)
+        else:
+            if (method in (OPCODE_ADC, OPCODE_SBB) and self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf):
+                carried = True
+            if (method in (OPCODE_ADD, OPCODE_ADC)):
+                #regSumu = (reg0+reg1+carried)
+                regSumu = (reg0+<uint64_t>reg1+carried) # fix or hack for the winxp cd boot
+            elif (method in (OPCODE_SUB, OPCODE_SBB, OPCODE_CMP)):
+                regSumu = (reg0-(<uint64_t>reg1+carried))
+            unsignedOverflow = regSumu!=(<uint8_t_uint16_t_uint32_t>regSumu)
+        regSumu = <uint8_t_uint16_t_uint32_t>regSumu
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<uint8_t>regSumu]
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = not regSumu
+        regShift = (regShift<<3)-1
+        if (method in (OPCODE_MUL, OPCODE_IMUL)):
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = unsignedOverflow
+            regSumu >>= regShift
+        else:
+            reg0Nibble = reg0&0xf
+            regSumuNibble = regSumu&0xf
+            reg0 >>= regShift
+            reg1 >>= regShift
+            regSumu >>= regShift
+            if (method in (OPCODE_ADD, OPCODE_ADC)):
+                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = (regSumuNibble<(reg0Nibble+carried))
+                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = regSumu not in (reg0, reg1)
+            elif (method in (OPCODE_SUB, OPCODE_SBB, OPCODE_CMP)):
+                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = ((regSumuNibble+carried)>reg0Nibble)
+                self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = (reg0!=reg1 and reg0!=regSumu and reg1==regSumu)
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = unsignedOverflow
+        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = regSumu
     cdef inline uint32_t mmGetRealAddr(self, uint32_t mmAddr, uint32_t dataSize, Segment *segment, uint8_t allowOverride, uint8_t written, uint8_t noAddress) except? BITMASK_BYTE_CONST:
         cdef uint8_t addrInLimit
         IF COMP_DEBUG:
@@ -1311,7 +1383,7 @@ cdef class Registers:
             self.main.exitError("Registers::switchTSS32: TSS is over page boundary!")
             return False
         temp = self.main.mm.mmPhyReadValueUnsignedDword(baseAddress + TSS_32BIT_LDT_SEG_SEL)
-        if (not (temp & GDT_USE_LDT) or not self.registers.segments.inLimit(temp)):
+        if (not self.segments.inLimit(temp)):
             raise HirnwichseException(CPU_EXCEPTION_TS, temp)
         # TODO: add the missing checks
         if (self.protectedModeOn and self.pagingOn):
