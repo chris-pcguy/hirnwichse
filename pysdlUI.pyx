@@ -30,10 +30,8 @@ cdef class PysdlUI:
         self.charSize = (9, 16)
         self.fontDataA = bytes(VGA_FONTAREA_SIZE)
         self.fontDataB = bytes(VGA_FONTAREA_SIZE)
-        self.points = {}
-        for i in range(256):
-            self.points[i] = []
-        #self.points = []
+        memset(self.points, 0, POINTS_SIZE)
+        self.pointsMod = [[] for i in range(256)]
     cdef void initPysdl(self):
         cdef uint16_t event
         sdl2.SDL_Init(sdl2.SDL_INIT_TIMER | sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
@@ -56,28 +54,12 @@ cdef class PysdlUI:
         pass
         #self.screen.fill((0, 0, 0))
     cdef void putPixel(self, uint16_t x, uint16_t y, uint8_t colors): # returns rect
-        #cdef object newRect, colorObject
-        #cdef object colorObject
-        #cdef uint32_t bgColor
         #try:
         IF 1:
-            #newRect = sdl2.rect.SDL_Rect(x, y, 1, 1)
-            #newRect = sdl2.rect.SDL_Rect(x<<1, y<<1, 2, 2)
-            # bgColor == RGBA; colors == (A?)RGB
             if (self.msbBlink):
                 colors &= 0x7
-            #with gil:
-            self.points[colors].extend((x, y))
-            #bgColor = self.vga.getColor(colors)
-            #with gil:
-            #    self.points.extend((x, y, bgColor))
-            #colorObject = sdl2.ext.RGBA(bgColor)
-            ##sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
-            #if (self.renderer):
-            #    #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
-            #    self.renderer.draw_point((x, y), colorObject)
-            #    #self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
-            ##return newRect
+            self.points[(y*POINTS_WIDTH)+x] = colors
+            self.pointsMod[colors].extend((x, y))
         #except:
         IF 0:
             print_exc()
@@ -364,7 +346,7 @@ cdef class PysdlUI:
             exit(1)
         #elif (event.type == sdl2.SDL_VIDEOEXPOSE):
         elif (event.type == 512): # 512 == sdl2.SDL_VIDEOEXPOSE ?
-            self.updateScreen(True)
+            self.updateScreen(1, 0)
         elif (event.type == sdl2.SDL_KEYDOWN):
             if (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_MINUS):
                 self.vga.main.debugEnabled = not self.vga.main.debugEnabled
@@ -373,7 +355,7 @@ cdef class PysdlUI:
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_KP_PLUS):
                 #self.vga.refreshScreen = True
                 self.vga.refreshScreenFunction()
-                self.updateScreen(True)
+                self.updateScreen(1, 0)
                 stdout.flush()
                 return True
             elif (event.key.keysym.scancode == sdl2.SDL_SCANCODE_RCTRL):
@@ -401,40 +383,44 @@ cdef class PysdlUI:
         else:
             self.vga.main.notice("PysdlUI::handleSingleEvent: event.type == %u", <int>event.type)
         return True
-    cdef void updateScreen(self, uint8_t forceUpdate):
-        #cdef object colorObject
-        #cdef list pointList
+    cdef void updateScreen(self, uint8_t forceUpdate, uint8_t color):
         cdef uint8_t doRefresh
-        #cdef uint16_t x, y
-        cdef uint32_t i, bgColor
+        cdef uint16_t x, y
+        cdef uint32_t i, j
+        cdef uint32_t colors[256]
+        #cdef list points
         if (self.vga.graphicalMode):
         #IF 1:
             doRefresh = forceUpdate
             #if (self.renderer):
-            IF 1:
-                for i in range(256):
-                    #pointList = self.points[i]
-                    #if (len(pointList) >= 2):
-                    if (len(self.points[i]) >= 2):
-                        doRefresh = True
-                        #print("points[i]", i, len(self.points[i]), repr(self.points[i]))
-                        bgColor = self.vga.getColor(i)
-                        #colorObject = sdl2.ext.ARGB(0xff000000|bgColor)
-                        #sdl2.surface.SDL_FillRect(self.newPixel, None, bgColor)
-                        #sdl2.SDL_BlitScaled(self.newPixel, None, self.screen, newRect)
-                        #self.renderer.draw_point(pointList, colorObject)
-                        #self.renderer.draw_point(self.points[i], colorObject)
-                        #self.renderer.draw_point(pointList, bgColor)
-                        self.renderer.draw_point(self.points[i], bgColor)
-                        self.points[i] = []
-                        #self.renderer.fill(((x*self.vga.charHeight, y, self.vga.charHeight, 1),), colorObject)
-                        #return newRect
-                #if (len(self.points) >= 3):
-                #    #doRefresh = True
-                #    for i in range(0, len(self.points), 3):
-                #        colorObject = sdl2.ext.ARGB(0xff000000|self.points[i+2])
-                #        self.renderer.draw_point((self.points[i], self.points[i+1]), colorObject)
-                #    self.points = []
+            #IF 1:
+            if (forceUpdate):
+                #points = [[] for i in range(256)]
+                colors = [self.vga.getColor(i) for i in range(256)]
+                if (forceUpdate == 2):
+                    for y in range(POINTS_HEIGHT):
+                        for x in range(POINTS_WIDTH): # avoiding modulo
+                            i = (y*POINTS_WIDTH)+x
+                            if (color == self.points[i]):
+                                self.pointsMod[color].extend((x, y))
+                #elif (forceUpdate == 1):
+                #if (forceUpdate):
+                IF 1:
+                    for i in range(256):
+                        if (len(self.pointsMod[i]) > 0):
+                            doRefresh = True
+                            #print("updateScreen: {0:s}". format(repr(self.pointsMod[i]),))
+                            for j in range(0, len(self.pointsMod[i]), 8192):
+                                #print("updateScreen: j=={0:d}; {1:s}". format(j, repr(self.pointsMod[i][j:j+2])))
+                                self.renderer.draw_point(self.pointsMod[i][j:j+8192], colors[i])
+                            self.pointsMod[i] = []
+            IF 0:
+                colors = [self.vga.getColor(i) for i in range(256)]
+                if (forceUpdate):
+                    for y in range(POINTS_HEIGHT):
+                        for x in range(POINTS_WIDTH): # avoiding modulo
+                            i = (y*POINTS_WIDTH)+x
+                            self.renderer.draw_point((x, y), colors[self.points[i]])
         else:
             doRefresh = True
         if (doRefresh and self.window and self.screen):

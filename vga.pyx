@@ -136,6 +136,7 @@ cdef class DAC(VGA_REGISTER_RAW): # PEL
         self.writeCycle += 1
         if (self.writeCycle >= 3):
             self.writeCycle = 0
+            self.vga.ui.updateScreen(2, self.writeIndex)
             self.writeIndex += 1
             #self.vga.refreshScreen = True
     cdef uint8_t getMask(self):
@@ -336,12 +337,12 @@ cdef class Vga:
         cdef uint32_t retData
         if (not self.enable8Bit):
             if (color >= 0x10):
-                self.main.notice("Vga::getColor: color_1 >= 0x10 (color_1==0x%02x)", color)
+                #self.main.notice("Vga::getColor: color_1 >= 0x10 (color_1==0x%02x)", color)
                 return 0
             color &= self.colorPlaneEnable
             color = (<uint8_t>self.attrctrlreg.configSpace.csData[color])
             if (color >= 0x40):
-                self.main.notice("Vga::getColor: color_2 >= 0x40 (color_2==0x%02x)", color)
+                #self.main.notice("Vga::getColor: color_2 >= 0x40 (color_2==0x%02x)", color)
                 return 0
             if (self.palette54):
                 color = (color & 0xf) | (self.colorSelect << 4)
@@ -455,6 +456,7 @@ cdef class Vga:
         cdef uint8_t selectedPlanes
         cdef uint32_t tempOffset = BITMASK_DWORD, i
         cdef bytes retStr
+        #return bytes(dataSize)
         #if (self.main.debugEnabled):
         IF 0:
             self.main.notice("Vga::vgaAreaRead: offset==0x%05x; dataSize==%u", offset, dataSize)
@@ -551,6 +553,8 @@ cdef class Vga:
             #    self.ui.updateScreen()
         if (not (offset >= self.videoMemBase and (offset+dataSize) <= (self.videoMemBase+self.videoMemSize))):
             return
+        if (self.graphicalMode and self.videoMemBase == 0xb8000): # TODO: HACK: while win9x boot logo: autoexec.bat execution output will get written to 0xb8000 while "self.graphicalMode and self.videoMemBase == 0xb8000" and sent as "pixel" to the screen, thus corrupting some of the upper parts of the logo
+            return
         if (self.writeMap):
             for i in range(dataSize):
                 selectedPlanes = self.writeMap
@@ -628,8 +632,9 @@ cdef class Vga:
                             data = (pixelData >> ((i&6)<<2))&0xff
                             color = (self.attrctrlreg.configSpace.csData[data>>4]&0xf)<<4
                             color |= (self.attrctrlreg.configSpace.csData[data&0xf]&0xf)
-                        #self.main.notice("Vga::vgaAreaWrite: putPixel: (x<<3)+i: %u; y: %u; color: 0x%02x", (x<<3)+i, y, color)
-                        #self.main.notice("Vga::vgaAreaWrite: putPixel: test2: EIP: 0x%04x, CS: 0x%04x", self.main.cpu.savedEip, self.main.cpu.savedCs)
+                        IF COMP_DEBUG:
+                            self.main.notice("Vga::vgaAreaWrite: putPixel: (x<<3)+i: %u; y: %u; color: 0x%02x", (x<<3)+i, y, color)
+                            self.main.notice("Vga::vgaAreaWrite: putPixel: test2: EIP: 0x%04x, CS: 0x%04x", self.main.cpu.savedEip, self.main.cpu.savedCs)
                         #for k in range(self.charHeight):
                         #    self.ui.putPixel((x<<3)+i, y+k, color)
                         #with gil:
@@ -658,7 +663,7 @@ cdef class Vga:
             #if (self.newTimer - self.oldTimer >= 0.05):
             if (self.newTimer - self.oldTimer >= 0.075):
                 self.oldTimer = self.newTimer
-                self.ui.updateScreen(False)
+                self.ui.updateScreen(0, 0)
             return
         if (self.needLoadFont):
             self.readFontData()
@@ -720,7 +725,7 @@ cdef class Vga:
         #if (self.newTimer - self.oldTimer >= 0.05):
         if (self.newTimer - self.oldTimer >= 0.075):
             self.oldTimer = self.newTimer
-            self.ui.updateScreen(False)
+            self.ui.updateScreen(0, 0)
     cdef void vgaAreaWrite(self, uint32_t offset, uint32_t dataSize):
         #with gil:
         IF 1:

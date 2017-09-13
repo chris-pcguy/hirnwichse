@@ -2168,7 +2168,8 @@ cdef class Opcodes:
                 raise HirnwichseException(CPU_EXCEPTION_UD)
             self.modRMInstance.modRMOperands(self.cpu.operSize, MODRM_FLAGS_NONE)
             op2 = self.modRMInstance.modRMLoadUnsigned(self.cpu.operSize)
-            op2 = bin(op2).count('1')
+            #op2 = bin(op2).count('1')
+            op2 = gmpy2.popcount(op2)
             if (self.cpu.operSize == OP_SIZE_WORD):
                 self.modRMInstance.modRSave(<uint16_t>op2, OPCODE_SAVE)
             else:

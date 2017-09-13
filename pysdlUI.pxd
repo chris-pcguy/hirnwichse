@@ -7,6 +7,7 @@ from hirnwichse_main cimport Hirnwichse
 from vga cimport Vga
 #from misc cimport Misc
 from ps2 cimport PS2
+from libc.string cimport memset
 
 
 cdef class PysdlUI:
@@ -14,8 +15,8 @@ cdef class PysdlUI:
     cdef object window, screen, renderer
     cdef bytes fontDataA, fontDataB
     cdef tuple screenSize, charSize
-    cdef dict points
-    #cdef list points
+    cdef uint8_t points[POINTS_SIZE]
+    cdef list pointsMod
     cdef uint8_t mode9Bit, replicate8Bit, msbBlink
     cdef void initPysdl(self)
     cdef void quitFunc(self)
@@ -25,7 +26,7 @@ cdef class PysdlUI:
     cdef void setRepeatRate(self, uint16_t delay, uint16_t interval)
     cdef uint8_t keyToScancode(self, uint32_t key)
     cdef int handleSingleEvent(self, object event) except BITMASK_BYTE_CONST
-    cdef void updateScreen(self, uint8_t forceUpdate)
+    cdef void updateScreen(self, uint8_t forceUpdate, uint8_t color)
     cdef void handleEventsWithoutWaiting(self)
     cdef void handleEvents(self)
     cdef void run(self)

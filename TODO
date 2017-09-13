@@ -38,4 +38,8 @@ Use a more C-like way of reading data
 PIT:
 Win9x boot only works on some machines.
 
+VGA:
+Win9x boot animation should work now, but there's still some corruption at the upper part of the screen.
+
+
 
