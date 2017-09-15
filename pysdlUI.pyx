@@ -404,15 +404,15 @@ cdef class PysdlUI:
                             if (color == self.points[i]):
                                 self.pointsMod[color].extend((x, y))
                 #elif (forceUpdate == 1):
-                #if (forceUpdate):
-                IF 1:
+                if (forceUpdate):
+                #IF 1:
                     for i in range(256):
                         if (len(self.pointsMod[i]) > 0):
                             doRefresh = True
                             #print("updateScreen: {0:s}". format(repr(self.pointsMod[i]),))
-                            for j in range(0, len(self.pointsMod[i]), 8192):
+                            for j in range(0, len(self.pointsMod[i]), 65536):
                                 #print("updateScreen: j=={0:d}; {1:s}". format(j, repr(self.pointsMod[i][j:j+2])))
-                                self.renderer.draw_point(self.pointsMod[i][j:j+8192], colors[i])
+                                self.renderer.draw_point(self.pointsMod[i][j:j+65536], colors[i])
                             self.pointsMod[i] = []
             IF 0:
                 colors = [self.vga.getColor(i) for i in range(256)]

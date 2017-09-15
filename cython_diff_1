@@ -1,0 +1,13 @@
+diff --git a/Cython/Compiler/ModuleNode.py b/Cython/Compiler/ModuleNode.py
+index dc25c8bd9..cd094fd40 100644
+--- a/Cython/Compiler/ModuleNode.py
++++ b/Cython/Compiler/ModuleNode.py
+@@ -1030,7 +1030,7 @@ class ModuleNode(Nodes.Node, Nodes.BlockNode):
+                 code.putln("struct %s %s;" % (
+                     type.base_type.vtabstruct_cname,
+                     Naming.obj_base_cname))
+-            for method_entry in scope.cfunc_entries:
++            for method_entry in sorted(scope.cfunc_entries):
+                 if not method_entry.is_inherited:
+                     code.putln("%s;" % method_entry.type.declaration_code("(*%s)" % method_entry.cname))
+             code.putln("};")

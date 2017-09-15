@@ -719,11 +719,11 @@ cdef class Opcodes:
                 self.registers.setFullFlags(<uint8_t>op1, <uint8_t>op2, opcode)
             elif (operSize == OP_SIZE_WORD):
                 if (opcode != OPCODE_CMP):
-                    self.registers.regWriteWithOpWord(CPU_REGISTER_AX, op2, opcode)
+                    self.registers.regWriteWithOpWords(CPU_REGISTER_AX, <uint16_t>op2, opcode)
                 self.registers.setFullFlags(<uint16_t>op1, <uint16_t>op2, opcode)
             else:
                 if (opcode != OPCODE_CMP):
-                    self.registers.regWriteWithOpDword(CPU_REGISTER_EAX, op2, opcode)
+                    self.registers.regWriteWithOpWords(CPU_REGISTER_EAX, <uint32_t>op2, opcode)
                 self.registers.setFullFlags(<uint32_t>op1, <uint32_t>op2, opcode)
         elif (opcode in (OPCODE_AND, OPCODE_OR, OPCODE_XOR, OPCODE_TEST)):
             if (opcode in (OPCODE_AND, OPCODE_TEST)):
@@ -738,14 +738,14 @@ cdef class Opcodes:
                 self.registers.setSZP_COA(<uint8_t>op2, operSize)
             elif (operSize == OP_SIZE_WORD):
                 if (opcode != OPCODE_TEST):
-                    self.registers.regWriteWithOpWord(CPU_REGISTER_AX, op2, OPCODE_SAVE)
+                    self.registers.regWriteWithOpWords(CPU_REGISTER_AX, <uint16_t>op2, OPCODE_SAVE)
                 self.registers.setSZP_COA(<uint16_t>op2, operSize)
             elif (operSize == OP_SIZE_DWORD):
                 if (opcode != OPCODE_TEST):
-                    self.registers.regWriteWithOpDword(CPU_REGISTER_EAX, op2, OPCODE_SAVE)
+                    self.registers.regWriteWithOpWords(CPU_REGISTER_EAX, <uint32_t>op2, OPCODE_SAVE)
                 self.registers.setSZP_COA(<uint32_t>op2, operSize)
         else:
-            self.main.notice("Opcodes::opcodeRM_R: invalid opcode: %u.", opcode)
+            self.main.notice("Opcodes::opcodeAxEaxImm: invalid opcode: %u.", opcode)
         return True
     cdef inline int movImmToR(self, uint8_t operSize) except BITMASK_BYTE_CONST:
         cdef uint8_t rReg

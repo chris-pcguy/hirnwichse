@@ -82,6 +82,11 @@ cdef:
         uint32_t
         uint64_t
 
+    ctypedef fused uint16_t_uint32_t_uint64_t:
+        uint16_t
+        uint32_t
+        uint64_t
+
     ctypedef fused int8_t_int16_t_int32_t_int64_t:
         int8_t
         int16_t
@@ -95,7 +100,6 @@ cdef class ModRMClass:
     cdef uint16_t rmName0, rmName1, regName
     cdef uint64_t rmName2
     cdef uint8_t modRMOperands(self, uint8_t regSize, uint8_t modRMflags) except BITMASK_BYTE_CONST
-    cdef uint8_t getRegNameWithFlags(self, uint8_t modRMflags, uint8_t reg, uint8_t operSize)
     cdef uint64_t getRMValueFull(self, uint8_t rmSize)
     cdef int64_t modRMLoadSigned(self, uint8_t regSize) except? BITMASK_BYTE_CONST
     cdef uint64_t modRMLoadUnsigned(self, uint8_t regSize) except? BITMASK_BYTE_CONST
@@ -175,15 +179,13 @@ cdef class Registers:
     cdef void regWrite(self, uint16_t regId, uint64_t value, uint8_t regSize)
     cdef inline void regWriteWithOpLowByte(self, uint16_t regId, uint8_t value, uint8_t valueOp)
     cdef inline void regWriteWithOpHighByte(self, uint16_t regId, uint8_t value, uint8_t valueOp)
-    cdef inline void regWriteWithOpWord(self, uint16_t regId, uint16_t value, uint8_t valueOp)
-    cdef inline void regWriteWithOpDword(self, uint16_t regId, uint32_t value, uint8_t valueOp)
-    cdef inline void regWriteWithOpQword(self, uint16_t regId, uint64_t value, uint8_t valueOp)
+    cdef void regWriteWithOpWords(self, uint16_t regId, uint16_t_uint32_t_uint64_t value, uint8_t valueOp)
     cdef inline uint32_t getFlagDword(self, uint16_t regId, uint32_t flags) nogil:
         return (self.regs[regId]._union.dword.erx&flags)
-    cdef void setSZP(self, uint32_t value, uint8_t regSize)
-    cdef void setSZP_O(self, uint32_t value, uint8_t regSize)
-    cdef void setSZP_A(self, uint32_t value, uint8_t regSize)
-    cdef void setSZP_COA(self, uint32_t value, uint8_t regSize)
+    cdef void setSZP(self, uint8_t_uint16_t_uint32_t value, uint8_t regSize)
+    cdef void setSZP_O(self, uint8_t_uint16_t_uint32_t value, uint8_t regSize)
+    cdef void setSZP_A(self, uint8_t_uint16_t_uint32_t value, uint8_t regSize)
+    cdef void setSZP_COA(self, uint8_t_uint16_t_uint32_t value, uint8_t regSize)
     cdef inline uint8_t getCond(self, uint8_t index)
     #cdef void setFullFlags_(self, uint64_t reg0, uint64_t reg1, uint8_t regSize, uint8_t method)
     cdef void setFullFlags(self, uint8_t_uint16_t_uint32_t reg0, uint8_t_uint16_t_uint32_t reg1, uint8_t method)

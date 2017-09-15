@@ -44,7 +44,7 @@ cdef class ModRMClass:
     def __init__(self, Registers registers):
         self.registers = registers
     cdef uint8_t modRMOperands(self, uint8_t regSize, uint8_t modRMflags) except BITMASK_BYTE_CONST: # regSize in bytes
-        cdef uint8_t modRMByte
+        cdef uint8_t modRMByte, reg
         modRMByte = self.registers.getCurrentOpcodeAddUnsignedByte()
         #self.rmNameSeg = &self.registers.segments.ds
         #self.rmName1 = CPU_REGISTER_NONE
@@ -52,8 +52,25 @@ cdef class ModRMClass:
         self.reg = (modRMByte>>3)&0x7
         self.mod = (modRMByte>>6)&0x3
         #self.ss = 0
-        if (not self.getRegNameWithFlags(modRMflags, self.reg, regSize)): # reg
-            raise HirnwichseException(CPU_EXCEPTION_UD)
+        reg = self.reg
+        if (modRMflags == MODRM_FLAGS_SREG):
+            reg = CPU_REGISTER_SREG[reg]
+            if (reg == CPU_REGISTER_NONE):
+                raise HirnwichseException(CPU_EXCEPTION_UD)
+        elif (modRMflags == MODRM_FLAGS_CREG):
+            reg = CPU_REGISTER_CREG[reg]
+            if (reg == CPU_REGISTER_NONE):
+                raise HirnwichseException(CPU_EXCEPTION_UD)
+        elif (modRMflags == MODRM_FLAGS_DREG):
+            if (reg in (4, 5)):
+                if (self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_DE) != 0):
+                    raise HirnwichseException(CPU_EXCEPTION_UD)
+                else:
+                    reg += 2
+            reg = CPU_REGISTER_DREG[reg]
+        elif (regSize == OP_SIZE_BYTE):
+            reg &= 3
+        self.regName = reg
         if (self.mod == 3): # if mod==3, then: reg is source ; rm is dest
             self.regSize = regSize
             self.rmName0 = self.rm # rm
@@ -105,26 +122,6 @@ cdef class ModRMClass:
                 self.rmNameSeg = &self.registers.segments.ss
             else:
                 self.rmNameSeg = &self.registers.segments.ds
-        return True
-    cdef uint8_t getRegNameWithFlags(self, uint8_t modRMflags, uint8_t reg, uint8_t operSize):
-        if (modRMflags == MODRM_FLAGS_SREG):
-            reg = CPU_REGISTER_SREG[reg]
-            if (reg == CPU_REGISTER_NONE):
-                return False
-        elif (modRMflags == MODRM_FLAGS_CREG):
-            reg = CPU_REGISTER_CREG[reg]
-            if (reg == CPU_REGISTER_NONE):
-                return False
-        elif (modRMflags == MODRM_FLAGS_DREG):
-            if (reg in (4, 5)):
-                if (self.registers.getFlagDword(CPU_REGISTER_CR4, CR4_FLAG_DE) != 0):
-                    return False
-                else:
-                    reg += 2
-            reg = CPU_REGISTER_DREG[reg]
-        elif (operSize == OP_SIZE_BYTE):
-            reg &= 3
-        self.regName = reg
         return True
     cdef uint64_t getRMValueFull(self, uint8_t rmSize):
         cdef uint64_t retAddr = 0
@@ -212,23 +209,20 @@ cdef class ModRMClass:
                 else: # self.rm >= 4
                     self.registers.regWriteWithOpHighByte(self.rmName0, value, valueOp)
             else:
-                value = <uint8_t>value
-                self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, True, valueOp)
+                self.registers.mmWriteValueWithOp(mmAddr, <uint8_t>value, regSize, self.rmNameSeg, True, valueOp)
         elif (regSize == OP_SIZE_WORD):
             if (self.mod == 3):
-                self.registers.regWriteWithOpWord(self.rmName0, value, valueOp)
+                self.registers.regWriteWithOpWords(self.rmName0, <uint16_t>value, valueOp)
             else:
-                value = <uint16_t>value
-                self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, True, valueOp)
+                self.registers.mmWriteValueWithOp(mmAddr, <uint16_t>value, regSize, self.rmNameSeg, True, valueOp)
         elif (regSize == OP_SIZE_DWORD):
             if (self.mod == 3):
-                self.registers.regWriteWithOpDword(self.rmName0, value, valueOp)
+                self.registers.regWriteWithOpWords(self.rmName0, <uint32_t>value, valueOp)
             else:
-                value = <uint32_t>value
-                self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, True, valueOp)
+                self.registers.mmWriteValueWithOp(mmAddr, <uint32_t>value, regSize, self.rmNameSeg, True, valueOp)
         else: #elif (regSize == OP_SIZE_QWORD):
             if (self.mod == 3):
-                self.registers.regWriteWithOpQword(self.rmName0, value, valueOp)
+                self.registers.regWriteWithOpWords(self.rmName0, <uint64_t>value, valueOp)
             else:
                 self.registers.mmWriteValueWithOp(mmAddr, value, regSize, self.rmNameSeg, True, valueOp)
         #self.registers.main.exitError("ModRMClass::modRMSave: if; else.")
@@ -263,12 +257,8 @@ cdef class ModRMClass:
                 self.registers.regWriteWithOpLowByte(self.regName, value, valueOp)
             else: #elif (self.reg >= 4):
                 self.registers.regWriteWithOpHighByte(self.regName, value, valueOp)
-        elif (uint8_t_uint16_t_uint32_t_uint64_t is uint16_t):
-            self.registers.regWriteWithOpWord(self.regName, value, valueOp)
-        elif (uint8_t_uint16_t_uint32_t_uint64_t is uint32_t):
-            self.registers.regWriteWithOpDword(self.regName, value, valueOp)
-        else: #elif (uint8_t_uint16_t_uint32_t_uint64_t is uint64_t):
-            self.registers.regWriteWithOpQword(self.regName, value, valueOp)
+        else:
+            self.registers.regWriteWithOpWords(self.regName, value, valueOp)
 
 
 cdef class Fpu:
@@ -845,96 +835,98 @@ cdef class Registers:
             self.regs[regId]._union.word._union.byte.rh = ~value
         #else:
         #    self.main.notice("REGISTERS::regWriteWithOpHighByte: unknown valueOp %u.", valueOp)
-    cdef inline void regWriteWithOpWord(self, uint16_t regId, uint16_t value, uint8_t valueOp):
-        if (valueOp == OPCODE_SAVE):
-            self.regs[regId]._union.word._union.rx = value
-        elif (valueOp == OPCODE_ADD):
-            self.regs[regId]._union.word._union.rx += value
-        elif (valueOp == OPCODE_ADC):
-            self.regs[regId]._union.word._union.rx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
-        elif (valueOp == OPCODE_SUB):
-            self.regs[regId]._union.word._union.rx -= value
-        elif (valueOp == OPCODE_SBB):
-            self.regs[regId]._union.word._union.rx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
-        elif (valueOp == OPCODE_AND):
-            self.regs[regId]._union.word._union.rx &= value
-        elif (valueOp == OPCODE_OR):
-            self.regs[regId]._union.word._union.rx |= value
-        elif (valueOp == OPCODE_XOR):
-            self.regs[regId]._union.word._union.rx ^= value
-        elif (valueOp == OPCODE_NEG):
-            self.regs[regId]._union.word._union.rx = -value
-        elif (valueOp == OPCODE_NOT):
-            self.regs[regId]._union.word._union.rx = ~value
+    cdef void regWriteWithOpWords(self, uint16_t regId, uint16_t_uint32_t_uint64_t value, uint8_t valueOp):
+        if (uint16_t_uint32_t_uint64_t is uint16_t):
+            if (valueOp == OPCODE_SAVE):
+                self.regs[regId]._union.word._union.rx = value
+            elif (valueOp == OPCODE_ADD):
+                self.regs[regId]._union.word._union.rx += value
+            elif (valueOp == OPCODE_ADC):
+                self.regs[regId]._union.word._union.rx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
+            elif (valueOp == OPCODE_SUB):
+                self.regs[regId]._union.word._union.rx -= value
+            elif (valueOp == OPCODE_SBB):
+                self.regs[regId]._union.word._union.rx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
+            elif (valueOp == OPCODE_AND):
+                self.regs[regId]._union.word._union.rx &= value
+            elif (valueOp == OPCODE_OR):
+                self.regs[regId]._union.word._union.rx |= value
+            elif (valueOp == OPCODE_XOR):
+                self.regs[regId]._union.word._union.rx ^= value
+            elif (valueOp == OPCODE_NEG):
+                self.regs[regId]._union.word._union.rx = -value
+            elif (valueOp == OPCODE_NOT):
+                self.regs[regId]._union.word._union.rx = ~value
+            #else:
+            #    self.main.notice("REGISTERS::regWriteWithOpWord: unknown valueOp %u.", valueOp)
+        elif (uint16_t_uint32_t_uint64_t is uint32_t):
+            if (valueOp == OPCODE_SAVE):
+                self.regs[regId]._union.dword.erx = value
+            elif (valueOp == OPCODE_ADD):
+                self.regs[regId]._union.dword.erx += value
+            elif (valueOp == OPCODE_ADC):
+                self.regs[regId]._union.dword.erx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
+            elif (valueOp == OPCODE_SUB):
+                self.regs[regId]._union.dword.erx -= value
+            elif (valueOp == OPCODE_SBB):
+                self.regs[regId]._union.dword.erx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
+            elif (valueOp == OPCODE_AND):
+                self.regs[regId]._union.dword.erx &= value
+            elif (valueOp == OPCODE_OR):
+                self.regs[regId]._union.dword.erx |= value
+            elif (valueOp == OPCODE_XOR):
+                self.regs[regId]._union.dword.erx ^= value
+            elif (valueOp == OPCODE_NEG):
+                self.regs[regId]._union.dword.erx = -value
+            elif (valueOp == OPCODE_NOT):
+                self.regs[regId]._union.dword.erx = ~value
+            #else:
+            #    self.main.notice("REGISTERS::regWriteWithOpDword: unknown valueOp %u.", valueOp)
+        elif (uint16_t_uint32_t_uint64_t is uint64_t):
         #else:
-        #    self.main.notice("REGISTERS::regWriteWithOpWord: unknown valueOp %u.", valueOp)
-    cdef inline void regWriteWithOpDword(self, uint16_t regId, uint32_t value, uint8_t valueOp):
-        if (valueOp == OPCODE_SAVE):
-            self.regs[regId]._union.dword.erx = value
-        elif (valueOp == OPCODE_ADD):
-            self.regs[regId]._union.dword.erx += value
-        elif (valueOp == OPCODE_ADC):
-            self.regs[regId]._union.dword.erx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
-        elif (valueOp == OPCODE_SUB):
-            self.regs[regId]._union.dword.erx -= value
-        elif (valueOp == OPCODE_SBB):
-            self.regs[regId]._union.dword.erx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
-        elif (valueOp == OPCODE_AND):
-            self.regs[regId]._union.dword.erx &= value
-        elif (valueOp == OPCODE_OR):
-            self.regs[regId]._union.dword.erx |= value
-        elif (valueOp == OPCODE_XOR):
-            self.regs[regId]._union.dword.erx ^= value
-        elif (valueOp == OPCODE_NEG):
-            self.regs[regId]._union.dword.erx = -value
-        elif (valueOp == OPCODE_NOT):
-            self.regs[regId]._union.dword.erx = ~value
-        #else:
-        #    self.main.notice("REGISTERS::regWriteWithOpDword: unknown valueOp %u.", valueOp)
-    cdef inline void regWriteWithOpQword(self, uint16_t regId, uint64_t value, uint8_t valueOp):
-        if (valueOp == OPCODE_SAVE):
-            self.regs[regId]._union.rrx = value
-        elif (valueOp == OPCODE_ADD):
-            self.regs[regId]._union.rrx += value
-        elif (valueOp == OPCODE_ADC):
-            self.regs[regId]._union.rrx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
-        elif (valueOp == OPCODE_SUB):
-            self.regs[regId]._union.rrx -= value
-        elif (valueOp == OPCODE_SBB):
-            self.regs[regId]._union.rrx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
-        elif (valueOp == OPCODE_AND):
-            self.regs[regId]._union.rrx &= value
-        elif (valueOp == OPCODE_OR):
-            self.regs[regId]._union.rrx |= value
-        elif (valueOp == OPCODE_XOR):
-            self.regs[regId]._union.rrx ^= value
-        elif (valueOp == OPCODE_NEG):
-            self.regs[regId]._union.rrx = -value
-        elif (valueOp == OPCODE_NOT):
-            self.regs[regId]._union.rrx = ~value
-        #else:
-        #    self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp %u.", valueOp)
-    cdef void setSZP(self, uint32_t value, uint8_t regSize): # ((regSize<<3)-1) # FIXME: TODO: templating is broken with setSZP* for some reason.
-        #if (uint8_t_uint16_t_uint32_t is uint8_t):
-        #    #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>7)!=0
-        #    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>7)&1
-        #elif (uint8_t_uint16_t_uint32_t is uint16_t):
-        #    #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>15)!=0
-        #    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>15)&1
-        #else:
-        #    #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>31)!=0
-        #    self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>31)&1
+            if (valueOp == OPCODE_SAVE):
+                self.regs[regId]._union.rrx = value
+            elif (valueOp == OPCODE_ADD):
+                self.regs[regId]._union.rrx += value
+            elif (valueOp == OPCODE_ADC):
+                self.regs[regId]._union.rrx += value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
+            elif (valueOp == OPCODE_SUB):
+                self.regs[regId]._union.rrx -= value
+            elif (valueOp == OPCODE_SBB):
+                self.regs[regId]._union.rrx -= value+self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf
+            elif (valueOp == OPCODE_AND):
+                self.regs[regId]._union.rrx &= value
+            elif (valueOp == OPCODE_OR):
+                self.regs[regId]._union.rrx |= value
+            elif (valueOp == OPCODE_XOR):
+                self.regs[regId]._union.rrx ^= value
+            elif (valueOp == OPCODE_NEG):
+                self.regs[regId]._union.rrx = -value
+            elif (valueOp == OPCODE_NOT):
+                self.regs[regId]._union.rrx = ~value
+            #else:
+            #    self.main.notice("REGISTERS::regWriteWithOpQword: unknown valueOp %u.", valueOp)
+    cdef void setSZP(self, uint8_t_uint16_t_uint32_t value, uint8_t regSize): # ((regSize<<3)-1) # HACK: apply patch "cython_diff_1" 
+        if (uint8_t_uint16_t_uint32_t is uint8_t):
+            #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>7)!=0
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>7)&1
+        elif (uint8_t_uint16_t_uint32_t is uint16_t):
+            #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>15)!=0
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>15)&1
+        else:
+            #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>31)!=0
+            self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>31)&1
         #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>((regSize<<3)-1))!=0
-        self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>((regSize<<3)-1))&1
+        #self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.sf = (value>>((regSize<<3)-1))&1
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.zf = value==0
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.pf = PARITY_TABLE[<uint8_t>value]
-    cdef void setSZP_O(self, uint32_t value, uint8_t regSize):
+    cdef void setSZP_O(self, uint8_t_uint16_t_uint32_t value, uint8_t regSize):
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = False
-    cdef void setSZP_A(self, uint32_t value, uint8_t regSize):
+    cdef void setSZP_A(self, uint8_t_uint16_t_uint32_t value, uint8_t regSize):
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
-    cdef void setSZP_COA(self, uint32_t value, uint8_t regSize):
+    cdef void setSZP_COA(self, uint8_t_uint16_t_uint32_t value, uint8_t regSize):
         self.setSZP(value, regSize)
         self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.cf = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.of = self.regs[CPU_REGISTER_EFLAGS]._union.eflags_struct.af = False
     cdef inline uint8_t getCond(self, uint8_t index):
@@ -1179,16 +1171,17 @@ cdef class Registers:
     cdef uint16_t mmReadValueUnsignedWord(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint16_t ret
         cdef uint32_t physAddr
-        if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
-            physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
-        elif (segment is not NULL):
-            physAddr = segment[0].gdtEntry.base+mmAddr
-        else:
-            physAddr = mmAddr
-        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_WORD):
-            ret = <uint16_t>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
-            ret |= <uint16_t>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
-            return ret
+        if (self.protectedModeOn and self.pagingOn):
+            if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
+                physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
+            elif (segment is not NULL):
+                physAddr = segment[0].gdtEntry.base+mmAddr
+            else:
+                physAddr = mmAddr
+            if (PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_WORD):
+                ret = <uint16_t>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
+                ret |= <uint16_t>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
+                return ret
         physAddr = self.mmGetRealAddr(mmAddr, OP_SIZE_WORD, segment, allowOverride, False, False)
         ret = self.main.mm.mmPhyReadValueUnsignedWord(physAddr)
         IF COMP_DEBUG:
@@ -1197,18 +1190,19 @@ cdef class Registers:
         return ret
     cdef uint32_t mmReadValueUnsignedDword(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint32_t ret, physAddr
-        if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
-            physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
-        elif (segment is not NULL):
-            physAddr = segment[0].gdtEntry.base+mmAddr
-        else:
-            physAddr = mmAddr
-        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_DWORD):
-            ret = <uint32_t>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
-            ret |= <uint32_t>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
-            ret |= <uint32_t>self.mmReadValueUnsignedByte(mmAddr+2, segment, allowOverride)<<16
-            ret |= <uint32_t>self.mmReadValueUnsignedByte(mmAddr+3, segment, allowOverride)<<24
-            return ret
+        if (self.protectedModeOn and self.pagingOn):
+            if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
+                physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
+            elif (segment is not NULL):
+                physAddr = segment[0].gdtEntry.base+mmAddr
+            else:
+                physAddr = mmAddr
+            if (PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_DWORD):
+                ret = <uint32_t>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
+                ret |= <uint32_t>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
+                ret |= <uint32_t>self.mmReadValueUnsignedByte(mmAddr+2, segment, allowOverride)<<16
+                ret |= <uint32_t>self.mmReadValueUnsignedByte(mmAddr+3, segment, allowOverride)<<24
+                return ret
         physAddr = self.mmGetRealAddr(mmAddr, OP_SIZE_DWORD, segment, allowOverride, False, False)
         ret = self.main.mm.mmPhyReadValueUnsignedDword(physAddr)
         IF COMP_DEBUG:
@@ -1218,22 +1212,23 @@ cdef class Registers:
     cdef uint64_t mmReadValueUnsignedQword(self, uint32_t mmAddr, Segment *segment, uint8_t allowOverride) except? BITMASK_BYTE_CONST:
         cdef uint32_t physAddr
         cdef uint64_t ret
-        if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
-            physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
-        elif (segment is not NULL):
-            physAddr = segment[0].gdtEntry.base+mmAddr
-        else:
-            physAddr = mmAddr
-        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_QWORD):
-            ret = <uint64_t>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
-            ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
-            ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+2, segment, allowOverride)<<16
-            ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+3, segment, allowOverride)<<24
-            ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+4, segment, allowOverride)<<32
-            ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+5, segment, allowOverride)<<40
-            ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+6, segment, allowOverride)<<48
-            ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+7, segment, allowOverride)<<56
-            return ret
+        if (self.protectedModeOn and self.pagingOn):
+            if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
+                physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
+            elif (segment is not NULL):
+                physAddr = segment[0].gdtEntry.base+mmAddr
+            else:
+                physAddr = mmAddr
+            if (PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < OP_SIZE_QWORD):
+                ret = <uint64_t>self.mmReadValueUnsignedByte(mmAddr, segment, allowOverride)
+                ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+1, segment, allowOverride)<<8
+                ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+2, segment, allowOverride)<<16
+                ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+3, segment, allowOverride)<<24
+                ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+4, segment, allowOverride)<<32
+                ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+5, segment, allowOverride)<<40
+                ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+6, segment, allowOverride)<<48
+                ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+7, segment, allowOverride)<<56
+                return ret
         physAddr = self.mmGetRealAddr(mmAddr, OP_SIZE_QWORD, segment, allowOverride, False, False)
         ret = self.main.mm.mmPhyReadValueUnsignedQword(physAddr)
         IF COMP_DEBUG:
@@ -1244,17 +1239,18 @@ cdef class Registers:
         cdef uint8_t i
         cdef uint32_t physAddr
         cdef uint64_t ret
-        if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
-            physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
-        elif (segment is not NULL):
-            physAddr = segment[0].gdtEntry.base+mmAddr
-        else:
-            physAddr = mmAddr
-        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < dataSize):
-            ret = 0
-            for i in range(dataSize):
-                ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+i, segment, allowOverride)<<(i<<3)
-            return ret
+        if (self.protectedModeOn and self.pagingOn):
+            if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
+                physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
+            elif (segment is not NULL):
+                physAddr = segment[0].gdtEntry.base+mmAddr
+            else:
+                physAddr = mmAddr
+            if (PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < dataSize):
+                ret = 0
+                for i in range(dataSize):
+                    ret |= <uint64_t>self.mmReadValueUnsignedByte(mmAddr+i, segment, allowOverride)<<(i<<3)
+                return ret
         physAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, False, False)
         ret = self.main.mm.mmPhyReadValueUnsigned(physAddr, dataSize)
         IF COMP_DEBUG:
@@ -1264,20 +1260,21 @@ cdef class Registers:
     cdef uint8_t mmWriteValue(self, uint32_t mmAddr, uint64_t data, uint8_t dataSize, Segment *segment, uint8_t allowOverride) except BITMASK_BYTE_CONST:
         cdef uint8_t retVal, i
         cdef uint32_t physAddr
-        if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
-            physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
-        elif (segment is not NULL):
-            physAddr = segment[0].gdtEntry.base+mmAddr
-        else:
-            physAddr = mmAddr
         IF COMP_DEBUG:
             if (self.main.debugEnabled):
                 self.main.notice("Registers::mmWriteValue: virt mmAddr 0x%08x; data 0x%08x; dataSize %u", mmAddr, data, dataSize)
-        if (self.protectedModeOn and self.pagingOn and PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < dataSize):
-            for i in range(dataSize):
-                self.mmWriteValue(mmAddr+i, <uint8_t>data, OP_SIZE_BYTE, segment, allowOverride)
-                data >>= 8
-            return True
+        if (self.protectedModeOn and self.pagingOn):
+            if (allowOverride and self.main.cpu.segmentOverridePrefix is not NULL):
+                physAddr = self.main.cpu.segmentOverridePrefix[0].gdtEntry.base+mmAddr
+            elif (segment is not NULL):
+                physAddr = segment[0].gdtEntry.base+mmAddr
+            else:
+                physAddr = mmAddr
+            if (PAGE_DIRECTORY_LENGTH-(physAddr&0xfff) < dataSize):
+                for i in range(dataSize):
+                    self.mmWriteValue(mmAddr+i, <uint8_t>data, OP_SIZE_BYTE, segment, allowOverride)
+                    data >>= 8
+                return True
         physAddr = self.mmGetRealAddr(mmAddr, dataSize, segment, allowOverride, True, False)
         retVal = self.main.mm.mmPhyWriteValue(physAddr, data, dataSize)
         IF CPU_CACHE_SIZE:

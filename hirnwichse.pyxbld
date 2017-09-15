@@ -8,6 +8,8 @@ def make_ext(modname, pyxfilename):
         #extra_link_args=['-fopenmp', '-fsanitize=address', '-fno-sanitize=leak'])
         #extra_compile_args=['-fsanitize=address'],
         #extra_link_args=['-fsanitize=address'])
+        #extra_compile_args=['-Og', '-g'],
+        #extra_link_args=['-Og', '-g'])
     return ext
 
 def make_setup_args():
